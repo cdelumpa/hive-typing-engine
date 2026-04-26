@@ -13,6 +13,7 @@ if (!process.env.ANTHROPIC_API_KEY) {
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
+app.use('/content', express.static('../content'));
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -27,7 +28,7 @@ app.post('/api/analyze', async (req, res) => {
     try {
       const response = await client.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 6000,
+        max_tokens: 8000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userMessage }],
       });

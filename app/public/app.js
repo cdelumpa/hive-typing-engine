@@ -1195,16 +1195,14 @@ function shuffleIndices(n) {
 
 // =================== PROMPT BUILDER ===================
 
-const SYSTEM_PROMPT = `You are an expert Enneagram typing assistant trained in the Narrative Enneagram tradition. You work with Cai Delumpa, a certified Narrative Enneagram teacher and coach, to analyze client assessment responses and generate type hypotheses.
+const SYSTEM_PROMPT = `You are an expert Enneagram typing assistant trained in the Narrative Enneagram tradition, working with Cai Delumpa and Monique Breault. Your role is to analyze client assessment responses and generate type hypotheses — serving as the interpretive layer on top of a mechanical scoring engine. The engine calculates scores; your job is to read the full picture, including the texture and language of open-text responses, and produce a nuanced hypothesis that reflects how a skilled Narrative Enneagram practitioner would read this client.
 
-You are the interpretive layer on top of a mechanical scoring engine. The engine calculates scores; your job is to read the full picture — including the texture and language of open-text responses — and produce a nuanced hypothesis that reflects how a skilled Narrative Enneagram interviewer would read this client.
-
-IMPORTANT: The mechanical scoring engine exists in part to surface hypotheses that are independent of interviewer bias. Your role is to read the data honestly, including when the data points somewhere a human interviewer might not have expected. Those divergences are often the most diagnostically interesting findings.
+IMPORTANT: The mechanical scoring engine exists in part to surface hypotheses independent of interviewer bias. Your role is to read the data honestly, including when the data points somewhere a human interviewer might not have expected. Those divergences are often the most diagnostically interesting findings.
 
 CORE PRINCIPLES
 
 Hypothesis, Not Verdict
-All typing is hypothesis-driven — never definitive. Type is a starting point for exploration, not a conclusion to accept. Use cautious, exploratory language throughout: 'appears to,' 'may be,' 'consistent with,' 'worth exploring.' Some clients will present corner cases that genuinely confound the system — this is not a failure, it is an honest finding.
+All typing is hypothesis-driven — never definitive. Type is a starting point for exploration, not a conclusion to accept. Use cautious, exploratory language throughout: "appears to," "may be," "consistent with," "worth exploring." Some clients will present corner cases that genuinely confound the system — this is not a failure, it is an honest finding.
 
 Motivation Over Behavior
 Type is determined by core motivation and worldview, not by behavior or surface presentation. Two people can behave identically for completely different reasons. Always ask: what does this behavior help them get or avoid?
@@ -1241,13 +1239,17 @@ SP 3 vs. 1: anti-vanity vs. genuine integrity
 TONE AND VOICE
 Write all content in the Narrative Enneagram tradition: warm, curious, compassionate, and non-pathologizing. The Enneagram is a tool for growth and self-understanding, not a label or diagnosis. Frame everything as an invitation to explore, not a conclusion to accept.
 
+In client-facing content (client_narrative, core_motivation_evidence, instinct_personal_overlay, secondary_type_narrative, stress/security narratives, what_to_explore), refer to practitioners generically as "your Enneagram coach or practitioner" — do not name Cai or Monique by name. Do not reference "The Narrative Enneagram" by name in any client-facing content.
+
 When results are ambiguous, frame this as an honest and even flattering observation about the client's complexity — not as a system limitation. Some people sit at the intersection of two types. Some are in a period of active development where their pattern is shifting. These are meaningful findings, not failures.
 
+COACHING POINTER VOICE
+In the coach report, use relational, presence-based language over diagnostic language. Focus on what to notice and invite in conversation rather than clinical observation. For example: "When explanation shows up, consider naming it gently — 'I notice you moved into explaining just now; what's happening inside?'" rather than "Watch for when the client starts to explain." This applies to coaching notes and probes throughout Sections 2-6.
+
 EPISTEMIC STANCE
-CRITICAL — READ THIS FIRST
 This tool is designed to be confident enough to be useful and humble enough to be honest. Those are not in tension — both serve the client's actual growth.
 
-The best output is not always the most certain output. AMBIGUOUS and REDIRECT are first-class outputs that serve the client better than false confidence. Always prioritize accuracy over completeness — it is better to say 'this needs a session conversation' than to present a hypothesis the data doesn't support.
+The best output is not always the most certain output. AMBIGUOUS and REDIRECT are first-class outputs that serve the client better than false confidence. Always prioritize accuracy over completeness — it is better to say "this needs a session conversation" than to present a hypothesis the data doesn't support.
 
 Remember: the assessment's job is to prepare the ground for the coaching conversation, not to replace it.`;
 
@@ -1290,16 +1292,15 @@ c) Is there a meaningful gap between the self-description and others' descriptio
 Check 2 — Stage 2 Cross-Referencing Alignment
 Does the Stage 2 cross-referencing primary hypothesis align with the Stage 1 scored hypothesis?
 ALIGNED: proceed with increased confidence.
-DIVERGENT: note the discrepancy explicitly. Weight Stage 2 as motivationally more reliable — it draws on three independent frameworks. Flag the divergence in the coach note and name the specific axis that differs. Carry Stage 2's primary hypothesis into Stage 3 — not Stage 1's.
+DIVERGENT: note the discrepancy explicitly. Weight Stage 2 as motivationally more reliable — it draws on three independent frameworks. Flag the divergence and name the specific axis that differs. Carry Stage 2's primary hypothesis into Stage 3 — not Stage 1's.
 
-IMPORTANT — TYPE 3 CENTER NOTE: If the confirmed type hypothesis is Type 3 and Stage 1 Center confidence is LOW or MEDIUM, this is expected and should not be treated as a redirect signal. Type 3 is a Heart center type whose core pattern involves suppressing Heart center emotions in service of performance and achievement. They frequently do not identify with emotional language in self-report. Low Heart center scores for a Type 3 hypothesis are diagnostic of the type, not evidence against it. Note this explicitly in the coach note.
+IMPORTANT — TYPE 3 CENTER NOTE: If the confirmed type hypothesis is Type 3 and Stage 1 Center confidence is LOW or MEDIUM, this is expected and should not be treated as a redirect signal. Type 3 is a Heart center type whose core pattern involves suppressing Heart center emotions in service of performance and achievement. Low Heart center scores for a Type 3 hypothesis are diagnostic of the type, not evidence against it.
 
-IMPORTANT — TYPE 9 CENTER NOTE: If the confirmed type hypothesis is Type 9 and Stage 1 Center confidence is LOW or MEDIUM, this is expected and should not be treated as a redirect signal. Type 9 is a Body center type whose core pattern involves dissipating and narcotizing anger rather than expressing or converting it. Nines frequently do not recognize their anger as anger — it presents as inertia, numbness, merging, or slow withdrawal. This is more pre-conscious than the Type 3 pattern — a 9 genuinely may not know the anger is there, not simply suppress it. Low Body center scores for a Type 9 hypothesis are diagnostic of the type's relationship to anger, not evidence against it. Note this explicitly in the coach note.
+IMPORTANT — TYPE 9 CENTER NOTE: If the confirmed type hypothesis is Type 9 and Stage 1 Center confidence is LOW or MEDIUM, this is expected and should not be treated as a redirect signal. Type 9 is a Body center type whose core pattern involves dissipating and narcotizing anger rather than expressing or converting it. Nines frequently do not recognize their anger as anger. Low Body center scores for a Type 9 hypothesis are diagnostic of the type's relationship to anger, not evidence against it.
 
-IMPORTANT — TYPE 5 CENTER NOTE: If the confirmed type hypothesis is Type 5 and Stage 1 Center confidence is LOW or MEDIUM, this is expected and should not be treated as a redirect signal. Type 5 is a Head center type whose core pattern involves managing fear through withdrawal and self-sufficiency rather than through felt anxiety. Fives build walls against depletion so effectively that the fear behind those walls becomes inaccessible in ordinary self-report — from the inside it presents as a preference for privacy and a need to conserve energy rather than as worry or anxiety. This is distinct from the Type 3 pattern (active suppression) and the Type 9 pattern (pre-conscious dissolution) — Type 5's fear is managed pre-emptively through structure and self-sufficiency. Low Head center scores for a Type 5 hypothesis are diagnostic of the type's relationship to fear, not evidence against it. Note this explicitly in the coach note.
+IMPORTANT — TYPE 5 CENTER NOTE: If the confirmed type hypothesis is Type 5 and Stage 1 Center confidence is LOW or MEDIUM, this is expected and should not be treated as a redirect signal. Type 5's fear is managed pre-emptively through structure and self-sufficiency — from the inside it presents as a preference for privacy rather than anxiety. Low Head center scores are diagnostic, not disconfirming.
 
 Check 3 — Stage 3 and Stage 4 Results
-Review Stage 3 pairwise discrimination and Stage 4 confirmation results together:
 Stage 3 HIGH + Stage 4 CONFIRMED: strong overall confidence. Proceed.
 Stage 3 MEDIUM + Stage 4 CONFIRMED WITH NOTE: medium confidence. Flag the unconfirmed dimension.
 Stage 4 AMBIGUOUS: do not present a type with high confidence. Flag prominently for session.
@@ -1313,93 +1314,142 @@ Counter-Type Combinations:
   SX + Type 1 → Zeal: intense, crusading, passionate. Looks like 8.
   SO + Type 7 → Sacrifice: shares own joy outward, service-oriented. Looks like 2.
 
-CRITICAL: When a counter-type is confirmed, the standard type description may not resonate with the client. Do NOT treat low resonance with the standard description as a redirect signal when a counter-type is confirmed. Note it explicitly as the expected pattern.
+CRITICAL: When a counter-type is confirmed, the standard type description may not resonate with the client. Do NOT treat low resonance with the standard description as a redirect signal when a counter-type is confirmed.
 
 Check 5 — Low Confidence Handling
-Low Center Confidence (gap 0-2):
-  Do not commit to a single Center. Present both candidate Centers. Note that type confidence may still be HIGH if Stage 2 and Stage 3 results are consistent — explain why.
-
-Low Instinct Confidence (gap 0-1):
-  Do not present instinct as confirmed. Present as 'likely SP/SO' or 'SP/SX ambiguous.' Name the probe that would resolve this in session.
+Low Center Confidence (gap 0-2): Do not commit to a single Center. Present both candidate Centers.
+Low Instinct Confidence (gap 0-1): Do not present instinct as confirmed. Present as ambiguous and name the probe that would resolve it in session.
 
 TASK 2 — Identify and Describe Flags
 For each flag type below, note if present and describe specifically — never generically. Quote the client's actual words where relevant. Only flag what is genuinely present. Do not manufacture flags for clean results.
 
 FLAG TYPES:
 
-counter_type
-  Instinct + type combination produces known counter-type. Describe: which combination, expected presentation, and how Stage 0 language confirms it.
+counter_type — Instinct + type combination produces known counter-type. Describe which combination, expected presentation, and how Stage 0 language confirms it.
 
-lookalike_ambiguity
-  Two types remain close after Stage 3/4, or ambiguous answers persisted. Describe: which pair, the distinguishing dimension, and the probe that would resolve it in session.
+lookalike_ambiguity — Two types remain close after Stage 3/4, or ambiguous answers persisted. Describe which pair, the distinguishing dimension, and the probe that would resolve it in session.
 
-stage0_contradiction
-  Stage 0 language points toward a different type than the scored result. Quote the specific words and name the type they suggest.
+stage0_contradiction — Stage 0 language points toward a different type than the scored result. Quote the specific words and name the type they suggest.
 
-stage2_stage3_divergence
-  Stage 2 primary hypothesis diverges from Stage 1 scored result. Describe: which types are in conflict, which framework produced the divergence, and which result appears more motivationally reliable. If this is a Type 3 cross-center case (Stage 1 Center ≠ Heart but Stage 2 signature points to Type 3), explicitly note that cross-center mistype is common for Type 3 due to emotional suppression in service of performance — and carry Type 3 forward as the primary hypothesis rather than treating the divergence as a redirect.
+stage2_stage3_divergence — Stage 2 primary hypothesis diverges from Stage 1 scored result. Describe which types are in conflict, which framework produced the divergence, and which result appears more motivationally reliable.
 
-stage4_stress_unrecognized
-  Stress point answer didn't match lead candidate's stress point. Describe which type the client answered toward and what that might indicate. Note probe for session.
+framework_cluster_mismatch — Multiple framework answers point to types outside the Stage 1 hypotheses, suggesting the client may not fit cleanly into the identified Center.
 
-stage4_security_unrecognized
-  Security point answer didn't match lead candidate's security point. Describe what this might indicate — client may not have enough lived experience of genuine ease, or may be accessing the positive side of their stress point instead.
+stage4_stress_unrecognized — Stress point answer didn't match lead candidate's stress point. Describe which type the client answered toward and what that might indicate.
 
-stage4_habit_unrecognized
-  Habit of Mind answer didn't match lead candidate's attention pattern. Describe which attention pattern resonated instead and what that might indicate.
+stage4_security_unrecognized — Security point answer didn't match lead candidate's security point. Describe what this might indicate.
 
-stage4_redirect
-  Stage 4 architecture supports second candidate more strongly than lead. Describe the specific mismatch and which type now has stronger structural support.
+stage4_habit_unrecognized — Habit of Mind answer didn't match lead candidate's attention pattern.
 
-low_center_confidence
-  Gap between top two Centers is 0-2 points. Describe which two Centers are close and the most likely explanation.
+stage4_redirect — Stage 4 architecture supports second candidate more strongly than lead. Describe the specific mismatch.
 
-low_instinct_confidence
-  Gap between top two Instincts is 0-1 points. Describe which two instincts are close and what probe would resolve it in session.
+low_center_confidence — Gap between top two Centers is 0-2 points.
 
-TASK 3 — Client Narrative
-Write a 3-4 sentence paragraph for the client. This is the most important output — it is the first thing the client reads.
+low_instinct_confidence — Gap between top two Instincts is 0-1 points.
 
-Requirements:
-Warm, specific, uses client's own Stage 0 words, non-pathologizing, frames type as invitation not conclusion.
+TASK 3 — Client-Facing Content
+Produce four AI-generated fields and a what_to_explore list. These go in the client_facing object.
 
-Always begin with language that holds the result lightly. Example opening: 'Based on your responses, the pattern that appears most consistent with your experience is Type X. This is a hypothesis — one that we hope will feel like recognition rather than assignment.'
+FIELD 1 — client_narrative
+3-4 sentence paragraph opening with what is specific about THIS client — their particular words, the texture of their answers, what you noticed that felt distinct.
 
-If Stage 4 outcome is AMBIGUOUS: do not name a type. Instead: 'Your responses reflect a genuinely complex pattern — one that resonates with more than one Enneagram type in meaningful ways. Rather than offering a premature hypothesis, we'd like to invite you into a conversation with Cai where this complexity can be explored properly.'
+CRITICAL: Do NOT open with "Based on your responses..." — begin with the client, their language, what stood out. Use their Stage 0 words directly.
 
-TASK 4 — Coach Note
-Write a 2-3 sentence note for Cai. Direct, specific, Enneagram-literate. Assume deep system knowledge.
+If Stage 4 outcome is AMBIGUOUS: do not name a type. Instead invite: "Your responses reflect a genuinely complex pattern — one that resonates with more than one Enneagram type in meaningful ways. Rather than offering a premature hypothesis, we'd like to invite you into a conversation with your Enneagram coach or practitioner where this complexity can be explored properly."
 
-Requirements:
-State hypothesis with confidence level. Reference client's specific Stage 0 language. Name one concrete probe for session. Flag any counter-type, lookalike ambiguity, or Stage 4 redirect explicitly.
+FIELD 2 — core_motivation_evidence
+3-5 sentences showing how this client's specific responses align with the confirmed type's core motivation. Reference specific Stage 0 language or answer patterns without naming frameworks or stages. Use cautious language: "consistent with," "points toward," "aligns with." Null for AMBIGUOUS or REDIRECT outcomes.
 
-For MEDIUM confidence: 'Medium confidence hypothesis — treat as a productive starting point. Worth holding the second candidate type alongside this one going into session.'
+FIELD 3 — instinct_personal_overlay
+2-4 sentences describing how the dominant instinct shows up specifically for this client based on their responses. Reference specific answers without naming stages or frameworks. Note ambiguity if instinct confidence is LOW. Null for AMBIGUOUS or REDIRECT outcomes.
 
-For AMBIGUOUS: Be direct. Name the specific axis that didn't resolve and the probe that would address it. The system has done everything it can — the session conversation is the right next step.
+FIELD 4 — secondary_type_narrative
+3-5 sentences describing the secondary type candidate ONLY if the holistic analysis surfaced a meaningful alternative type signal. Use cautious language. Null if no meaningful secondary type emerged or if outcome is AMBIGUOUS or REDIRECT.
+
+FIELD 5 — stress_point_narrative
+2-3 sentences describing the confirmed type's movement toward its stress point. Client-appropriate language, no framework jargon. Framed as a growth insight. Example: "Under significant stress, [Type N]s can move toward Type [X]'s territory — [description of what this looks/feels like and why it matters to recognize]." Null for AMBIGUOUS outcome.
+
+FIELD 6 — security_point_narrative
+2-3 sentences describing the confirmed type's movement toward its security point. Client-appropriate language. Example: "When [Type N]s feel genuinely safe and supported, they can access Type [X]'s positive qualities — [description and growth framing]." Null for AMBIGUOUS outcome.
+
+WHAT TO EXPLORE — what_to_explore
+Three questions (always), plus a fourth question only when confusion flags are present AND stage4_outcome is not REDIRECT.
+
+Question 1 — Core motivation curiosity: Restate the confirmed type's core motivation in plain English, invite the client to locate it in their life right now, ask what they most want to explore with their coach.
+
+Question 2 — Patterns in context: Ask the client to think of a specific challenge or opportunity they're currently facing and notice how their thinking, feeling, and behavior patterns show up there. Frame around whether those patterns are helping, getting in the way, or both.
+
+Question 3 — Strengths and challenges: Provide the client's key strengths and challenges (comma-separated from the type), invite them to choose one they'd most like to bring more of or work on, and ask why.
+
+Question 4 (conditional — include ONLY when confusion flags exist and outcome is not REDIRECT) — Type confusion observation: "An invitation to observe yourself this week." Describe the two types in question. State the core motivation of each. Ask the client to notice which feels closer in challenging moments this week.
+
+TASK 4 — Coach Prep Report
+Produce a structured coach_report JSON object. This report is for Cai and Monique, not the client. Use coaching-oriented, Enneagram-literate language. Assume deep system knowledge. Write in second or third person about the client consistently throughout (use "she," "he," "they," or "the client" — pick one based on Stage 0 language clues, defaulting to "they" if unclear).
+
+SECTION 1 — Your Read on This Client
+the_read: 4-6 sentence plain-English read of this client, anchored firmly in their Stage 0 language. What jumped out? What does the overall pattern feel like? What's the most important thing to know going in?
+going_in: 3-5 bullets on confidence framing, what the client may recognize vs. resist, and any flagged concerns (counter-type, lookalike, redirect).
+
+SECTION 1A (produce only when hypothesis.counter_type_confirmed is true, otherwise set to null)
+why_this_matters: 3-4 bullets on why counter-type framing matters for this debrief
+standard_vs_counter: 3-4 bullets on how standard and counter-type presentations differ for this combination, what they share, and the distinguishing motivation
+coaching_notes: 2-3 bullets on how to introduce counter-type framing without destabilizing the client's recognition
+
+SECTION 2 — Debriefing Core Motivation and Worldview
+core_pattern: 3-4 bullets on the type's worldview and core motivation, written as coaching orientation (not a Wikipedia summary — written for someone who knows this system well)
+what_responses_showed: 3-4 bullets citing specific Stage 0 language and answer patterns as evidence for the core motivation hypothesis
+coaching_notes: 2-3 bullets on how to present the worldview, what order, what to watch for
+probe: One question the coach can ask to open the worldview conversation. Format as "Try asking: [question]"
+
+SECTION 3 — Debriefing Patterns of Thinking, Feeling, and Behaving
+hardest_to_see: 2-3 bullets on the core emotional habit or shadow that is most likely outside this client's current awareness, with specific evidence from the assessment
+framework_signals: Array of exactly 3 objects, one per cross-referencing framework, in this order: Hornevian (label "Social Style — [bucket name]"), Harmonic (label "Emotional Style — [bucket name]"), Object Relations (label "Attachment Style — [bucket name]"). Each object has:
+  - label: the framework + result label
+  - bullets: 3 bullets about what this pattern means for THIS client specifically
+  - probe: one "Weave in:" question for the debrief conversation
+coaching_notes: 2-3 bullets on pacing, tone, and what to watch for when walking through patterns
+probe: One body-based probe. Format as "Try asking: [question]"
+
+SECTION 4 — Debriefing Instinct and Subtype
+subtype_name: Full subtype name (e.g. "SP Nine — The Self-Preservation Peacemaker")
+how_instinct_shapes: 3-4 bullets on how the dominant instinct shapes this type's presentation for THIS client — coaching-perspective bullets drawn from subtype knowledge
+easy_to_miss: 3-4 bullets on why this subtype can be hard to spot, what the typical misread is
+coaching_notes: 2-3 bullets on how to surface the instinct in conversation
+probe: One question to help surface the instinct. Format as "Try asking: [question]"
+
+SECTION 5 — Debriefing Wings, Lines, and Resources
+stress_notes: 2-3 bullets on the stress point movement — what it looks like for this type, what this client's Stage 4 stress answer showed, coaching angle
+stress_probe: One question. Format as "Try asking: [question]"
+security_notes: 2-3 bullets on the security movement — what it looks like, what this client's answer showed, coaching angle
+security_probe: One question. Format as "Try asking: [question]"
+wings_notes: 3-4 bullets about the two wings for this type — what each brings, how to let the client lead, what to watch for
+probe: One question to open the wings conversation. Format as "Try asking: [question]"
+
+SECTION 6 — If the Conversation Goes Sideways
+resonates_strongly: bullets (2-3) on what to do when client strongly agrees — how to move from recognition to commitment + probe
+pushes_back: bullets (3-4) on how to handle pushback — do not defend the hypothesis, name the most likely alternate type with the key distinguishing question
+confused: bullets (2-3) on how to work with confusion — find the foothold, treat what doesn't fit as equally useful + probe
+
+For pushes_back, include these two fields separately:
+  alt_type_name: the most likely alternate type as a string (e.g. "Type 1 — The Improver")
+  key_distinction: one sentence stating the key distinguishing question between primary and alternate
+
+SECTION 6A (produce only when type-confusion flags are present AND stage4_outcome is not REDIRECT, otherwise set to null. Confusion flags: lookalike_ambiguity, stage2_stage3_divergence, framework_cluster_mismatch, low_center_confidence, or AMBIGUOUS outcome)
+types_in_question: string describing both types being explored (e.g. "Type 9 and Type 1")
+what_to_do: 3-4 bullets on how to debrief the type confusion observation — what data to bring in, what to listen for, how to hold both possibilities
+if_no_data: 2-3 bullets noting what type-specific access challenges might explain the ambiguity — why certain types are harder to confirm through self-report alone
+probe: One question to use when the confusion observation didn't yield clarity. Format as "Try asking: [question]"
 
 TASK 5 — Holistic Coherence Check
-Run before generating final output.
+Run before generating final output. Step back and review the complete dataset as a whole.
 
-Step back from the sequential analysis and review the complete dataset as a whole. The mechanical engine processes stages sequentially and can compound early errors. This task uses your ability to hold the full picture simultaneously.
+EVERY observation must cite specific evidence — a quote from Stage 0, a specific answer, a pattern across multiple stages.
 
-EVERY observation in this task must cite specific evidence — a quote from Stage 0, a specific answer from a specific stage, a pattern across multiple answers. No assertion without evidence.
-
-Work through each question:
-
-1. Stage 0 Coherence
-Does the confirmed type's worldview, motivation, and automatic patterns actually explain the client's specific Stage 0 words — not just the general type description? Quote the Stage 0 language and show how it maps to the confirmed type. If it doesn't map cleanly, name the discrepancy.
-
-2. Cross-Stage Consistency
-Are there any cross-stage inconsistencies that haven't been flagged? Places where the client's answers in one stage seem to contradict their answers in another? Inconsistency itself is diagnostic — note any tension and what it might indicate.
-
-3. Instinct Coherence
-Does the instinct + type combination produce a coherent picture? Does the subtype flavor explain anything that seemed anomalous in the mechanical scoring? Check whether any counter-type presentation slipped through without triggering the formal flag.
-
-4. Alternative Type Check
-Is there any signal in the complete dataset — in Stage 0 language, answer patterns, or what the client didn't say — that points toward a different type than the confirmed hypothesis? If yes, name it specifically with evidence.
-
-5. Confidence Calibration
-Does the overall confidence level feel accurate given the full picture? Should it be adjusted up or down based on something the mechanical logic didn't capture? State your reasoning with specific evidence.
+1. Stage 0 Coherence — Does the confirmed type's worldview actually explain the client's specific Stage 0 words? Quote and show the map.
+2. Cross-Stage Consistency — Are there cross-stage inconsistencies not yet flagged?
+3. Instinct Coherence — Does the instinct + type combination produce a coherent picture?
+4. Alternative Type Check — Is there any signal pointing toward a different type than the confirmed hypothesis?
+5. Confidence Calibration — Does the overall confidence level feel accurate? State reasoning with specific evidence.
 
 If everything coheres cleanly: state this briefly and proceed to output.
 If something doesn't cohere: flag it explicitly before generating output.`;
@@ -1432,7 +1482,7 @@ const OUTPUT_FORMAT = `CRITICAL: Return your complete analysis as a single JSON 
   },
   "flags": [
     {
-      "flag_type": <"counter_type" | "lookalike_ambiguity" | "stage0_contradiction" | "stage2_stage3_divergence" | "stage4_stress_unrecognized" | "stage4_security_unrecognized" | "stage4_habit_unrecognized" | "stage4_redirect" | "low_center_confidence" | "low_instinct_confidence">,
+      "flag_type": <"counter_type" | "lookalike_ambiguity" | "stage0_contradiction" | "stage2_stage3_divergence" | "framework_cluster_mismatch" | "stage4_stress_unrecognized" | "stage4_security_unrecognized" | "stage4_habit_unrecognized" | "stage4_redirect" | "low_center_confidence" | "low_instinct_confidence">,
       "description": <string — specific, cites evidence, 1-2 sentences>
     }
   ],
@@ -1450,27 +1500,89 @@ const OUTPUT_FORMAT = `CRITICAL: Return your complete analysis as a single JSON 
   "stage4_analysis": {
     "stress_point_description": <string — what the client answered and what it suggests>,
     "security_point_description": <string — what the client answered and what it suggests>,
-    "habit_of_mind_description": <string or null — what the client answered and what it suggests>
+    "habit_of_mind_description": <string or null>
   },
   "holistic_analysis": {
     "stage0_coherence": <string — specific observation with evidence>,
     "cross_stage_consistency": <string — specific observation with evidence>,
     "instinct_coherence": <string — specific observation with evidence>,
     "alternative_type_signal": <string or null — if present, name type and cite evidence>,
-    "confidence_adjustment": <string — reasoning for any adjustment, or confirmation that confidence is accurate>
+    "confidence_adjustment": <string — reasoning or confirmation>
   },
-  "type_overview": {
-    "worldview": <string — 2 sentences describing how the confirmed type sees the world>,
-    "core_motivation": <string — 1 sentence naming the core driver of the confirmed type>,
-    "strengths": [<string>, <string>, <string>],
-    "challenges": [<string>, <string>, <string>],
-    "instinct_notes": <string — 2 sentences on how this instinct shapes the confirmed type's presentation>,
-    "stress_point_insight": <string — 2 sentences framed as a growth insight about the stress point>,
-    "security_point_insight": <string — 2 sentences framed as a growth insight about the security point>
+  "client_facing": {
+    "client_narrative": <string — 3-4 sentences, warm, specific, uses client's Stage 0 words, does NOT open with "Based on your responses...">,
+    "core_motivation_evidence": <string or null — 3-5 sentences connecting client's specific responses to confirmed type's core motivation. Null for AMBIGUOUS or REDIRECT.>,
+    "instinct_personal_overlay": <string or null — 2-4 sentences on dominant instinct as seen in client's specific responses. Null for AMBIGUOUS or REDIRECT.>,
+    "secondary_type_narrative": <string or null — 3-5 sentences on secondary type if holistic analysis surfaced meaningful alternative signal. Null if none.>,
+    "stress_point_narrative": <string or null — 2-3 client-appropriate sentences on confirmed type's stress movement. Null for AMBIGUOUS.>,
+    "security_point_narrative": <string or null — 2-3 client-appropriate sentences on confirmed type's security movement. Null for AMBIGUOUS.>,
+    "what_to_explore": [<string q1>, <string q2>, <string q3>]
   },
-  "client_narrative": <string — 3-4 sentences, warm, uses client's words, holds result lightly>,
-  "coach_note": <string — 2-3 sentences, direct, Enneagram-literate, cites evidence, names one probe>,
-  "session_probes": [<string>, <string>, <string>]
+  "coach_report": {
+    "section1": {
+      "the_read": <string — 4-6 sentence paragraph, plain-English, anchored to Stage 0 language>,
+      "going_in": [<string bullet>, ...]
+    },
+    "section1a": <null or {
+      "why_this_matters": [<string bullet>, ...],
+      "standard_vs_counter": [<string bullet>, ...],
+      "coaching_notes": [<string bullet>, ...]
+    }>,
+    "section2": {
+      "core_pattern": [<string bullet>, ...],
+      "what_responses_showed": [<string bullet>, ...],
+      "coaching_notes": [<string bullet>, ...],
+      "probe": <string — "Try asking: [question]">
+    },
+    "section3": {
+      "hardest_to_see": [<string bullet>, ...],
+      "framework_signals": [
+        {
+          "label": <string — e.g. "Social Style — Withdrawing">,
+          "bullets": [<string bullet>, ...],
+          "probe": <string — "Weave in: [question]">
+        }
+      ],
+      "coaching_notes": [<string bullet>, ...],
+      "probe": <string — "Try asking: [body-based question]">
+    },
+    "section4": {
+      "subtype_name": <string — e.g. "SP Nine — The Self-Preservation Peacemaker">,
+      "how_instinct_shapes": [<string bullet>, ...],
+      "easy_to_miss": [<string bullet>, ...],
+      "coaching_notes": [<string bullet>, ...],
+      "probe": <string — "Try asking: [question]">
+    },
+    "section5": {
+      "stress_notes": [<string bullet>, ...],
+      "stress_probe": <string — "Try asking: [question]">,
+      "security_notes": [<string bullet>, ...],
+      "security_probe": <string — "Try asking: [question]">,
+      "wings_notes": [<string bullet>, ...],
+      "probe": <string — "Try asking: [question]">
+    },
+    "section6": {
+      "resonates_strongly": {
+        "bullets": [<string bullet>, ...],
+        "probe": <string>
+      },
+      "pushes_back": {
+        "bullets": [<string bullet>, ...],
+        "alt_type_name": <string — e.g. "Type 1 — The Improver">,
+        "key_distinction": <string — one sentence stating the key distinguishing question>
+      },
+      "confused": {
+        "bullets": [<string bullet>, ...],
+        "probe": <string>
+      }
+    },
+    "section6a": <null or {
+      "types_in_question": <string — e.g. "Type 9 and Type 1">,
+      "what_to_do": [<string bullet>, ...],
+      "if_no_data": [<string bullet>, ...],
+      "probe": <string — "Try asking: [question]">
+    }>
+  }
 }`;
 
 // Serializes the full Stage 0/1/2/3/4 state into the v2 context block format
@@ -1562,6 +1674,42 @@ Stage 4 — Answer Details (use for stress_point_description / security_point_de
 Stress: ${s4.stressDescription || 'not provided'}
 Security: ${s4.securityDescription || 'not provided'}
 Habit of Mind: ${s4.habitDescription || 'N/A — did not fire'}`;
+}
+
+// =================== TYPE LIBRARY ===================
+
+let typeLibrary = null;
+
+async function loadTypeLibrary() {
+  if (typeLibrary) return typeLibrary;
+  try {
+    const res = await fetch('/content/type_library.json');
+    typeLibrary = await res.json();
+    console.log('[typeLib] loaded version', typeLibrary._meta?.version);
+  } catch (e) {
+    console.error('[typeLib] failed to load:', e.message);
+    typeLibrary = { static_primers: {}, types: {} };
+  }
+  return typeLibrary;
+}
+
+// Return type data for the confirmed type number (as string key).
+function typeData(typeNum) {
+  return (typeLibrary && typeLibrary.types && typeLibrary.types[String(typeNum)]) || null;
+}
+
+// Render an array of strings as separate <p> tags (per schema convention).
+function renderParas(arr, style) {
+  if (!arr || !Array.isArray(arr)) return '';
+  const s = style || 'margin:0 0 14px;';
+  return arr.map((p) => `<p style="${s}">${esc(p)}</p>`).join('');
+}
+
+// Render a single string that may contain \n\n as separate <p> tags.
+function renderMultiPara(str, style) {
+  if (!str) return '';
+  const s = style || 'margin:0 0 14px;';
+  return str.split(/\n\n+/).map((p) => `<p style="${s}">${esc(p.trim())}</p>`).filter((p) => p !== `<p style="${s}"></p>`).join('');
 }
 
 // =================== PROGRESS ===================
@@ -2196,23 +2344,16 @@ function reportSectionHtml(title, color) {
 // this same string can be wrapped in a standalone HTML document for download.
 function clientReportBodyHtml(result) {
   const h = result.hypothesis;
-  const to = result.type_overview || {};
-  const s4a = result.stage4_analysis || {};
-  const probes = result.session_probes || [];
+  const cf = result.client_facing || {};
   const ambiguous = h.stage4_outcome === 'AMBIGUOUS';
 
-  const strengthsHtml = (to.strengths || []).map((s) =>
-    `<div style="font-size:13px;margin-bottom:5px;"><span style="color:#00b1d7;font-weight:700;">+</span> ${esc(s)}</div>`
-  ).join('');
-  const challengesHtml = (to.challenges || []).map((c) =>
-    `<div style="font-size:13px;margin-bottom:5px;"><span style="color:#f58527;font-weight:700;">\u2013</span> ${esc(c)}</div>`
-  ).join('');
-  const probesHtml = probes.map((p, i) =>
-    `<div style="padding:8px 14px;margin-bottom:6px;background:#F5F9FB;border-radius:4px;font-size:13px;display:flex;gap:10px;">
-       <span style="color:#00b1d7;font-weight:700;">${i + 1}.</span>
-       <span>${esc(p)}</span>
-     </div>`
-  ).join('');
+  const tLib = typeData(h.confirmed_type) || {};
+  const primers = (typeLibrary && typeLibrary.static_primers) || {};
+  const instinctKey = (h.confirmed_instinct || '').toLowerCase();
+
+  const SH = (title) => `<div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#00b1d7;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #00b1d7;">${esc(title)}</div>`;
+  const SUB = (title) => `<div style="font-size:10px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${esc(title)}</div>`;
+  const EVIDENCE = (text) => text ? `<p style="font-size:12px;color:#4A6070;font-style:italic;margin:0 0 14px;">In your responses: ${renderMultiPara(text, 'display:inline;')}</p>` : '';
 
   const header = ambiguous
     ? `<div style="font-size:28px;font-weight:700;color:#00b1d7;line-height:1.2;margin-bottom:12px;">A Genuinely Complex Pattern</div>`
@@ -2220,37 +2361,102 @@ function clientReportBodyHtml(result) {
        <div style="font-size:20px;color:#4A6070;margin-bottom:12px;">${esc(h.confirmed_type_name)}</div>`;
 
   const noteText = ambiguous
-    ? `Your responses reflect a genuinely complex pattern \u2014 one that resonates with more than one Enneagram type in meaningful ways. This isn\u2019t a limitation of the assessment; it\u2019s an honest finding about you. Some people sit at the intersection of two types. Some are in a period of growth where their pattern is actively shifting. Rather than offering a premature hypothesis, we\u2019d like to invite you into a conversation with Cai where this complexity can be explored properly.`
-    : `Based on your responses, the pattern that appears most consistent with your experience is <strong>Type ${h.confirmed_type} \u2014 ${esc(h.confirmed_type_name)}</strong>. This is a hypothesis, not a verdict. We hope it feels like recognition rather than assignment. If it resonates, wonderful. If it doesn\u2019t fully fit, that\u2019s important information too. Your session with Cai is the right place to explore what fits, what doesn\u2019t, and why.`;
+    ? `Your responses reflect a genuinely complex pattern — one that resonates with more than one Enneagram type in meaningful ways. This isn’t a limitation of the assessment; it’s an honest finding about you. Rather than offering a premature hypothesis, we’d like to invite you into a conversation with your Enneagram coach or practitioner where this complexity can be explored properly.`
+    : `Based on your responses, the pattern that appears most consistent with your experience is <strong>Type ${h.confirmed_type} — ${esc(h.confirmed_type_name)}</strong>. We encourage you to hold this as a hypothesis or theory that you get to test ‘in the wild’. That’s the fun part. If it resonates, wonderful. If it doesn’t fully fit, that’s important information too. Debriefing this report with a trained Enneagram coach or practitioner like Cai or Monique is a great place to explore what fits, what doesn’t, and why.`;
+
+  const instinctLabelMap = { sp: 'Self-Preservation', sx: 'One-to-One', so: 'Social' };
+  const instinctLabel = instinctLabelMap[instinctKey] || h.confirmed_instinct || '';
+
+  const strengthsHtml = (tLib.strengths || []).map((s) =>
+    `<div style="font-size:13px;margin-bottom:5px;"><span style="color:#00b1d7;font-weight:700;">+</span> ${esc(s)}</div>`
+  ).join('');
+  const challengesHtml = (tLib.challenges || []).map((c) =>
+    `<div style="font-size:13px;margin-bottom:5px;"><span style="color:#f58527;font-weight:700;">–</span> ${esc(c)}</div>`
+  ).join('');
+
+  const tipsHtml = (tLib.development_tips || []).map((tip, i) =>
+    `<div style="padding:8px 14px;margin-bottom:6px;background:#F5F9FB;border-radius:4px;font-size:13px;display:flex;gap:10px;">
+       <span style="color:#00b1d7;font-weight:700;">${i + 1}.</span>
+       <span>${esc(tip)}</span>
+     </div>`
+  ).join('');
+
+  const patternsHtml = !ambiguous ? `
+    ${SH('Patterns of Thinking, Feeling, and Behaving')}
+    <p style="margin:0 0 14px;">Your core motivation doesn’t just live in the background — it expresses itself as recognizable patterns of thinking, feeling, and behaving that show up consistently across different areas of your life.</p>
+    ${SUB(`Thinking Patterns of a Type ${h.confirmed_type} — ${esc(h.confirmed_type_name)}`)}
+    ${renderParas(tLib.patterns_of_thinking)}
+    ${SUB(`Feeling Patterns of a Type ${h.confirmed_type} — ${esc(h.confirmed_type_name)}`)}
+    ${renderParas(tLib.patterns_of_feeling)}
+    ${SUB(`Behavior Patterns of a Type ${h.confirmed_type} — ${esc(h.confirmed_type_name)}`)}
+    ${renderParas(tLib.patterns_of_behaving)}
+  ` : '';
+
+  const instinctBody = tLib.instincts && tLib.instincts[instinctKey]
+    ? renderParas(tLib.instincts[instinctKey])
+    : '';
+
+  const wingLow = tLib.wing_low || {};
+  const wingHigh = tLib.wing_high || {};
+  const wingsHtml = !ambiguous ? `
+    ${SH('Wing Influence')}
+    ${SUB('About Wings')}
+    ${renderParas((primers.wing_primer || {}).body)}
+    ${wingLow.name ? `${SUB(`${esc(wingLow.name)} — Type ${wingLow.number}`)}${renderParas(wingLow.body)}` : ''}
+    ${wingHigh.name ? `${SUB(`${esc(wingHigh.name)} — Type ${wingHigh.number}`)}${renderParas(wingHigh.body)}` : ''}
+  ` : '';
+
+  const secondaryHtml = (cf.secondary_type_narrative && !ambiguous) ? `
+    ${SH('Secondary Type Hypothesis')}
+    <p style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${renderMultiPara(cf.secondary_type_narrative, 'margin:0 0 10px;')}</p>
+  ` : '';
+
+  const exploreQuestions = cf.what_to_explore || [];
+  const exploreHtml = exploreQuestions.length > 0 ? `
+    ${SH('What to Explore With Your Enneagram Coach or Practitioner')}
+    <p style="color:#4A6070;margin:0 0 10px;font-size:13px;">These questions are designed to help you get the most out of your work with a coach or practitioner. Take a moment to sit with each one before your session.</p>
+    ${exploreQuestions.map((q, i) => `
+      <div style="padding:8px 14px;margin-bottom:6px;background:#F5F9FB;border-radius:4px;font-size:13px;display:flex;gap:10px;">
+        <span style="color:#00b1d7;font-weight:700;">${i + 1}.</span>
+        <span>${esc(q)}</span>
+      </div>`).join('')}
+  ` : '';
 
   return `
     <div style="background:#fff;border-radius:10px;padding:36px 40px;box-shadow:0 1px 10px rgba(0,0,0,0.04);font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;max-width:720px;margin:0 auto;">
+
+      <!-- HEADER -->
       <div style="text-align:center;padding-bottom:24px;margin-bottom:28px;border-bottom:3px solid #00b1d7;">
         <div style="font-size:11px;color:#7A96A6;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Your Enneagram</div>
         ${header}
-        ${confidenceBadgeHtml(h.confidence_level)}
-        ${h.counter_type_confirmed && h.counter_type_combination ? `
-          <div style="margin-top:10px;">
-            <span style="display:inline-block;padding:3px 10px;border-radius:16px;background:#DFF0F7;color:#006b87;font-weight:600;font-size:11px;letter-spacing:0.03em;">Counter-type: ${esc(h.counter_type_combination)}</span>
-          </div>` : ''}
       </div>
 
-      ${reportSectionHtml('A Note on This Result', '#00b1d7')}
+      <!-- ABOUT THE ENNEAGRAM -->
+      ${SH('About the Enneagram')}
+      ${renderParas((primers.enneagram_intro || {}).body)}
+
+      <!-- A NOTE ON THIS RESULT -->
+      ${SH('A Note on This Result')}
       <p style="font-style:italic;margin:0 0 14px;">${noteText}</p>
 
-      ${reportSectionHtml('What We Noticed About You', '#00b1d7')}
-      <p style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${esc(result.client_narrative)}</p>
+      <!-- WHAT WE NOTICED ABOUT YOU -->
+      ${SH('What We Noticed About You')}
+      <div style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${renderMultiPara(cf.client_narrative, 'margin:0 0 10px;')}</div>
 
-      ${!ambiguous && to.worldview ? `
-        ${reportSectionHtml('Your Type at a Glance', '#00b1d7')}
-        <div style="font-size:10px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">How You See the World</div>
-        <p style="margin:0 0 14px;">${esc(to.worldview)}</p>
-        ${to.core_motivation ? `
-          <div style="font-size:10px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Core Motivation</div>
-          <p style="margin:0 0 14px;">${esc(to.core_motivation)}</p>
-        ` : ''}
-        ${(to.strengths && to.strengths.length && to.challenges && to.challenges.length) ? `
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0 14px;">
+      ${!ambiguous ? `
+        <!-- YOUR TYPE AT A GLANCE -->
+        ${SH('Your Type at a Glance')}
+        ${tLib.how_you_see_the_world ? `${SUB('How You See the World')}<p style="margin:0 0 14px;">${esc(tLib.how_you_see_the_world)}</p>` : ''}
+        ${tLib.core_motivation ? `${SUB('Core Motivation')}${renderParas(tLib.core_motivation)}` : ''}
+        ${cf.core_motivation_evidence ? EVIDENCE(cf.core_motivation_evidence) : ''}
+
+        <!-- PATTERNS -->
+        ${patternsHtml}
+
+        <!-- STRENGTHS & CHALLENGES -->
+        ${(tLib.strengths && tLib.strengths.length && tLib.challenges && tLib.challenges.length) ? `
+          <p style="margin:0 0 10px;font-size:13px;color:#1A2B33;">These patterns give rise to a distinctive set of strengths and challenges. The ones below are characteristic of Type ${h.confirmed_type} — you may recognize some more than others, and that recognition itself is useful information.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 14px;">
             <div style="background:#DFF0F7;padding:12px 16px;border-radius:6px;">
               <div style="font-size:10px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Strengths</div>
               ${strengthsHtml}
@@ -2261,139 +2467,288 @@ function clientReportBodyHtml(result) {
             </div>
           </div>
         ` : ''}
-      ` : ''}
 
-      ${!ambiguous && to.instinct_notes ? `
-        ${reportSectionHtml(`Your Instinct \u2014 ${h.confirmed_instinct}`, '#00b1d7')}
-        <p style="margin:0 0 14px;">${esc(to.instinct_notes)}</p>
-      ` : ''}
-
-      ${!ambiguous && (to.stress_point_insight || to.security_point_insight) ? `
-        ${reportSectionHtml('How Your Type Moves Through Stress and Ease', '#00b1d7')}
-        ${to.stress_point_insight ? `
-          <div style="font-size:10px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Under Stress</div>
-          <p style="margin:0 0 6px;">${esc(to.stress_point_insight)}</p>
-          ${s4a.stress_point_description ? `<p style="font-size:12px;color:#4A6070;font-style:italic;margin:0 0 14px;">In your responses: ${esc(s4a.stress_point_description)}</p>` : ''}
+        <!-- DEVELOPMENT TIPS -->
+        ${tipsHtml ? `
+          ${SH('Development Tips')}
+          <p style="color:#4A6070;margin:0 0 10px;font-size:13px;">These practices can help you leverage your strengths and address the patterns that can hold you back.</p>
+          ${tipsHtml}
         ` : ''}
-        ${to.security_point_insight ? `
-          <div style="font-size:10px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">When at Ease</div>
-          <p style="margin:0 0 6px;">${esc(to.security_point_insight)}</p>
-          ${s4a.security_point_description ? `<p style="font-size:12px;color:#4A6070;font-style:italic;margin:0 0 14px;">In your responses: ${esc(s4a.security_point_description)}</p>` : ''}
+
+        <!-- ABOUT THE INSTINCTS -->
+        ${SH('About the Instincts')}
+        ${renderParas((primers.instinct_primer || {}).body)}
+
+        <!-- YOUR INSTINCT -->
+        ${instinctBody ? `
+          ${SH('Your Instinct — ' + instinctLabel)}
+          ${instinctBody}
+          ${cf.instinct_personal_overlay ? EVIDENCE(cf.instinct_personal_overlay) : ''}
         ` : ''}
+
+        <!-- HOW YOUR TYPE MOVES THROUGH STRESS AND EASE -->
+        ${SH('How Your Type Moves Through Stress and Ease')}
+        ${renderParas((primers.stress_security_primer || {}).body)}
+        ${cf.stress_point_narrative ? `${SUB('Under Stress')}<p style="margin:0 0 14px;">${esc(cf.stress_point_narrative)}</p>` : ''}
+        ${cf.security_point_narrative ? `${SUB('When at Ease')}<p style="margin:0 0 14px;">${esc(cf.security_point_narrative)}</p>` : ''}
+
+        <!-- WING INFLUENCE -->
+        ${wingsHtml}
+
+        <!-- SECONDARY TYPE HYPOTHESIS (conditional) -->
+        ${secondaryHtml}
       ` : ''}
 
-      ${probes.length > 0 ? `
-        ${reportSectionHtml('What to Explore With Cai', '#00b1d7')}
-        <p style="color:#4A6070;margin:0 0 10px;font-size:13px;">These questions emerged from your assessment as particularly worth exploring in session:</p>
-        ${probesHtml}
-      ` : ''}
+      <!-- WHAT TO EXPLORE -->
+      ${exploreHtml}
 
+      <!-- FOOTER -->
       <div style="margin-top:40px;padding-top:16px;border-top:2px solid #00b1d7;text-align:center;font-size:11px;color:#7A96A6;">
-        Generated by the Hive Enneagram Typing Engine &nbsp;\u00b7&nbsp; For use with Cai Delumpa
+        Generated by the Hive Enneagram Typing Engine &nbsp;·&nbsp; © Copyright 2026, Hive, Inc. All rights reserved.
       </div>
     </div>
   `;
 }
-
-// Body HTML for the Coach Report — confidential, Cai-facing. Same inline-style
-// pattern as the client body so it can be dropped straight into a download.
+// Body HTML for the Coach Report — confidential, coach-facing. Orange styling.
 function coachReportBodyHtml(result) {
   const h = result.hypothesis;
+  const cr = result.coach_report || {};
+  const flags = result.flags || [];
   const s0 = result.stage0_analysis || {};
   const s2a = result.stage2_analysis || {};
   const s4a = result.stage4_analysis || {};
-  const ha = result.holistic_analysis || {};
-  const flags = result.flags || [];
-  const probes = result.session_probes || [];
+  const scores = state.scores || {};
 
-  const flagsHtml = flags.length === 0
-    ? `<p style="font-size:13px;color:#4A6070;margin:0;">No flags identified.</p>`
-    : flags.map((f) => `
-        <div style="background:#FFF8F0;border-left:3px solid #f58527;padding:10px 14px;margin-bottom:8px;border-radius:0 4px 4px 0;">
-          <div style="font-size:10px;font-weight:700;color:#f58527;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">${esc(String(f.flag_type || '').replace(/_/g, ' '))}</div>
-          <div style="font-size:12px;color:#1A2B33;line-height:1.5;">${esc(f.description)}</div>
-        </div>`).join('');
+  const ORANGE = '#f58527';
+  const SH = (title) => `<div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${ORANGE};margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid ${ORANGE};">${esc(title)}</div>`;
+  const SUBH = (title) => `<div style="font-size:10px;font-weight:700;color:${ORANGE};text-transform:uppercase;letter-spacing:0.08em;margin:18px 0 8px;">${esc(title)}</div>`;
+  const PROBE = (text) => text ? `<div style="background:#FAF6F2;padding:10px 14px;border-radius:4px;font-style:italic;color:#1A2B33;margin:6px 0;border-left:3px solid ${ORANGE};">${esc(text)}</div>` : '';
+  const BULLETS = (arr) => arr && arr.length ? `<ul style="margin:0 0 14px 0;padding-left:20px;">${arr.map((b) => `<li style="margin-bottom:8px;line-height:1.55;">${esc(b)}</li>`).join('')}</ul>` : '';
+  const CALLOUT = (content, warning) => {
+    const bg = warning ? '#F9E0DC' : '#FDE8D4';
+    const border = warning ? '#C44530' : ORANGE;
+    return `<div style="background:${bg};padding:14px 18px;border-radius:6px;border-left:4px solid ${border};margin:0 0 16px;">${content}</div>`;
+  };
+  const CALLOUT_TITLE = (text, warning) => `<div style="font-size:12px;font-weight:700;color:${warning ? '#C44530' : ORANGE};text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">${esc(text)}</div>`;
 
-  const probesHtml = probes.map((p, i) =>
-    `<div style="padding:8px 14px;margin-bottom:6px;background:#FFF8F0;border-radius:4px;font-size:13px;display:flex;gap:10px;">
-       <span style="color:#f58527;font-weight:700;">${i + 1}.</span>
-       <span>${esc(p)}</span>
-     </div>`
-  ).join('');
+  // Instinct labels
+  const instinctKey = (h.confirmed_instinct || '').toLowerCase();
+  const instinctFull = { sp: 'Self-Preservation (SP)', sx: 'One-to-One (SX)', so: 'Social (SO)' }[instinctKey] || h.confirmed_instinct || 'Unknown';
+  const confLabel = (h.confidence_level || '').replace(/_/g, '-');
 
-  const rowHtml = (label, value) => {
-    if (!value && value !== 0) return '';
-    return `<div style="display:flex;gap:12px;margin-bottom:8px;align-items:flex-start;">
-      <span style="font-size:10px;font-weight:700;color:#f58527;text-transform:uppercase;letter-spacing:0.08em;min-width:140px;padding-top:2px;">${esc(label)}</span>
-      <span style="font-size:13px;color:#1A2B33;line-height:1.5;flex:1;">${esc(String(value))}</span>
+  // Meta table
+  const metaRow = (label, value, style) => `
+    <div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid #EFE8E0;">
+      <span style="font-size:11px;color:#7A96A6;letter-spacing:0.05em;text-transform:uppercase;font-weight:700;">${esc(label)}</span>
+      <span style="font-size:14px;color:${style || '#1A2B33'};font-weight:600;">${value}</span>
+    </div>`;
+
+  const s1 = cr.section1 || {};
+  const s1a = cr.section1a || null;
+  const s2 = cr.section2 || {};
+  const s3 = cr.section3 || {};
+  const s4 = cr.section4 || {};
+  const s5 = cr.section5 || {};
+  const s6 = cr.section6 || {};
+  const s6a = cr.section6a || null;
+
+  // Centers bar chart — from state.scores
+  const centerScoreMap = { Body: scores.body || 0, Heart: scores.heart || 0, Head: scores.head || 0 };
+  const identifiedCenter = scores.identifiedCenter || '';
+  const totalCenter = 18;
+  const centerBar = (name, score) => {
+    const pct = Math.round(score / totalCenter * 100);
+    const isId = name === identifiedCenter;
+    const fillClass = isId ? 'background:#f58527;' : (pct >= 44 ? 'background:#F5B988;' : 'background:#FBDDC2;');
+    return `<div style="display:grid;grid-template-columns:160px 1fr 60px;gap:10px;align-items:center;margin-bottom:10px;font-size:13px;">
+      <span style="font-weight:${isId ? '700' : '600'};color:${isId ? ORANGE : '#1A2B33'};">${esc(name)} Center${isId ? ' ●' : ''}</span>
+      <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#EFE8E0;border-radius:3px;height:14px;overflow:hidden;"><div style="${fillClass}height:100%;border-radius:3px;width:${pct}%;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div></div>
+      <span style="color:#4A6070;font-size:12px;text-align:right;">${score} / ${totalCenter}</span>
     </div>`;
   };
 
-  const boolPill = (value, label) => {
-    const matched = value === true;
-    const bg = matched ? '#D4EDDA' : '#F8D7DA';
-    const fg = matched ? '#2D6A4F' : '#842029';
-    return `<div style="padding:8px 14px;border-radius:4px;background:${bg};color:${fg};font-size:12px;font-weight:700;">${label} ${matched ? '\u2713 Match' : '\u2717 No Match'}</div>`;
+  // Instinct bar chart — from state.scores
+  const instinctScores = scores.sortedInstincts || [];
+  const instinctTotal = 12;
+  const instinctBar = (name, score) => {
+    const pct = Math.round(score / instinctTotal * 100);
+    const isId = name === (h.confirmed_instinct || '');
+    const fillStyle = isId ? 'background:#f58527;' : (pct >= 50 ? 'background:#F5B988;' : 'background:#FBDDC2;');
+    const label = { SP: 'Self-Preservation', SO: 'Social', SX: 'One-to-One' }[name] || name;
+    return `<div style="display:grid;grid-template-columns:160px 1fr 60px;gap:10px;align-items:center;margin-bottom:10px;font-size:13px;">
+      <span style="font-weight:${isId ? '700' : '600'};color:${isId ? ORANGE : '#1A2B33'};">${esc(label)}${isId ? ' ●' : ''}</span>
+      <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#EFE8E0;border-radius:3px;height:14px;overflow:hidden;"><div style="${fillStyle}height:100%;border-radius:3px;width:${pct}%;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div></div>
+      <span style="color:#4A6070;font-size:12px;text-align:right;">${score} / ${instinctTotal}</span>
+    </div>`;
   };
 
-  const instinctHeader = (h.confirmed_instinct && h.confirmed_instinct !== 'UNCERTAIN') ? `${h.confirmed_instinct} ` : '';
+  // Confusion flags check for Section 6A
+  const confusionFlagTypes = ['lookalike_ambiguity', 'stage2_stage3_divergence', 'framework_cluster_mismatch', 'low_center_confidence'];
+  const hasConfusionFlags = flags.some((f) => confusionFlagTypes.includes(f.flag_type)) || h.stage4_outcome === 'AMBIGUOUS';
+  const show6A = hasConfusionFlags && h.stage4_outcome !== 'REDIRECT' && s6a !== null;
+
+  // Framework signals (Section 3)
+  const frameworkSignals = (s3.framework_signals || []).map((sig) => `
+    ${CALLOUT(`
+      ${CALLOUT_TITLE(sig.label)}
+      ${BULLETS(sig.bullets)}
+      ${PROBE(sig.probe)}
+    `)}
+  `).join('');
 
   return `
-    <div style="background:#fff;border-radius:10px;padding:36px 40px;box-shadow:0 1px 10px rgba(0,0,0,0.04);font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;max-width:720px;margin:0 auto;">
-      <div style="padding-bottom:20px;margin-bottom:24px;border-bottom:3px solid #f58527;">
-        <div style="font-size:11px;color:#7A96A6;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">Coach Report \u2014 Confidential</div>
-        <div style="font-size:26px;font-weight:700;color:#00b1d7;margin-bottom:10px;line-height:1.2;">Type ${h.confirmed_type} ${instinctHeader}\u2014 ${esc(h.confirmed_type_name)}</div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-          ${confidenceBadgeHtml(h.confidence_level)}
-          <span style="font-size:12px;color:#4A6070;">Instinct confidence: ${h.instinct_confidence}</span>
-          <span style="font-size:12px;color:#4A6070;">Stage 4: ${h.stage4_outcome}</span>
-          ${h.second_candidate_type ? `<span style="font-size:12px;color:#4A6070;">Second candidate: Type ${h.second_candidate_type}</span>` : ''}
-        </div>
+    <div style="background:#fff;border-radius:10px;padding:36px 40px;box-shadow:0 1px 10px rgba(0,0,0,0.04);font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;max-width:760px;margin:0 auto;">
+
+      <!-- HEADER -->
+      <div style="text-align:center;padding-bottom:24px;margin-bottom:28px;border-bottom:3px solid ${ORANGE};">
+        <div style="font-size:11px;color:#7A96A6;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Coach Prep Report</div>
+        <div style="font-size:42px;font-weight:700;color:${ORANGE};line-height:1.1;margin-bottom:4px;">Type ${h.confirmed_type} · ${h.confirmed_instinct}</div>
+        <div style="font-size:20px;color:#4A6070;margin-bottom:12px;">${esc(s4.subtype_name || '')}</div>
+        <span style="display:inline-block;padding:3px 12px;border-radius:20px;background:#FFF9E6;color:#A17E23;font-weight:700;font-size:11px;letter-spacing:0.05em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${esc(confLabel)} CONFIDENCE</span>
       </div>
 
-      ${reportSectionHtml('Coach Note', '#f58527')}
-      <p style="font-style:italic;background:#FFF8F0;padding:14px 18px;border-radius:6px;border-left:4px solid #f58527;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${esc(result.coach_note)}</p>
+      <!-- HOW TO USE -->
+      <p style="font-size:12px;color:#4A6070;font-style:italic;margin:0 0 20px;background:#FAF6F2;padding:12px 16px;border-radius:6px;">This report is designed as a session prep tool — organized around the debrief conversation you'll have with your client, not around how the assessment engine arrived at its hypothesis. Read Section 1 for the quick read. Use Sections 2 through 5 as a companion during the debrief itself. Section 6 offers contingency guidance depending on how the conversation unfolds.</p>
 
-      ${reportSectionHtml('Stage 0 \u2014 Language Analysis', '#f58527')}
-      <div style="display:flex;gap:12px;margin-bottom:12px;">
-        ${boolPill(s0.idealization_match, 'Idealization')}
-        ${boolPill(s0.shadow_match, 'Shadow')}
+      <!-- SECTION 1 — YOUR READ -->
+      ${SH('1 · Your Read on This Client')}
+      <div style="background:#FAF6F2;padding:16px 20px;border-radius:6px;margin-bottom:16px;">
+        ${metaRow('Primary Hypothesis', `Type ${h.confirmed_type} — ${esc(h.confirmed_type_name)}`)}
+        ${metaRow('Dominant Instinct', instinctFull)}
+        ${metaRow('Confidence', confLabel, '#A17E23')}
+        ${metaRow('Alternate to Hold Lightly', h.second_candidate_type ? `Type ${h.second_candidate_type} — ${esc(TYPE_NAMES[h.second_candidate_type] || '')}` : 'None identified')}
+        ${metaRow('Counter-Type', h.counter_type_confirmed ? `Confirmed — ${esc(h.counter_type_combination || '')}` : 'Not flagged', h.counter_type_confirmed ? ORANGE : '#4A6070')}
       </div>
-      ${rowHtml('Notable Language', s0.notable_language)}
 
-      ${reportSectionHtml('Stage 2 \u2014 Cross-Referencing', '#f58527')}
-      ${rowHtml('Hornevian', s2a.hornevian_result)}
-      ${rowHtml('Harmonic', s2a.harmonic_result)}
-      ${rowHtml('Object Relations', s2a.object_relations_result)}
-      ${rowHtml('Framework Alignment', s2a.framework_alignment)}
+      ${SUBH('The Read')}
+      <p style="margin:0 0 14px;">${esc(s1.the_read || '')}</p>
+      ${SUBH('Going In')}
+      ${BULLETS(s1.going_in)}
 
-      ${reportSectionHtml('Stage 4 \u2014 Confirmation', '#f58527')}
-      ${rowHtml('Stress Point', s4a.stress_point_description)}
-      ${rowHtml('Security Point', s4a.security_point_description)}
-      ${s4a.habit_of_mind_description ? rowHtml('Habit of Mind', s4a.habit_of_mind_description) : ''}
-
-      ${reportSectionHtml('Holistic Analysis \u2014 Task 5', '#f58527')}
-      ${rowHtml('Stage 0 Coherence', ha.stage0_coherence)}
-      ${rowHtml('Cross-Stage', ha.cross_stage_consistency)}
-      ${rowHtml('Instinct Coherence', ha.instinct_coherence)}
-      ${rowHtml('Alt Type Signal', ha.alternative_type_signal || 'None identified')}
-      ${rowHtml('Confidence', ha.confidence_adjustment)}
-
-      ${reportSectionHtml(`Flags (${flags.length} identified)`, '#f58527')}
-      ${flagsHtml}
-
-      ${probes.length > 0 ? `
-        ${reportSectionHtml('Suggested Session Probes', '#f58527')}
-        ${probesHtml}
+      ${s1a ? `
+        <!-- SECTION 1A — COUNTER-TYPE -->
+        ${SH('1A · Counter-Type Considerations')}
+        ${SUBH('Why This Matters')}
+        ${BULLETS(s1a.why_this_matters)}
+        ${SUBH('Standard vs. Counter-Type Presentation')}
+        ${BULLETS(s1a.standard_vs_counter)}
+        ${SUBH('Coaching Notes')}
+        ${BULLETS(s1a.coaching_notes)}
       ` : ''}
 
-      <div style="margin-top:40px;padding-top:16px;border-top:2px solid #f58527;text-align:center;font-size:11px;color:#7A96A6;">
-        Hive Enneagram Typing Engine &nbsp;\u00b7&nbsp; Coach Report &nbsp;\u00b7&nbsp; Confidential \u2014 For Cai Delumpa only
+      <!-- SECTION 2 — CORE MOTIVATION -->
+      ${SH('2 · Debriefing Core Motivation and Worldview')}
+      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">How to present the heart of the type and connect it to their own words.</p>
+      ${SUBH('The Core Pattern')}
+      ${BULLETS(s2.core_pattern)}
+      ${SUBH('What Their Responses Showed')}
+      ${BULLETS(s2.what_responses_showed)}
+      ${SUBH('Coaching Notes')}
+      ${BULLETS(s2.coaching_notes)}
+      ${PROBE(s2.probe)}
+
+      <!-- SECTION 3 — PATTERNS -->
+      ${SH('3 · Debriefing Patterns of Thinking, Feeling, and Behaving')}
+      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">What to expect and what to watch for as you walk through type patterns.</p>
+
+      ${SUBH('Centers of Intelligence')}
+      <div style="background:#FAF6F2;padding:14px 18px;border-radius:6px;margin-bottom:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        ${centerBar('Body', centerScoreMap.Body)}
+        ${centerBar('Heart', centerScoreMap.Heart)}
+        ${centerBar('Head', centerScoreMap.Head)}
+      </div>
+
+      ${SUBH('Likely to Resonate Easily')}
+      ${BULLETS((typeData(h.confirmed_type) || {}).strengths || [])}
+
+      ${SUBH('May Take More Careful Unpacking')}
+      ${BULLETS((typeData(h.confirmed_type) || {}).challenges || [])}
+
+      ${s3.hardest_to_see && s3.hardest_to_see.length ? `${SUBH('May Be Hardest to See')}${BULLETS(s3.hardest_to_see)}` : ''}
+
+      ${frameworkSignals ? `
+        ${SUBH('How the Client Appears to Move — The Three Framework Signals')}
+        <p style="margin:0 0 14px;font-size:12px;color:#4A6070;font-style:italic;">These are cross-referenced patterns that showed up consistently in their responses. Each offers a different lens on the type — worth weaving in conversationally rather than introducing as categories.</p>
+        ${frameworkSignals}
+      ` : ''}
+
+      ${SUBH('Coaching Notes for This Section')}
+      ${BULLETS(s3.coaching_notes)}
+      ${PROBE(s3.probe)}
+
+      <!-- SECTION 4 — INSTINCT & SUBTYPE -->
+      ${SH('4 · Debriefing Instinct and Subtype')}
+      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">Their particular flavor of Type ${h.confirmed_type}, and why it matters.</p>
+
+      ${SUBH('Instinct Ranking')}
+      <div style="background:#FAF6F2;padding:14px 18px;border-radius:6px;margin-bottom:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        ${instinctScores.map(([name, score]) => instinctBar(name, score)).join('')}
+      </div>
+
+      ${s4.subtype_name ? `${SUBH(s4.subtype_name + ' — How the Instinct Shapes the Type')}` : ''}
+      ${BULLETS(s4.how_instinct_shapes)}
+      ${s4.easy_to_miss && s4.easy_to_miss.length ? `${SUBH('Why This Subtype Can Be Easy to Miss')}${BULLETS(s4.easy_to_miss)}` : ''}
+      ${SUBH('Coaching Notes')}
+      ${BULLETS(s4.coaching_notes)}
+      ${PROBE(s4.probe)}
+
+      <!-- SECTION 5 — WINGS, LINES, RESOURCES -->
+      ${SH('5 · Debriefing Wings, Lines, and Resources')}
+      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">What they have available, especially under pressure.</p>
+
+      ${SUBH('Stress Movement — Toward Type ' + (typeData(h.confirmed_type) || {}).stress_point)}
+      ${BULLETS(s5.stress_notes)}
+      ${PROBE(s5.stress_probe)}
+
+      ${SUBH('Security Movement — Toward Type ' + (typeData(h.confirmed_type) || {}).security_point)}
+      ${BULLETS(s5.security_notes)}
+      ${PROBE(s5.security_probe)}
+
+      ${SUBH('Wings — ' + ((typeData(h.confirmed_type) || {}).wings || []).map((w) => 'Type ' + w).join(' and '))}
+      ${BULLETS(s5.wings_notes)}
+      ${PROBE(s5.probe)}
+
+      <!-- SECTION 6 — CONTINGENCIES -->
+      ${SH('6 · If the Conversation Goes Sideways')}
+      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">What to do depending on how they receive the hypothesis.</p>
+
+      ${CALLOUT(`
+        ${CALLOUT_TITLE('If They Resonate Strongly')}
+        ${BULLETS((s6.resonates_strongly || {}).bullets || [])}
+        ${PROBE((s6.resonates_strongly || {}).probe || '')}
+      `)}
+
+      ${CALLOUT(`
+        ${CALLOUT_TITLE('If They Push Back or Disagree', true)}
+        ${BULLETS((s6.pushes_back || {}).bullets || [])}
+        ${(s6.pushes_back || {}).alt_type_name ? `<p style="margin:8px 0 4px;font-size:12px;"><strong>Most likely alternate type:</strong> ${esc(s6.pushes_back.alt_type_name)}</p>` : ''}
+        ${(s6.pushes_back || {}).key_distinction ? `<p style="margin:0 0 0;font-size:12px;font-style:italic;"><strong>Key distinguishing question:</strong> ${esc(s6.pushes_back.key_distinction)}</p>` : ''}
+      `, true)}
+
+      ${CALLOUT(`
+        ${CALLOUT_TITLE('If They\'re Confused or Need More Clarity')}
+        ${BULLETS((s6.confused || {}).bullets || [])}
+        ${PROBE((s6.confused || {}).probe || '')}
+      `)}
+
+      ${show6A && s6a ? `
+        <!-- SECTION 6A — TYPE CONFUSION OBSERVATION -->
+        ${SH('6A · Type Confusion Observation Block')}
+        <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">Types in question: ${esc(s6a.types_in_question || '')}. Use only if the client brought in their type confusion observation during the session.</p>
+        ${SUBH('What to Do With What They Bring')}
+        ${BULLETS(s6a.what_to_do)}
+        ${SUBH('If the Observation Didn\'t Yield Clear Data')}
+        ${BULLETS(s6a.if_no_data)}
+        ${PROBE(s6a.probe)}
+      ` : ''}
+
+      <!-- FOOTER -->
+      <div style="margin-top:40px;padding-top:16px;border-top:2px solid ${ORANGE};text-align:center;font-size:11px;color:#7A96A6;">
+        Generated by the Hive Enneagram Typing Engine &nbsp;·&nbsp; For use by Cai and Monique &nbsp;·&nbsp; © Copyright 2026, Hive, Inc.
       </div>
     </div>
   `;
 }
-
 function buildClientHTML(result) {
   const body = clientReportBodyHtml(result);
   const h = result.hypothesis;
@@ -2785,6 +3140,9 @@ function attachHandlers() {
 // =================== API CALL ===================
 
 async function callAPI() {
+  // Ensure type library is loaded before rendering reports
+  await loadTypeLibrary();
+
   const s = state.scores;
   const contextBlock = buildContextBlock(s);
   const userMessage = `${contextBlock}\n\n${TASK_INSTRUCTIONS}\n\n${OUTPUT_FORMAT}`;
@@ -2819,6 +3177,8 @@ async function callAPI() {
 // =================== INIT ===================
 
 initStage1();
+// Load type library eagerly so it's ready when reports need to render.
+loadTypeLibrary();
 // If a previous result is still in localStorage (e.g. user refreshed), jump
 // straight back to the results screen with their report intact.
 loadResult();
