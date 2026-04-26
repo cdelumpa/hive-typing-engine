@@ -194,7 +194,7 @@
     },
     "3": {
       "number": 3,
-      "name": "The Achiever",
+      "name": "The Performer",
       "center": "Heart",
       "wings": [
         2,
@@ -346,7 +346,7 @@
     },
     "5": {
       "number": 5,
-      "name": "The Investigator",
+      "name": "The Observer",
       "center": "Head",
       "wings": [
         4,
@@ -422,7 +422,7 @@
     },
     "6": {
       "number": 6,
-      "name": "The Loyal Skeptic",
+      "name": "The Questioner",
       "center": "Head",
       "wings": [
         5,
@@ -574,7 +574,7 @@
     },
     "8": {
       "number": 8,
-      "name": "The Challenger",
+      "name": "The Protector",
       "center": "Body",
       "wings": [
         7,

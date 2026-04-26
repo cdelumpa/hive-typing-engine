@@ -185,7 +185,7 @@ const typeLibrary = JSON.parse(fs.readFileSync(TYPE_LIB, 'utf8'));
 
 const TYPE_NAMES = {
   1:'The Improver', 2:'The Giver', 3:'The Performer',
-  4:'The Idealist', 5:'The Observer', 6:'The Loyal Skeptic',
+  4:'The Idealist', 5:'The Observer', 6:'The Questioner',
   7:'The Enthusiast', 8:'The Protector', 9:'The Peacemaker',
 };
 

@@ -591,7 +591,7 @@ const STAGE4_CT_COMPARATIVE = {
 
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver', 3: 'The Performer',
-  4: 'The Idealist', 5: 'The Observer', 6: 'The Loyal Skeptic',
+  4: 'The Idealist', 5: 'The Observer', 6: 'The Questioner',
   7: 'The Enthusiast', 8: 'The Protector', 9: 'The Peacemaker',
 };
 
@@ -2283,6 +2283,9 @@ function renderResults() {
   const h = r.hypothesis;
   const tab = state.resultsTab || 'client';
 
+  // Strip any "Type N — " prefix the AI may have included in confirmed_type_name
+  const typeName = (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || TYPE_NAMES[h.confirmed_type] || '';
+
   const instinctLabel = (h.confirmed_instinct && h.confirmed_instinct !== 'UNCERTAIN') ? ` ${h.confirmed_instinct}` : '';
   const badge = confidenceBadgeHtml(h.confidence_level);
   const secondCandidate = h.second_candidate_type
@@ -2299,7 +2302,7 @@ function renderResults() {
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
         <span style="font-size:13px;font-weight:700;color:var(--teal);letter-spacing:0.08em;text-transform:uppercase;">Hive Typing Engine</span>
         <span style="color:var(--border);">|</span>
-        <span style="font-size:13px;color:var(--ink-mid);">Type ${h.confirmed_type}${instinctLabel} \u2014 ${esc(h.confirmed_type_name)}</span>
+        <span style="font-size:13px;color:var(--ink-mid);">Type ${h.confirmed_type}${instinctLabel} \u2014 ${esc(typeName)}</span>
         ${badge}
         ${secondCandidate}
       </div>
@@ -2347,6 +2350,9 @@ function clientReportBodyHtml(result) {
   const cf = result.client_facing || {};
   const ambiguous = h.stage4_outcome === 'AMBIGUOUS';
 
+  // Strip any "Type N — " prefix the AI may have included in confirmed_type_name
+  const typeName = (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || TYPE_NAMES[h.confirmed_type] || '';
+
   const tLib = typeData(h.confirmed_type) || {};
   const primers = (typeLibrary && typeLibrary.static_primers) || {};
   const instinctKey = (h.confirmed_instinct || '').toLowerCase();
@@ -2358,11 +2364,11 @@ function clientReportBodyHtml(result) {
   const header = ambiguous
     ? `<div style="font-size:28px;font-weight:700;color:#00b1d7;line-height:1.2;margin-bottom:12px;">A Genuinely Complex Pattern</div>`
     : `<div style="font-size:42px;font-weight:700;color:#00b1d7;line-height:1.1;margin-bottom:4px;">Type ${h.confirmed_type}</div>
-       <div style="font-size:20px;color:#4A6070;margin-bottom:12px;">${esc(h.confirmed_type_name)}</div>`;
+       <div style="font-size:20px;color:#4A6070;margin-bottom:12px;">${esc(typeName)}</div>`;
 
   const noteText = ambiguous
     ? `Your responses reflect a genuinely complex pattern — one that resonates with more than one Enneagram type in meaningful ways. This isn’t a limitation of the assessment; it’s an honest finding about you. Rather than offering a premature hypothesis, we’d like to invite you into a conversation with your Enneagram coach or practitioner where this complexity can be explored properly.`
-    : `Based on your responses, the pattern that appears most consistent with your experience is <strong>Type ${h.confirmed_type} — ${esc(h.confirmed_type_name)}</strong>. We encourage you to hold this as a hypothesis or theory that you get to test ‘in the wild’. That’s the fun part. If it resonates, wonderful. If it doesn’t fully fit, that’s important information too. Debriefing this report with a trained Enneagram coach or practitioner like Cai or Monique is a great place to explore what fits, what doesn’t, and why.`;
+    : `Based on your responses, the pattern that appears most consistent with your experience is <strong>Type ${h.confirmed_type} — ${esc(typeName)}</strong>. We encourage you to hold this as a hypothesis or theory that you get to test ‘in the wild’. That’s the fun part. If it resonates, wonderful. If it doesn’t fully fit, that’s important information too. Debriefing this report with a trained Enneagram coach or practitioner like Cai or Monique is a great place to explore what fits, what doesn’t, and why.`;
 
   const instinctLabelMap = { sp: 'Self-Preservation', sx: 'One-to-One', so: 'Social' };
   const instinctLabel = instinctLabelMap[instinctKey] || h.confirmed_instinct || '';
@@ -2384,11 +2390,11 @@ function clientReportBodyHtml(result) {
   const patternsHtml = !ambiguous ? `
     ${SH('Patterns of Thinking, Feeling, and Behaving')}
     <p style="margin:0 0 14px;">Your core motivation doesn’t just live in the background — it expresses itself as recognizable patterns of thinking, feeling, and behaving that show up consistently across different areas of your life.</p>
-    ${SUB(`Thinking Patterns of a Type ${h.confirmed_type} — ${esc(h.confirmed_type_name)}`)}
+    ${SUB(`Thinking Patterns of a Type ${h.confirmed_type} — ${esc(typeName)}`)}
     ${renderParas(tLib.patterns_of_thinking)}
-    ${SUB(`Feeling Patterns of a Type ${h.confirmed_type} — ${esc(h.confirmed_type_name)}`)}
+    ${SUB(`Feeling Patterns of a Type ${h.confirmed_type} — ${esc(typeName)}`)}
     ${renderParas(tLib.patterns_of_feeling)}
-    ${SUB(`Behavior Patterns of a Type ${h.confirmed_type} — ${esc(h.confirmed_type_name)}`)}
+    ${SUB(`Behavior Patterns of a Type ${h.confirmed_type} — ${esc(typeName)}`)}
     ${renderParas(tLib.patterns_of_behaving)}
   ` : '';
 
@@ -2519,6 +2525,9 @@ function coachReportBodyHtml(result) {
   const s4a = result.stage4_analysis || {};
   const scores = state.scores || {};
 
+  // Strip any "Type N — " prefix the AI may have included in confirmed_type_name
+  const typeName = (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || TYPE_NAMES[h.confirmed_type] || '';
+
   const ORANGE = '#f58527';
   const SH = (title) => `<div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${ORANGE};margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid ${ORANGE};">${esc(title)}</div>`;
   const SUBH = (title) => `<div style="font-size:10px;font-weight:700;color:${ORANGE};text-transform:uppercase;letter-spacing:0.08em;margin:18px 0 8px;">${esc(title)}</div>`;
@@ -2613,7 +2622,7 @@ function coachReportBodyHtml(result) {
       <!-- SECTION 1 — YOUR READ -->
       ${SH('1 · Your Read on This Client')}
       <div style="background:#FAF6F2;padding:16px 20px;border-radius:6px;margin-bottom:16px;">
-        ${metaRow('Primary Hypothesis', `Type ${h.confirmed_type} — ${esc(h.confirmed_type_name)}`)}
+        ${metaRow('Primary Hypothesis', `Type ${h.confirmed_type} — ${esc(typeName)}`)}
         ${metaRow('Dominant Instinct', instinctFull)}
         ${metaRow('Confidence', confLabel, '#A17E23')}
         ${metaRow('Alternate to Hold Lightly', h.second_candidate_type ? `Type ${h.second_candidate_type} — ${esc(TYPE_NAMES[h.second_candidate_type] || '')}` : 'None identified')}
