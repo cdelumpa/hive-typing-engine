@@ -1,0 +1,581 @@
+**HIVE ▸ Enneagram Typing Engine**
+
+**Complete Question Bank**
+
+*Version 2.0 · Consolidated · All Stages*
+
+*Stage 0 Warm-Up · Stage 1 Centers **&** Instincts · Stage 2 Cross-Referencing · Stage 3 Pairwise Discrimination · Stage 4 Confirmation*
+
+**CONFIDENTIAL · For internal use only · © 2025 Hive, Inc.**
+
+# **How to Use This Document**
+
+This document contains the complete question bank for the Hive Enneagram Typing Engine. It is the authoritative reference for question content across all five stages. For the AI prompt, scoring logic, routing math, and JSON schema, see the companion document: Hive AI Prompt Specification v2.
+
+Questions in this bank are grouped by stage. Each stage lists its format, purpose, and firing logic. Where answer options carry diagnostic signal, the framework axis, type signature, or correct answer is noted in parentheses for engine reference only — these markers are not shown to clients.
+
+# **STAGE 0 · Warm-Up**
+
+*Format: Open-ended text, one question per screen. AI processes all four responses together after Q4 is submitted.*
+
+Purpose: Establish a baseline of the client's self-description in their own words. Used throughout the AI analysis as a language probe against the confirmed type's idealization and shadow patterns.
+
+| **Q1 · SELF-DESCRIPTION** What are 3–5 words or phrases you would use to describe yourself? |
+| --- |
+
+| **Q2 · OTHERS****'**** DESCRIPTION** What are 3–5 words or phrases others would use to describe you? |
+| --- |
+
+| **Q3 · STRENGTH** Which of the words or phrases you listed is your greatest strength? *(Q1 and Q2 responses displayed for reference.)* |
+| --- |
+
+| **Q4 · SHADOW** Which of the words or phrases you listed tends to be most problematic for you? *(Q1 and Q2 responses displayed for reference.)* |
+| --- |
+
+# **STAGE 1 · Centers of Intelligence ****&**** Instincts**
+
+*Format: Points assignment — client assigns up to 10 points across three responses. Unchanged from previous version. See engine specification for full question set.*
+
+Stage 1 produces: (1) confirmed Center of Intelligence, (2) confirmed Instinct, (3) three type hypotheses to carry into Stage 2.
+
+*Note: Stage 1 full question content (Centers, Instincts, Movement 1, Movement 2, and Lookalike Check) is maintained separately in the engine specification document along with scoring weights and routing logic.*
+
+# **STAGE 2 · Cross-Referencing**
+
+*Format: Multiple choice, single selection — client selects the response that feels most true. Three questions.*
+
+Purpose: Narrow three type hypotheses from Stage 1 to a primary hypothesis and one live alternative, using three independent cross-framework lenses (Hornevian, Harmonic, Object Relations).
+
+## **Q1 — Hornevian (Social Stance)**
+
+| **What is your default strategy for getting what you want or need?** A — I step up and go for it — I'm direct, sometimes forceful, and I trust myself to make things happen. (Assertive: 3, 7, 8) B — I work with others carefully — I try to do the right thing, follow the right process, or earn it through effort and relationship. (Compliant: 1, 2, 6) C — I pull back and figure out my approach first — I need time to think, feel, or map things out before I move. (Withdrawn: 4, 5, 9) |
+| --- |
+
+## **Q2 — Harmonic (Conflict Response)**
+
+| **How do you react when things don****'****t go the way you were expecting?** A — I call it out directly — I feel it intensely and I want to deal with it immediately. (Intensity: 4, 6, 8) B — I try to look on the bright side — I'd rather find what's still working than dwell on what went wrong. (Positive: 2, 7, 9) C — I go into problem-solving mode — I want to understand what happened and figure out how to fix it. (Competency: 1, 3, 5) |
+| --- |
+
+## **Q3 — Object Relations (Life Theme)**
+
+| **Which of these has been a quiet but consistent theme over the arc of your life, even when things are otherwise going well?** A — Needing to feel genuinely connected and knowing where I stand — with people, in relationships, or in the structures and groups that matter to me. (Attachment: 3, 6, 9) B — A sense that things — relationships, experiences, or life itself — rarely quite live up to what they could or should be. (Frustration: 1, 4, 7) C — A quiet discomfort with feeling too exposed, too dependent, or too vulnerable with others. (Rejection: 2, 5, 8) |
+| --- |
+
+## **Cross-Referencing Signature Table**
+
+*Every type has a unique three-answer combination. No two types share the same pattern.*
+
+| **Type** | **Q1 Hornevian** | **Q2 Harmonic** | **Q3 Object Relations** |
+| --- | --- | --- | --- |
+| 1 | Compliant | Competency | Frustration |
+| 2 | Compliant | Positive | Rejection |
+| 3 | Assertive | Competency | Attachment |
+| 4 | Withdrawn | Intensity | Frustration |
+| 5 | Withdrawn | Competency | Rejection |
+| 6 | Compliant | Intensity | Attachment |
+| 7 | Assertive | Positive | Frustration |
+| 8 | Assertive | Intensity | Rejection |
+| 9 | Withdrawn | Positive | Attachment |
+
+# **STAGE 3 · Pairwise Discrimination**
+
+*Purpose: Confirm the primary hypothesis from Stage 2 against the one live alternative. Two modes: Standard Mode and Counter-Type Mode.*
+
+| **Stems** **Standard Mode Q1: **"When you're at your best, how would you describe your internal experience?" **Standard Mode Q2 (high-ambiguity pairs only): **"Which of these feels most uncomfortable or intolerable when it shows up in your life?" High-ambiguity pairs (Q2 always fires): 1v6, 1v9, 2v6, 2v9, 3v7, 3v8, 4v5, 4v9, 5v9, 6v8 Lower-numbered type is always Person A. Response options: Person A / Both but more A / Both but more B / Person B. |
+| --- |
+
+## **Routing Logic**
+
+| **Decision 1 — Standard Mode or Counter-Type Mode?** Check: Does Stage 1 instinct + Stage 2 primary type = known counter-type combination? YES → Counter-Type Mode: Fire single CT question. One question only. Done. NO → Standard Mode: Proceed to Decision 2. |
+| --- |
+
+| **Decision 2 — Single or Double Question? (Standard Mode only)** Check: Is the surviving pair one of the 10 high-ambiguity pairings? YES (high-ambiguity pair) → Fire Q1 + Q2 regardless of Q1 result. NO → Fire Q1 only. If answer is 'Both' → fire Q2 conditionally. |
+| --- |
+
+## **Counter-Type Trigger Table**
+
+| **Instinct** | **Type** | **Counter-Type** | **Question Fired** |
+| --- | --- | --- | --- |
+| SO | 7 | SO 7 (Sacrifice) | CT-1: SO 7 vs. Type 2 |
+| SX | 6 | SX 6 (Counterphobic) | CT-2: SX 6 vs. Type 8 |
+| SP | 3 | SP 3 (Anti-Vanity) | CT-3: SP 3 vs. Type 1 |
+| SP | 4 | SP 4 (Tenacity) | CT-4: SP 4 vs. Type 3 |
+| SX | 1 | SX 1 (Zeal) | CT-5: SX 1 vs. Type 8 |
+
+## **Stage 3 Q1 — Core Motivation (All Pairings)**
+
+Question stem: "When you're at your best, how would you describe your internal experience?" Format: Person A / Both but more A / Both but more B / Person B. Lower-numbered type always Person A.
+
+### **The Nine Motivational Descriptions (Library)**
+
+*These nine descriptions are assembled into pairs dynamically. Each description appears in multiple pairings.*
+
+| **Type 1** I am doing things the right way. I feel principled, clear, and in integrity with my own standards. |
+| --- |
+
+| **Type 2** I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected. |
+| --- |
+
+| **Type 3** I am achieving something meaningful. I feel capable, successful, and recognized for what I bring. |
+| --- |
+
+| **Type 4** I am fully and authentically myself. I feel deeply seen, creatively alive, and emotionally real. |
+| --- |
+
+| **Type 5** I understand what's happening at a deep level. I feel clear, self-sufficient, and completely capable. |
+| --- |
+
+| **Type 6** I am prepared and loyal to what matters. I feel reliable, certain, and securely connected to people I trust. |
+| --- |
+
+| **Type 7** I am experiencing life to the fullest. I feel free, expansive, and open to everything available to me. |
+| --- |
+
+| **Type 8** I am fully in control of my world. I feel strong, powerful, and completely unbothered by outside pressure. |
+| --- |
+
+| **Type 9** Everything feels settled and at peace. I feel harmonious, easy, and genuinely okay with where things are. |
+| --- |
+
+### **Complete 36-Pair Matrix**
+
+*Assembled dynamically by the engine based on Stage 2 output. Lower type always Person A. ★ = high-ambiguity pair — Q2 avoidance question also fires automatically.*
+
+| **1 vs. 2** **Person A: **I am doing things the right way. I feel principled, clear, and in integrity with my own standards. **Person B: **I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **1 vs. 3** **Person A: **I am doing things the right way. I feel principled, clear, and in integrity with my own standards. **Person B: **I am achieving something meaningful. I feel capable, successful, and recognized for what I bring. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **1 vs. 4** **Person A: **I am doing things the right way. I feel principled, clear, and in integrity with my own standards. **Person B: **I am fully and authentically myself. I feel deeply seen, creatively alive, and emotionally real. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **1 vs. 5** **Person A: **I am doing things the right way. I feel principled, clear, and in integrity with my own standards. **Person B: **I understand what's happening at a deep level. I feel clear, self-sufficient, and completely capable. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **1 vs. 6 ★ (High-Ambiguity — Q2 also fires)** **Person A: **I am doing things the right way. I feel principled, clear, and in integrity with my own standards. **Person B: **I am prepared and loyal to what matters. I feel reliable, certain, and securely connected to people I trust. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **1 vs. 7** **Person A: **I am doing things the right way. I feel principled, clear, and in integrity with my own standards. **Person B: **I am experiencing life to the fullest. I feel free, expansive, and open to everything available to me. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **1 vs. 8** **Person A: **I am doing things the right way. I feel principled, clear, and in integrity with my own standards. **Person B: **I am fully in control of my world. I feel strong, powerful, and completely unbothered by outside pressure. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **1 vs. 9 ★ (High-Ambiguity — Q2 also fires)** **Person A: **I am doing things the right way. I feel principled, clear, and in integrity with my own standards. **Person B: **Everything feels settled and at peace. I feel harmonious, easy, and genuinely okay with where things are. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **2 vs. 3** **Person A: **I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected. **Person B: **I am achieving something meaningful. I feel capable, successful, and recognized for what I bring. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **2 vs. 4** **Person A: **I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected. **Person B: **I am fully and authentically myself. I feel deeply seen, creatively alive, and emotionally real. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **2 vs. 5** **Person A: **I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected. **Person B: **I understand what's happening at a deep level. I feel clear, self-sufficient, and completely capable. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **2 vs. 6 ★ (High-Ambiguity — Q2 also fires)** **Person A: **I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected. **Person B: **I am prepared and loyal to what matters. I feel reliable, certain, and securely connected to people I trust. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **2 vs. 7** **Person A: **I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected. **Person B: **I am experiencing life to the fullest. I feel free, expansive, and open to everything available to me. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **2 vs. 8** **Person A: **I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected. **Person B: **I am fully in control of my world. I feel strong, powerful, and completely unbothered by outside pressure. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **2 vs. 9 ★ (High-Ambiguity — Q2 also fires)** **Person A: **I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected. **Person B: **Everything feels settled and at peace. I feel harmonious, easy, and genuinely okay with where things are. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **3 vs. 4** **Person A: **I am achieving something meaningful. I feel capable, successful, and recognized for what I bring. **Person B: **I am fully and authentically myself. I feel deeply seen, creatively alive, and emotionally real. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **3 vs. 5** **Person A: **I am achieving something meaningful. I feel capable, successful, and recognized for what I bring. **Person B: **I understand what's happening at a deep level. I feel clear, self-sufficient, and completely capable. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **3 vs. 6** **Person A: **I am achieving something meaningful. I feel capable, successful, and recognized for what I bring. **Person B: **I am prepared and loyal to what matters. I feel reliable, certain, and securely connected to people I trust. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **3 vs. 7 ★ (High-Ambiguity — Q2 also fires)** **Person A: **I am achieving something meaningful. I feel capable, successful, and recognized for what I bring. **Person B: **I am experiencing life to the fullest. I feel free, expansive, and open to everything available to me. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **3 vs. 8 ★ (High-Ambiguity — Q2 also fires)** **Person A: **I am achieving something meaningful. I feel capable, successful, and recognized for what I bring. **Person B: **I am fully in control of my world. I feel strong, powerful, and completely unbothered by outside pressure. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **3 vs. 9** **Person A: **I am achieving something meaningful. I feel capable, successful, and recognized for what I bring. **Person B: **Everything feels settled and at peace. I feel harmonious, easy, and genuinely okay with where things are. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **4 vs. 5 ★ (High-Ambiguity — Q2 also fires)** **Person A: **I am fully and authentically myself. I feel deeply seen, creatively alive, and emotionally real. **Person B: **I understand what's happening at a deep level. I feel clear, self-sufficient, and completely capable. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **4 vs. 6** **Person A: **I am fully and authentically myself. I feel deeply seen, creatively alive, and emotionally real. **Person B: **I am prepared and loyal to what matters. I feel reliable, certain, and securely connected to people I trust. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **4 vs. 7** **Person A: **I am fully and authentically myself. I feel deeply seen, creatively alive, and emotionally real. **Person B: **I am experiencing life to the fullest. I feel free, expansive, and open to everything available to me. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **4 vs. 8** **Person A: **I am fully and authentically myself. I feel deeply seen, creatively alive, and emotionally real. **Person B: **I am fully in control of my world. I feel strong, powerful, and completely unbothered by outside pressure. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **4 vs. 9 ★ (High-Ambiguity — Q2 also fires)** **Person A: **I am fully and authentically myself. I feel deeply seen, creatively alive, and emotionally real. **Person B: **Everything feels settled and at peace. I feel harmonious, easy, and genuinely okay with where things are. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **5 vs. 6** **Person A: **I understand what's happening at a deep level. I feel clear, self-sufficient, and completely capable. **Person B: **I am prepared and loyal to what matters. I feel reliable, certain, and securely connected to people I trust. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **5 vs. 7** **Person A: **I understand what's happening at a deep level. I feel clear, self-sufficient, and completely capable. **Person B: **I am experiencing life to the fullest. I feel free, expansive, and open to everything available to me. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **5 vs. 8** **Person A: **I understand what's happening at a deep level. I feel clear, self-sufficient, and completely capable. **Person B: **I am fully in control of my world. I feel strong, powerful, and completely unbothered by outside pressure. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **5 vs. 9 ★ (High-Ambiguity — Q2 also fires)** **Person A: **I understand what's happening at a deep level. I feel clear, self-sufficient, and completely capable. **Person B: **Everything feels settled and at peace. I feel harmonious, easy, and genuinely okay with where things are. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **6 vs. 7** **Person A: **I am prepared and loyal to what matters. I feel reliable, certain, and securely connected to people I trust. **Person B: **I am experiencing life to the fullest. I feel free, expansive, and open to everything available to me. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **6 vs. 8 ★ (High-Ambiguity — Q2 also fires)** **Person A: **I am prepared and loyal to what matters. I feel reliable, certain, and securely connected to people I trust. **Person B: **I am fully in control of my world. I feel strong, powerful, and completely unbothered by outside pressure. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **6 vs. 9** **Person A: **I am prepared and loyal to what matters. I feel reliable, certain, and securely connected to people I trust. **Person B: **Everything feels settled and at peace. I feel harmonious, easy, and genuinely okay with where things are. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **7 vs. 8** **Person A: **I am experiencing life to the fullest. I feel free, expansive, and open to everything available to me. **Person B: **I am fully in control of my world. I feel strong, powerful, and completely unbothered by outside pressure. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **7 vs. 9** **Person A: **I am experiencing life to the fullest. I feel free, expansive, and open to everything available to me. **Person B: **Everything feels settled and at peace. I feel harmonious, easy, and genuinely okay with where things are. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **8 vs. 9** **Person A: **I am fully in control of my world. I feel strong, powerful, and completely unbothered by outside pressure. **Person B: **Everything feels settled and at peace. I feel harmonious, easy, and genuinely okay with where things are. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+## **Stage 3 Q2 — Avoidance (10 High-Ambiguity Pairs Only)**
+
+*Question stem: **"**Which of these feels most uncomfortable or intolerable when it shows up in your life?**"** Fires automatically for the 10 high-ambiguity pairings.*
+
+| **1 vs. 6 — Inner Standards vs. External Certainty** **Person A: **Realizing I've done something wrong or fallen short of my own standards — the self-criticism that follows is hard to shake. **Person B: **Feeling unprepared or uncertain about what's coming — not knowing who or what I can count on genuinely unsettles me. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **1 vs. 9 — Inner Critic vs. Conflict Avoidance** **Person A: **Knowing something is wrong and feeling unable to correct it — the gap between how things are and how they should be creates real internal tension. **Person B: **Feeling tension or conflict with people I care about — disruption to harmony feels genuinely uncomfortable in my body. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **2 vs. 6 — Rejection vs. Uncertainty** **Person A: **Feeling unwanted, unneeded, or like my care isn't appreciated — the possibility of being rejected by someone I've given myself to. **Person B: **Feeling like I don't know where things stand or who I can truly trust — uncertainty about what's coming or whether I'm really supported. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **2 vs. 9 — Being Unloved vs. Disrupted Peace** **Person A: **Feeling disconnected or unappreciated by people who matter to me — like my presence doesn't make a difference to them. **Person B: **Feeling pulled into conflict or tension I didn't create — having my sense of inner peace disrupted by other people's agendas. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **3 vs. 7 — Failure vs. Limitation** **Person A: **Failing visibly or being seen as incompetent — the idea that people might think I'm not capable or successful is genuinely hard to sit with. **Person B: **Feeling trapped, constrained, or stuck with no good options — when life starts to feel repetitive or limited I feel a real urgency to find a way out. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **3 vs. 8 — Image vs. Control** **Person A: **Being seen in a way that doesn't reflect well on me — I'm aware of how I'm coming across and it matters that the impression is a good one. **Person B: **Being controlled, overruled, or made to feel powerless — when someone tries to limit what I can do or tell me what I can't have, something in me pushes back hard. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **4 vs. 5 — Abandonment vs. Depletion** **Person A: **Feeling ordinary, unseen, or like I don't have a meaningful place — a sense that something essential about me is being missed or overlooked. **Person B: **Feeling intruded upon, drained, or like too much is being demanded of me — when my time, energy, or privacy feel threatened I need to pull back. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **4 vs. 9 — Amplified Emotion vs. Muted Emotion** **Person A: **Feeling emotionally flat or cut off from what's real — I'd rather feel something intensely than feel nothing at all. **Person B: **Feeling overwhelmed by emotional intensity or conflict — when things get too charged I find myself going numb or withdrawing until it passes. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **5 vs. 9 — Energy Conservation vs. Tension Avoidance** **Person A: **Feeling depleted by too much engagement or contact — when people need too much from me I feel my resources running out and I need to withdraw to recover. **Person B: **Feeling pressured to assert myself or take a strong position — when there's conflict or expectation I find it easier to go along or disengage than to push back. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **6 vs. 8 — Managed Fear vs. Denied Vulnerability** **Person A: **Feeling unprepared for something that could go wrong — an undercurrent of worry that I might not have what it takes to handle what's coming. **Person B: **Feeling weak, dependent, or like someone has gotten the upper hand — vulnerability isn't something I show easily and being in that position feels genuinely wrong. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+## **Stage 3 — Counter-Type Mode Questions**
+
+*Fires only when Stage 1 instinct + Stage 2 type = known counter-type combination. Counter-type treated as its own type. One question only. Same stem: **"**When you**'**re at your best, how would you describe your internal experience?**"*
+
+| **CT-1 — SO 7 vs. Type 2** **Person A: **I am sharing what I love with the people around me. I feel engaged, generous, and genuinely happy — and I want others to experience that same aliveness I feel. **Person B: **I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected — and I need to feel that my presence matters to them. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **CT-2 — SX 6 vs. Type 8** **Person A: **I am facing something head-on and not letting fear win. I feel courageous and alive — most myself when I'm pushing toward the thing that scares me. **Person B: **I am fully in control and unbothered. I feel powerful and clear — there's no fear underneath, just a certainty that I won't be controlled or pushed around. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **CT-3 — SP 3 vs. Type 1** **Person A: **I am getting things done and building something solid. I feel capable and self-sufficient — I don't need recognition, I just need to know I've made it on my own terms. **Person B: **I am doing things the right way. I feel principled and in integrity — anything less than my own standard would feel like a betrayal of who I am. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **CT-4 — SP 4 vs. Type 3** **Person A: **I am proving something — to myself more than anyone else. I feel driven and resilient, like I'm refusing to be defeated by a sense of not being enough. **Person B: **I am achieving something meaningful. I feel capable, successful, and recognized — and I want the people who matter to see that I've done well. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+| **CT-5 — SX 1 vs. Type 8** **Person A: **I am fighting for something that genuinely matters. I feel intensely alive when I'm up against something wrong — there's a standard at stake and I won't back down from it. **Person B: **I am fully in control and unbothered. I feel powerful and clear — I push hard because I won't be limited or told what I can't do. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+# **STAGE 4 · Confirmation**
+
+*Purpose: Structural confirmation of the leading hypothesis using stress point, security point, and habit of mind — the deepest and most pre-conscious layer of the assessment.*
+
+Stage 4 tests three things that operate below conscious self-image: what happens under prolonged stress, what emerges when defenses are down, and where attention goes automatically. These patterns are structurally connected to type in the Enneagram system and are difficult to answer aspirationally.
+
+## **Routing Summary**
+
+| **Option A: **Stage 3 HIGH + Stage 2 clean 2+ of 3 → Q1 Stress + Q2 Security for lead type. Q3 Habit of Mind conditional on Patterns 2-4. **Option B: **Stage 3 MEDIUM/LOW OR Stage 2 ambiguous 2+ of 3 → Q1 Stress + Q2 Security for BOTH types. Q3 Habit of Mind fires on split. **Modified Option B: **Stage 3 CT mode 'Both' answer → Comparative format for counter-type pair. Q3 Habit of Mind fires if still ambiguous. ***Note: ****Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+## **Stage 4 Q1 — Stress Point Questions**
+
+*Stem: **"**When you**'**re under significant and prolonged stress, which of these feels most like what happens to you — even if it surprises you?**"*
+
+**Type 1 — Stress Point: 4**
+
+| **Type 1 Stress** A — I become moody, self-critical, and emotionally flooded — feelings I normally keep in check start leaking out and I find myself dwelling on what's wrong with me or what's missing. (CORRECT — 1 → stress at 4) B — I become more anxious and scanning — I start worrying about what could go wrong and want reassurance that things are under control. (alternative — 6 energy) C — I go numb and disengage — I stop caring as much about getting things right and just go through the motions. (alternative — 9 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 2 — Stress Point: 8**
+
+| **Type 2 Stress** A — I get forceful and confrontational — the usual warmth and giving disappears and I become demanding, blunt, or even aggressive about what I need. (CORRECT — 2 → stress at 8) B — I get anxious and clingy — I worry about whether people really appreciate me and start second-guessing my relationships. (alternative — 6 energy) C — I become critical and resentful — I notice everything people are doing wrong and feel bitter that I give so much and it isn't reciprocated. (alternative — 1 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 3 — Stress Point: 9**
+
+| **Type 3 Stress** A — I start to go through the motions — the drive and energy that usually comes naturally disappears and I find myself disengaging, numbing out, or just getting by. (CORRECT — 3 → stress at 9) B — I become sharper and more critical — I notice everything that's wrong and feel an urgency to fix it before things fall apart. (alternative — 1 energy) C — I get scattered and start chasing too many things at once — it's hard to focus and I keep jumping to the next option. (alternative — 7 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 4 — Stress Point: 2**
+
+| **Type 4 Stress** A — I lose myself in trying to be helpful and needed — I start focusing heavily on others' needs and seeking reassurance through being indispensable to them. (CORRECT — 4 → stress at 2) B — I become anxious and suspicious — I start worrying about what others think of me and whether I can trust the people around me. (alternative — 6 energy) C — I go flat and checked out — the intensity and depth I usually feel gets replaced by numbness and a kind of foggy disconnection. (alternative — 9 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 5 — Stress Point: 7**
+
+| **Type 5 Stress** A — I become scattered, impulsive, and restless — I lose my usual focus and start jumping between ideas, activities, or distractions in a way that feels out of character. (CORRECT — 5 → stress at 7) B — I become emotionally intense and self-absorbed — feelings I usually keep at a distance start flooding in and I get stuck in my own head in a darker way. (alternative — 4 energy) C — I become more anxious and paranoid — I start worrying about worst-case scenarios and feel like I can't trust what's around me. (alternative — 6 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 6 — Stress Point: 3**
+
+| **Type 6 Stress** A — I go into overdrive — I focus intensely on performing, achieving, and looking competent, almost as if staying busy and successful will keep the anxiety at bay. (CORRECT — 6 → stress at 3) B — I turn inward and get moody — I start feeling like something is fundamentally wrong with me and withdraw into my own emotional world. (alternative — 4 energy) C — I get aggressive and confrontational — the anxiety underneath turns into forward-pushing energy and I start fighting rather than worrying. (alternative — 8 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 7 — Stress Point: 1**
+
+| **Type 7 Stress** A — I become critical, rigid, and perfectionistic — I lose my usual lightness and start fixating on what's wrong, what needs correcting, and whether things are being done properly. (CORRECT — 7 → stress at 1) B — I become anxious and suspicious — I start worrying about whether things will work out and whether I can trust the people around me. (alternative — 6 energy) C — I become emotionally heavy and self-absorbed — the optimism drops away and I get stuck in feelings of longing or loss. (alternative — 4 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 8 — Stress Point: 5**
+
+| **Type 8 Stress** A — I withdraw and go silent — instead of engaging directly I pull back, observe from a distance, and start hoarding my energy and information in a way that feels very unlike me. (CORRECT — 8 → stress at 5) B — I become paranoid and suspicious — I start questioning who's really loyal and preparing for the worst in a way that feels anxious rather than strong. (alternative — 6 energy) C — I become rigidly principled and controlling — I dig into what's right and wrong and start imposing my standards on the situation more forcefully than usual. (alternative — 1 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 9 — Stress Point: 6**
+
+| **Type 9 Stress** A — I become anxious and worried — instead of my usual calm I find myself scanning for what could go wrong, doubting myself, and needing reassurance from others. (CORRECT — 9 → stress at 6) B — I get moody and withdrawn — I pull into myself and start feeling a vague sense of emptiness or that something important is missing. (alternative — 4 energy) C — I become irritable and critical — the things I usually let pass start bothering me and I find myself wanting to correct and fix more than usual. (alternative — 1 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+## **Stage 4 Q2 — Security Point Questions**
+
+*Stem: **"**When you feel genuinely safe, relaxed, and at ease — when the pressure is off — which of these feels most like how you show up?**"*
+
+**Type 1 — Security Point: 7**
+
+| **Type 1 Security** A — I become lighter, more playful, and spontaneous — I stop being so hard on myself and find it easier to enjoy things without worrying about doing them perfectly. (CORRECT — 1 → security at 7) B — I become warmer and more focused on others — I want to give more and feel more connected to the people I care about. (alternative — 2 energy) C — I become more reflective and emotionally open — I drop the doing and let myself just feel and be for a while. (alternative — 4 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 2 — Security Point: 4**
+
+| **Type 2 Security** A — I become more inward and emotionally honest — I let myself acknowledge my own needs and feelings rather than immediately focusing on others. (CORRECT — 2 → security at 4) B — I become quieter and more easygoing — I stop trying so hard and just let things be without needing to help or fix anything. (alternative — 9 energy) C — I become more playful and self-indulgent — I give myself permission to enjoy things just for me without worrying about what others need. (alternative — 7 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 3 — Security Point: 6**
+
+| **Type 3 Security** A — I become more loyal, collaborative, and questioning — I actually want to check in with people I trust and think things through more carefully before acting. (CORRECT — 3 → security at 6) B — I become more expansive and playful — I want to explore new ideas and enjoy myself without worrying about outcomes. (alternative — 7 energy) C — I become more reflective and inward — I want to slow down, feel things more deeply, and connect with what actually matters to me. (alternative — 4 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 4 — Security Point: 1**
+
+| **Type 4 Security** A — I become more grounded, disciplined, and action-oriented — I stop dwelling and start doing, with a clearer sense of what's right and what needs to happen. (CORRECT — 4 → security at 1) B — I become more productive and goal-focused — I channel my energy into achieving things and feel good about what I'm building. (alternative — 3 energy) C — I become more detached and analytical — I step back from the emotional intensity and find comfort in thinking things through quietly. (alternative — 5 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 5 — Security Point: 8**
+
+| **Type 5 Security** A — I become more confident, decisive, and present in my body — I stop overthinking and step into situations with a directness and groundedness that doesn't usually come easily. (CORRECT — 5 → security at 8) B — I become warmer and more generous — I reach out more, offer more, and find it easier to connect with the people around me. (alternative — 2 energy) C — I become more expansive and playful — I let myself enjoy things without worrying about conserving energy or staying within my comfort zone. (alternative — 7 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 6 — Security Point: 9**
+
+| **Type 6 Security** A — I become genuinely peaceful and easy — the usual mental noise quiets down and I find myself just present, comfortable, and okay with how things are. (CORRECT — 6 → security at 9) B — I become warmer and more giving — I focus outward on the people I love and feel secure through connection and being needed. (alternative — 2 energy) C — I become more optimistic and forward-looking — I stop scanning for what could go wrong and start feeling genuinely excited about possibilities. (alternative — 7 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 7 — Security Point: 5**
+
+| **Type 7 Security** A — I become quieter, more focused, and genuinely still — I stop needing stimulation and find deep satisfaction in going deep on one thing rather than wide on many. (CORRECT — 7 → security at 5) B — I become more nurturing and giving — I focus less on my own experience and more on what the people around me need. (alternative — 2 energy) C — I become easy and easygoing — I stop pushing forward and find real peace in just being present without an agenda. (alternative — 9 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 8 — Security Point: 2**
+
+| **Type 8 Security** A — I become genuinely soft, caring, and openly giving — the armor comes down and I find myself nurturing the people I love in a way I don't usually let show. (CORRECT — 8 → security at 2) B — I become peaceful and easygoing — the intensity settles and I find myself just comfortable and present without needing to drive anything. (alternative — 9 energy) C — I become playful and expansive — I let myself enjoy things fully and feel free in a way that the usual guardedness doesn't allow. (alternative — 7 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 9 — Security Point: 3**
+
+| **Type 9 Security** A — I become more focused, energized, and goal-oriented — I actually know what I want and feel motivated to go after it in a way that doesn't usually come this naturally. (CORRECT — 9 → security at 3) B — I become warmer and more engaged with others — I reach out more, initiate more, and feel genuinely present in my relationships. (alternative — 2 energy) C — I become lighter and more playful — I stop accommodating and start actually enjoying myself and pursuing what sounds fun. (alternative — 7 energy) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+## **Stage 4 Q3 — Habit of Mind Questions**
+
+*Stem: **"**Without trying to control it, where does your attention tend to go first in most situations?**"** Fires conditionally — see routing logic.*
+
+**Type 1 — Habit of Mind: What****'****s wrong, what needs correcting**
+
+| **Type 1 Habit of Mind** A — To what's wrong, imprecise, or could be improved — I notice errors, inconsistencies, and what needs fixing almost before I notice anything else. (CORRECT) B — To what could go wrong or what I might not be prepared for — I'm scanning for potential problems and threats before they materialize. (alternative — 6 attention) C — To what needs to be done and how to do it efficiently — I'm already thinking about tasks, goals, and getting things moving. (alternative — 3 attention) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 2 — Habit of Mind: Others****'**** needs and feelings**
+
+| **Type 2 Habit of Mind** A — To what the people around me need and how they're feeling — I notice subtle signals about others' emotional states almost automatically. (CORRECT) B — To whether things are comfortable and whether everyone's okay — I'm attuned to the overall atmosphere and any disruption to it. (alternative — 9 attention) C — To what I'm feeling and whether it's being fully seen — my attention turns inward to my own emotional experience and its depth. (alternative — 4 attention) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 3 — Habit of Mind: Tasks, goals, what needs to happen**
+
+| **Type 3 Habit of Mind** A — To what needs to be done, how to do it efficiently, and whether I'm being effective — I'm already thinking about tasks, goals, and outcomes. (CORRECT) B — To how I'm coming across and whether I'm making the right impression — I'm aware of how I'm being perceived and adjust accordingly. (alternative — 3 image attention) C — To what could go wrong and whether I'm prepared — I'm scanning for potential problems and making contingency plans. (alternative — 6 attention) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 4 — Habit of Mind: What****'****s missing, what****'****s deeply felt**
+
+| **Type 4 Habit of Mind** A — To what's missing, absent, or not quite right — there's a persistent awareness of a gap between what is and what could be. (CORRECT) B — To what I'm feeling and how deep and real it is — my attention turns inward to my own emotional experience and its texture. (alternative — 4 depth attention) C — To what's unique, special, or authentic about what's happening — I notice the distinctive and meaningful rather than the ordinary. (alternative — 4 identity attention) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 5 — Habit of Mind: Information, understanding, patterns**
+
+| **Type 5 Habit of Mind** A — To how things work, what the underlying patterns are, and what I don't yet understand — my attention goes to information and figuring things out. (CORRECT) B — To what's being asked of me and how much energy it will require — I'm assessing the demands of a situation and whether I have the resources. (alternative — 5 conservation attention) C — To what could go wrong and whether I have enough information to be prepared — I'm scanning for gaps in my understanding that could cause problems. (alternative — 6 attention) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 6 — Habit of Mind: What could go wrong, being prepared**
+
+| **Type 6 Habit of Mind** A — To what could go wrong, what I might not be prepared for, and who I can trust — I'm scanning for potential problems and threats. (CORRECT) B — To what's wrong or not being done properly — I notice errors and what needs correcting before anything else. (alternative — 1 attention) C — To what others are thinking and whether I can trust them — my attention goes to people's intentions and reliability. (alternative — 6 relational attention) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 7 — Habit of Mind: Options, possibilities, what****'****s next**
+
+| **Type 7 Habit of Mind** A — To what's possible, what could be exciting, and what's next — my attention is drawn to options, opportunities, and positive futures. (CORRECT) B — To what's interesting or stimulating in the moment — I'm looking for what could make this more engaging or enjoyable. (alternative — 7 stimulation attention) C — To what I'm feeling and whether I'm truly alive and engaged — my attention turns to the quality and intensity of my experience. (alternative — 4 attention) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 8 — Habit of Mind: Power, control, what needs to happen**
+
+| **Type 8 Habit of Mind** A — To who has power, who's in control, and whether things are being handled with strength and directness. (CORRECT) B — To what needs to happen and who's going to make it happen — I'm assessing quickly and feel a pull to take charge if no one else is. (alternative — 3 attention) C — To potential threats and whether I can trust what's happening — I'm scanning for danger and assessing who's reliable. (alternative — 6 attention) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+**Type 9 — Habit of Mind: Comfort, harmony, everyone****'****s perspective**
+
+| **Type 9 Habit of Mind** A — To the overall atmosphere and whether everyone feels included and comfortable — I'm aware of the whole room and pulled toward making sure things feel settled and okay for everyone. (CORRECT) B — To who might need something — I notice quickly if someone seems left out or uncomfortable and feel a pull to help. (alternative — 2 attention) C — To what might make this more enjoyable or interesting — I'm looking for the positive angle and what could make the situation feel lighter. (alternative — 7 attention) *Response: Single selection. Options randomized in delivery. Correct answer noted in parentheses for engine reference only.* |
+| --- |
+
+# **STAGE 4 · Counter-Type Comparative Questions**
+
+*Fires only in Modified Option B — when Stage 3 counter-type mode produced a **'**Both**'** answer. Uses Person A / Person B comparative format. Five pairs.*
+
+## **Stress Point Architecture for Counter-Type Pairs**
+
+| SO 7 → stress at 1 │ Type 2 → stress at 8 SX 6 → stress at 3 │ Type 8 → stress at 5 SP 3 → stress at 9 │ Type 1 → stress at 4 SP 4 → stress at 2 │ Type 3 → stress at 9 SX 1 → stress at 4 │ Type 8 → stress at 5 |
+| --- |
+
+## **Security Point Architecture for Counter-Type Pairs**
+
+| SO 7 → security at 5 │ Type 2 → security at 4 SX 6 → security at 9 │ Type 8 → security at 2 SP 3 → security at 6 │ Type 1 → security at 7 SP 4 → security at 1 │ Type 3 → security at 6 SX 1 → security at 7 │ Type 8 → security at 2 |
+| --- |
+
+## **CT-1 — SO 7 vs. Type 2**
+
+### **CT-1 Stress**
+
+| **CT-1 STRESS │ Stem: ****"****When you****'****re under significant and prolonged stress, which feels most like what happens to you — even if it surprises you?****"** **Person A: **(SO 7 → stress at 1) I become critical, rigid, and perfectionistic — I lose my usual lightness and warmth and start fixating on what's wrong, what needs correcting, and whether things are being done properly. **Person B: **(Type 2 → stress at 8) I get forceful and confrontational — the usual warmth and giving disappears and I become demanding, blunt, or even aggressive about what I need. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+### **CT-1 Security**
+
+| **CT-1 SECURITY │ Stem: ****"****When you feel genuinely safe, relaxed, and at ease — when the pressure is off — which feels most like how you show up?****"** **Person A: **(SO 7 → security at 5) I become quieter, more focused, and genuinely still — I stop needing stimulation and find deep satisfaction in going deep on one thing rather than wide on many. **Person B: **(Type 2 → security at 4) I become more inward and emotionally honest — I let myself acknowledge my own needs and feelings rather than immediately focusing on others. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+### **CT-1 Habit of Mind (conditional)**
+
+| **CT-1 HABIT OF MIND │ Stem: ****"****Without trying to control it, where does your attention tend to go first in most situations?****"** **Person A: **(SO 7) To what I can give, share, or make available to others — my attention goes to the people around me and how my presence or resources might serve them. **Person B: **(Type 2) To what the people around me need and how they're feeling — I notice subtle signals about others' emotional states almost automatically. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+## **CT-2 — SX 6 vs. Type 8**
+
+### **CT-2 Stress**
+
+| **CT-2 STRESS │ Stem: ****"****When you****'****re under significant and prolonged stress, which feels most like what happens to you — even if it surprises you?****"** **Person A: **(SX 6 → stress at 3) I go into overdrive and start performing — I focus intensely on looking competent and capable, pushing hard to prove I can handle whatever's coming. **Person B: **(Type 8 → stress at 5) I withdraw and go silent — instead of engaging directly I pull back, observe from a distance, and start hoarding my energy and information in a way that feels very unlike me. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+### **CT-2 Security**
+
+| **CT-2 SECURITY │ Stem: ****"****When you feel genuinely safe, relaxed, and at ease — when the pressure is off — which feels most like how you show up?****"** **Person A: **(SX 6 → security at 9) I become genuinely peaceful and easy — the usual mental noise quiets down and I find myself just present, comfortable, and okay with how things are. **Person B: **(Type 8 → security at 2) I become genuinely soft, caring, and openly giving — the armor comes down and I find myself nurturing the people I love in a way I don't usually let show. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+### **CT-2 Habit of Mind (conditional)**
+
+| **CT-2 HABIT OF MIND │ Stem: ****"****Without trying to control it, where does your attention tend to go first in most situations?****"** **Person A: **(SX 6) To what scares me and whether I can face it head-on — my attention gets pulled toward the threat itself and whether I have the courage to confront it. **Person B: **(Type 8) To who has power, who's in control, and whether things are being handled with strength and directness. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+## **CT-3 — SP 3 vs. Type 1**
+
+### **CT-3 Stress**
+
+| **CT-3 STRESS │ Stem: ****"****When you****'****re under significant and prolonged stress, which feels most like what happens to you — even if it surprises you?****"** **Person A: **(SP 3 → stress at 9) I start to go through the motions — the drive and energy that usually comes naturally disappears and I find myself disengaging, numbing out, or just getting by. **Person B: **(Type 1 → stress at 4) I become moody, self-critical, and emotionally flooded — feelings I normally keep in check start leaking out and I find myself dwelling on what's wrong with me or what's missing. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+### **CT-3 Security**
+
+| **CT-3 SECURITY │ Stem: ****"****When you feel genuinely safe, relaxed, and at ease — when the pressure is off — which feels most like how you show up?****"** **Person A: **(SP 3 → security at 6) I become more loyal, collaborative, and questioning — I actually want to check in with people I trust and think things through more carefully before acting. **Person B: **(Type 1 → security at 7) I become lighter, more playful, and spontaneous — I stop being so hard on myself and find it easier to enjoy things without worrying about doing them perfectly. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+### **CT-3 Habit of Mind (conditional)**
+
+| **CT-3 HABIT OF MIND │ Stem: ****"****Without trying to control it, where does your attention tend to go first in most situations?****"** **Person A: **(SP 3) To what needs to be done and whether I'm being effective — my attention goes to tasks, results, and whether I'm building something solid, without needing anyone to notice. **Person B: **(Type 1) To what's wrong, imprecise, or could be improved — I notice errors, inconsistencies, and what needs fixing almost before I notice anything else. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+## **CT-4 — SP 4 vs. Type 3**
+
+### **CT-4 Stress**
+
+| **CT-4 STRESS │ Stem: ****"****When you****'****re under significant and prolonged stress, which feels most like what happens to you — even if it surprises you?****"** **Person A: **(SP 4 → stress at 2) I lose myself in trying to be helpful and needed — I start focusing heavily on others' needs and seeking reassurance through being indispensable to them. **Person B: **(Type 3 → stress at 9) I start to go through the motions — the drive and energy that usually comes naturally disappears and I find myself disengaging, numbing out, or just getting by. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+### **CT-4 Security**
+
+| **CT-4 SECURITY │ Stem: ****"****When you feel genuinely safe, relaxed, and at ease — when the pressure is off — which feels most like how you show up?****"** **Person A: **(SP 4 → security at 1) I become more grounded, disciplined, and action-oriented — I stop dwelling on what's missing and start doing, with a clearer sense of what's right and what needs to happen. **Person B: **(Type 3 → security at 6) I become more loyal, collaborative, and questioning — I actually want to check in with people I trust and think things through more carefully before acting. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+### **CT-4 Habit of Mind (conditional)**
+
+| **CT-4 HABIT OF MIND │ Stem: ****"****Without trying to control it, where does your attention tend to go first in most situations?****"** **Person A: **(SP 4) To what's absent or incomplete — there's a persistent sense that something essential is missing, and my attention keeps returning to that gap even when things are going reasonably well. **Person B: **(Type 3) To how I'm coming across and whether I'm building something meaningful — I'm aware of whether I'm being effective and whether the people who matter can see what I'm capable of. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+## **CT-5 — SX 1 vs. Type 8**
+
+### **CT-5 Stress**
+
+| **CT-5 STRESS │ Stem: ****"****When you****'****re under significant and prolonged stress, which feels most like what happens to you — even if it surprises you?****"** **Person A: **(SX 1 → stress at 4) I become moody, self-critical, and emotionally flooded — the usual intensity of purpose turns inward and I find myself dwelling on what's wrong with me or with the world. **Person B: **(Type 8 → stress at 5) I withdraw and go silent — instead of engaging directly I pull back, observe from a distance, and start hoarding my energy and information in a way that feels very unlike me. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+### **CT-5 Security**
+
+| **CT-5 SECURITY │ Stem: ****"****When you feel genuinely safe, relaxed, and at ease — when the pressure is off — which feels most like how you show up?****"** **Person A: **(SX 1 → security at 7) I become lighter, more playful, and spontaneous — I stop being so hard on myself and the world and find it easier to enjoy things without needing to fix them. **Person B: **(Type 8 → security at 2) I become genuinely soft, caring, and openly giving — the armor comes down and I find myself nurturing the people I love in a way I don't usually let show. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+### **CT-5 Habit of Mind (conditional)**
+
+| **CT-5 HABIT OF MIND │ Stem: ****"****Without trying to control it, where does your attention tend to go first in most situations?****"** **Person A: **(SX 1) To what's wrong or needs correcting — but especially in the people and causes I care most about. There's a moral intensity to my attention; I notice when something falls short of what it could or should be. **Person B: **(Type 8) To who has power in the situation and whether it's being used fairly — I read the dynamics immediately and feel a pull to challenge anything that seems unjust or weak. *Response options: Person A │ Both, but more A │ Both, but more B │ Person B* |
+| --- |
+
+# **Results Framing · Client-Facing Language**
+
+*These passages appear in the client-facing report generated from the JSON output.*
+
+## **Standard Results Introduction**
+
+| Based on your responses, the pattern that appears most consistent with your experience is Type X. This is a hypothesis — one that we hope will feel like recognition rather than assignment. If it resonates, that's wonderful. If it doesn't fully fit, that's important information too. Your session with Cai is the right place to explore what fits, what doesn't, and why. The assessment opens the conversation — it doesn't close it. |
+| --- |
+
+## **AMBIGUOUS Results — No Type Named**
+
+| Your responses reflect a genuinely complex pattern — one that resonates with more than one Enneagram type in meaningful ways. This isn't a limitation of the assessment; it's an honest finding about you. Some people sit at the intersection of two types. Some are in a period of growth where their pattern is actively shifting. Both are real and worth exploring. Rather than offering a premature hypothesis, we'd like to invite you into a conversation with Cai where this complexity can be explored properly. |
+| --- |
+
+## **MEDIUM Confidence Note**
+
+| This result carries moderate confidence — which means it's a strong starting point but not a settled answer. Cai will explore this hypothesis with you in session, and it may shift as you explore together. That's part of the process. |
+| --- |
+
+*© 2025 Hive, Inc. · CONFIDENTIAL · For internal use only · Version 2.0 Consolidated*

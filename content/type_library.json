@@ -1,0 +1,728 @@
+{
+  "_meta": {
+    "version": "1.1",
+    "generated_at": "2026-04-25",
+    "schema_notes": "Multi-paragraph fields are arrays of strings (one per paragraph). Single-paragraph fields are strings. Strengths, challenges, and development_tips are arrays of bullet strings. The wing_low and wing_high body fields are arrays of paragraphs.",
+    "source": "hive_type_library_mo_edits_04252026.docx — track changes accepted",
+    "edits_summary": "Mo Breault editorial pass + 1 Cai tweak to Type 6 authority language."
+  },
+  "static_primers": {
+    "enneagram_intro": {
+      "title": "About the Enneagram",
+      "body": [
+        "The Enneagram is a powerful tool for personal and professional development that describes nine distinct ways of being in the world, each anchored by a core motivation that shapes how we think, feel, and act. We have access to all nine types within us, and one of them is our home base — the pattern that has been most consistent throughout our lives.",
+        "You are not your type. Your type is a strategy you developed early on to get love, safety, and belonging, and with awareness, you can work with that pattern rather than be run by it.",
+        "You are the final authority on your Enneagram type. This report offers a hypothesis about what your type might be, based on how you answered the questions in the assessment. Type discovery is a journey, and working with a qualified coach, therapist, or other trained professional can help you get clearer on your type should you wish to go deeper."
+      ]
+    },
+    "instinct_primer": {
+      "title": "About the Instincts",
+      "body": [
+        "Alongside your core type, you have a dominant instinct — one of three innate drives that shape where your survival energy goes first. The three instincts are Self-Preservation (SP), focused on safety, comfort, health, and the practical resources of daily life; One-to-One (SX), focused on deep, intense connection with specific people or experiences; and Social (SO), focused on belonging, group dynamics, and your place within a community.",
+        "All three instincts are present in everyone, but one instinct tends to run the show. Understanding your dominant instinct helps explain why two people of the same type can look quite different in practice — the instinct flavors how the core pattern shows up in your life."
+      ]
+    },
+    "wing_primer": {
+      "title": "About Wings",
+      "body": [
+        "Wings are the two types adjacent to your core type on the Enneagram. They act as neighbors — not changing who you are, but flavoring how your core type shows up. Most people lean toward one wing more than the other, though some experience both equally and some don't notice much wing influence at all.",
+        "Your wing doesn't replace your core motivation; it adds texture, giving you access to qualities from an adjacent type that can both support and complicate your core pattern."
+      ]
+    },
+    "stress_security_primer": {
+      "title": "About Stress and Security Points",
+      "body": [
+        "The Enneagram is not a static map — it describes movement. Each type has two resource points on the diagram: a stress point and a security point. These are the Enneagram types your energy moves toward when you're under significant pressure or when you're feeling “in flow”, safe and supported.",
+        "This movement happens at an unconscious level. You don't decide to shift toward your stress point Enneagram type— it happens automatically, driven by the same survival instincts that shaped your core pattern in the first place. Under enough pressure, you may find yourself thinking, feeling, and behaving in ways that feel uncharacteristic — more anxious, more withdrawn, more reactive — without quite knowing why. That's movement towards the stress point Enneagram type.",
+        "The same is true in the other direction. When you feel secure, resourced, and at ease, your energy moves toward your security point Enneagram type, and you gain access to qualities that don't come as naturally from your “home base” type. You may find yourself more purposeful, more open, more willing to take up space — a version of yourself that feels both unfamiliar and right.",
+        "What makes this valuable is awareness. Once you recognize these movements — in yourself, in the moment — you are no longer simply subject to them. Becoming aware of your movement to the less resourced side of your stress point is a wake-up call to pause and take care of yourself. As you develop yourself, you can access the more useful qualities of both your stress and security points intentionally, rather than waiting for circumstances to push or pull you there. The stress point, which often shows up as a less resourced version of yourself under pressure, also contains real capacities worth cultivating. The security point is not a destination you only reach when everything is going well — its higher qualities are available to you right here, right now, as a valuable resource. Finally, if you notice yourself behaving like the lower side of your security point, that is a sign that you are very stressed indeed, and need to take a pause."
+      ]
+    }
+  },
+  "types": {
+    "1": {
+      "number": 1,
+      "name": "The Improver",
+      "center": "Body",
+      "wings": [
+        9,
+        2
+      ],
+      "stress_point": 4,
+      "security_point": 7,
+      "how_you_see_the_world": "Ones experience the world as a place where things could be better — where people are expected to be good, contain their impulses, and do what's right in order to be worthy. They tend to hold high internal standards, notice what needs correcting, and take responsibility for making things work the way they should.",
+      "core_motivation": [
+        "Ones are driven by a deep need to be good, ethical, and right — to live in integrity with a clear set of internal standards and to leave things better than they found them.",
+        "Underneath this drive is an early-formed belief that worth and belonging must be earned through doing things correctly, that the world is watching, and that getting it wrong carries real consequences. In daily life, this shows up as an ever-present inner critic, a sharp eye for what needs to be improved in oneself and others, and a genuine commitment to responsibility and fairness.",
+        "The cost, over time, is the tension of always measuring yourself and others against a standard that rarely feels fully met — which can harden into resentment, self-criticism, and the exhausting sense that work is never done."
+      ],
+      "strengths": [
+        "A strong moral compass and deep commitment to doing what's right",
+        "Careful attention to quality, detail, and the standards that make things work well",
+        "Responsibility and reliability — the kind of person others can genuinely count on"
+      ],
+      "challenges": [
+        "An inner critic that can be harsh, both toward yourself and toward others who fall short of your expectations",
+        "Rigidity and difficulty accepting that there is often more than one “right way”",
+        "Suppressed anger that surfaces as resentment, tension, or quiet frustration"
+      ],
+      "development_tips": [
+        "When your attention locks onto what's wrong, practice shifting it — briefly, deliberately — to what's already right and good. Not to deny the flaw, but to widen the frame.",
+        "Build in one genuinely pleasurable or playful thing a day, even when your task list isn't done. Ones often treat pleasure as something to be earned; practice letting it be ordinary.",
+        "Notice tightness in your body — jaw, shoulders, stomach — as a signal that your inner critic is working overtime. Stop, breathe, physically relax, and return.",
+        "Practice being as compassionate with yourself as you would be with a friend. The standards you hold for others may be gentler than the ones you hold for yourself. Show yourself grace.",
+        "When frustration rises, don't rush to convert it into righteousness or resentment. Get curious: what is the anger about? Often, it's pointing to something that genuinely matters to you."
+      ],
+      "patterns_of_thinking": [
+        "Attention goes first to what's wrong, imprecise, or could be improved — errors, inconsistencies, and gaps between what is and what should be. Your inner critic runs in the background, scoring your own performance and often other people's, with a constant running commentary about what needs correcting and improving.",
+        "Thinking tends to be structured, careful, and comparative, organizing things into categories of right and wrong with less room for the in-between. Over time, this can produce a kind of fatigue — the mind rarely rests, because there is always something else that could be better."
+      ],
+      "patterns_of_feeling": [
+        "Underneath the composed surface, Ones often carry anger they don't fully allow themselves to express — because direct anger isn't the \"right\" response. What shows up instead is resentment, internal tension, and a low-grade irritation with how things are.",
+        "Your feelings in general can feel tightly managed, because emotions that seem unruly or unfair threaten the self-image of being good and in control. When frustration does break through, it often surprises you with its intensity — a sign of how much has been held back. Your work is to learn that anger is information, not a character flaw."
+      ],
+      "patterns_of_behaving": [
+        "Ones tend to work hard, take responsibility seriously, and hold themselves to standards most people don't even consider. Behavior is often careful and deliberate, with an eye on doing things properly the first time.",
+        "When things aren't going right, the default move is to work harder, tighten up, or try to fix the situation — rather than let it be imperfect. Your body often carries the cost, holding the tension that the mind won't let go of."
+      ],
+      "instincts": {
+        "sp": [
+          "Self-Preservation Ones channel their standards into the practical infrastructure of life — home, work, food, finances, and the physical environment. There is often an anxious edge to how they pursue order, as if not getting it right might not meet their need for security.",
+          "They can be quite self-controlled, putting duty and material achievement ahead of personal pleasure, and the cost is often physical tension and private resentment about how much responsibility they're carrying."
+        ],
+        "sx": [
+          "One-to-One Ones (sometimes called Sexual or SX Ones) carry a charged, zealous energy just beneath a carefully controlled surface. Their standards fuel a kind of heat — intensity about how things should be, strong opinions held with conviction, and real passion about what matters to them.",
+          "In close relationships, the inner critic can turn outward, and jealousy or resentment may surface toward others who seem to live with less rigor. This is the counter-type — SX Ones can look surprisingly intense, even confrontational, and may be mistaken for a different type entirely."
+        ],
+        "so": [
+          "Social Ones channel their standards into making the world work the way it should — through institutions, rules, social movements, or their role within a group. They often hold a clear sense of the correct way to do things and may become the unofficial keeper of the group's standards.",
+          "The shadow is rigidity about others who don't meet the mark and a tendency toward criticizing groups or people behaving \"incorrectly.\""
+        ]
+      },
+      "wing_low": {
+        "number": 9,
+        "name": "Nine wing",
+        "body": [
+          "A One with a stronger Nine wing tends to be softer, more easygoing, and more patient. The Nine wing brings access to acceptance, a willingness to let things be, and more spaciousness — which can help cool the inner critic's heat.",
+          "The tradeoff is that the drive to improve can become passive or stuck, with standards held internally but not always acted upon. At their best, Ones with a Nine wing are principled, measured, and quietly grounded — people who hold the line without needing to push."
+        ]
+      },
+      "wing_high": {
+        "number": 2,
+        "name": "Two wing",
+        "body": [
+          "A One with a stronger Two wing is warmer, more people-focused, and more openly caring. The Two wing brings attention to relationships and a desire to help, softening the corrective edge with genuine concern for others.",
+          "The tradeoff is that standards can extend into how others should be cared for, with criticism dressed up as helpfulness. At their best, Ones with a Two wing are principled and generous — people who hold strong values while staying engaged and warm with the people around them."
+        ]
+      }
+    },
+    "2": {
+      "number": 2,
+      "name": "The Giver",
+      "center": "Heart",
+      "wings": [
+        1,
+        3
+      ],
+      "stress_point": 8,
+      "security_point": 4,
+      "how_you_see_the_world": "Twos experience the world as a place where love and connection are earned — where you have to give in order to receive, and where your worth is measured by how useful and caring you are to the people around you. They tend to be highly attuned to what others need, often before those others notice themselves, and find meaning in being the one who helps.",
+      "core_motivation": [
+        "Twos are driven by a deep need to be loved, valued, and genuinely connected — to earn a secure place in others' hearts by being indispensable.",
+        "Underneath this drive is an early-formed belief that love must be deserved through giving, that your own needs are less acceptable than other people's, and that being needed is the safest way to stay connected. In daily life, this shows up as an almost radar-like attunement to others' feelings, a quick move to help or support before being asked, and a pattern of pouring out more than you take in.",
+        "The cost, over time, is the loss of your own needs and voice — and a quiet buildup of hurt or resentment when the love and approval you've worked so hard to earn doesn't come in the way you were hoping it would."
+      ],
+      "strengths": [
+        "Deep empathy and an ability to read other people's emotional needs with remarkable precision",
+        "Genuine warmth and generosity that makes people feel seen, cared for, and valued",
+        "A talent for building and maintaining close, meaningful relationships"
+      ],
+      "challenges": [
+        "Losing track of your own needs and feelings in the process of tending to others",
+        "An indirect relationship with your own needs — hinting rather than asking, or expecting unspoken reciprocity",
+        "Pride that shows up as either \"no one does it like I do\" or \"I don't need anything\" — both of which block receiving"
+      ],
+      "development_tips": [
+        "Ask yourself daily: \"What do I actually want? What's really important to me?\" The answer may take time to surface. Your own needs are not a luxury — they are information you need in order to live your own life.",
+        "Practice giving without anyone knowing. It's a way of feeling the difference between generosity that flows freely and generosity that's accumulating an invisible ledger.",
+        "When emotions rise — hurt, anger, tears — treat them as signals that one of your own needs isn't getting met. Ask what that need might be before moving back toward others.",
+        "Notice the hidden scorecard — what you've given, and what you're unconsciously expecting in return. Making it conscious is the first step toward either letting it go or making the expectation visible.",
+        "Let people give to you. It may feel awkward or unearned, but receiving is a gift you give the other person. Your capacity to receive is what makes real reciprocity possible."
+      ],
+      "patterns_of_thinking": [
+        "Attention goes first to the people around you — what they need, how they're feeling, whether the connection feels solid. You often think about relationships in terms of who needs what, what might help, and where you can be useful.",
+        "Your own inner life can feel harder to access, partly because so much mental energy goes outward. Over time, this can create a subtle confusion about what you want, because the habit of orienting toward others has kept that question quiet for a long time."
+      ],
+      "patterns_of_feeling": [
+        "Twos often feel things intensely — especially love, warmth, hurt, and the grief of disconnection. But you may also feel a quiet pride in being needed, or a private sting when your giving isn't recognized.",
+        "Emotions can swing between an inflated sense of self (\"no one does this like I do\") and a deflated one (\"nothing I give is enough\") — both of which are ways of managing the vulnerability of having one’s own needs. The work is learning that your own feelings, especially the uncomfortable ones, are just as worthy of attention as everyone else's."
+      ],
+      "patterns_of_behaving": [
+        "Twos tend to move toward people, warmly and often. You offer help, anticipate needs, adapt yourself to whomever you're with, and build relationships through generosity and attentiveness.",
+        "The shadow side is a tendency to give in ways that create obligation, to say yes when you mean no, or to become resentful when the care you've given isn't returned. Physical signs — fatigue, tension, illness — are often the first place your body tells you you've given too much."
+      ],
+      "instincts": {
+        "sp": [
+          "Self-Preservation Twos create warm, personal relationships with an undercurrent of \"me first\" when it comes to their own survival needs — as in, \"I've done so much for others, now it's my turn.\" There can be a childlike, disarming quality that draws people in, but the instinct to protect themselves runs beneath it.",
+          "This subtype sometimes swings between taking care of others and pulling back as though entitled, depending on whether their own needs feel threatened."
+        ],
+        "sx": [
+          "One-to-One Twos (sometimes called Sexual or SX Twos) focus the full force of their empathy and attunement on specific people — a partner, close friend, or person they're drawn to. The giving is intense, intimate, and often seductive (though not necessarily sexual).",
+          "They have a gift for seeing and supporting others' highest potential, but the tradeoff is a tendency to lose their own boundaries in the process and to take on other people's feelings as if they were their own."
+        ],
+        "so": [
+          "Social Twos earn love and value through visible contribution to groups, organizations, and causes. They often step into indispensable roles, become the connector everyone relies on, and build influence through relationships and alignment with important people.",
+          "Their ambition is expressed through making the group successful, which can feel safer than seeking recognition directly. The shadow is over-extension — taking on too many people and too many roles until they are running on fumes."
+        ]
+      },
+      "wing_low": {
+        "number": 1,
+        "name": "One wing",
+        "body": [
+          "A Two with a strong One wing is more structured, principled, and attentive to doing things correctly. The One wing brings discipline and a sense of right conduct to the Two's generosity, often producing people who care deeply and also hold standards about how that care should be delivered.",
+          "The tradeoff is a sharper edge — criticism of self and others when the caring isn't done properly, and a slightly guarded quality to the warmth. At their best, Twos with a One wing are warm and dependable, genuinely generous with strong moral grounding."
+        ]
+      },
+      "wing_high": {
+        "number": 3,
+        "name": "Three wing",
+        "body": [
+          "A Two with a strong Three wing is more outgoing, ambitious, and image-aware. The Three wing brings energy and charisma to the Two's warmth, producing someone who is genuinely likable and often quite successful in relational roles.",
+          "The tradeoff is that the giving can become more performed — polished, strategic, oriented toward how it's being received. At their best, Twos with a Three wing are warm, capable, and effective — people whose generosity is paired with real competence and reach."
+        ]
+      }
+    },
+    "3": {
+      "number": 3,
+      "name": "The Achiever",
+      "center": "Heart",
+      "wings": [
+        2,
+        4
+      ],
+      "stress_point": 9,
+      "security_point": 6,
+      "how_you_see_the_world": "Threes experience the world as a place that values and rewards people for what they do and how well they do it — not for who they are underneath. They tend to focus on tasks, goals, and maintaining the right image, because success and recognition are the currency that secures their place in the eyes of others.",
+      "core_motivation": [
+        "Threes are driven by a deep need to be successful, effective, and recognized — to earn worth through visible accomplishment and to be seen as the kind of person worth admiring.",
+        "Underneath this drive is an early-formed belief that love and value are tied to performance, that stopping is dangerous, and that who you are without your achievements may not be enough. In daily life, this shows up as relentless forward motion, a talent for reading what success looks like in any room and delivering it, and a carefully shaped image that adapts to whoever's watching.",
+        "The cost, over time, is a creeping disconnection from your own feelings and needs — because slowing down enough to notice them threatens the engine that's been running the show."
+      ],
+      "strengths": [
+        "High energy, competence, and the ability to get things done efficiently and well",
+        "Adaptability — a talent for reading what's needed in any context and delivering it",
+        "Genuine leadership and the capacity to inspire and motivate others"
+      ],
+      "challenges": [
+        "Losing contact with your own feelings and what you actually want, beneath the pressure to perform",
+        "Defining yourself by external achievement, which leaves you vulnerable when the wins slow down or when you feel you have failed",
+        "A tendency to shape your image to fit the room, sometimes at the cost of authenticity"
+      ],
+      "development_tips": [
+        "Practice doing one thing at a time with your full attention. Multitasking is often a way of staying ahead of feelings that might surface if you slowed down.",
+        "Feel the difference between relating to people through an image and relating directly from your heart. The first is performance; the second is presence. Both are available to you.",
+        "Pay attention to physical cues — fatigue, illness, tension — as an invitation to slow down or do one less thing. Your body is often the first place the cost shows up.",
+        "Notice when you shift your presentation to \"win\" a moment. Practice losing once in a while on purpose — not as failure, but as a way of releasing the grip of the image you want others to see.",
+        "Take time to pause and ask yourself what you're feeling. Threes often skip over emotions because they believe emotions slow things down. Your feelings are not an obstacle — they are part of being human."
+      ],
+      "patterns_of_thinking": [
+        "Attention goes first to tasks, goals, and what needs to happen — how to be efficient, how to win, how to be seen doing well. The mind generates strategies, shortcuts, and plans of action quickly, often while other people are still catching up.",
+        "You tend to read the room and adjust your presentation on the fly — what image, what language, what posture works in a particular situation. Over time, this can produce a subtle distance from your own inner life, because your mental energy is perpetually focused outward on what's being performed and how others perceive you."
+      ],
+      "patterns_of_feeling": [
+        "Threes often have a complicated relationship with feelings. The core pattern routes emotion around the work — pushing it down, reframing it, getting back to the task — because of a belief that feelings can slow things down and reduce one’s effectiveness.",
+        "Underneath this, there's often grief or exhaustion that hasn't had room to surface, along with a quiet fear that stopping would reveal someone less impressive underneath. When feelings do break through, they can arrive with surprising force — a signal that you have been holding onto something for a long time. The work is learning that your feelings are part of who you are and not a threat to your effectiveness."
+      ],
+      "patterns_of_behaving": [
+        "Threes move fast, execute cleanly, and produce visible results. Your behavior tends to be polished, strategic, and calibrated to what will land — in the workplace, in relationships, and in how you show up online or in public.",
+        "You're often busy, often successful, and often several steps ahead of where others expect you to be. The shadow is overwork to the point of depletion, and the slow erosion of the authentic self underneath the image that you have been carefully building."
+      ],
+      "instincts": {
+        "sp": [
+          "Self-Preservation Threes channel their drive into material success, financial security, and the tangible markers of a well-run life — a good home, steady resources, and visible competence. This is the counter-type — SP Threes often downplay the image work itself, preferring to be seen as hardworking and modest rather than flashy or self-promoting.",
+          "Self-Preservation Threes can look surprisingly like Ones because they emphasize doing things properly rather than showing off. The shadow is overwork and losing touch with the authentic self underneath the productivity."
+        ],
+        "sx": [
+          "One-to-One Threes (sometimes called Sexual or SX Threes) focus their performance energy on charisma and personal magnetism — being the one whose presence fills a room and who wins attention and approval, be it in intimate relationships or onstage. Physical attractiveness and personal impact matter here, often more than institutional prestige.",
+          "The shadow is getting stuck in performing even in close relationships, losing touch with one’s inner needs while successfully winning the love you were performing for."
+        ],
+        "so": [
+          "Social Threes direct the success drive toward visible status — knowing the right people, holding influential roles, and being effective in groups and institutions. They are natural political operators with high social intelligence, adapting seamlessly across contexts.",
+          "The shadow is sometimes losing the self entirely inside the role, and a tendency to confuse social success with genuine connection or meaning."
+        ]
+      },
+      "wing_low": {
+        "number": 2,
+        "name": "Two wing",
+        "body": [
+          "A Three with a strong Two wing is warmer, more people-oriented, and more charming. The Two wing brings genuine care about others into the success drive, producing people who are both ambitious and relationally skilled.",
+          "The tradeoff is a tendency to seek approval through both achievement and likeability — which can feel exhausting to maintain. At their best, Threes with a Two wing are effective and warm, able to lead through inspiration and real connection rather than pure output."
+        ]
+      },
+      "wing_high": {
+        "number": 4,
+        "name": "Four wing",
+        "body": [
+          "A Three with a strong Four wing is more introspective, artistic, and attuned to individual expression. The Four wing brings depth, aesthetic sensibility, and a pull toward authenticity into the achievement drive.",
+          "The tradeoff is more internal tension — the Four wing notices what's missing and what feels hollow about the image-making, which can create real inner conflict. At their best, Threes with a Four wing are accomplished and genuine, people who pursue meaningful work rather than just visible work."
+        ]
+      }
+    },
+    "4": {
+      "number": 4,
+      "name": "The Individualist",
+      "center": "Heart",
+      "wings": [
+        3,
+        5
+      ],
+      "stress_point": 2,
+      "security_point": 1,
+      "how_you_see_the_world": "Fours experience the world as a place marked by what's missing — a gap between how things are and how they could or should be. They tend to feel things deeply, notice what's absent or incomplete, and search for what's authentic, meaningful, and uniquely their own.",
+      "core_motivation": [
+        "Fours are driven by a deep need to find meaning, authenticity, and a sense of wholeness — to feel their own identity fully and not be mistaken for ordinary.",
+        "Underneath this drive is an early-formed belief that something essential is missing or broken in them, and that reclaiming what's lost requires finding an experience, connection, or self-expression deep enough to complete the picture. In daily life, this shows up as strong feelings, aesthetic sensitivity, a pull toward what's distinctive or beautiful, and a recurring sense of longing for something just out of reach.",
+        "The cost, over time, is a tendency to dwell in what's absent rather than what's here — which can pull you into moods, comparison, and a quiet conviction that other people have something you don't."
+      ],
+      "strengths": [
+        "Deep emotional sensitivity and the ability to feel and express what others can't or won't",
+        "Creativity, aesthetic awareness, and a gift for finding meaning in experience",
+        "Real empathy, especially with suffering — the ability to stay with difficult feelings rather than rushing past them"
+      ],
+      "challenges": [
+        "Dwelling in what's missing, which can pull you away from the good that is already present",
+        "Intense moods and a tendency to identify strongly with whatever you're feeling in the moment",
+        "Comparison with others that produces either envy or a sense of your own inadequacy"
+      ],
+      "development_tips": [
+        "When longing pulls your attention toward what's missing, practice shifting to what's actually here. Gratitude is a muscle, and Fours benefit from building it deliberately.",
+        "Stay consistent with commitments, even when the feelings don't match. Feelings are real information, but they're not always accurate instructions about what to do next.",
+        "Notice when self-absorption pulls you inward at the expense of being present with others. The inward journey is valuable; getting stuck there is costly.",
+        "Recognize that suffering, specialness, and feeling different can become addictive substitutes for the ordinary connection and belonging that would actually heal the original wound.",
+        "Let yourself be loved in your ordinariness. You don't have to be unique to be worthy of connection. The longing for something extraordinary often masks the possibility of something real, right where you are."
+      ],
+      "patterns_of_thinking": [
+        "Attention goes first to what's missing, what's felt, or what's unique and meaningful about an experience. The mind often moves through comparison — how this is better or worse, how you measure up, what's different about your inner life.",
+        "There's a pull toward the ideal, the aesthetic, and the authentic, and an intolerance for the bland or generic. Over time, this can produce a kind of gravitational drift toward what isn't here — even when what is here is genuinely good."
+      ],
+      "patterns_of_feeling": [
+        "Fours feel intensely and often, with a full spectrum that includes sadness, longing, melancholy, beauty, and fierce love. Feelings are identity-adjacent — they tell you who you are and what matters.",
+        "The shadow is over-identifying with whatever mood arrives, as if it were the whole truth, and a tendency to amplify emotional intensity because numbness or ordinariness feels worse than pain. Envy — comparing your inner life to others' apparent ease — is often the dominant undercurrent, though it may surface as criticism, longing, or private grief rather than obvious jealousy."
+      ],
+      "patterns_of_behaving": [
+        "Fours often withdraw inward, especially when emotions are strong. Behavior tends to be expressive — through creativity, aesthetic choices, personal style, or the way you inhabit your space and relationships.",
+        "You may alternate between pulling toward people in intensity and pulling away in self-protection or melancholy. The shadow is inconsistency — commitments made in the heat of feeling that are hard to sustain when the mood shifts, and a reluctance to do ordinary things that might feel like betrayal of something deeper."
+      ],
+      "instincts": {
+        "sp": [
+          "Self-Preservation Fours are the counter-type — rather than expressing their suffering outwardly, they quietly endure it and push forward. There's a dauntless, sometimes reckless quality here, a willingness to take risks and throw themselves into new situations.",
+          "They often look more resilient and less obviously moody than other Fours, which can make the core longing harder to spot. The work is still there underneath — a drive to earn what's missing rather than mourn it."
+        ],
+        "sx": [
+          "One-to-One Fours (sometimes called Sexual or SX Fours) channel their feelings through competition and comparison — measuring themselves against others and alternating between admiration and devaluation. They seek intensity of connection and are willing to push, demand, or express anger more readily than other Fours.",
+          "This subtype seeks full heart-based engagement with partners, creative work, or the divine, and the shadow is aggression when that depth of connection feels unavailable."
+        ],
+        "so": [
+          "Social Fours carry their sense of deficiency into the group — feeling shame about their place in social contexts more acutely than other Fours. They often find an honorable role as the emotional truth-teller, social critic, or witness to what others won't name.",
+          "The shadow is getting stuck in the outsider position, longing for belonging while also refusing to compromise the authenticity that would make belonging possible."
+        ]
+      },
+      "wing_low": {
+        "number": 3,
+        "name": "Three wing",
+        "body": [
+          "A Four with a strong Three wing is more outgoing, more accomplished-looking, and more engaged with the external world. The Three wing brings drive, energy, and a capacity to translate inner intensity into visible achievement — often in creative or artistic fields.",
+          "The tradeoff is tension between authentic self-expression and the pull to be seen and successful, which can feel contradictory. At their best, Fours with a Three wing are expressive and effective — people who bring their depth into the world rather than keeping it private."
+        ]
+      },
+      "wing_high": {
+        "number": 5,
+        "name": "Five wing",
+        "body": [
+          "A Four with a strong Five wing is more introspective, more private, and more intellectually focused. The Five wing brings depth of analysis, a love of ideas, and a tendency to withdraw inward to think and feel in solitude.",
+          "The tradeoff is isolation — the combination of Four's longing and Five's withdrawal can produce real loneliness, especially if they don’t share their rich inner world. At their best, Fours with a Five wing are deeply creative and contemplative — people whose inner life is unusually rich and whose perception is distinctive and sharp."
+        ]
+      }
+    },
+    "5": {
+      "number": 5,
+      "name": "The Investigator",
+      "center": "Head",
+      "wings": [
+        4,
+        6
+      ],
+      "stress_point": 7,
+      "security_point": 8,
+      "how_you_see_the_world": "Fives experience the world as a place that demands too much and gives too little — where other people's needs, expectations, and emotions can easily drain the limited energy they have. They tend to protect their inner resources through privacy, observation, and building competence, finding security in knowing rather than in relying on others.",
+      "core_motivation": [
+        "Fives are driven by a deep need to guard their energy, protect their autonomy, and accumulate the knowledge that makes self-sufficiency possible.",
+        "Underneath this drive is an early-formed belief that the world is more demanding than supportive, that needing too much from others is dangerous, and that understanding is the surest way to be safe. In daily life, this shows up as a preference for observation over participation, a thoughtful and contained way of engaging, and a careful management of time, attention, and emotional availability.",
+        "The cost, over time, is a pattern of withdrawal that can quietly cut you off from the support and connection that would actually replenish you — the resources you've been guarding against losing were never as scarce as they seemed."
+      ],
+      "strengths": [
+        "Intellectual depth and a genuine ability to understand complex systems and ideas",
+        "Calm under pressure — the capacity to stay clear-headed when others are reactive",
+        "Respect for boundaries, both yours and others', and a genuine appreciation for simplicity"
+      ],
+      "challenges": [
+        "Withdrawal that becomes isolation — holding back so much that connection atrophies",
+        "Withholding feelings, energy, or yourself from people who would welcome more",
+        "Staying in the head to avoid the vulnerability of direct experience and feeling"
+      ],
+      "development_tips": [
+        "Make the counter-instinctive move — forward, into life and feelings, rather than back into thought. You don't have to fully understand something before engaging with it.",
+        "Notice the impact of withdrawal on others. Silence and distance are often read as rejection, even when they're really about self-protection. Sharing more doesn't require giving away everything.",
+        "Share or give a little more of yourself than feels comfortable — your presence, your response, your actual thoughts. The energy you spend guarding is usually more depleting than the energy of real connection.",
+        "Notice the cues that you're detaching from feelings into analysis. The mind is a safer place than the body, but feelings don't disappear when ignored — they intensify.",
+        "Practice receiving. Fives often give knowledge but struggle to take in support, care, or attention. Letting it in is part of what abundance feels like."
+      ],
+      "patterns_of_thinking": [
+        "Attention goes first to understanding — how things work, what the underlying patterns are, what you don't yet know. The mind is your home base, and thinking is both genuinely pleasurable and a way of managing the world from a safe distance.",
+        "You tend to observe before engaging, gather information before committing, and process experiences afterward in private rather than in the moment. Over time, this can produce a subtle split — a rich inner life that rarely gets shared, and a simplified external presentation that doesn't quite match the complexity underneath."
+      ],
+      "patterns_of_feeling": [
+        "Fives often experience feelings at a delay — recognizing them hours or days after they arrive, rather than in real time. Emotions can feel energy-expensive, so the default move is to think about them rather than have them, or to retreat somewhere private before fully registering what you're feeling.",
+        "Underneath the calm surface, there's often more feeling than shows — including loneliness, longing, and a quiet fear of being overwhelmed by demands. The work is learning that feelings, like knowledge, are a resource — not a depletion."
+      ],
+      "patterns_of_behaving": [
+        "Fives tend to be contained, private, and careful about how they spend their time and energy. You often prefer smaller commitments to larger ones, predictable interactions to open-ended ones, and a few close relationships to many casual ones.",
+        "When demands mount, the default move is to withdraw — physically, emotionally, or both. The shadow is a gradual accumulation of withholding that leaves you isolated even in rooms full of people who would welcome more of you."
+      ],
+      "instincts": {
+        "sp": [
+          "Self-Preservation Fives focus their energy on home as sanctuary — a place to retreat, restore, and stay protected from the world's demands. There's often real concern about having enough supplies and resources, and a tendency to build a life that minimizes how much they need from anyone else.",
+          "The shadow is hoarding, either materially or emotionally, and a home that becomes more escape than foundation."
+        ],
+        "sx": [
+          "One-to-One Fives (sometimes called Sexual or SX Fives) seek to share their rich inner world with carefully chosen intimates. Friendships and close relationships are kept compartmentalized — different people know different parts of you, and they are expected to hold what's shared in confidence.",
+          "They can form deep, loyal bonds, but rarely gather all their people in one place. The shadow is a slightly secretive quality — gathering intelligence about others while revealing little of yourself."
+        ],
+        "so": [
+          "Social Fives direct their knowledge-gathering toward mastery of a field, system, or domain — often becoming the expert, teacher, or learned professional within a community. A formal role preserves autonomy while allowing contribution.",
+          "The shadow is observing life from the sidelines — analyzing it, teaching about it, without fully participating in it."
+        ]
+      },
+      "wing_low": {
+        "number": 4,
+        "name": "Four wing",
+        "body": [
+          "A Five with a strong Four wing is more emotionally sensitive, more creative, and more attuned to aesthetics and personal expression. The Four wing brings depth of feeling and a pull toward meaning into the Five's intellectual life, resulting in someone who is quietly artistic and privately emotional.",
+          "The tradeoff is greater moodiness and a more complicated inner world — feelings and analysis can pull in different directions. At their best, Fives with a Four wing are thoughtful and creative, combining intellectual depth with genuine emotional insight."
+        ]
+      },
+      "wing_high": {
+        "number": 6,
+        "name": "Six wing",
+        "body": [
+          "A Five with a strong Six wing is more cautious, more oriented toward loyalty and reliability, and more engaged with questions of trust and safety than a pure Five. The Six wing brings vigilance, practical problem-solving, and a willingness to engage with systems and institutions into the Five's observational stance.",
+          "The tradeoff is more anxiety — the combined head-type energy can produce real worry, particularly about being caught off guard. At their best, Fives with a Six wing are thoughtful, loyal, and genuinely skilled at anticipating problems before they arrive."
+        ]
+      }
+    },
+    "6": {
+      "number": 6,
+      "name": "The Loyal Skeptic",
+      "center": "Head",
+      "wings": [
+        5,
+        7
+      ],
+      "stress_point": 3,
+      "security_point": 9,
+      "how_you_see_the_world": "Sixes experience the world as a place that is unpredictable and not fully trustworthy — where safety can't be assumed and preparation is how you stay ahead of what could go wrong. They tend to scan for what's unstable, vacillate between trusting and not trusting authority, and build loyalty and reliability as the foundation for security.",
+      "core_motivation": [
+        "Sixes are driven by a deep need for certainty, security, and reliable ground to stand on — and by a persistent scanning for what might threaten it.",
+        "Underneath this drive is an early-formed belief that the world is more dangerous than it seems, that trust is hard-won, and that staying prepared is the price of being safe. In daily life, this shows up as vigilance, questioning, contingency-thinking, and deep loyalty to the people and systems that have proven themselves.",
+        "The cost, over time, is the exhaustion of perpetual alertness — and a relationship with your own authority that wavers between doubting yourself and overriding your doubt with forced certainty."
+      ],
+      "strengths": [
+        "Loyalty and real commitment to the people, causes, and systems you trust",
+        "A gift for spotting what could go wrong — which makes you genuinely skilled at troubleshooting",
+        "Warmth, responsibility, and dependability in ways others come to rely on"
+      ],
+      "challenges": [
+        "Doubt — of yourself, of others, of the ground you're standing on — that can paralyze decision-making",
+        "Worry and worst-case thinking that costs real energy and quality of life",
+        "A complicated relationship with authority — simultaneously wanting it and questioning it"
+      ],
+      "development_tips": [
+        "Take an action before you feel fully prepared. Certainty is rarely available; movement is often the only way to discover what's actually true.",
+        "Balance the negative forecasting with deliberate attention to what's working. Ask \"Why not?\" as often as you ask \"What if?\"",
+        "Pause to notice, name, and savor your actual successes. Sixes often move past accomplishments too quickly, scanning for the next threat before letting the win register.",
+        "Notice when your mind amplifies a situation. Ask: is this a real impression, or a projection running on old fears? The practice isn't to dismiss concerns — it's to distinguish them.",
+        "When doubt or worry spin up, move your body. Walk, stretch, breathe. The head center runs hot; the body is where the system settles."
+      ],
+      "patterns_of_thinking": [
+        "Attention goes first to what could go wrong, who can be trusted, and what you might not yet be prepared for. Your mind generates contingencies quickly — scenarios, backup plans, counter-arguments, worst cases.",
+        "You tend to question yourself, question others, and run everything through a kind of reliability filter before committing. Over time, this produces a strong analytical capacity and a real gift for spotting problems early, alongside a mind that rarely rests and sometimes struggles to trust its own conclusions."
+      ],
+      "patterns_of_feeling": [
+        "Underneath the vigilance, fear is the core emotional texture — though it often doesn't feel like fear. It shows up as worry, skepticism, hesitation, or a restless buzz of \"something isn't right.\"",
+        "Some Sixes push through fear by confronting it head-on (the counterphobic pattern — where fear looks like aggression or risk-taking), and all Sixes can show up as sometimes phobic (over-preparing) and other times as counterphobic, depending on the situation. The work is learning that fear is information, not a command — and that courage isn't the absence of fear but the willingness to act when it is present."
+      ],
+      "patterns_of_behaving": [
+        "Sixes tend to be loyal, responsible, and reliable to the people and systems they've decided to trust. Behavior is often careful, with plenty of checking, questioning, and verifying before committing.",
+        "Under stress, you may swing between over-preparing and pushing through aggressively — two versions of the same fear response. The shadow is indecision in the absence of certainty, and a tendency to test the people around you for reliability in ways that can strain the relationships you most want to trust."
+      ],
+      "instincts": {
+        "sp": [
+          "Self-Preservation Sixes manage fear through warmth and personal connection — building a small, trusted inner circle where safety is mutual. There can be a kind of disarming friendliness that serves both as genuine care and as a way of testing whether others are trustworthy.",
+          "Family relationships are often central, and the shadow is staying inside well-known boundaries rather than taking the risks that growth requires."
+        ],
+        "sx": [
+          "One-to-One Sixes (sometimes called Sexual or SX Sixes) are the counter-type — they handle fear by pushing toward it rather than away. This subtype carries a warrior spirit, facing challenges with strength, intensity, and sometimes counterphobic confrontation.",
+          "They can look surprisingly like Eights — forceful, risk-taking, and unafraid to confront — but the fear is still underneath, driving the intensity. The shadow is using aggression to avoid experiencing the vulnerability that the fear points to."
+        ],
+        "so": [
+          "Social Sixes take on responsibility for the safety and order of the group — knowing the rules, organizing the structure, or creating the agreements that everyone can rely on. There's a real gift for building systems that serve the community.",
+          "The shadow is duty that becomes burden, and a tendency to use group responsibility as a way of avoiding more personal feelings and needs."
+        ]
+      },
+      "wing_low": {
+        "number": 5,
+        "name": "Five wing",
+        "body": [
+          "A Six with a strong Five wing is more introverted, more analytical, and more focused on gathering information before acting. The Five wing brings intellectual depth and a tendency to withdraw into thought when fear spikes, producing people who can be quietly brilliant at analysis and problem-solving.",
+          "The tradeoff is isolation under stress — the combined head-type energy can pull you into your head in ways that amplify rather than resolve the worry. At their best, Sixes with a Five wing are thoughtful, loyal, and unusually skilled at thinking through complex situations."
+        ]
+      },
+      "wing_high": {
+        "number": 7,
+        "name": "Seven wing",
+        "body": [
+          "A Six with a strong Seven wing is more outgoing, more playful, and more comfortable with risk. The Seven wing brings optimism and a willingness to reframe fear toward possibility, producing people who can be warm, funny, and socially engaged.",
+          "The tradeoff is a tendency to deflect from fear through distraction — which can work in the short term but leaves the underlying worry unaddressed. At their best, Sixes with a Seven wing are loyal, warm, and capable of real levity in a type that often runs heavy."
+        ]
+      }
+    },
+    "7": {
+      "number": 7,
+      "name": "The Enthusiast",
+      "center": "Head",
+      "wings": [
+        6,
+        8
+      ],
+      "stress_point": 1,
+      "security_point": 5,
+      "how_you_see_the_world": "Sevens experience the world as a place full of fascinating possibilities — where limits, pain, and boredom are obstacles to be navigated around, and where the best strategy is to keep options open, keep moving, and keep the future bright. They tend to focus on what's next, what's interesting, and what could make this moment better.",
+      "core_motivation": [
+        "Sevens are driven by a deep need to experience life fully, stay free of painful limitation, and maintain the sense that something good is always ahead.",
+        "Underneath this drive is an early-formed belief that pain and constraint must be managed by staying several steps ahead — through planning, reframing, and keeping the future richer than the present. In daily life, this shows up as quick thinking, genuine enthusiasm, a talent for connecting ideas and people, and an almost reflexive pivot away from anything that feels heavy or stuck.",
+        "The cost, over time, is a kind of scattered aliveness — many experiences started, fewer fully tasted, and a quiet difficulty staying with what's actually here when it isn't what you'd hoped for."
+      ],
+      "strengths": [
+        "Genuine optimism and the ability to see possibility where others see obstacles",
+        "Quick thinking, versatility, and a gift for synthesizing ideas across domains",
+        "Real warmth and enthusiasm that energizes groups and relationships"
+      ],
+      "challenges": [
+        "Scattered attention — too many open loops, too many half-started projects, too many possibilities",
+        "Avoidance of pain, limitation, and commitment that would require you to stay when things get hard",
+        "A tendency to reframe difficulty toward the positive so quickly that real feelings don't get processed"
+      ],
+      "development_tips": [
+        "Over-scheduling and future-focus are often signals that something in the present is being avoided. Ask yourself what you'd be feeling if you slowed down.",
+        "Work on one thing at a time, and practice finishing what you start. Depth of experience requires staying past the point where your attention wants to jump to the next thing.",
+        "When pain, fear, or limitation arrives, practice staying with it a little longer before reframing it. The full experience of a difficult feeling is often what lets it actually move through.",
+        "Notice the difference between excitement about possibility and genuine aliveness in the present. Both are real, but they serve different purposes.",
+        "Commit to something. Commitment closes doors, and for Sevens that can feel unbearable — but it's also where depth, love, and meaning actually live."
+      ],
+      "patterns_of_thinking": [
+        "Attention goes first to what's possible, what's next, and what could make this moment more interesting. The mind moves quickly, connecting ideas across domains, generating options, planning pleasurable futures, and reframing anything that threatens to feel stuck.",
+        "You tend to hold many things open simultaneously — projects, plans, possibilities — because closing off options feels like losing freedom. Over time, this can produce brilliant synthesis alongside a scattered quality that makes depth and completion genuinely hard."
+      ],
+      "patterns_of_feeling": [
+        "Underneath the upbeat surface, fear runs the system — specifically, fear of being trapped, limited, or forced to stay with pain. Feelings that slow you down or feel heavy tend to get reframed, redirected, or distracted from quickly, often before you've fully noticed them.",
+        "Grief, sadness, fear, and limitation are the hardest to stay with, so they often accumulate in the background without being fully processed. The work is learning that feelings you've stayed with, including the hard ones, are what actually produce the full, rich experience of life you're reaching for."
+      ],
+      "patterns_of_behaving": [
+        "Sevens tend to be active, social, and forward-moving. Behavior often involves multiple projects, frequent plans, new experiences, and a generous enthusiasm that draws others in.",
+        "You move quickly, adapt easily, and often find yourself a few steps ahead of others. The shadow is over-commitment, avoidance of the difficult, and relationships or projects that suffer when the novelty wears off and the work of staying begins."
+      ],
+      "instincts": {
+        "sp": [
+          "Self-Preservation Sevens channel their appetite into an abundant lifestyle — good food, good friends, fun projects, and a network of people who make life enjoyable. This is the classic epicurean Seven, with a real gift for entrepreneurial ventures and creating occasions.",
+          "The shadow is over-consuming (food, experiences, stimulation) and a tendency to prioritize the pleasurable over the necessary."
+        ],
+        "sx": [
+          "One-to-One Sevens (sometimes called Sexual or SX Sevens) are the suggestible ones — easily influenced by new ideas, new people, and new adventures. Their charm and enthusiasm can draw others into whatever new direction they're pursuing, though they may change directions so quickly that commitments and relationships suffer.",
+          "For this subtype, life is an adventure to be shared — the shadow is a restlessness that makes staying anywhere for long genuinely difficult."
+        ],
+        "so": [
+          "Social Sevens are the counter-type — rather than indulging their appetite, they sacrifice personal desires in service of the group or a social ideal. There's a paradox here: to belong, they accept limits they'd otherwise resist.",
+          "This subtype channels expansive energy into visions for a better world, group projects, and causes. The shadow is over-extension from too many plans and a tendency to confuse social idealism with arriving at the good life they imagine."
+        ]
+      },
+      "wing_low": {
+        "number": 6,
+        "name": "Six wing",
+        "body": [
+          "A Seven with a strong Six wing is more loyal, more responsible, and more attentive to relationships. The Six wing brings warmth and a capacity for genuine commitment into the Seven's forward motion, producing people who are fun and reliable.",
+          "The tradeoff is more anxiety than a pure Seven, since the Six wing notices what could go wrong even as the Seven pushes toward what could go right. At their best, Sevens with a Six wing are enthusiastic and dependable — people who bring energy into groups while following through on what they promise."
+        ]
+      },
+      "wing_high": {
+        "number": 8,
+        "name": "Eight wing",
+        "body": [
+          "A Seven with a strong Eight wing is more assertive, more action-oriented, and more willing to push through resistance. The Eight wing brings directness and a tolerance for conflict into the Seven's playful energy, producing someone who is often entrepreneurial, bold, and capable of real decisiveness.",
+          "The tradeoff is a harder edge — the Eight wing can make a Seven less tolerant of others' slowness and more willing to override objections. At their best, Sevens with an Eight wing are energetic, commanding, and effective — people who get things moving and moving fast."
+        ]
+      }
+    },
+    "8": {
+      "number": 8,
+      "name": "The Challenger",
+      "center": "Body",
+      "wings": [
+        7,
+        9
+      ],
+      "stress_point": 5,
+      "security_point": 2,
+      "how_you_see_the_world": "Eights experience the world as a place where power matters and the strong too often take advantage of the weak — where being direct, strong, and in control is how you protect yourself, the people you care about, and what you believe is right. They tend to move forward confidently, assert their truth, and keep vulnerability tucked away.",
+      "core_motivation": [
+        "Eights are driven by a deep need to be strong, stay in control of their own lives, and protect themselves and the people they love from being taken advantage of.",
+        "Underneath this drive is an early-formed belief that the world isn't always fair, that weakness is dangerous, and that if you don't take charge, someone else will — often not to your benefit. In daily life, this shows up as directness, high energy, a low tolerance for pretense, and a willingness to confront what others avoid.",
+        "The cost, over time, is a wall around the softer parts of you — the vulnerability and tenderness that, if you let them, would add real depth to the strength you've already built."
+      ],
+      "strengths": [
+        "Strength, directness, and the courage to take action when others hesitate",
+        "Fierce protectiveness of the people you love and the values you stand for",
+        "Honesty and truth-telling — an aversion to pretense that others find refreshing"
+      ],
+      "challenges": [
+        "Intensity that can overwhelm others and close down conversations that need to stay open",
+        "A habit of overriding vulnerability — your own and sometimes other people's — in the name of strength",
+        "Impatience and impulsiveness that can lead to action before the situation is fully understood"
+      ],
+      "development_tips": [
+        "Allow a gap between impulse and action. Take a breath, count to ten, and notice what's happening before doing something. The impulse is real; it's not always the best guide.",
+        "When anger or intense energy arises quickly, get curious about what's underneath. Eights often use anger to cover softer feelings — hurt, fear, disappointment — that are harder to access.",
+        "Notice the impact of your intensity on others — not to shrink it, but to choose when to bring its full force and when to bring something softer.",
+        "Investigate the difference between weakness and vulnerability. Vulnerability is the capacity to be affected, which is not the same as being powerless. Strength and tenderness can live in the same body.",
+        "Practice being less certain. Be open to the possibility that someone else's perspective — especially when it contradicts yours — might contain a truth worth hearing."
+      ],
+      "patterns_of_thinking": [
+        "Attention goes first to power — who has it, who's using it fairly, and whether things are being handled with strength and directness. The mind sizes up situations quickly, identifying who's real and who isn't, and often moving to action before others have finished assessing.",
+        "You tend to think in terms of truth and impact, with less patience for nuance that feels like hedging. Over time, this produces real decisiveness alongside a tendency to oversimplify — black and white thinking that can miss the shades of gray where important truths often live."
+      ],
+      "patterns_of_feeling": [
+        "Eights access anger quickly and comfortably — often as the first response to situations that frustrate or threaten. Underneath the anger, though, are softer feelings that are harder to reach: vulnerability, hurt, fear, and tenderness.",
+        "The core pattern is to push those down in favor of strength, because feeling them feels dangerous. Your intensity often masks how much you really feel — and the work is learning that the tender feelings are not a threat to your strength but part of what makes it real."
+      ],
+      "patterns_of_behaving": [
+        "Eights tend to be direct, high-energy, and forward-moving. Behavior is often decisive, sometimes to the point of making others feel run over. You take charge when no one else will, protect people who can't protect themselves, and say the hard truth when the room is dancing around it.",
+        "The shadow is excess — too much intensity, too much control, too much pushing past the point where others could still be with you. The cost often shows up in relationships, where people close to you may feel loved and also overwhelmed."
+      ],
+      "instincts": {
+        "sp": [
+          "Self-Preservation Eights focus their protective energy on survival and territory — home, resources, and the people inside their circle. There's often a preoccupation with having what you need, and fierce loyalty to family and close friends alongside real wariness about anyone outside the circle.",
+          "The shadow is missing the support that genuinely exists in a friendlier world, and a tendency to stockpile — physically, relationally, or emotionally — beyond what's needed."
+        ],
+        "sx": [
+          "One-to-One Eights (sometimes called Sexual or SX Eights) bring enormous energy to close relationships — wanting to be fully known and to fully know the other. They often command attention effortlessly, and their care can feel both intensely protective and overwhelming.",
+          "Underneath, there's often a paradoxical yearning to surrender to a trusted partner — to let go of control in the context of real safety. The shadow is possessiveness that feels like love but can become control."
+        ],
+        "so": [
+          "Social Eights direct their power toward groups, causes, and the fight for justice — often taking a leadership role on behalf of those who can't fight for themselves. Loyalty to friends and the social cause takes precedence over personal needs.",
+          "The shadow is the pull between forgiveness and revenge — Social Eights must often decide whether to forgive those who have harmed their people, or to stay committed to justice as a form of correction."
+        ]
+      },
+      "wing_low": {
+        "number": 7,
+        "name": "Seven wing",
+        "body": [
+          "An Eight with a strong Seven wing is more outgoing, more playful, and more entrepreneurial. The Seven wing brings optimism and a taste for life's pleasures into the Eight's intensity, producing someone who can be bold and charismatic, often with real business or creative instincts.",
+          "The tradeoff is more impulsivity — the Seven wing adds to the Eight's existing tendency to act quickly, sometimes without full consideration. At their best, Eights with a Seven wing are powerful and life-loving — people who lead with energy and bring others along for the ride."
+        ]
+      },
+      "wing_high": {
+        "number": 9,
+        "name": "Nine wing",
+        "body": [
+          "An Eight with a strong Nine wing is more grounded, more impatient, and more measured. The Nine wing brings calm and a quality of steady presence into the Eight's energy, producing someone who is powerful without being constantly in motion.",
+          "The tradeoff is that the Eight's directness can get cloaked in Nine's comfort-seeking — avoiding the conflict they'd otherwise walk right into. At their best, Eights with a Nine wing are strong and steady — people whose power is felt but doesn't need to announce itself, and who can hold their ground without needing to push."
+        ]
+      }
+    },
+    "9": {
+      "number": 9,
+      "name": "The Peacemaker",
+      "center": "Body",
+      "wings": [
+        8,
+        1
+      ],
+      "stress_point": 6,
+      "security_point": 3,
+      "how_you_see_the_world": "Nines experience the world as a place that is more harmonious when they stay in the background and don't insist on their own needs, preferences, or perspective. They tend to merge with the priorities of others and with the rhythms of their environment, finding peace in accommodation and discomfort in conflict or separation.",
+      "core_motivation": [
+        "Nines are driven by a deep need to maintain inner and outer peace — to preserve a sense of union and connection by avoiding conflict, minimizing their own presence, and keeping the emotional temperature stable.",
+        "Underneath this drive is an early-formed belief that belonging requires blending in, that making yourself too visible or insistent risks disrupting the harmony that feels essential. In daily life, this shows up as an almost automatic attunement to what the environment needs, a tendency to merge with the agenda of the room, and a quiet instinct to smooth over rather than stir up.",
+        "The cost, over time, is self-forgetting — a gradual loss of contact with your own priorities, preferences, and voice, until it can feel genuinely hard to locate what you truly want."
+      ],
+      "strengths": [
+        "A natural ability to create calm and safety in environments and relationships",
+        "Genuine empathy and the capacity to hold multiple perspectives without judgment",
+        "A grounded, steady presence that others instinctively trust and find reassuring"
+      ],
+      "challenges": [
+        "Self-forgetting — losing touch with your own priorities, desires, and voice in the process of accommodating others",
+        "Inertia — difficulty initiating action, especially on your own behalf, leading to procrastination or passive drift",
+        "Conflict avoidance — a tendency to go along or stay quiet rather than assert a position, even when your perspective matters deeply"
+      ],
+      "development_tips": [
+        "Claim your own agenda. Practice naming what you want — even in small, low-stakes moments. Your preferences matter, and saying them out loud is how you learn to trust them.",
+        "Notice when you say \"yes\" and actually mean \"no.\" This gap is often where passive resistance builds up later. If the real answer is no, let it be no.",
+        "Get curious about your irritation. When frustration surfaces — even as a flicker — treat it as information, not a problem. It's usually pointing to something important to you that isn't getting attention.",
+        "Focus on the immediate next step rather than the whole arc. Nines often stall when the full picture feels overwhelming. One small action is almost always possible, and it's often enough.",
+        "Welcome a little discomfort. Growth for Nines often lives on the other side of the small disruption you'd rather avoid — the hard conversation, the firm \"no,\" the change in routine. Discomfort isn't a sign something's wrong; it's often a sign you're showing up."
+      ],
+      "patterns_of_thinking": [
+        "Attention goes first to the overall atmosphere — who's comfortable, what the room needs, whether things feel settled. Nines often notice other people's positions and preferences before they notice their own, and they may find that when they try to locate their own view, it feels fuzzy or genuinely absent.",
+        "Decisions can feel hard because every option seems to have merit, and the mind keeps generating reasons to stay with all of them rather than commit to one. Over time, this can create a sense of being a little out of focus with yourself — aware of everything around you, and less sure of what's true for you."
+      ],
+      "patterns_of_feeling": [
+        "Underneath the calm exterior, Nines often carry anger they don't fully recognize as anger — it gets routed away because anger threatens the peace. What shows up instead is stubbornness, a quiet dig-in that says no without saying no, or a kind of low-grade irritation that surfaces and then disappears before you can name it.",
+        "Feelings in general can feel slightly muted, as if turned down a few notches — not absent, but not quite reachable in real time. When something genuinely matters to you, it often takes longer than it should for you to notice, and longer still for you to act on it."
+      ],
+      "patterns_of_behaving": [
+        "Nines tend to accommodate — reading the room, adjusting to what others seem to need, going along rather than pushing back. Energy often tends toward inertia, especially when you are facing tasks that require initiating something new or advocating for yourself.",
+        "When pressure builds, the response is frequently to slow down, get quiet, or disappear into comfortable routines rather than confront the source of the pressure directly. The resistance that does show up is usually indirect — procrastination, quiet refusal, or a stubborn digging-in that can surprise even you with how immovable it becomes."
+      ],
+      "instincts": {
+        "sp": [
+          "Self-Preservation Nines maintain peace through the comfort of familiar routines, favorite activities, and the quiet pleasures of a well-ordered personal life. They tend to be practical and grounded, with a real gift for creating the rhythms and infrastructure that make daily life feel manageable.",
+          "The shadow side is a pull toward narcotizing comfort — food, possessions, routines that become a way of tuning out rather than engaging. SP Nines often look more self-contained than other Nines, which can make the core pattern of self-forgetting harder to spot from the outside."
+        ],
+        "sx": [
+          "One-to-One Nines (sometimes called Sexual or SX Nines) maintain peace through deep union with another person, with nature, or with something larger than themselves. The pull toward merging is strong and can be the doorway into genuinely transcendent experience — or into losing track of themselves entirely inside a relationship.",
+          "Their receptivity is magnetic; people are drawn to them and sometimes overwhelmed by the depth of the connection they offer. In close relationships, connecting and separating can have an “all-or-nothing” feeling, and the work is often about learning to stay in relationship without disappearing into it."
+        ],
+        "so": [
+          "Social Nines maintain peace by blending into their groups — absorbing the group’s agenda, contributing to the common good, and finding belonging through participation. They often step into leadership or mediator roles where they can serve the whole without needing to push their own view, and others experience them as generous, reliable, and quietly essential.",
+          "The shadow is a tendency to lose themselves in the group's priorities while remaining privately ambivalent about whether they truly belong. SO Nines may keep showing up and keep contributing long past the point where it serves them, because stepping out feels like risking the connection with the group."
+        ]
+      },
+      "wing_low": {
+        "number": 8,
+        "name": "Eight wing",
+        "body": [
+          "A Nine with a strong Eight wing carries more edge, more appetite, and more willingness to push back when pushed. The Eight wing brings access to anger as a useful signal rather than something to manage away, and it can give a Nine real presence and protective energy — especially on behalf of others or a cause.",
+          "The tradeoff is that when this wing is strong and the Nine hasn't done their work, irritation and stubborn force can arrive suddenly and disproportionately, then vanish back into calm accommodation. At their best, Nines with an Eight wing are grounded, unflappable, and quietly powerful — steady people who can hold their position without needing to dominate the room."
+        ]
+      },
+      "wing_high": {
+        "number": 1,
+        "name": "One wing",
+        "body": [
+          "A Nine with a stronger One wing carries more structure, more attention to doing things properly, and more internal discipline. The One wing brings a sense that things should be a certain way, and it can give a Nine genuine follow-through and conscientiousness where pure Nine energy might drift.",
+          "The tradeoff is a quiet perfectionism and self-criticism that can sharpen the Nine's self-forgetting — not just overlooking your own needs, but judging yourself for having them. At their best, Nines with a One wing are principled, dependable, and thoughtful contributors who bring care and craft to whatever they're part of."
+        ]
+      }
+    }
+  }
+}

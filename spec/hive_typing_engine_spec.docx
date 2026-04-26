@@ -1,0 +1,398 @@
+**HIVE**
+
+Enneagram Typing Engine
+
+**Technical Specification**
+
+*Version 1.0 — 2026-04-24*
+
+# **1. Purpose and Scope**
+
+This document is the technical specification for the Hive Enneagram Typing Engine. It is a reference for scoring formulas, confidence thresholds, routing logic, and trigger rules — the numerical heart of the engine. It complements *hive_typing_engine_overview.docx*, which describes the assessment in narrative form for coaches and clients.
+
+**Source of truth. **All engine logic lives in code. Every parameter in this document is annotated with a file:line reference pointing to its authoritative location. If this document and the code ever disagree, **the code wins **— this spec should be regenerated from the current source.
+
+**Primary source files:**
+
+- public/app.js — all scoring, routing, rendering, prompt assembly, persistence
+
+- server.js — Express endpoint, Anthropic SDK wiring, retry policy, token limits
+
+- public/index.html — page shell
+
+- public/styles.css — visual styling (not part of engine logic)
+
+# **2. Type Fundamentals**
+
+## **Type → Center map**
+
+Hard-coded in CENTER_TYPES. Order within each Center is fixed and defines hypothesis ordering in Stage 1.
+
+| **Center** | **Types (fixed order)** | **Reference** |
+| --- | --- | --- |
+| Body | 8, 9, 1 | app.js:170 |
+| Heart | 2, 3, 4 | app.js:171 |
+| Head | 5, 6, 7 | app.js:172 |
+
+## **Instinct subtypes**
+
+- SP — Self-Preservation (resources, health, stability)
+
+- SO — Social (role, belonging, community)
+
+- SX — One-to-One (intense connection, attraction)
+
+## **Counter-type combinations**
+
+Five known instinct-plus-type combinations whose lived presentation diverges from the type's standard description. Stored in CT_COMBOS keyed by Instinct-TypeNum.
+
+| **Key** | **Display name** | **Lookalike** | **Reference** |
+| --- | --- | --- | --- |
+| SP-3 | SP 3 Anti-Vanity | Looks like 1 | app.js:162 |
+| SX-6 | SX 6 Counterphobic | Looks like 8 | app.js:163 |
+| SP-4 | SP 4 Tenacity | Looks like 3 | app.js:164 |
+| SX-1 | SX 1 Zeal | Looks like 8 | app.js:165 |
+| SO-7 | SO 7 Sacrifice | Looks like 2 | app.js:166 |
+
+# **3. Stage 1 — Centers and Instincts**
+
+## **Question format**
+
+10 questions total: 6 Center-mapped + 4 Instinct-mapped, interleaved. Each has three options (a, b, c), each mapped to a dimension (head|heart|body for Center questions; sp|so|sx for Instinct questions) via the question's mapping object.
+
+Question data lives in STAGE1_QUESTIONS* — app.js:34*. Ranking state is captured in state.stage1Rankings[idx] = { a, b, c } where each value is 1, 2, or 3.
+
+## **Rank → points scoring**
+
+Rank is inverted to points via pts = 4 - rank.
+
+| **Rank** | **Points** |
+| --- | --- |
+| 1 (most true) | 3 points |
+| 2 | 2 points |
+| 3 (least true) | 1 point |
+
+*app.js:687* inside computeStage1Scores(). Aggregation sums each dimension across its 6 (Centers) or 4 (Instincts) source questions.
+
+| **Dimension** | **Max formula** | **Max score** |
+| --- | --- | --- |
+| Head / Heart / Body | 6 questions × 3 points | 18 |
+| SP / SO / SX | 4 questions × 3 points | 12 |
+
+## **Center confidence thresholds**
+
+Center confidence is derived from the gap between the top two Center scores.
+
+centerGap = sortedCenters[0] - sortedCenters[1]
+
+| **Label** | **Gap condition** |
+| --- | --- |
+| HIGH | gap ≥ 5 |
+| MEDIUM | gap 3 or 4 |
+| LOW | gap 0, 1, or 2 |
+
+*app.js:697* — centerGap >= 5 ? 'HIGH' : centerGap >= 3 ? 'MEDIUM' : 'LOW'
+
+When confidence is LOW, secondCenter is stored as the runner-up Center for downstream hypothesis construction.
+
+## **Instinct confidence thresholds**
+
+Same shape as Center confidence but with tighter gaps (smaller dimension maxes).
+
+| **Label** | **Gap condition** |
+| --- | --- |
+| HIGH | gap ≥ 4 |
+| MEDIUM | gap 2 or 3 |
+| LOW | gap 0 or 1 |
+
+*app.js:705* — instinctGap >= 4 ? 'HIGH' : instinctGap >= 2 ? 'MEDIUM' : 'LOW'
+
+## **Three-hypothesis selection**
+
+Stage 1 emits three type hypotheses that feed Stage 2 framework-intersection scoring. Selection depends on Center confidence.
+
+| **Center confidence** | **Hypothesis list** | **Reference** |
+| --- | --- | --- |
+| HIGH or MEDIUM | The three types of the identified Center, in fixed Center order. | app.js:716 |
+| LOW | Top of primary Center, top of secondary Center, second-ranked of primary Center. | app.js:711-715 |
+
+Example: Heart HIGH → [2, 3, 4]. Heart LOW with Body secondary → [2, 8, 3].
+
+## **Counter-type flag trigger**
+
+Scans the three hypotheses in order. Flag fires if any hypothesis forms a known CT combo with the confirmed instinct. Stores the matching combo's display name and key.
+
+for (const t of typeHypotheses) if (CT_COMBOS[`${identifiedInstinct}-${t}`]) { ... }
+
+*app.js:722-732*. Output fields: counterTypeFlag ("YES"/"NO"), counterTypeCombination (display string), counterTypeKey (CT_COMBOS key).
+
+**Important: **This flag is a hypothesis, not a directive. Stage 3 ultimately gates CT mode on Stage 2 confirmation (see §5).
+
+# **4. Stage 2 — Cross-Referencing**
+
+## **Question format**
+
+Three single-select questions, one per Narrative Enneagram framework. Each answer lands in a three-type bucket.
+
+| **Question** | **Framework** | **Answer → bucket** |
+| --- | --- | --- |
+| Q1 Hornevian | Social stance | A=Assertive {3,7,8} / B=Compliant {1,2,6} / C=Withdrawn {4,5,9} |
+| Q2 Harmonic | Conflict response | A=Intensity {4,6,8} / B=Positive {2,7,9} / C=Competency {1,3,5} |
+| Q3 Object Relations | Life theme | A=Attachment {3,6,9} / B=Frustration {1,4,7} / C=Rejection {2,5,8} |
+
+*app.js:179-236* — STAGE2_QUESTIONS, STAGE2_FRAMEWORK_TYPES, STAGE2_BUCKET_LABELS.
+
+## **Intersection scoring**
+
+For each Stage 1 hypothesis, count how many of the three framework answers include that type in their bucket. Score range: 0 to 3.
+
+counts[t] = frameworks.reduce((n, f, i) => n + (FW[f][ans[i]].includes(t) ? 1 : 0), 0);
+
+Hypotheses are then sorted descending by count. Ties broken by Stage 1 Center score (higher Center score wins). Stable sort preserves fixed-order preference when all else is equal.
+
+*app.js:789-800* in computeStage2Scores(). Highest-scoring hypothesis becomes xrefPrimary; runner-up becomes xrefAlternative.
+
+## **Ambiguity axis**
+
+The first framework (in Hornevian → Harmonic → Object Relations order) where primary and alternative land in different buckets. Expressed as a plain-English string for the AI prompt.
+
+*app.js:828-848*. Example: *"**Hornevian: primary (Type 3) scores Assertive, alternative (Type 2) scores Compliant.**"*
+
+## **Cross-center overrides**
+
+Three types have structural patterns that cause their home-Center scores to undershoot. When the Stage 2 signature unambiguously points to one of them and Stage 1 Center disagrees, the engine forces xrefPrimary to the indicated type. Signatures are mutually exclusive.
+
+| **Override** | **Answers** | **Bucket labels** | **Fires when Center** | **Reference** |
+| --- | --- | --- | --- | --- |
+| Type 3 | A / C / A | Assertive + Competency + Attachment | ≠ Heart | app.js:810-814 |
+| Type 9 | C / B / A | Withdrawn + Positive + Attachment | ≠ Body | app.js:815-819 |
+| Type 5 | C / C / C | Withdrawn + Competency + Rejection | ≠ Head | app.js:820-824 |
+
+When an override fires:
+
+- xrefPrimary = 3 / 9 / 5
+
+- xrefAlternative = Stage 1's top-ranked hypothesis (preserved as runner-up)
+
+- crossCenterDivergence = true
+
+- crossCenterNote = type-specific explanatory string surfaced to the AI prompt via stage2_stage3_divergence flag
+
+## **Counter-type re-check**
+
+After the override chain settles, the engine re-evaluates xrefCounterType using the possibly-overridden primary. If CT_COMBOS[`${identifiedInstinct}-${xrefPrimary}`] exists, xrefCounterType = "YES", otherwise "NO".
+
+*app.js:856-858*. This differs from the Stage 1 flag (which scans *all* hypotheses).
+
+# **5. Stage 3 — Pairwise Discrimination**
+
+## **Mode resolution**
+
+The Stage 1 CT flag is treated as a *hypothesis*, not a directive. CT mode only fires when Stage 2 confirms the flag by landing on the counter-type's base type.
+
+| **CT flag** | **Stage 2 gate** | **Mode** |
+| --- | --- | --- |
+| YES | xrefPrimary === CT_PAIRS[ctKey].counterType | COUNTER-TYPE |
+| YES | mismatch | STANDARD (Stage 2 wins) |
+| NO | — | STANDARD |
+
+*app.js:880-886* in resolveStage3Pair(). Standard Mode uses xrefPrimary vs. xrefAlternative as the pair.
+
+## **Pair construction (Standard Mode)**
+
+Lower-numbered type is always Person A. Pair key format: "lower-higher", e.g. "3-7".
+
+*app.js:889-895*
+
+## **Q2 avoidance firing**
+
+Q2 fires automatically on 10 high-ambiguity pairs (the ★ set). These are the pairs where Q1 alone tends to produce ambiguous answers from clients of either type.
+
+1-6, 1-9, 2-6, 2-9, 3-7, 3-8, 4-5, 4-9, 5-9, 6-8
+
+*app.js:257-259* — STAGE3_HIGH_AMBIGUITY_PAIRS. CT mode never fires Q2 (one question only).
+
+## **Answer scoring**
+
+Both Stage 3 Q1 and Q2 use the same 4-option scale. Each answer maps to a signed integer; positive totals lean Person A, negative lean Person B.
+
+| **Answer** | **Score** |
+| --- | --- |
+| Person A (clean) | +2 |
+| Both, but more A | +1 |
+| Both, but more B | -1 |
+| Person B (clean) | -2 |
+
+*app.js:901-903* — stage3Score().
+
+## **Confidence math**
+
+### **Standard Mode, Q2 fired (★ pairs)**
+
+total = q1Score + q2Score (range: -4 to +4). Leading type: positive → typeA, negative → typeB, zero → typeA by tiebreak.
+
+| **│total│** | **Confidence** | **Interpretation** |
+| --- | --- | --- |
+| │total│ = 4 | HIGH | Both clean, same direction |
+| │total│ = 3 | MEDIUM | One clean + one slight, same direction |
+| │total│ = 2 | MEDIUM | Two slight, same direction (or clean/clean cancelling one slight) |
+| │total│ ≤ 1 | LOW | Conflict or exact split |
+
+*app.js:948-952*
+
+### **Standard Mode, Q1 only (non-★ pairs)**
+
+| **Answer** | **Confidence** |
+| --- | --- |
+| Person A or Person B (clean) | HIGH |
+| Both, but more A / B (slight) | MEDIUM |
+
+*app.js:968-972*
+
+### **Counter-Type Mode**
+
+Same answer scale. Person A = counter-type, Person B = lookalike.
+
+| **Answer** | **Confidence** | **ctAnswer** | **Effect** |
+| --- | --- | --- | --- |
+| A or B (clean) | HIGH | CLEAN | Leans counter-type (A) or lookalike (B) |
+| A-slight or B-slight | MEDIUM | BOTH | Ambiguous — triggers Modified Option B in Stage 4 |
+
+*app.js:917-924*
+
+# **6. Stage 4 — Confirmation**
+
+## **Path resolution**
+
+Three paths: Option A (single lead type, 3-option format), Option B (two candidates, pairwise), Modified Option B (CT comparative). Routing in resolveStage4Path() at app.js:1015.
+
+| **Entry condition** | **Option** | **Path** | **Reference** |
+| --- | --- | --- | --- |
+| CT mode, ctAnswer=BOTH | MODIFIED_B | COUNTER_TYPE_AMBIGUOUS | app.js:1022-1031 |
+| CT mode, ctAnswer=CLEAN | A | COUNTER_TYPE_CONFIRMED | app.js:1034-1040 |
+| Standard, Stage 3 HIGH + Stage 2 alignment ≥ 2/3 | A | STANDARD | app.js:1044-1050 |
+| Standard, all other | B | STANDARD | app.js:1054-1060 |
+
+Stage 2 alignment is computed by countFrameworkMatches() at *app.js:1002* — how many of the three framework answers include the Stage 3 leading type.
+
+## **Question sequence construction**
+
+Initial sequence is always 2 slots (Stress then Security). Habit of Mind is appended conditionally after those two are answered.
+
+| **Option** | **Format** | **Content** |
+| --- | --- | --- |
+| Option A | 3opt | Type's canonical Stress/Security answer (correct at index 0) + two alternative-energy distractors. Options shuffled at render time. |
+| Option B | pairwise | Lead type's canonical answer (Person A) vs. second candidate's canonical answer (Person B). 4-option response. |
+| Modified Option B | ct-pairwise | Counter-type (Person A) vs. lookalike (Person B) canonical answers for the CT pair. 4-option response. |
+
+*app.js:1065-1085* — initialStage4Sequence().
+
+## **Habit firing rule**
+
+Habit of Mind is appended to the sequence after Stress + Security answers are in, based on how decisive the first two answers were.
+
+| **Path** | **Habit fires when** |
+| --- | --- |
+| Option A | Either Stress or Security is wrong (any non-correct answer) |
+| Option B / Modified B | Stress and Security lean different types, OR either is a "slight" answer |
+
+*app.js:1090-1107* — shouldFireHabit().
+
+## **Outcome math**
+
+Each instrument produces a boolean confirmation against the lead type. The final Stage 4 outcome is a deterministic function of those three (Habit may be null if it didn't fire).
+
+| **Stress + Security** | **Habit** | **Outcome** | **Reference** |
+| --- | --- | --- | --- |
+| Stress ✓ + Security ✓ | any | CONFIRMED | app.js:1137 |
+| Exactly one confirmed | Habit ✓ | CONFIRMED_WITH_NOTE | app.js:1139 |
+| Stress ✗ + Security ✗ | any | REDIRECT | app.js:1142 |
+| Habit fired and ✗ | Habit ✗ | AMBIGUOUS | app.js:1144 |
+| Any remaining case | — | AMBIGUOUS (fallback) | app.js:1147 |
+
+"REDIRECT" indicates the Stage 4 architecture supports the second candidate more strongly than the lead; the AI is instructed to name the flip explicitly.
+
+# **7. AI Analysis**
+
+## **Request wiring**
+
+| **Parameter** | **Value** | **Reference** |
+| --- | --- | --- |
+| Model | claude-sonnet-4-6 | server.js:29 |
+| max_tokens | 6000 | server.js:30 |
+| Retries | 3 with exponential backoff | server.js:27,41 |
+| Endpoint | POST /api/analyze | server.js:22 |
+| dotenv override | override: true | server.js:4 |
+
+## **Context block**
+
+Full state serialization for every field the v2 prompt template expects. Assembled by buildContextBlock() at *app.js:1380-1485*.
+
+Sections: Stage 0 open text → Stage 1 Centers + Instincts + hypotheses + CT flag → Stage 2 framework answers + primary/alternative/ambiguity axis + CT re-check (+ cross-center divergence note if present) → Stage 3 mode, pair, results, confidence → Stage 4 path, confirmation bools, answer-detail strings, outcome.
+
+## **Flag types**
+
+The AI emits an array of structured flags as part of its response. The engine surfaces *signals* (via the context block) but does not decide which flags to raise — that's Task 2 of the prompt.
+
+| **flag_type** | **Trigger condition (as described to the AI)** |
+| --- | --- |
+| counter_type | CT combo present |
+| lookalike_ambiguity | Two types close after Stage 3/4 |
+| stage0_contradiction | Stage 0 language points elsewhere |
+| stage2_stage3_divergence | Stage 2 primary diverges from Stage 1 (includes cross-center overrides) |
+| stage4_stress_unrecognized | Stress answer didn't match lead |
+| stage4_security_unrecognized | Security answer didn't match lead |
+| stage4_habit_unrecognized | Habit answer didn't match lead |
+| stage4_redirect | Stage 4 architecture points to second candidate |
+| low_center_confidence | Center gap 0-2 |
+| low_instinct_confidence | Instinct gap 0-1 |
+
+Enum enforced in the OUTPUT_FORMAT schema at *app.js:1336*.
+
+## **Confidence-level output**
+
+The AI produces confidence_level as its final calibration, using Stage 4 outcome as the primary signal and Task 5 (Holistic Coherence Check) as an override.
+
+| **Stage 4 outcome** | **Default confidence_level (before holistic adjustment)** |
+| --- | --- |
+| CONFIRMED | HIGH |
+| CONFIRMED_WITH_NOTE | MEDIUM_HIGH |
+| AMBIGUOUS | LOW (session strongly recommended) |
+| REDIRECT | LOW (hypothesis reopened) |
+
+# **8. Persistence**
+
+A successful API result is saved to browser localStorage so an accidental refresh on the results screen doesn't lose the report.
+
+| **Parameter** | **Value** | **Reference** |
+| --- | --- | --- |
+| Storage key | hive_typing_result_v1 | app.js:635 |
+| Schema version | 1 (mismatches are discarded) | app.js:647 |
+| TTL | 30 days | app.js:636 |
+| Saved fields | scores, apiResult, resultsTab, savedAt | app.js:641-645 |
+
+## **Lifecycle**
+
+- **Save** — saveResult() fires inside callAPI() right after state.apiResult is set *(app.js:2789)*.
+
+- **Restore** — loadResult() runs at page boot before the first render() call. If a valid entry exists, phase is set to results and the user lands back on the report *(app.js:2810)*.
+
+- **Clear** — clearResult() fires on both "New Analysis" and the Welcome → Begin transition *(app.js:2481, 2488)*.
+
+## **Fail-safe behavior**
+
+Every storage operation is wrapped in try/catch. If localStorage is unavailable (private browsing, quota exceeded, disabled), the assessment proceeds normally — only refresh-recovery is lost.
+
+# **9. Changing Engine Parameters**
+
+When a threshold, formula, or routing rule is changed:
+
+- Update the value **in code** (the cited app.js:NNN location is the single source of truth).
+
+- Regenerate this spec document — all parameters in the tables above are pulled from those code locations.
+
+- If the change affects user-facing prose (confidence labels, stage descriptions, counter-type commentary), update *hive_typing_engine_overview.docx* and the system prompt at *app.js:1162* together.
+
+*The overview document carries narrative descriptions that currently duplicate values in this spec (e.g. **"**HIGH confidence**"**). They are kept in sync by hand. If they diverge, this document and the code are authoritative.*
+
+*© 2026 Hive, Inc.  ·  CONFIDENTIAL  ·  For internal use only*
