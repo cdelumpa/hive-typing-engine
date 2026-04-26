@@ -1,0 +1,67 @@
+{
+  "_meta": {
+    "name": "SP9 Self-Preservation Nine — Clean Confirmation",
+    "description": "Self-Preservation Nine. HIGH confidence. Clean Stage 4 confirmation across stress, security, and habit. No type confusion flags. Section 1A and Section 6A should NOT appear.",
+    "expected_type": 9,
+    "expected_instinct": "SP",
+    "expected_confidence": "HIGH",
+    "expected_flags": [],
+    "expected_sections": []
+  },
+  "stage0": {
+    "q1": "peaceful, easygoing, go-with-the-flow, steady calming presence",
+    "q2": "reliable, kind, sometimes stubborn, hard to read",
+    "q3": "stability and presence — I keep things grounded",
+    "q4": "I lose my own momentum; I forget what I actually want"
+  },
+  "stage1": {
+    "centers": { "Head": 9, "Heart": 10, "Body": 15 },
+    "identifiedCenter": "Body",
+    "centerGap": 5,
+    "centerConfidence": "HIGH",
+    "secondCenter": null,
+    "instincts": { "SP": 10, "SO": 6, "SX": 4 },
+    "identifiedInstinct": "SP",
+    "instinctGap": 4,
+    "instinctConfidence": "HIGH",
+    "typeHypotheses": [9, 1, 2],
+    "counterTypeFlag": "NO",
+    "counterTypeCombination": null
+  },
+  "stage2": {
+    "hornevian": "C",
+    "harmonic": "B",
+    "objectRelations": "A",
+    "xrefPrimary": 9,
+    "xrefAlternative": 2,
+    "ambiguityAxis": "Primary (Type 9) and alternative (Type 2) differ on Hornevian: Type 9 is Withdrawn, Type 2 is Compliant.",
+    "counterTypeModeTriggered": false
+  },
+  "stage3": {
+    "mode": "STANDARD",
+    "pair": "Type 9 vs Type 2",
+    "ctAnswer": "N/A",
+    "leading": 9,
+    "confidence": "HIGH"
+  },
+  "stage4": {
+    "path": "STANDARD",
+    "option": "A",
+    "leadType": 9,
+    "secondType": null,
+    "stressConfirmed": true,
+    "securityConfirmed": true,
+    "habitConfirmed": true,
+    "outcome": "CONFIRMED",
+    "stressDescription": "Under stress, Type 9 moves toward Type 6 territory — the client recognized increased anxiety, worst-case thinking, and seeking reassurance from others. This matched Type 9's stress point cleanly.",
+    "securityDescription": "In ease, Type 9 moves toward Type 3 — the client recognized increased energy, productivity, and a greater sense of direction and accomplishment when feeling supported and safe. This matched Type 9's security point cleanly.",
+    "habitDescription": "The client's habit of mind description matched Type 9's pattern of self-forgetting, merging with others' agendas, and difficulty maintaining their own priorities and sense of direction."
+  },
+  "mockScores": {
+    "head": 9,
+    "heart": 10,
+    "body": 15,
+    "identifiedCenter": "Body",
+    "sortedInstincts": [["SP", 10], ["SO", 6], ["SX", 4]]
+  }
+}

@@ -1,0 +1,317 @@
+#!/usr/bin/env node
+/**
+ * Hive Typing Engine — end-to-end fixture test runner
+ *
+ * Usage:
+ *   node tests/run_test.js so7
+ *   node tests/run_test.js sp9
+ *
+ * What it does:
+ *   1. Loads the named fixture from tests/fixtures/<name>_fixture.json
+ *   2. Builds the context block (user message) from the fixture data
+ *   3. POSTs to http://localhost:3000/api/analyze
+ *   4. Verifies the JSON result against expected values
+ *   5. Renders client + coach HTML using the functions in app/public/app.js
+ *   6. Saves output to samples/hive_client_report_<NAME>_test.html
+ *              and  samples/hive_coach_report_<NAME>_test.html
+ *
+ * Prerequisites:
+ *   Server must be running: cd app && node server.js
+ */
+
+'use strict';
+
+const http = require('http');
+const fs   = require('fs');
+const path = require('path');
+
+// ─── Args ─────────────────────────────────────────────────────────────────────
+const fixtureName = (process.argv[2] || '').toLowerCase();
+if (!fixtureName) {
+  console.error('Usage: node tests/run_test.js <fixture>   (e.g. so7 or sp9)');
+  process.exit(1);
+}
+
+// ─── Paths ────────────────────────────────────────────────────────────────────
+const ROOT      = path.resolve(__dirname, '..');
+const APP_JS    = path.join(ROOT, 'app/public/app.js');
+const TYPE_LIB  = path.join(ROOT, 'content/type_library.json');
+const FIXTURE   = path.join(__dirname, `fixtures/${fixtureName}_fixture.json`);
+const SAMPLES   = path.join(ROOT, 'samples');
+
+if (!fs.existsSync(FIXTURE)) {
+  console.error(`Fixture not found: ${FIXTURE}`);
+  console.error(`Available fixtures: ${fs.readdirSync(path.join(__dirname,'fixtures')).join(', ')}`);
+  process.exit(1);
+}
+
+const fixture = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
+console.log(`\n=== Hive Test Runner — ${fixture._meta.name} ===\n`);
+
+// ─── Build combined system prompt ─────────────────────────────────────────────
+const src = fs.readFileSync(APP_JS, 'utf8');
+const sp  = src.match(/const SYSTEM_PROMPT = `([\s\S]*?)`;/)[1];
+const ti  = src.match(/const TASK_INSTRUCTIONS = `([\s\S]*?)`;/)[1];
+const of_ = src.match(/const OUTPUT_FORMAT = `([\s\S]*?)`;/)[1];
+// SYSTEM_PROMPT + TASK_INSTRUCTIONS → cached system block (~5,365 tokens)
+// OUTPUT_FORMAT → appended to userMessage to prime JSON generation
+const systemPrompt = `${sp}\n\n${ti}`;
+
+// ─── Build user message (context block) from fixture ─────────────────────────
+function buildContextFromFixture(f) {
+  const s0  = f.stage0;
+  const s1  = f.stage1;
+  const s2  = f.stage2;
+  const s3  = f.stage3;
+  const s4  = f.stage4;
+
+  const secondCenterLine = (s1.secondCenter)
+    ? `Second candidate Center: ${s1.secondCenter}\n` : '';
+
+  const ctStage1 = s1.counterTypeFlag === 'YES'
+    ? `Counter-type flag: YES\nCounter-type combination: ${s1.counterTypeCombination}`
+    : 'Counter-type flag: NO';
+
+  const secondCandidateLine = s4.secondType
+    ? `Second candidate tested: Type ${s4.secondType}\n` : '';
+
+  const boolStr = (v) => v === true ? 'YES' : v === false ? 'NO' : 'N/A';
+
+  // Stage 2 bucket labels
+  const BUCKET_LABELS = {
+    Hornevian:       { A: 'Assertive', B: 'Compliant',   C: 'Withdrawn'  },
+    Harmonic:        { A: 'Intensity', B: 'Positive',    C: 'Competency' },
+    ObjectRelations: { A: 'Attachment', B: 'Frustration', C: 'Rejection' },
+  };
+
+  return `CLIENT ASSESSMENT DATA
+======================
+
+Stage 0 — Open Text Responses
+Self-description (client's own words): "${s0.q1}"
+How others describe them: "${s0.q2}"
+Greatest strength: "${s0.q3}"
+Most problematic quality: "${s0.q4}"
+
+Stage 1 — Centers Scoring
+Scoring: Rank 1 = 3pts, Rank 2 = 2pts, Rank 3 = 1pt. Maximum per Center: 18. Confidence: HIGH = gap 5+, MEDIUM = gap 3-4, LOW = gap 0-2.
+Head Center total: ${s1.centers.Head} / 18
+Heart Center total: ${s1.centers.Heart} / 18
+Body Center total: ${s1.centers.Body} / 18
+Identified Center: ${s1.identifiedCenter}
+Gap to next Center: ${s1.centerGap} points
+Center confidence: ${s1.centerConfidence}
+${secondCenterLine}
+Stage 1 — Instinct Scoring
+Maximum per Instinct: 12. Confidence: HIGH = gap 4+, MEDIUM = gap 2-3, LOW = gap 0-1.
+SP total: ${s1.instincts.SP} / 12
+SO total: ${s1.instincts.SO} / 12
+SX total: ${s1.instincts.SX} / 12
+Identified Instinct: ${s1.identifiedInstinct}
+Gap to next Instinct: ${s1.instinctGap} points
+Instinct confidence: ${s1.instinctConfidence}
+
+Stage 1 — Type Hypotheses
+Three type hypotheses from Stage 1: Type ${s1.typeHypotheses.join(', Type ')}
+${ctStage1}
+
+Stage 2 — Cross-Referencing Results
+Q1 Hornevian answer: ${s2.hornevian} (${BUCKET_LABELS.Hornevian[s2.hornevian]})
+Q2 Harmonic answer: ${s2.harmonic} (${BUCKET_LABELS.Harmonic[s2.harmonic]})
+Q3 Object Relations answer: ${s2.objectRelations} (${BUCKET_LABELS.ObjectRelations[s2.objectRelations]})
+
+Cross-referencing primary hypothesis: Type ${s2.xrefPrimary}
+Cross-referencing live alternative: Type ${s2.xrefAlternative}
+Ambiguity axis: ${s2.ambiguityAxis}
+Counter-type mode triggered: ${s2.counterTypeModeTriggered}
+
+Stage 3 — Pairwise Discrimination Results
+Mode: ${s3.mode}
+Pair tested: ${s3.pair}
+Q1 Core Motivation result: ${s3.mode === 'COUNTER-TYPE' ? 'N/A (counter-type mode — single CT question)' : (s3.q1Result || 'N/A')}
+Q2 Avoidance result: ${s3.mode === 'COUNTER-TYPE' ? 'N/A' : (s3.q2Result || 'N/A')}
+Stage 3 leading hypothesis: Type ${s3.leading}
+Stage 3 confidence: ${s3.confidence}
+Counter-type mode answer: ${s3.ctAnswer}
+
+Stage 4 — Confirmation Results
+Path: ${s4.path}
+Option: ${s4.option}
+Lead type tested: Type ${s4.leadType}
+${secondCandidateLine}Stress confirmed: ${boolStr(s4.stressConfirmed)}
+Security confirmed: ${boolStr(s4.securityConfirmed)}
+Habit of Mind confirmed: ${boolStr(s4.habitConfirmed)}
+Stage 4 outcome: ${s4.outcome}
+
+Stage 4 — Answer Details (use for stress_point_description / security_point_description / habit_of_mind_description)
+Stress: ${s4.stressDescription}
+Security: ${s4.securityDescription}
+Habit of Mind: ${s4.habitDescription || 'N/A — did not fire'}`;
+}
+
+const userMessage = `${buildContextFromFixture(fixture)}\n\n${of_}`;
+console.log(`systemPrompt: ${systemPrompt.length} chars (~${Math.round(systemPrompt.length/4)} tokens)`);
+console.log(`userMessage:  ${userMessage.length} chars (~${Math.round(userMessage.length/4)} tokens)`);
+
+// ─── API call ─────────────────────────────────────────────────────────────────
+function postAnalyze() {
+  return new Promise((resolve, reject) => {
+    const body  = JSON.stringify({ systemPrompt, userMessage });
+    const start = Date.now();
+    console.log(`\n[API] Starting — ${new Date().toISOString()}`);
+
+    const req = http.request({
+      hostname: 'localhost', port: 3000, path: '/api/analyze', method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      timeout: 360000,
+    }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+        console.log(`[API] Done — ${elapsed}s, HTTP ${res.statusCode}`);
+        try { resolve(JSON.parse(data)); }
+        catch(e) { reject(new Error(`Response parse error: ${e.message}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+// ─── Rendering setup ──────────────────────────────────────────────────────────
+const typeLibrary = JSON.parse(fs.readFileSync(TYPE_LIB, 'utf8'));
+
+const TYPE_NAMES = {
+  1:'The Improver', 2:'The Giver', 3:'The Performer',
+  4:'The Idealist', 5:'The Observer', 6:'The Loyal Skeptic',
+  7:'The Enthusiast', 8:'The Protector', 9:'The Peacemaker',
+};
+
+// Extract a named function from app.js source by balanced-brace matching
+function extractFn(name) {
+  const startRe = new RegExp(`^function ${name}\\s*\\(`, 'm');
+  const idx = src.search(startRe);
+  if (idx < 0) throw new Error(`Cannot find function: ${name}`);
+  let depth = 0, i = idx, started = false;
+  while (i < src.length) {
+    if (src[i] === '{') { depth++; started = true; }
+    else if (src[i] === '}') { depth--; }
+    if (started && depth === 0) return src.slice(idx, i + 1);
+    i++;
+  }
+  throw new Error(`Unbalanced braces in: ${name}`);
+}
+
+// Write a temp module with all rendering functions and load it
+const fnNames = ['esc','renderParas','renderMultiPara','typeData',
+                 'clientReportBodyHtml','coachReportBodyHtml',
+                 'buildClientHTML','buildCoachHTML'];
+
+const moduleCode = `'use strict';
+const typeLibrary = global.__hiveEnv.typeLibrary;
+const TYPE_NAMES  = global.__hiveEnv.TYPE_NAMES;
+const state       = global.__hiveEnv.state;
+${fnNames.map(extractFn).join('\n\n')}
+module.exports = { buildClientHTML, buildCoachHTML };
+`;
+
+const tmpMod = path.join(require('os').tmpdir(), 'hive_render.js');
+fs.writeFileSync(tmpMod, moduleCode);
+global.__hiveEnv = {
+  typeLibrary,
+  TYPE_NAMES,
+  state: { scores: fixture.mockScores },
+};
+// Clear require cache so each run gets a fresh module
+delete require.cache[tmpMod];
+const { buildClientHTML, buildCoachHTML } = require(tmpMod);
+
+// ─── Verification helpers ─────────────────────────────────────────────────────
+let passed = 0, failed = 0;
+function check(label, actual, expected, exact = true) {
+  const ok = exact ? actual === expected : actual;
+  const icon = ok ? '✓' : '✗';
+  const suffix = ok ? '' : ` (expected: ${expected})`;
+  console.log(`  ${icon}  ${label}: ${JSON.stringify(actual)}${suffix}`);
+  ok ? passed++ : failed++;
+}
+
+// ─── Main ──────────────────────────────────────────────────────────────────────
+(async () => {
+  const resp = await postAnalyze();
+
+  if (!resp.ok || !resp.result) {
+    console.error('\n[FAIL] API not-ok:', resp.message || JSON.stringify(resp).slice(0,300));
+    process.exit(1);
+  }
+
+  const result = resp.result;
+  const h  = result.hypothesis;
+  const cr = result.coach_report || {};
+  const cf = result.client_facing || {};
+  const flags = (result.flags || []).map(f => f.flag_type);
+  const meta = fixture._meta;
+
+  console.log('\n=== VERIFICATION ===');
+
+  // Core hypothesis
+  check('confirmed_type',         h.confirmed_type,         meta.expected_type);
+  check('confirmed_instinct',     h.confirmed_instinct,     meta.expected_instinct);
+  check('counter_type_confirmed', h.counter_type_confirmed, meta.expected_sections.includes('section1a'));
+  if (meta.expected_confidence) {
+    check('confidence_level',     h.confidence_level,       meta.expected_confidence);
+  }
+  check('second_candidate_type',  h.second_candidate_type,  h.second_candidate_type !== undefined, false);
+
+  // Flags
+  for (const expected of meta.expected_flags) {
+    check(`flag: ${expected}`, flags.includes(expected), true);
+  }
+
+  // Coach sections
+  for (const section of ['section1','section2','section3','section4','section5','section6']) {
+    check(`coach.${section}`, !!cr[section], true);
+  }
+  const expect1a = meta.expected_sections.includes('section1a');
+  const expect6a = meta.expected_sections.includes('section6a');
+  check('coach.section1a (counter-type)',   !!cr.section1a, expect1a);
+  check('coach.section6a (type-confusion)', !!cr.section6a, expect6a);
+
+  // Client-facing fields
+  check('client_narrative',        !!cf.client_narrative,         true);
+  check('core_motivation_evidence',!!cf.core_motivation_evidence, true);
+  check('instinct_personal_overlay',!!cf.instinct_personal_overlay, true);
+  check('stress_point_narrative',  !!cf.stress_point_narrative,   true);
+  check('security_point_narrative',!!cf.security_point_narrative, true);
+  check('what_to_explore ≥3',      (cf.what_to_explore||[]).length >= 3, true);
+
+  // ── Render HTML ─────────────────────────────────────────────────────────────
+  console.log('\n[Render] Building HTML reports...');
+  const clientHtml = buildClientHTML(result);
+  const coachHtml  = buildCoachHTML(result);
+  console.log(`  Client HTML: ${clientHtml.length.toLocaleString()} chars`);
+  console.log(`  Coach HTML:  ${coachHtml.length.toLocaleString()} chars`);
+
+  // Check section headers appear in rendered output
+  const clientHeaders = (clientHtml.match(/font-size:10px;font-weight:700;letter-spacing:0\.12em/g)||[]).length;
+  const coachHeaders  = (coachHtml.match(/font-size:10px;font-weight:700;letter-spacing:0\.12em/g)||[]).length;
+  check('client HTML section headers ≥10', clientHeaders >= 10, true);
+  check('coach HTML section headers ≥6',   coachHeaders  >= 6,  true);
+  if (expect1a) check('Section 1A in coach HTML', coachHtml.includes('1A ·'), true);
+  if (expect6a) check('Section 6A in coach HTML', coachHtml.includes('6A ·'), true);
+
+  // ── Save files ──────────────────────────────────────────────────────────────
+  const label = fixtureName.toUpperCase();
+  const clientOut = path.join(SAMPLES, `hive_client_report_${label}_test.html`);
+  const coachOut  = path.join(SAMPLES, `hive_coach_report_${label}_test.html`);
+  fs.writeFileSync(clientOut, clientHtml, 'utf8');
+  fs.writeFileSync(coachOut,  coachHtml,  'utf8');
+  console.log(`\n[Save] ${clientOut}`);
+  console.log(`[Save] ${coachOut}`);
+
+  // ── Summary ─────────────────────────────────────────────────────────────────
+  console.log(`\n=== RESULT: ${passed} passed, ${failed} failed ===`);
+  if (failed > 0) process.exit(1);
+})().catch(e => { console.error('[ERROR]', e.message); process.exit(1); });

@@ -3145,8 +3145,8 @@ async function callAPI() {
 
   const s = state.scores;
   const contextBlock = buildContextBlock(s);
-  const systemPrompt = `${SYSTEM_PROMPT}\n\n${TASK_INSTRUCTIONS}\n\n${OUTPUT_FORMAT}`;
-  const userMessage = contextBlock;
+  const systemPrompt = `${SYSTEM_PROMPT}\n\n${TASK_INSTRUCTIONS}`;
+  const userMessage = `${contextBlock}\n\n${OUTPUT_FORMAT}`;
 
   try {
     const res = await fetch('/api/analyze', {

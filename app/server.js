@@ -28,7 +28,7 @@ app.post('/api/analyze', async (req, res) => {
     try {
       const response = await client.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
+        max_tokens: 12000,
         system: [
           {
             type: 'text',
