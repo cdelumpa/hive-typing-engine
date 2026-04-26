@@ -3268,7 +3268,13 @@ async function callAPI() {
     const res = await fetch('/api/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ systemPrompt, userMessage, intake: state.intake }),
+      body: JSON.stringify({ systemPrompt, userMessage, intake: state.intake, scores: {
+        head: s.head, heart: s.heart, body: s.body,
+        identifiedCenter: s.identifiedCenter,
+        sp: s.sp, so: s.so, sx: s.sx,
+        identifiedInstinct: s.identifiedInstinct,
+        sortedInstincts: s.sortedInstincts,
+      }}),
     });
 
     const data = await res.json();

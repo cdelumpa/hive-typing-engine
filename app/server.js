@@ -239,7 +239,7 @@ function esc(str) {
 
 // =================== BACKGROUND JOB ===================
 
-async function runBackgroundJob(systemPrompt, userMessage, intake) {
+async function runBackgroundJob(systemPrompt, userMessage, intake, scores) {
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   let result = null;
 
@@ -281,10 +281,7 @@ async function runBackgroundJob(systemPrompt, userMessage, intake) {
   let clientPdfPath = null;
   let coachPdfPath = null;
 
-  // We need scores for the coach report bar charts. The intake won't have scores
-  // (they stay client-side), so we pass an empty object — the bars will render at 0.
-  // The coach can still read the full text sections which come from the AI result.
-  const scores = {};
+  // scores passed from client for bar chart rendering in coach PDF
 
   try {
     const clientHtml = buildClientHTML(result, typeLibrary);
@@ -338,7 +335,7 @@ async function sendErrorNotification(intake, err) {
 
 // New submission endpoint — returns immediately, processes in background
 app.post('/api/submit', (req, res) => {
-  const { systemPrompt, userMessage, intake } = req.body;
+  const { systemPrompt, userMessage, intake, scores } = req.body;
   const intakeInfo = intake ? `${intake.firstName} ${intake.lastName} <${intake.email}>` : 'unknown';
   console.log(`[submit] received from ${intakeInfo} — system ${systemPrompt?.length ?? 0} chars, user ${userMessage?.length ?? 0} chars`);
 
@@ -348,7 +345,7 @@ app.post('/api/submit', (req, res) => {
   // Fire and forget background job
   (async () => {
     try {
-      await runBackgroundJob(systemPrompt, userMessage, intake || {});
+      await runBackgroundJob(systemPrompt, userMessage, intake || {}, scores || {});
     } catch (e) {
       console.error('[submit] unhandled background job error:', e.message);
     }
