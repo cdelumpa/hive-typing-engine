@@ -598,7 +598,8 @@ const TYPE_NAMES = {
 // =================== STATE ===================
 
 const state = {
-  phase: 'welcome', // welcome | stage0 | stage1 | stage2 | stage3 | stage4 | stage1complete | processing | results | error
+  phase: 'welcome', // welcome | intake | stage0 | stage1 | stage2 | stage3 | stage4 | stage1complete | processing | confirmation | results | error
+  intake: { firstName: '', lastName: '', email: '', organization: '' },
   stage0Idx: 0,
   stage0Answers: {},     // { q1, q2, q3, q4 }
   stage1Idx: 0,
@@ -1611,7 +1612,16 @@ function buildContextBlock(s) {
     ? `Second candidate tested: Type ${s4.secondType}\n`
     : '';
 
-  return `CLIENT ASSESSMENT DATA
+  const intake = state.intake || {};
+  const clientName = [intake.firstName, intake.lastName].filter(Boolean).join(' ') || 'Not provided';
+  const clientOrg = intake.organization || 'Not provided';
+
+  return `CLIENT INFORMATION
+==================
+Name: ${clientName}
+Organization: ${clientOrg}
+
+CLIENT ASSESSMENT DATA
 ======================
 
 Stage 0 — Open Text Responses
@@ -1730,6 +1740,7 @@ function totalSteps() {
 function currentStep() {
   const phaseOrder = {
     welcome: 0,
+    intake: 0,
     stage0: 1 + state.stage0Idx,
     stage1: 5 + state.stage1Idx,
     stage2: 15 + state.stage2Idx,
@@ -1737,6 +1748,7 @@ function currentStep() {
     stage4: 20 + state.stage4Idx,
     stage1complete: 23,
     processing: 23,
+    confirmation: 23,
     results: 23,
     error: 23,
   };
@@ -1756,6 +1768,7 @@ function render() {
 
   switch (state.phase) {
     case 'welcome':        app.innerHTML = renderWelcome(); break;
+    case 'intake':         app.innerHTML = renderIntake(); break;
     case 'stage0':         app.innerHTML = renderStage0(); break;
     case 'stage1':         app.innerHTML = renderStage1(); break;
     case 'stage2':         app.innerHTML = renderStage2(); break;
@@ -1763,6 +1776,7 @@ function render() {
     case 'stage4':         app.innerHTML = renderStage4(); break;
     case 'stage1complete': app.innerHTML = renderStage1Complete(); break;
     case 'processing':     app.innerHTML = renderProcessing(); break;
+    case 'confirmation':   app.innerHTML = renderConfirmation(); break;
     case 'results':        app.innerHTML = renderResults(); break;
     case 'error':          app.innerHTML = renderError(); break;
   }
@@ -1780,7 +1794,72 @@ function renderWelcome() {
       This assessment guides you through a series of questions about how you experience the world, what drives you, and what matters most to you. There are no right or wrong answers — simply respond as honestly as you can.<br><br>
       The process takes about 15–20 minutes. Find a quiet moment and go with your first instinct.
     </p>
-    <button class="btn btn-primary" id="btn-start">Begin the assessment</button>
+    <button class="btn btn-primary" id="btn-start">Start Assessment</button>
+  </div>`;
+}
+
+// ---- Intake ----
+function renderIntake() {
+  const i = state.intake || {};
+  return `<div class="screen">
+    <div class="welcome-logo">Hive <span>· Enneagram Type Tool</span></div>
+    <h1 class="welcome-heading" style="font-size:22px;margin-bottom:8px;">Before we begin</h1>
+    <p class="welcome-body" style="margin-bottom:28px;">
+      Please share a few details so we can send your personalized report to the right place.
+    </p>
+
+    <div style="width:100%;max-width:400px;margin:0 auto;text-align:left;">
+
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:11px;font-weight:700;color:#4A6070;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">First Name <span style="color:#f58527;">*</span></label>
+        <input id="intake-first-name" type="text" value="${esc(i.firstName || '')}" autocomplete="given-name"
+          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border, #D6E2E8);border-radius:6px;font-family:inherit;font-size:14px;color:#1A2B33;outline:none;" />
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:11px;font-weight:700;color:#4A6070;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Last Name <span style="color:#f58527;">*</span></label>
+        <input id="intake-last-name" type="text" value="${esc(i.lastName || '')}" autocomplete="family-name"
+          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border, #D6E2E8);border-radius:6px;font-family:inherit;font-size:14px;color:#1A2B33;outline:none;" />
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:11px;font-weight:700;color:#4A6070;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Email Address <span style="color:#f58527;">*</span></label>
+        <input id="intake-email" type="email" value="${esc(i.email || '')}" autocomplete="email"
+          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border, #D6E2E8);border-radius:6px;font-family:inherit;font-size:14px;color:#1A2B33;outline:none;" />
+        <div id="intake-email-error" style="display:none;color:#C44530;font-size:12px;margin-top:4px;">Please enter a valid email address.</div>
+      </div>
+
+      <div style="margin-bottom:28px;">
+        <label style="display:block;font-size:11px;font-weight:700;color:#4A6070;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Organization <span style="color:#7A96A6;font-weight:400;text-transform:none;">(optional)</span></label>
+        <input id="intake-organization" type="text" value="${esc(i.organization || '')}" autocomplete="organization"
+          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border, #D6E2E8);border-radius:6px;font-family:inherit;font-size:14px;color:#1A2B33;outline:none;" />
+      </div>
+
+      <div id="intake-error" style="display:none;color:#C44530;font-size:13px;margin-bottom:16px;text-align:center;">Please fill in all required fields.</div>
+
+      <button class="btn btn-primary" id="btn-intake-continue" style="width:100%;">Continue</button>
+    </div>
+  </div>`;
+}
+
+// ---- Confirmation ----
+function renderConfirmation() {
+  const i = state.intake || {};
+  const firstName = i.firstName || 'there';
+  const email = i.email || '';
+  return `<div class="screen" style="text-align:center;">
+    <div style="margin:0 auto;max-width:480px;">
+      <div style="font-size:42px;margin-bottom:16px;">✓</div>
+      <div class="welcome-logo" style="margin-bottom:16px;">Hive <span>· Enneagram Type Tool</span></div>
+      <h1 style="font-family:Georgia,serif;font-size:26px;color:#00b1d7;font-weight:700;margin:0 0 12px;">Thank you, ${esc(firstName)}.</h1>
+      <p style="font-family:Georgia,serif;font-size:16px;color:#1A2B33;margin:0 0 16px;line-height:1.7;">
+        Your Hive Enneagram Report is on its way.
+      </p>
+      <p style="font-family:Georgia,serif;font-size:14px;color:#4A6070;line-height:1.7;margin:0;">
+        You'll receive an email at <strong style="color:#1A2B33;">${esc(email)}</strong> shortly with your results attached.
+        If it doesn't arrive within a few minutes, please check your spam or junk folder.
+      </p>
+    </div>
   </div>`;
 }
 
@@ -2846,16 +2925,44 @@ function attachHandlers() {
     // assessment actually begins. (resetAndReturnHome already clears on
     // "New Analysis", but this protects edge cases.)
     clearResult();
-    state.phase = 'stage0';
-    state.stage0Idx = 0;
+    state.phase = 'intake';
     render();
   });
+
+  // Intake form
+  const btnIntakeContinue = document.getElementById('btn-intake-continue');
+  if (btnIntakeContinue) {
+    btnIntakeContinue.addEventListener('click', () => {
+      const firstName = (document.getElementById('intake-first-name').value || '').trim();
+      const lastName = (document.getElementById('intake-last-name').value || '').trim();
+      const email = (document.getElementById('intake-email').value || '').trim();
+      const organization = (document.getElementById('intake-organization').value || '').trim();
+
+      const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const errorDiv = document.getElementById('intake-error');
+      const emailErrorDiv = document.getElementById('intake-email-error');
+
+      emailErrorDiv.style.display = (!email || emailValid) ? 'none' : 'block';
+
+      if (!firstName || !lastName || !email || !emailValid) {
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      errorDiv.style.display = 'none';
+      state.intake = { firstName, lastName, email, organization };
+      state.phase = 'stage0';
+      state.stage0Idx = 0;
+      render();
+    });
+  }
 
   // Restart (used by stage1complete placeholder + "New Analysis" button on results)
   const resetAndReturnHome = () => {
     clearResult();
     Object.assign(state, {
       phase: 'welcome',
+      intake: { firstName: '', lastName: '', email: '', organization: '' },
       stage0Idx: 0, stage0Answers: {},
       stage1Idx: 0, stage1Rankings: [],
       stage2Idx: 0, stage2Answers: [],
@@ -3158,21 +3265,19 @@ async function callAPI() {
   const userMessage = `${contextBlock}\n\n${OUTPUT_FORMAT}`;
 
   try {
-    const res = await fetch('/api/analyze', {
+    const res = await fetch('/api/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ systemPrompt, userMessage }),
+      body: JSON.stringify({ systemPrompt, userMessage, intake: state.intake }),
     });
 
     const data = await res.json();
 
-    if (data.ok && data.result) {
-      state.apiResult = data.result;
-      saveResult();
-      console.log('=== HIVE TYPING ENGINE — FULL API RESULT ===');
-      console.log(JSON.stringify(data.result, null, 2));
-      console.log('============================================');
-      state.phase = 'results';
+    if (data.ok && data.status === 'processing') {
+      // Background processing confirmed — show confirmation screen immediately
+      state.phase = 'confirmation';
+      render();
+      return;
     } else {
       state.phase = 'error';
     }
