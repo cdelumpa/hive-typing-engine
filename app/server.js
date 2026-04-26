@@ -29,7 +29,13 @@ app.post('/api/analyze', async (req, res) => {
       const response = await client.messages.create({
         model: 'claude-sonnet-4-6',
         max_tokens: 8000,
-        system: systemPrompt,
+        system: [
+          {
+            type: 'text',
+            text: systemPrompt,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
         messages: [{ role: 'user', content: userMessage }],
       });
 
@@ -39,6 +45,7 @@ app.post('/api/analyze', async (req, res) => {
       const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
       const result = JSON.parse(clean);
       const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+      console.log(`[analyze] usage — ${JSON.stringify(response.usage)}`);
       console.log(`[analyze] success — attempt ${attempt}, ${elapsed}s, confirmed_type=${result?.hypothesis?.confirmed_type}, confidence=${result?.hypothesis?.confidence_level}, outcome=${result?.hypothesis?.stage4_outcome}, flags=${result?.flags?.length ?? 0}`);
       return res.json({ ok: true, result });
     } catch (err) {
