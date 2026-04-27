@@ -1413,6 +1413,8 @@ Rules for this paragraph:
 - Reference specific evidence from their Stage 0 language, not generic type descriptions
 - Refer to the practitioner generically as "your Enneagram coach or practitioner" — do not name Cai or Monique
 
+Paragraph length rule: For every AI-generated client-facing field (client_narrative, core_motivation_evidence, instinct_personal_overlay, secondary_type_narrative, and the self-typing comparison paragraph), insert a paragraph break (\n\n) at every natural topic transition. No paragraph should exceed 4 sentences. If a thought runs longer than 4 sentences, find the most natural break point and split it. This applies without exception — short paragraphs are always preferable to long ones in this context.
+
 FIELD 2 — core_motivation_evidence
 3-5 sentences showing how this client's specific responses align with the confirmed type's core motivation. Reference specific Stage 0 language or answer patterns without naming frameworks or stages. Use cautious language: "consistent with," "points toward," "aligns with." Null for AMBIGUOUS or REDIRECT outcomes.
 
@@ -1789,10 +1791,27 @@ function renderParas(arr, style) {
 }
 
 // Render a single string that may contain \n\n as separate <p> tags.
+// Secondary split: if a segment exceeds ~150 words, break at sentence boundaries every 4 sentences.
 function renderMultiPara(str, style) {
   if (!str) return '';
   const s = style || 'margin:0 0 14px;';
-  return str.split(/\n\n+/).map((p) => `<p style="${s}">${esc(p.trim())}</p>`).filter((p) => p !== `<p style="${s}"></p>`).join('');
+  const rawSegs = str.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
+  const segs = [];
+  for (const seg of rawSegs) {
+    if (seg.split(/\s+/).length > 150) {
+      const sentences = seg.match(/[^.!?]*[.!?]+(?:\s+|$)/g) || [seg];
+      let chunk = '', count = 0;
+      for (const sent of sentences) {
+        chunk += sent;
+        count++;
+        if (count >= 4) { segs.push(chunk.trim()); chunk = ''; count = 0; }
+      }
+      if (chunk.trim()) segs.push(chunk.trim());
+    } else {
+      segs.push(seg);
+    }
+  }
+  return segs.map((p) => `<p style="${s}">${esc(p)}</p>`).filter(p => p !== `<p style="${s}"></p>`).join('');
 }
 
 // =================== PROGRESS ===================
@@ -2541,7 +2560,7 @@ function clientReportBodyHtml(result) {
 
   const SH = (title) => `<div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#00b1d7;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #00b1d7;">${esc(title)}</div>`;
   const SUB = (title) => `<div style="font-size:10px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${esc(title)}</div>`;
-  const EVIDENCE = (text) => text ? `<p style="font-size:12px;color:#4A6070;font-style:italic;margin:0 0 14px;">In your responses: ${renderMultiPara(text, 'display:inline;')}</p>` : '';
+  const EVIDENCE = (text) => text ? `<div style="font-size:12px;color:#4A6070;font-style:italic;margin:0 0 14px;">In your responses: ${renderMultiPara(text, 'display:inline;')}</div>` : '';
 
   const header = ambiguous
     ? `<div style="font-size:28px;font-weight:700;color:#00b1d7;line-height:1.2;margin-bottom:12px;">A Genuinely Complex Pattern</div>`
@@ -2596,7 +2615,7 @@ function clientReportBodyHtml(result) {
 
   const secondaryHtml = (cf.secondary_type_narrative && !ambiguous) ? `
     ${SH('Secondary Type Hypothesis')}
-    <p style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${renderMultiPara(cf.secondary_type_narrative, 'margin:0 0 10px;')}</p>
+    <div style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${renderMultiPara(cf.secondary_type_narrative, 'margin:0 0 10px;')}</div>
   ` : '';
 
   const exploreQuestions = cf.what_to_explore || [];
@@ -2611,7 +2630,7 @@ function clientReportBodyHtml(result) {
   ` : '';
 
   return `
-    <div style="background:#fff;border-radius:10px;padding:36px 40px;box-shadow:0 1px 10px rgba(0,0,0,0.04);font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;max-width:720px;margin:0 auto;">
+    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;">
 
       <!-- HEADER -->
       <div style="text-align:center;padding-bottom:24px;margin-bottom:28px;border-bottom:3px solid #00b1d7;">
@@ -2677,8 +2696,8 @@ function clientReportBodyHtml(result) {
         <!-- HOW YOUR TYPE MOVES THROUGH STRESS AND EASE -->
         ${SH('How Your Type Moves Through Stress and Ease')}
         ${renderParas((primers.stress_security_primer || {}).body)}
-        ${cf.stress_point_narrative ? `${SUB('Under Stress')}<p style="margin:0 0 14px;">${esc(cf.stress_point_narrative)}</p>` : ''}
-        ${cf.security_point_narrative ? `${SUB('When at Ease')}<p style="margin:0 0 14px;">${esc(cf.security_point_narrative)}</p>` : ''}
+        ${cf.stress_point_narrative ? `${SUB('Under Stress')}${renderMultiPara(cf.stress_point_narrative)}` : ''}
+        ${cf.security_point_narrative ? `${SUB('When at Ease')}${renderMultiPara(cf.security_point_narrative)}` : ''}
 
         <!-- WING INFLUENCE -->
         ${wingsHtml}
@@ -2693,6 +2712,12 @@ function clientReportBodyHtml(result) {
       <!-- FOOTER -->
       <div style="margin-top:40px;padding-top:16px;border-top:2px solid #00b1d7;text-align:center;font-size:11px;color:#7A96A6;">
         Generated by the Hive Enneagram Typing Engine &nbsp;·&nbsp; © Copyright 2026, Hive, Inc. All rights reserved.
+      </div>
+
+      <!-- PRINT FOOTER (fixed, every page) -->
+      <div class="print-footer">
+        <span>© Copyright 2026, Hive, Inc. All rights reserved.</span>
+        <span class="page-number">Page </span>
       </div>
     </div>
   `;
@@ -2949,8 +2974,29 @@ function buildClientHTML(result) {
 <meta charset="utf-8">
 <title>Client Report \u2014 Type ${h.confirmed_type}</title>
 <style>
-  @media print { body { background: #fff; margin: 0; } @page { margin: 2cm; } }
-  body { background: #F5F9FB; margin: 0; padding: 40px 20px; }
+  @page { margin: 0.75in; }
+  body { background: #ffffff; margin: 0; padding: 0; }
+  @media print {
+    body { background: #fff; margin: 0; }
+    .print-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 0.5in;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: Arial, sans-serif;
+      font-size: 9px;
+      color: #7A96A6;
+      border-top: 1px solid #E0E0E0;
+      padding: 0 0.75in;
+    }
+    .page-number::after {
+      content: counter(page);
+    }
+  }
 </style>
 </head>
 <body>
