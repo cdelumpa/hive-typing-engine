@@ -84,7 +84,19 @@ function buildContextFromFixture(f) {
     ObjectRelations: { A: 'Attachment', B: 'Frustration', C: 'Rejection' },
   };
 
-  return `CLIENT ASSESSMENT DATA
+  // Coach and final open response
+  const coach = f.coach || 'Cai Delumpa';
+  const finalOpen = (f.final_open_response && f.final_open_response !== '[none provided]')
+    ? `"${f.final_open_response}"`
+    : '[none provided]';
+
+  return `CLIENT INFORMATION
+==================
+Name: Test Client
+Organization: Not provided
+Coach: ${coach}
+
+CLIENT ASSESSMENT DATA
 ======================
 
 Stage 0 — Open Text Responses
@@ -146,7 +158,9 @@ Stage 4 outcome: ${s4.outcome}
 Stage 4 — Answer Details (use for stress_point_description / security_point_description / habit_of_mind_description)
 Stress: ${s4.stressDescription}
 Security: ${s4.securityDescription}
-Habit of Mind: ${s4.habitDescription || 'N/A — did not fire'}`;
+Habit of Mind: ${s4.habitDescription || 'N/A — did not fire'}
+
+Final open response (optional): ${finalOpen}`;
 }
 
 const userMessage = `${buildContextFromFixture(fixture)}\n\n${of_}`;
@@ -286,6 +300,22 @@ function check(label, actual, expected, exact = true) {
   check('stress_point_narrative',  !!cf.stress_point_narrative,   true);
   check('security_point_narrative',!!cf.security_point_narrative, true);
   check('what_to_explore ≥3',      (cf.what_to_explore||[]).length >= 3, true);
+
+  // final_response checks
+  const fr = result.final_response || {};
+  check('final_response present',  fr.present !== undefined, true, false);
+  if (meta.expected_final_response_classification) {
+    check('final_response.classification', fr.classification, meta.expected_final_response_classification);
+  }
+  if (meta.expected_client_self_typed !== undefined) {
+    check('final_response.client_self_typed', fr.client_self_typed, meta.expected_client_self_typed);
+  }
+  if (meta.expected_client_self_typed_type !== undefined) {
+    check('final_response.client_self_typed_type', fr.client_self_typed_type, meta.expected_client_self_typed_type);
+  }
+  if (meta.expected_client_self_typed_match !== undefined) {
+    check('final_response.client_self_typed_match', fr.client_self_typed_match, meta.expected_client_self_typed_match);
+  }
 
   // ── Render HTML ─────────────────────────────────────────────────────────────
   console.log('\n[Render] Building HTML reports...');

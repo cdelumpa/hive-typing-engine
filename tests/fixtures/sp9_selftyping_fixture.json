@@ -1,16 +1,19 @@
 {
   "_meta": {
-    "name": "SP9 Self-Preservation Nine — Clean Confirmation",
-    "description": "Self-Preservation Nine. HIGH confidence. Clean Stage 4 confirmation across stress, security, and habit. No type confusion flags. Section 1A and Section 6A should NOT appear.",
+    "name": "SP9 Self-Typing Mismatch — Claimed Type 2",
+    "description": "Self-Preservation Nine with a final open response claiming Type 2. Tests SELF_TYPING classification, mismatch detection (claimed 2, engine confirms 9), and self-typing comparison paragraph in client narrative.",
     "expected_type": 9,
     "expected_instinct": "SP",
     "expected_confidence": "HIGH",
     "expected_flags": [],
     "expected_sections": [],
-    "expected_final_response_classification": "EMPTY"
+    "expected_final_response_classification": "SELF_TYPING",
+    "expected_client_self_typed": true,
+    "expected_client_self_typed_type": 2,
+    "expected_client_self_typed_match": false
   },
   "coach": "Cai Delumpa",
-  "final_open_response": "[none provided]",
+  "final_open_response": "I've always thought I was a Type 2 — everyone says I'm very giving and caring",
   "stage0": {
     "q1": "peaceful, easygoing, go-with-the-flow, steady calming presence",
     "q2": "reliable, kind, sometimes stubborn, hard to read",

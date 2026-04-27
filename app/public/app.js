@@ -598,8 +598,9 @@ const TYPE_NAMES = {
 // =================== STATE ===================
 
 const state = {
-  phase: 'welcome', // welcome | intake | stage0 | stage1 | stage2 | stage3 | stage4 | stage1complete | processing | confirmation | results | error
-  intake: { firstName: '', lastName: '', email: '', organization: '' },
+  phase: 'welcome', // welcome | intake | stage0 | stage1 | stage2 | stage3 | stage4 | finalopen | stage1complete | processing | confirmation | results | error
+  intake: { firstName: '', lastName: '', email: '', organization: '', coach: 'Cai Delumpa' },
+  finalOpenResponse: '',
   stage0Idx: 0,
   stage0Answers: {},     // { q1, q2, q3, q4 }
   stage1Idx: 0,
@@ -1321,6 +1322,42 @@ Check 5 — Low Confidence Handling
 Low Center Confidence (gap 0-2): Do not commit to a single Center. Present both candidate Centers.
 Low Instinct Confidence (gap 0-1): Do not present instinct as confirmed. Present as ambiguous and name the probe that would resolve it in session.
 
+Check 6 — Final Open Response
+If final_open_response is present and non-trivial, classify it into one of four buckets before proceeding:
+
+SELF_TYPING — Client claims or implies a specific type. Triggers include:
+  - Explicit: "I think I'm a Type 4", "I'm probably a 9", "I've always tested as a 2"
+  - Authority-attributed: "My therapist says I'm a 6", "Everyone tells me I'm a Three"
+  - Descriptive paraphrase: "I think I'm the type that needs everything to be perfect" (→ Type 1), "I'm probably the most chill type" (→ Type 9)
+  - When a descriptive paraphrase is ambiguous across multiple types, classify as CONTEXTUAL rather than forcing a SELF_TYPING classification with an uncertain type.
+
+  Engine behavior for SELF_TYPING:
+  - Extract or map the claimed type to a type number
+  - Set client_self_typed: true and client_self_typed_type: N
+  - EXCLUDE this claim from motivation analysis — do not let it influence the hypothesis
+  - Compare claimed type against confirmed hypothesis (match or mismatch)
+  - Surface in Task 3 client narrative and Task 4 Section 1 Going In bullets
+
+CONTEXTUAL — Useful life context that may inform interpretation. Examples: "I'm going through a divorce", "I'm autistic", "I grew up in a very religious household", "I'm currently in therapy", "I recently lost my job."
+
+  Engine behavior for CONTEXTUAL:
+  - Hold as background context for Task 5 holistic coherence check
+  - Weight lightly — can add nuance to an existing read but cannot drive a type change on its own
+  - If it creates tension with the structured data, note it
+  - Surface in Task 4 Section 1 Going In bullets if relevant to the debrief
+
+NOISE — Off-topic, irrelevant, or trivially short. Examples: "I love hiking", "this was hard", "my dog's name is Max", "not sure".
+
+  Engine behavior for NOISE:
+  - Ignore entirely
+  - Do not surface anywhere in output
+  - Do not raise any flags
+
+EMPTY — Client left it blank or skipped.
+
+  Engine behavior for EMPTY:
+  - Ignore entirely, no processing, no flags
+
 TASK 2 — Identify and Describe Flags
 For each flag type below, note if present and describe specifically — never generically. Quote the client's actual words where relevant. Only flag what is genuinely present. Do not manufacture flags for clean results.
 
@@ -1358,6 +1395,24 @@ CRITICAL: Do NOT open with "Based on your responses..." — begin with the clien
 
 If Stage 4 outcome is AMBIGUOUS: do not name a type. Instead invite: "Your responses reflect a genuinely complex pattern — one that resonates with more than one Enneagram type in meaningful ways. Rather than offering a premature hypothesis, we'd like to invite you into a conversation with your Enneagram coach or practitioner where this complexity can be explored properly."
 
+SELF-TYPING COMPARISON (add as a second paragraph to client_narrative when client_self_typed is true):
+
+When the claimed type MATCHES the engine's confirmed hypothesis:
+"You mentioned that you suspected you might be a [Type N] — and the patterns we noticed in your responses agree. That alignment is its own piece of useful self-knowledge to bring to your session."
+
+When the claimed type DOES NOT MATCH the engine's confirmed hypothesis:
+"You mentioned that you thought you might be a [claimed type] — that's worth honoring as a starting point, because you know your inner life in a way no assessment can. What we noticed in your responses points more toward a [confirmed type] pattern: [one or two specific evidence points from their actual responses, in plain language, no framework jargon]. We'd offer this for you to consider rather than to correct what you brought — type discovery is a journey, and you remain the final authority on your own type. A session with your Enneagram coach or practitioner is the right place to sit with both possibilities."
+
+When the final_response_classification was CONTEXTUAL and contained a self-description paraphrase that was too ambiguous to classify as SELF_TYPING:
+"You shared a description of what you thought your type might be. That self-observation is worth holding. What we noticed in your responses points toward [confirmed type]: [brief evidence]. We'd offer that for you to consider, and the gap between what you described and what we found is a great thing to explore with your Enneagram coach or practitioner."
+
+Rules for this paragraph:
+- Always use invitational voice — never corrective
+- Always include the explicit statement that the client is the final authority on their own type (except for the MATCH case, where it is not needed)
+- Never use framework jargon (no stage numbers, no Hornevian, no Harmonic, etc.)
+- Reference specific evidence from their Stage 0 language, not generic type descriptions
+- Refer to the practitioner generically as "your Enneagram coach or practitioner" — do not name Cai or Monique
+
 FIELD 2 — core_motivation_evidence
 3-5 sentences showing how this client's specific responses align with the confirmed type's core motivation. Reference specific Stage 0 language or answer patterns without naming frameworks or stages. Use cautious language: "consistent with," "points toward," "aligns with." Null for AMBIGUOUS or REDIRECT outcomes.
 
@@ -1389,7 +1444,9 @@ Produce a structured coach_report JSON object. This report is for Cai and Moniqu
 
 SECTION 1 — Your Read on This Client
 the_read: 4-6 sentence plain-English read of this client, anchored firmly in their Stage 0 language. What jumped out? What does the overall pattern feel like? What's the most important thing to know going in?
-going_in: 3-5 bullets on confidence framing, what the client may recognize vs. resist, and any flagged concerns (counter-type, lookalike, redirect).
+going_in: 3-5 bullets on confidence framing, what the client may recognize vs. resist, and any flagged concerns (counter-type, lookalike, redirect). Additionally include when relevant:
+  - If client_self_typed is true: "The client indicated they thought they were a Type [N]. The engine [confirmed / did not confirm] this — worth noting before you open the debrief."
+  - If final_response_classification is CONTEXTUAL: "The client shared something worth knowing going in: [contextual note]. Hold this as background context for the session."
 
 SECTION 1A (produce only when hypothesis.counter_type_confirmed is true, otherwise set to null)
 why_this_matters: 3-4 bullets on why counter-type framing matters for this debrief
@@ -1398,7 +1455,8 @@ coaching_notes: 2-3 bullets on how to introduce counter-type framing without des
 
 SECTION 2 — Debriefing Core Motivation and Worldview
 core_pattern: 3-4 bullets on the type's worldview and core motivation, written as coaching orientation (not a Wikipedia summary — written for someone who knows this system well)
-what_responses_showed: 3-4 bullets citing specific Stage 0 language and answer patterns as evidence for the core motivation hypothesis
+what_responses_showed: 3-4 bullets citing specific Stage 0 language and answer patterns as evidence for the core motivation hypothesis. Additionally include when relevant:
+  - If final_response_classification is CONTEXTUAL and directly relevant to type interpretation: "The client mentioned [contextual note] in their open response. This is held lightly as background — it informed the holistic read but did not drive the type hypothesis."
 coaching_notes: 2-3 bullets on how to present the worldview, what order, what to watch for
 probe: One question the coach can ask to open the worldview conversation. Format as "Try asking: [question]"
 
@@ -1583,6 +1641,14 @@ const OUTPUT_FORMAT = `CRITICAL: Return your complete analysis as a single JSON 
       "if_no_data": [<string bullet>, ...],
       "probe": <string — "Try asking: [question]">
     }>
+  },
+  "final_response": {
+    "present": <boolean>,
+    "classification": <"SELF_TYPING" | "CONTEXTUAL" | "NOISE" | "EMPTY">,
+    "client_self_typed": <boolean>,
+    "client_self_typed_type": <integer or null>,
+    "client_self_typed_match": <boolean or null>,
+    "contextual_note": <string or null>
   }
 }`;
 
@@ -1615,11 +1681,16 @@ function buildContextBlock(s) {
   const intake = state.intake || {};
   const clientName = [intake.firstName, intake.lastName].filter(Boolean).join(' ') || 'Not provided';
   const clientOrg = intake.organization || 'Not provided';
+  const clientCoach = intake.coach || 'Not provided';
+  const finalOpen = state.finalOpenResponse && state.finalOpenResponse.trim()
+    ? `"${state.finalOpenResponse.trim()}"`
+    : '[none provided]';
 
   return `CLIENT INFORMATION
 ==================
 Name: ${clientName}
 Organization: ${clientOrg}
+Coach: ${clientCoach}
 
 CLIENT ASSESSMENT DATA
 ======================
@@ -1683,7 +1754,9 @@ Stage 4 outcome: ${s4.outcome}
 Stage 4 — Answer Details (use for stress_point_description / security_point_description / habit_of_mind_description)
 Stress: ${s4.stressDescription || 'not provided'}
 Security: ${s4.securityDescription || 'not provided'}
-Habit of Mind: ${s4.habitDescription || 'N/A — did not fire'}`;
+Habit of Mind: ${s4.habitDescription || 'N/A — did not fire'}
+
+Final open response (optional): ${finalOpen}`;
 }
 
 // =================== TYPE LIBRARY ===================
@@ -1733,7 +1806,8 @@ function totalSteps() {
     10 + // stage 1
     3 + // stage 2
     2 + // stage 3 (max)
-    3   // stage 4 (max)
+    3 + // stage 4 (max)
+    1   // finalopen
   );
 }
 
@@ -1746,11 +1820,12 @@ function currentStep() {
     stage2: 15 + state.stage2Idx,
     stage3: 18 + state.stage3Idx,
     stage4: 20 + state.stage4Idx,
-    stage1complete: 23,
-    processing: 23,
-    confirmation: 23,
-    results: 23,
-    error: 23,
+    finalopen: 23,
+    stage1complete: 24,
+    processing: 24,
+    confirmation: 24,
+    results: 24,
+    error: 24,
   };
   return phaseOrder[state.phase] || 0;
 }
@@ -1774,6 +1849,7 @@ function render() {
     case 'stage2':         app.innerHTML = renderStage2(); break;
     case 'stage3':         app.innerHTML = renderStage3(); break;
     case 'stage4':         app.innerHTML = renderStage4(); break;
+    case 'finalopen':      app.innerHTML = renderFinalOpen(); break;
     case 'stage1complete': app.innerHTML = renderStage1Complete(); break;
     case 'processing':     app.innerHTML = renderProcessing(); break;
     case 'confirmation':   app.innerHTML = renderConfirmation(); break;
@@ -1829,10 +1905,19 @@ function renderIntake() {
         <div id="intake-email-error" style="display:none;color:#C44530;font-size:12px;margin-top:4px;">Please enter a valid email address.</div>
       </div>
 
-      <div style="margin-bottom:28px;">
+      <div style="margin-bottom:16px;">
         <label style="display:block;font-size:11px;font-weight:700;color:#4A6070;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Organization <span style="color:#7A96A6;font-weight:400;text-transform:none;">(optional)</span></label>
         <input id="intake-organization" type="text" value="${esc(i.organization || '')}" autocomplete="organization"
           style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border, #D6E2E8);border-radius:6px;font-family:inherit;font-size:14px;color:#1A2B33;outline:none;" />
+      </div>
+
+      <div style="margin-bottom:28px;">
+        <label style="display:block;font-size:11px;font-weight:700;color:#4A6070;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Select your coach <span style="color:#f58527;">*</span></label>
+        <select id="intake-coach"
+          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border, #D6E2E8);border-radius:6px;font-family:inherit;font-size:14px;color:#1A2B33;outline:none;background:#fff;appearance:none;-webkit-appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path fill=%22%234A6070%22 d=%22M6 8L0 0h12z%22/></svg>');background-repeat:no-repeat;background-position:right 14px center;">
+          <option value="Cai Delumpa" ${i.coach === 'Cai Delumpa' ? 'selected' : ''}>Cai Delumpa</option>
+          <option value="Monique Breault" ${i.coach === 'Monique Breault' ? 'selected' : ''}>Monique Breault</option>
+        </select>
       </div>
 
       <div id="intake-error" style="display:none;color:#C44530;font-size:13px;margin-bottom:16px;text-align:center;">Please fill in all required fields.</div>
@@ -1859,6 +1944,24 @@ function renderConfirmation() {
         You'll receive an email at <strong style="color:#1A2B33;">${esc(email)}</strong> shortly with your results attached.
         If it doesn't arrive within a few minutes, please check your spam or junk folder.
       </p>
+    </div>
+  </div>`;
+}
+
+// ---- Final Open Question ----
+function renderFinalOpen() {
+  const val = state.finalOpenResponse || '';
+  return `<div class="screen">
+    <div class="stage-label">Final Question · Optional</div>
+    <div class="q-title">ANYTHING ELSE?</div>
+    <div class="q-text" style="margin-bottom:20px;">Is there anything about how you experience the world — what drives you, what you tend to avoid, or what you've learned about yourself — that the assessment didn't quite capture?</div>
+    <p style="font-size:13px;color:var(--ink-lt);margin-bottom:16px;font-style:italic;">Optional — skip if nothing comes to mind.</p>
+    <textarea class="text-input" id="finalopen-input" placeholder="Type your response here…" style="min-height:130px;">${esc(val)}</textarea>
+    <div class="nav-row">
+      <button class="btn btn-ghost" id="btn-finalopen-back">Back</button>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="btn-finalopen-skip" style="margin-right:10px;">Skip</button>
+      <button class="btn btn-primary" id="btn-finalopen-submit">Submit</button>
     </div>
   </div>`;
 }
@@ -2937,6 +3040,7 @@ function attachHandlers() {
       const lastName = (document.getElementById('intake-last-name').value || '').trim();
       const email = (document.getElementById('intake-email').value || '').trim();
       const organization = (document.getElementById('intake-organization').value || '').trim();
+      const coach = (document.getElementById('intake-coach').value || 'Cai Delumpa').trim();
 
       const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       const errorDiv = document.getElementById('intake-error');
@@ -2950,7 +3054,7 @@ function attachHandlers() {
       }
 
       errorDiv.style.display = 'none';
-      state.intake = { firstName, lastName, email, organization };
+      state.intake = { firstName, lastName, email, organization, coach };
       state.phase = 'stage0';
       state.stage0Idx = 0;
       render();
@@ -2962,7 +3066,8 @@ function attachHandlers() {
     clearResult();
     Object.assign(state, {
       phase: 'welcome',
-      intake: { firstName: '', lastName: '', email: '', organization: '' },
+      intake: { firstName: '', lastName: '', email: '', organization: '', coach: 'Cai Delumpa' },
+      finalOpenResponse: '',
       stage0Idx: 0, stage0Answers: {},
       stage1Idx: 0, stage1Rankings: [],
       stage2Idx: 0, stage2Answers: [],
@@ -3238,13 +3343,47 @@ function attachHandlers() {
         state.stage4Idx++;
         render();
       } else {
-        // Done with Stage 4 — compute scores, transition to processing, call API.
+        // Done with Stage 4 — compute scores, transition to finalopen question.
         state.scores.stage4 = computeStage4Scores();
         console.log('=== STAGE 4 OUTPUT ===', state.scores.stage4);
-        state.phase = 'processing';
+        state.phase = 'finalopen';
         render();
-        callAPI();
       }
+    });
+  }
+
+  // ---- Final Open Question ----
+  if (state.phase === 'finalopen') {
+    const inputEl = document.getElementById('finalopen-input');
+
+    // Save draft as user types
+    if (inputEl) inputEl.addEventListener('input', () => {
+      state.finalOpenResponse = inputEl.value;
+    });
+
+    const submitFinalOpen = () => {
+      state.finalOpenResponse = (inputEl ? inputEl.value : '') || '';
+      state.phase = 'processing';
+      render();
+      callAPI();
+    };
+
+    const btnSkip = document.getElementById('btn-finalopen-skip');
+    if (btnSkip) btnSkip.addEventListener('click', () => {
+      state.finalOpenResponse = '';
+      state.phase = 'processing';
+      render();
+      callAPI();
+    });
+
+    const btnSubmit = document.getElementById('btn-finalopen-submit');
+    if (btnSubmit) btnSubmit.addEventListener('click', submitFinalOpen);
+
+    const btnBack = document.getElementById('btn-finalopen-back');
+    if (btnBack) btnBack.addEventListener('click', () => {
+      state.phase = 'stage4';
+      state.stage4Idx = state.stage4Sequence.length - 1;
+      render();
     });
   }
 
@@ -3274,7 +3413,7 @@ async function callAPI() {
         sp: s.sp, so: s.so, sx: s.sx,
         identifiedInstinct: s.identifiedInstinct,
         sortedInstincts: s.sortedInstincts,
-      }}),
+      }, finalOpenResponse: state.finalOpenResponse || '' }),
     });
 
     const data = await res.json();

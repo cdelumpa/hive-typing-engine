@@ -84,7 +84,10 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
       9: 'The Peacemaker' }[h.confirmed_type] || '';
 
   const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const coachEmail = process.env.COACH_EMAIL;
+  // Route coach email to the selected coach
+  const coachEmail = (intake.coach === 'Monique Breault')
+    ? (process.env.COACH_EMAIL_MONIQUE || process.env.COACH_EMAIL)
+    : (process.env.COACH_EMAIL_CAI || process.env.COACH_EMAIL);
   const assessmentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
   // Read PDFs and encode as base64
@@ -168,6 +171,10 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
           <tr style="border-bottom: 1px solid #EFE8E0;">
             <td style="padding: 8px 0; color: #7A96A6; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Organization</td>
             <td style="padding: 8px 0;">${esc(intake.organization || 'Not provided')}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #EFE8E0;">
+            <td style="padding: 8px 0; color: #7A96A6; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Coach</td>
+            <td style="padding: 8px 0;">${esc(intake.coach || 'Not provided')}</td>
           </tr>
           <tr style="border-bottom: 1px solid #EFE8E0;">
             <td style="padding: 8px 0; color: #7A96A6; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Confirmed Type</td>
