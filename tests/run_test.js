@@ -174,9 +174,18 @@ function postAnalyze() {
     const start = Date.now();
     console.log(`\n[API] Starting — ${new Date().toISOString()}`);
 
+    // Basic auth credentials for the test runner
+    const authUser = process.env.BASIC_AUTH_USER || 'hive-enneagram';
+    const authPass = process.env.BASIC_AUTH_PASSWORD || '9Types!';
+    const authHeader = 'Basic ' + Buffer.from(`${authUser}:${authPass}`).toString('base64');
+
     const req = http.request({
       hostname: 'localhost', port: 3000, path: '/api/analyze', method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        'Authorization': authHeader,
+      },
       timeout: 360000,
     }, (res) => {
       let data = '';

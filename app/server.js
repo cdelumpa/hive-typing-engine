@@ -1,13 +1,13 @@
-const express = require('express');
-const Anthropic = require('@anthropic-ai/sdk');
-const puppeteer = require('puppeteer-core');
-const sgMail = require('@sendgrid/mail');
-const fs = require('fs');
-const path = require('path');
+'use strict';
+
+const express    = require('express');
+const Anthropic  = require('@anthropic-ai/sdk');
+const sgMail     = require('@sendgrid/mail');
+const basicAuth  = require('express-basic-auth');
+const fs         = require('fs');
+const path       = require('path');
 
 // override: true lets values in .env authoritatively replace ambient shell env.
-// Without this, a shell-defined ANTHROPIC_API_KEY="" silently shadows the real
-// key from .env and the SDK fails with an unhelpful auth-resolution error.
 require('dotenv').config({ override: true });
 
 if (!process.env.ANTHROPIC_API_KEY) {
@@ -24,6 +24,8 @@ if (process.env.SENDGRID_API_KEY) {
 
 // Load renderer and type library
 const { buildClientHTML, buildCoachHTML } = require('./renderer');
+const db = require('./db');
+
 const TYPE_LIBRARY_PATH = path.join(__dirname, '../content/type_library.json');
 let typeLibrary = null;
 try {
@@ -40,22 +42,53 @@ if (!fs.existsSync(REPORTS_DIR)) {
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
 }
 
+// Initialize database (schema + seed coaches) — non-blocking
+db.initDb().catch(e => console.error('[boot] db.initDb error:', e.message));
+
+// =================== EXPRESS APP ===================
+
 const app = express();
+
+// Basic auth — protects all routes
+app.use(basicAuth({
+  users: {
+    [process.env.BASIC_AUTH_USER || 'hive-enneagram']: process.env.BASIC_AUTH_PASSWORD || '9Types!',
+  },
+  challenge: true,
+  realm: 'Hive Typing Engine',
+}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
 app.use('/content', express.static('../content'));
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// =================== PUPPETEER LAUNCH ===================
+
+async function launchBrowser() {
+  if (process.env.NODE_ENV === 'production') {
+    // Railway — use full puppeteer with bundled Chromium
+    const puppeteerFull = require('puppeteer');
+    return await puppeteerFull.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
+  } else {
+    // Local Mac — use puppeteer-core with system Chrome
+    const puppeteerCore = require('puppeteer-core');
+    return await puppeteerCore.launch({
+      executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+  }
+}
+
 // =================== PDF GENERATION ===================
 
 async function generatePDF(htmlString, filename) {
-  const browser = await puppeteer.launch({
-    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
-
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.setContent(htmlString, { waitUntil: 'networkidle0' });
@@ -76,6 +109,16 @@ async function generatePDF(htmlString, filename) {
 
 // =================== EMAIL DELIVERY ===================
 
+function esc(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
   const h = result.hypothesis;
   const typeName = (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() ||
@@ -83,32 +126,26 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
       5: 'The Observer', 6: 'The Questioner', 7: 'The Enthusiast', 8: 'The Protector',
       9: 'The Peacemaker' }[h.confirmed_type] || '';
 
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  // Route coach email to the selected coach
+  const fromEmail  = process.env.SENDGRID_FROM_EMAIL;
   const coachEmail = (intake.coach === 'Monique Breault')
     ? (process.env.COACH_EMAIL_MONIQUE || process.env.COACH_EMAIL)
-    : (process.env.COACH_EMAIL_CAI || process.env.COACH_EMAIL);
+    : (process.env.COACH_EMAIL_CAI    || process.env.COACH_EMAIL);
   const assessmentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const appUrl = process.env.RAILWAY_PUBLIC_URL || 'https://hive-typing-engine-production.up.railway.app';
 
   // Read PDFs and encode as base64
   let clientPdfB64 = null;
-  let coachPdfB64 = null;
+  let coachPdfB64  = null;
 
-  try {
-    if (clientPdfPath) clientPdfB64 = fs.readFileSync(clientPdfPath).toString('base64');
-  } catch (e) {
-    console.error('[email] could not read client PDF:', e.message);
-  }
-  try {
-    if (coachPdfPath) coachPdfB64 = fs.readFileSync(coachPdfPath).toString('base64');
-  } catch (e) {
-    console.error('[email] could not read coach PDF:', e.message);
-  }
+  try { if (clientPdfPath) clientPdfB64 = fs.readFileSync(clientPdfPath).toString('base64'); }
+  catch (e) { console.error('[email] could not read client PDF:', e.message); }
+  try { if (coachPdfPath) coachPdfB64 = fs.readFileSync(coachPdfPath).toString('base64'); }
+  catch (e) { console.error('[email] could not read coach PDF:', e.message); }
 
   // ---- Client email ----
   const clientMsg = {
-    to: intake.email,
-    from: fromEmail,
+    to:      intake.email,
+    from:    fromEmail,
     subject: `Your Hive Enneagram Report is Ready, ${intake.firstName}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1A2B33; line-height: 1.7;">
@@ -130,7 +167,7 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
         <p style="color: #4A6070; font-size: 13px; margin: 0;">Warm regards,<br><strong style="color: #1A2B33;">Cai and Monique</strong><br>Hive Leadership</p>
 
         <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #E0E8EC; font-size: 11px; color: #7A96A6;">
-          This report was generated by the Hive Enneagram Typing Engine. © 2026 Hive, Inc. All rights reserved.
+          This report was generated by the Hive Enneagram Typing Engine at ${appUrl}. © 2026 Hive, Inc. All rights reserved.
         </div>
       </div>
     `,
@@ -138,9 +175,9 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
 
   if (clientPdfB64) {
     clientMsg.attachments = [{
-      content: clientPdfB64,
-      filename: `Hive_Enneagram_Report_${intake.firstName}_${intake.lastName}.pdf`,
-      type: 'application/pdf',
+      content:     clientPdfB64,
+      filename:    `Hive_Enneagram_Report_${intake.firstName}_${intake.lastName}.pdf`,
+      type:        'application/pdf',
       disposition: 'attachment',
     }];
   } else {
@@ -149,8 +186,8 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
 
   // ---- Coach email ----
   const coachMsg = {
-    to: coachEmail,
-    from: fromEmail,
+    to:      coachEmail,
+    from:    fromEmail,
     subject: `Coach Prep Report — ${intake.firstName} ${intake.lastName}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1A2B33; line-height: 1.7;">
@@ -193,7 +230,7 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
         <p style="font-size: 13px; color: #4A6070;">Both the client report and your coach prep report are attached. The client has also received their copy by email.</p>
 
         <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #E0E8EC; font-size: 11px; color: #7A96A6;">
-          Hive Enneagram Typing Engine — Internal Use Only. © 2026 Hive, Inc.
+          Hive Enneagram Typing Engine — Internal Use Only. Generated at ${appUrl}. © 2026 Hive, Inc.
         </div>
       </div>
     `,
@@ -202,17 +239,17 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
   const coachAttachments = [];
   if (clientPdfB64) {
     coachAttachments.push({
-      content: clientPdfB64,
-      filename: `Hive_Enneagram_Report_${intake.firstName}_${intake.lastName}.pdf`,
-      type: 'application/pdf',
+      content:     clientPdfB64,
+      filename:    `Hive_Enneagram_Report_${intake.firstName}_${intake.lastName}.pdf`,
+      type:        'application/pdf',
       disposition: 'attachment',
     });
   }
   if (coachPdfB64) {
     coachAttachments.push({
-      content: coachPdfB64,
-      filename: `Hive_Coach_Report_${intake.firstName}_${intake.lastName}.pdf`,
-      type: 'application/pdf',
+      content:     coachPdfB64,
+      filename:    `Hive_Coach_Report_${intake.firstName}_${intake.lastName}.pdf`,
+      type:        'application/pdf',
       disposition: 'attachment',
     });
   }
@@ -234,19 +271,9 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
   }
 }
 
-function esc(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
 // =================== BACKGROUND JOB ===================
 
-async function runBackgroundJob(systemPrompt, userMessage, intake, scores) {
+async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId) {
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   let result = null;
 
@@ -266,7 +293,7 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores) {
         messages: [{ role: 'user', content: userMessage }],
       });
 
-      const text = response.content[0].text;
+      const text  = response.content[0].text;
       const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
       result = JSON.parse(clean);
 
@@ -275,25 +302,29 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores) {
       break;
     } catch (err) {
       console.error(`[submit] attempt ${attempt} failed:`, err.message);
-      if (attempt < 3) await delay(Math.pow(2, attempt) * 1000);
-      else {
-        // All retries exhausted — send error notification to coach
+      if (attempt < 3) {
+        await delay(Math.pow(2, attempt) * 1000);
+      } else {
+        // All retries exhausted
+        await db.failAssessment(assessmentId);
         await sendErrorNotification(intake, err);
         return;
       }
     }
   }
 
-  // 2. Generate PDFs
-  let clientPdfPath = null;
-  let coachPdfPath = null;
+  // 2. Update assessment record with results
+  await db.completeAssessment(assessmentId, result);
 
-  // scores passed from client for bar chart rendering in coach PDF
+  // 3. Generate PDFs
+  let clientPdfPath = null;
+  let coachPdfPath  = null;
 
   try {
     const clientHtml = buildClientHTML(result, typeLibrary);
     clientPdfPath = await generatePDF(clientHtml, `client_${intake.firstName}_${intake.lastName}`);
     console.log(`[pdf] client PDF generated: ${clientPdfPath}`);
+    await db.createReport(assessmentId, 'client', clientPdfPath);
   } catch (e) {
     console.error('[pdf] client PDF generation failed:', e.message);
   }
@@ -302,11 +333,12 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores) {
     const coachHtml = buildCoachHTML(result, typeLibrary, scores);
     coachPdfPath = await generatePDF(coachHtml, `coach_${intake.firstName}_${intake.lastName}`);
     console.log(`[pdf] coach PDF generated: ${coachPdfPath}`);
+    await db.createReport(assessmentId, 'coach', coachPdfPath);
   } catch (e) {
     console.error('[pdf] coach PDF generation failed:', e.message);
   }
 
-  // 3. Send emails
+  // 4. Send emails
   try {
     await sendEmails(intake, result, clientPdfPath, coachPdfPath);
   } catch (e) {
@@ -316,10 +348,11 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores) {
 
 async function sendErrorNotification(intake, err) {
   if (!process.env.SENDGRID_API_KEY) return;
+  const coachEmail = process.env.COACH_EMAIL_CAI || process.env.COACH_EMAIL;
   try {
     await sgMail.send({
-      to: process.env.COACH_EMAIL,
-      from: process.env.SENDGRID_FROM_EMAIL,
+      to:      coachEmail,
+      from:    process.env.SENDGRID_FROM_EMAIL,
       subject: `[Hive Error] Assessment processing failed — ${intake.firstName} ${intake.lastName}`,
       text: [
         `Assessment processing failed after all retries.`,
@@ -341,7 +374,7 @@ async function sendErrorNotification(intake, err) {
 // =================== ROUTES ===================
 
 // New submission endpoint — returns immediately, processes in background
-app.post('/api/submit', (req, res) => {
+app.post('/api/submit', async (req, res) => {
   const { systemPrompt, userMessage, intake, scores } = req.body;
   const intakeInfo = intake ? `${intake.firstName} ${intake.lastName} <${intake.email}>` : 'unknown';
   console.log(`[submit] received from ${intakeInfo} — system ${systemPrompt?.length ?? 0} chars, user ${userMessage?.length ?? 0} chars`);
@@ -349,10 +382,21 @@ app.post('/api/submit', (req, res) => {
   // Respond immediately
   res.json({ ok: true, status: 'processing' });
 
+  // Create DB records (fire-and-forget safe — all wrapped in try/catch in db.js)
+  let assessmentId = null;
+  try {
+    const coachId  = await db.findOrCreateCoach(intake?.coach || 'Cai Delumpa');
+    const clientId = await db.createClient(intake || {}, coachId);
+    assessmentId   = await db.createAssessment(clientId, { systemPrompt, userMessage, intake });
+    if (assessmentId) console.log(`[submit] assessment #${assessmentId} created`);
+  } catch (e) {
+    console.error('[submit] DB record creation error:', e.message);
+  }
+
   // Fire and forget background job
   (async () => {
     try {
-      await runBackgroundJob(systemPrompt, userMessage, intake || {}, scores || {});
+      await runBackgroundJob(systemPrompt, userMessage, intake || {}, scores || {}, assessmentId);
     } catch (e) {
       console.error('[submit] unhandled background job error:', e.message);
     }
@@ -382,11 +426,9 @@ app.post('/api/analyze', async (req, res) => {
         messages: [{ role: 'user', content: userMessage }],
       });
 
-      const text = response.content[0].text;
-
-      // Strip any accidental markdown fences before parsing
-      const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-      const result = JSON.parse(clean);
+      const text    = response.content[0].text;
+      const clean   = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+      const result  = JSON.parse(clean);
       const elapsed = ((Date.now() - started) / 1000).toFixed(1);
       console.log(`[analyze] usage — ${JSON.stringify(response.usage)}`);
       console.log(`[analyze] success — attempt ${attempt}, ${elapsed}s, confirmed_type=${result?.hypothesis?.confirmed_type}, confidence=${result?.hypothesis?.confidence_level}, outcome=${result?.hypothesis?.stage4_outcome}, flags=${result?.flags?.length ?? 0}`);
@@ -399,9 +441,8 @@ app.post('/api/analyze', async (req, res) => {
 
   console.error('[analyze] all 3 attempts failed — returning fallback to client');
   return res.status(500).json({
-    ok: false,
-    message:
-      'Your results are being prepared — check your email within 24 hours.',
+    ok:      false,
+    message: 'Your results are being prepared — check your email within 24 hours.',
   });
 });
 
