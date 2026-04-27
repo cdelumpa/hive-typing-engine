@@ -93,12 +93,17 @@ async function generatePDF(htmlString, filename) {
     const page = await browser.newPage();
     await page.setContent(htmlString, { waitUntil: 'networkidle0' });
 
+    // Activate print media so @media print and @page CSS rules are applied
+    await page.emulateMediaType('print');
+
     const filePath = path.join(REPORTS_DIR, `${filename}_${Date.now()}.pdf`);
     await page.pdf({
       path: filePath,
       format: 'A4',
-      margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' },
+      // Margins are controlled by @page { margin: 0.75in } in the HTML <style> block.
+      // Do not pass margin here — it would conflict with and override the CSS @page rule.
       printBackground: true,
+      displayHeaderFooter: false,
     });
 
     return filePath;
