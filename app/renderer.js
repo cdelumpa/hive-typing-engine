@@ -16,6 +16,7 @@ const path = require('path');
 const fs = require('fs');
 
 // ---- Shared constants (mirrored from app.js) ----
+// TYPE_NAMES is authoritative — always use this, never rely on the AI-returned name string
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver', 3: 'The Performer',
   4: 'The Idealist', 5: 'The Observer', 6: 'The Questioner',
@@ -43,11 +44,26 @@ function renderParas(arr, style) {
 function renderMultiPara(str, style) {
   if (!str) return '';
   const s = style || 'margin:0 0 14px;';
-  return str
-    .split(/\n\n+/)
-    .map((p) => `<p style="${s}">${esc(p.trim())}</p>`)
-    .filter((p) => p !== `<p style="${s}"></p>`)
-    .join('');
+  const chunks = str.split(/\n\n+/).map((p) => p.trim()).filter(Boolean);
+  const paras = [];
+  for (const chunk of chunks) {
+    if (chunk.split(/\s+/).length <= 150) {
+      paras.push(chunk);
+    } else {
+      // Split long chunks at sentence boundaries, grouping every 4 sentences
+      const sentences = chunk.match(/[^.!?]+[.!?]+[\s]*/g) || [chunk];
+      let group = [];
+      for (let i = 0; i < sentences.length; i++) {
+        group.push(sentences[i]);
+        if ((i + 1) % 4 === 0 || i === sentences.length - 1) {
+          const text = group.join('').trim();
+          if (text) paras.push(text);
+          group = [];
+        }
+      }
+    }
+  }
+  return paras.map((p) => `<p style="${s}">${esc(p)}</p>`).join('');
 }
 
 // ---- Client report body HTML ----
@@ -57,8 +73,8 @@ function clientReportBodyHtml(result, typeLibrary) {
   const ambiguous = h.stage4_outcome === 'AMBIGUOUS';
 
   const typeName =
-    (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() ||
-    TYPE_NAMES[h.confirmed_type] || '';
+    TYPE_NAMES[h.confirmed_type] ||
+    (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || '';
 
   const tLib = (typeLibrary && typeLibrary.types && typeLibrary.types[String(h.confirmed_type)]) || {};
   const primers = (typeLibrary && typeLibrary.static_primers) || {};
@@ -70,7 +86,7 @@ function clientReportBodyHtml(result, typeLibrary) {
     `<div style="font-size:10px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${esc(title)}</div>`;
   const EVIDENCE = (text) =>
     text
-      ? `<p style="font-size:12px;color:#4A6070;font-style:italic;margin:0 0 14px;">In your responses: ${renderMultiPara(text, 'display:inline;')}</p>`
+      ? `<div style="font-size:12px;color:#4A6070;font-style:italic;margin:0 0 14px;">In your responses: ${renderMultiPara(text, 'display:inline;')}</div>`
       : '';
 
   const header = ambiguous
@@ -132,7 +148,7 @@ function clientReportBodyHtml(result, typeLibrary) {
     cf.secondary_type_narrative && !ambiguous
       ? `
     ${SH('Secondary Type Hypothesis')}
-    <p style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${renderMultiPara(cf.secondary_type_narrative, 'margin:0 0 10px;')}</p>
+    <div style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${renderMultiPara(cf.secondary_type_narrative, 'margin:0 0 10px;')}</div>
   `
       : '';
 
@@ -155,7 +171,7 @@ function clientReportBodyHtml(result, typeLibrary) {
       : '';
 
   return `
-    <div style="background:#fff;border-radius:10px;padding:36px 40px;box-shadow:0 1px 10px rgba(0,0,0,0.04);font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;max-width:720px;margin:0 auto;">
+    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;">
 
       <!-- HEADER -->
       <div style="text-align:center;padding-bottom:24px;margin-bottom:28px;border-bottom:3px solid #00b1d7;">
@@ -235,8 +251,8 @@ function clientReportBodyHtml(result, typeLibrary) {
         <!-- HOW YOUR TYPE MOVES THROUGH STRESS AND EASE -->
         ${SH('How Your Type Moves Through Stress and Ease')}
         ${renderParas((primers.stress_security_primer || {}).body)}
-        ${cf.stress_point_narrative ? `${SUB('Under Stress')}<p style="margin:0 0 14px;">${esc(cf.stress_point_narrative)}</p>` : ''}
-        ${cf.security_point_narrative ? `${SUB('When at Ease')}<p style="margin:0 0 14px;">${esc(cf.security_point_narrative)}</p>` : ''}
+        ${cf.stress_point_narrative ? `${SUB('Under Stress')}${renderMultiPara(cf.stress_point_narrative)}` : ''}
+        ${cf.security_point_narrative ? `${SUB('When at Ease')}${renderMultiPara(cf.security_point_narrative)}` : ''}
 
         <!-- WING INFLUENCE -->
         ${wingsHtml}
@@ -269,8 +285,8 @@ function coachReportBodyHtml(result, typeLibrary, scores) {
   const scoresObj = scores || {};
 
   const typeName =
-    (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() ||
-    TYPE_NAMES[h.confirmed_type] || '';
+    TYPE_NAMES[h.confirmed_type] ||
+    (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || '';
 
   const ORANGE = '#f58527';
   const SH = (title) =>
@@ -383,7 +399,7 @@ function coachReportBodyHtml(result, typeLibrary, scores) {
     .join('');
 
   return `
-    <div style="background:#fff;border-radius:10px;padding:36px 40px;box-shadow:0 1px 10px rgba(0,0,0,0.04);font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;max-width:760px;margin:0 auto;">
+    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;">
 
       <!-- HEADER -->
       <div style="text-align:center;padding-bottom:24px;margin-bottom:28px;border-bottom:3px solid ${ORANGE};">
@@ -561,11 +577,22 @@ function buildClientHTML(result, typeLibrary) {
 <meta charset="utf-8">
 <title>Client Report — Type ${h.confirmed_type}</title>
 <style>
-  @media print { body { background: #fff; margin: 0; } @page { margin: 2cm; } }
-  body { background: #F5F9FB; margin: 0; padding: 40px 20px; }
+  @page { margin: 0.75in; }
+  body { background: #fff; margin: 0; padding: 0; font-family: Georgia, serif; }
+  .print-footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 10px; color: #7A96A6; padding: 4px 0;
+    border-top: 1px solid #E0E0E0;
+  }
+  .print-footer .page-num::after { content: "Page " counter(page); }
 </style>
 </head>
 <body>
+<div class="print-footer">
+  <span>© Copyright 2026, Hive, Inc. All rights reserved.</span>
+  <span class="page-num"></span>
+</div>
 ${body}
 </body>
 </html>`;
@@ -582,11 +609,22 @@ function buildCoachHTML(result, typeLibrary, scores) {
 <meta charset="utf-8">
 <title>Coach Report — Type ${h.confirmed_type}${instinct}</title>
 <style>
-  @media print { body { background: #fff; margin: 0; } @page { margin: 2cm; } }
-  body { background: #F5F9FB; margin: 0; padding: 40px 20px; }
+  @page { margin: 0.75in; }
+  body { background: #fff; margin: 0; padding: 0; font-family: Georgia, serif; }
+  .print-footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 10px; color: #7A96A6; padding: 4px 0;
+    border-top: 1px solid #E0E0E0;
+  }
+  .print-footer .page-num::after { content: "Page " counter(page); }
 </style>
 </head>
 <body>
+<div class="print-footer">
+  <span>© Copyright 2026, Hive, Inc. All rights reserved. · For use by Cai and Monique.</span>
+  <span class="page-num"></span>
+</div>
 ${body}
 </body>
 </html>`;
