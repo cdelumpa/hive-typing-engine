@@ -26,7 +26,7 @@ if (process.env.SENDGRID_API_KEY) {
 const { buildClientHTML, buildCoachHTML } = require('./renderer');
 const db = require('./db');
 
-const TYPE_LIBRARY_PATH = path.join(__dirname, '../content/type_library.json');
+const TYPE_LIBRARY_PATH = path.join(__dirname, 'type_library.json');
 let typeLibrary = null;
 try {
   typeLibrary = JSON.parse(fs.readFileSync(TYPE_LIBRARY_PATH, 'utf8'));
