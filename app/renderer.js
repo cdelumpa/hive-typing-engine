@@ -641,7 +641,7 @@ function buildPdfOptions(intake) {
   const headerTemplate =
     '<div style="width:100%;box-sizing:border-box;display:flex;justify-content:flex-end;' +
     'align-items:center;padding:8px 72px 0;height:100%;">' +
-    '<img src="' + HIVE_LOGO_DATA_URI + '" style="width:150px;height:auto;display:block;">' +
+    '<img src="' + HIVE_LOGO_DATA_URI + '" style="width:75px;height:auto;display:block;">' +
     '</div>';
 
   return {
@@ -651,7 +651,7 @@ function buildPdfOptions(intake) {
     headerTemplate,
     footerTemplate,
     margin: {
-      top: '0.65in',     // accommodates 0.6in header template
+      top: '1in',        // accommodates header template with extra breathing room
       bottom: '0.875in', // 0.5in footer + 0.375in no-man's-land buffer
       left: '0.75in',
       right: '0.75in',
