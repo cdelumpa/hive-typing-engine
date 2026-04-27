@@ -23,7 +23,7 @@ if (process.env.SENDGRID_API_KEY) {
 }
 
 // Load renderer and type library
-const { buildClientHTML, buildCoachHTML } = require('./renderer');
+const { buildClientHTML, buildCoachHTML, buildPdfOptions } = require('./renderer');
 const db = require('./db');
 
 const TYPE_LIBRARY_PATH = path.join(__dirname, 'type_library.json');
@@ -87,23 +87,26 @@ async function launchBrowser() {
 
 // =================== PDF GENERATION ===================
 
-async function generatePDF(htmlString, filename) {
+async function generatePDF(htmlString, filename, pdfOptions) {
   const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.setContent(htmlString, { waitUntil: 'networkidle0' });
 
-    // Activate print media so @media print and @page CSS rules are applied
+    // Activate print media so @media print CSS rules are applied
     await page.emulateMediaType('print');
 
     const filePath = path.join(REPORTS_DIR, `${filename}_${Date.now()}.pdf`);
     await page.pdf({
       path: filePath,
-      format: 'A4',
-      // Margins are controlled by @page { margin: 0.75in } in the HTML <style> block.
-      // Do not pass margin here — it would conflict with and override the CSS @page rule.
-      printBackground: true,
-      displayHeaderFooter: false,
+      // pdfOptions includes format, printBackground, displayHeaderFooter,
+      // headerTemplate, footerTemplate, and margin (header/footer/content margins).
+      ...(pdfOptions || {
+        format: 'A4',
+        printBackground: true,
+        displayHeaderFooter: false,
+        margin: { top: '0.75in', bottom: '0.75in', left: '0.75in', right: '0.75in' },
+      }),
     });
 
     return filePath;
@@ -325,9 +328,11 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
   let clientPdfPath = null;
   let coachPdfPath  = null;
 
+  const pdfOpts = buildPdfOptions(intake);
+
   try {
-    const clientHtml = buildClientHTML(result, typeLibrary);
-    clientPdfPath = await generatePDF(clientHtml, `client_${intake.firstName}_${intake.lastName}`);
+    const clientHtml = buildClientHTML(result, typeLibrary, intake);
+    clientPdfPath = await generatePDF(clientHtml, `client_${intake.firstName}_${intake.lastName}`, pdfOpts);
     console.log(`[pdf] client PDF generated: ${clientPdfPath}`);
     await db.createReport(assessmentId, 'client', clientPdfPath);
   } catch (e) {
@@ -335,8 +340,8 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
   }
 
   try {
-    const coachHtml = buildCoachHTML(result, typeLibrary, scores);
-    coachPdfPath = await generatePDF(coachHtml, `coach_${intake.firstName}_${intake.lastName}`);
+    const coachHtml = buildCoachHTML(result, typeLibrary, scores, intake);
+    coachPdfPath = await generatePDF(coachHtml, `coach_${intake.firstName}_${intake.lastName}`, pdfOpts);
     console.log(`[pdf] coach PDF generated: ${coachPdfPath}`);
     await db.createReport(assessmentId, 'coach', coachPdfPath);
   } catch (e) {
