@@ -36,11 +36,9 @@ try {
   typeLibrary = { static_primers: {}, types: {} };
 }
 
-// Ensure reports directory exists
-const REPORTS_DIR = path.join(__dirname, 'reports');
-if (!fs.existsSync(REPORTS_DIR)) {
-  fs.mkdirSync(REPORTS_DIR, { recursive: true });
-}
+// Ensure reports directory exists (Railway Volume path takes precedence)
+const REPORTS_DIR = process.env.REPORTS_DIR || path.join(__dirname, 'reports');
+if (!fs.existsSync(REPORTS_DIR)) fs.mkdirSync(REPORTS_DIR, { recursive: true });
 
 // Initialize database (schema + seed coaches) — non-blocking
 db.initDb().catch(e => console.error('[boot] db.initDb error:', e.message));
@@ -455,6 +453,169 @@ app.post('/api/analyze', async (req, res) => {
     message: 'Your results are being prepared — check your email within 24 hours.',
   });
 });
+
+// =================== ADMIN ROUTES ===================
+
+const TYPE_NAMES = {
+  1: 'The Improver', 2: 'The Giver',   3: 'The Performer', 4: 'The Idealist',
+  5: 'The Observer', 6: 'The Questioner', 7: 'The Enthusiast',
+  8: 'The Protector', 9: 'The Peacemaker',
+};
+
+function formatAdminDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+app.get('/admin', async (req, res) => {
+  let rows = [];
+  try { rows = await db.getAdminRows(); } catch (e) { console.error('[admin] query error:', e.message); }
+
+  const tableRows = rows.map(r => {
+    const name      = esc(`${r.first_name || ''} ${r.last_name || ''}`.trim()) || '—';
+    const typeNum   = r.confirmed_type;
+    const typeLabel = typeNum ? `Type ${typeNum} — ${TYPE_NAMES[typeNum] || ''}` : '—';
+    const instinct  = r.confirmed_instinct || '—';
+    const conf      = r.confidence_level ? r.confidence_level.replace(/_/g, '-') : '—';
+    const coach     = esc(r.coach_name || '—');
+    const date      = formatAdminDate(r.created_at);
+    const status    = r.status || 'unknown';
+    const statusColor = status === 'complete' ? '#1a7a4a' : status === 'processing' ? '#b07800' : status === 'failed' ? '#c0392b' : '#666';
+    const statusBg    = status === 'complete' ? '#e6f7ee' : status === 'processing' ? '#fff8e1' : status === 'failed' ? '#fdecea' : '#f4f4f4';
+
+    const clientPdfBase = r.client_pdf ? path.basename(r.client_pdf) : null;
+    const coachPdfBase  = r.coach_pdf  ? path.basename(r.coach_pdf)  : null;
+    const clientExists  = clientPdfBase && fs.existsSync(path.join(REPORTS_DIR, clientPdfBase));
+    const coachExists   = coachPdfBase  && fs.existsSync(path.join(REPORTS_DIR, coachPdfBase));
+
+    const pdfLinks = status === 'complete' ? [
+      clientExists ? `<a href="/reports/${encodeURIComponent(clientPdfBase)}" title="Client PDF" style="margin-right:8px;color:#00b1d7;text-decoration:none;">&#128196; Client</a>` : '',
+      coachExists  ? `<a href="/reports/${encodeURIComponent(coachPdfBase)}"  title="Coach PDF"  style="color:#f58527;text-decoration:none;">&#128196; Coach</a>` : '',
+    ].filter(Boolean).join('') || '—' : '—';
+
+    const clientId = r.client_id;
+    const rawName  = `${r.first_name || ''} ${r.last_name || ''}`.trim();
+    const deleteAction = `
+      <form method="POST" action="/admin/delete/${clientId}" style="display:inline;" onsubmit="return confirm('Delete assessment for ${rawName.replace(/'/g, "\\'")}? This will permanently remove the record and both PDFs.');">
+        <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;color:#c0392b;">&#128465;</button>
+      </form>`;
+
+    return `<tr>
+      <td>${name}</td>
+      <td>${typeLabel}</td>
+      <td>${instinct}</td>
+      <td>${conf}</td>
+      <td>${coach}</td>
+      <td>${date}</td>
+      <td><span style="background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">${status}</span></td>
+      <td>${pdfLinks}</td>
+      <td>${deleteAction}</td>
+    </tr>`;
+  }).join('\n');
+
+  const body = rows.length === 0
+    ? '<tr><td colspan="9" style="text-align:center;padding:40px;color:#7A96A6;">No assessments yet</td></tr>'
+    : tableRows;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Admin — Assessments</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; padding: 0; }
+  .top-bar { background: #1A2B33; padding: 16px 32px; display: flex; align-items: center; gap: 16px; }
+  .top-bar h1 { color: #00b1d7; font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar span { color: #7A96A6; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+  .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #00b1d7; color: #fff; text-align: left; padding: 12px 14px;
+             font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700; }
+  tbody tr { border-bottom: 1px solid #EFE8E0; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafaf8; }
+  tbody td { padding: 11px 14px; vertical-align: middle; }
+  @media (max-width: 768px) {
+    .container { padding: 16px 12px; }
+    table, thead, tbody, th, td, tr { display: block; }
+    thead tr { display: none; }
+    tbody tr { margin-bottom: 12px; background: #fff; border: 1px solid #EFE8E0; border-radius: 4px; padding: 8px 12px; }
+    tbody td { border: none; padding: 4px 0; font-size: 13px; }
+    tbody td::before { content: attr(data-label) ': '; font-weight: 700; color: #7A96A6; font-size: 11px; text-transform: uppercase; }
+  }
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <div>
+    <div><span>Hive Enneagram Type Tool</span></div>
+    <h1>Admin Dashboard</h1>
+  </div>
+</div>
+<div class="container">
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Client Name</th>
+          <th>Type</th>
+          <th>Instinct</th>
+          <th>Confidence</th>
+          <th>Coach</th>
+          <th>Date</th>
+          <th>Status</th>
+          <th>Reports</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${body}
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>`);
+});
+
+// Serve PDFs — only client_*.pdf and coach_*.pdf patterns allowed
+app.get('/reports/:filename', (req, res) => {
+  const filename = req.params.filename;
+  if (!/^(client|coach)_[^/]+\.pdf$/.test(filename)) {
+    return res.status(403).send('Forbidden');
+  }
+  const filePath = path.join(REPORTS_DIR, filename);
+  if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+  res.sendFile(filePath);
+});
+
+// Delete a client + all associated assessments and PDFs
+app.post('/admin/delete/:client_id', async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).send('Invalid client ID');
+
+  try {
+    const pdfPaths = await db.getClientReportPaths(clientId);
+    for (const p of pdfPaths) {
+      try { fs.unlinkSync(p); console.log(`[admin] deleted PDF: ${p}`); }
+      catch (e) { console.warn(`[admin] could not delete PDF ${p}:`, e.message); }
+    }
+    await db.deleteClientCascade(clientId);
+    console.log(`[admin] deleted client #${clientId} and all related records`);
+  } catch (e) {
+    console.error('[admin] delete error:', e.message);
+  }
+
+  res.redirect('/admin');
+});
+
+// =================== START ===================
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>

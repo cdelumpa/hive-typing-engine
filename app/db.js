@@ -56,6 +56,9 @@ CREATE TABLE IF NOT EXISTS reports (
   pdf_path VARCHAR(500),
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS confirmed_instinct VARCHAR(20);
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS instinct_confidence VARCHAR(20);
 `;
 
 const SEED_SQL = `
@@ -123,14 +126,18 @@ async function completeAssessment(assessmentId, result) {
        stage4_outcome = $3,
        flags = $4,
        final_response_classification = $5,
+       confirmed_instinct = $6,
+       instinct_confidence = $7,
        completed_at = NOW()
-     WHERE id = $6`,
+     WHERE id = $8`,
     [
       h.confirmed_type || null,
       h.confidence_level || null,
       h.stage4_outcome || null,
       JSON.stringify(result.flags || []),
       fr.classification || null,
+      h.confirmed_instinct || null,
+      h.instinct_confidence || null,
       assessmentId,
     ]
   );
@@ -150,6 +157,48 @@ async function createReport(assessmentId, reportType, pdfPath) {
   );
 }
 
+async function getAdminRows() {
+  const r = await query(`
+    SELECT
+      c.id            AS client_id,
+      c.first_name,
+      c.last_name,
+      a.id            AS assessment_id,
+      a.confirmed_type,
+      a.confirmed_instinct,
+      a.instinct_confidence,
+      a.confidence_level,
+      co.name         AS coach_name,
+      a.created_at,
+      a.status,
+      r_cl.pdf_path   AS client_pdf,
+      r_co.pdf_path   AS coach_pdf
+    FROM clients c
+    LEFT JOIN assessments a  ON a.client_id = c.id
+    LEFT JOIN coaches co      ON co.id = c.coach_id
+    LEFT JOIN reports r_cl    ON r_cl.assessment_id = a.id AND r_cl.report_type = 'client'
+    LEFT JOIN reports r_co    ON r_co.assessment_id = a.id AND r_co.report_type = 'coach'
+    ORDER BY a.created_at DESC NULLS LAST
+  `);
+  return r ? r.rows : [];
+}
+
+async function getClientReportPaths(clientId) {
+  const r = await query(`
+    SELECT rp.pdf_path
+    FROM reports rp
+    JOIN assessments a ON a.id = rp.assessment_id
+    WHERE a.client_id = $1
+  `, [clientId]);
+  return r ? r.rows.map(row => row.pdf_path) : [];
+}
+
+async function deleteClientCascade(clientId) {
+  await query(`DELETE FROM reports WHERE assessment_id IN (SELECT id FROM assessments WHERE client_id = $1)`, [clientId]);
+  await query(`DELETE FROM assessments WHERE client_id = $1`, [clientId]);
+  await query(`DELETE FROM clients WHERE id = $1`, [clientId]);
+}
+
 module.exports = {
   initDb,
   query,
@@ -159,4 +208,7 @@ module.exports = {
   completeAssessment,
   failAssessment,
   createReport,
+  getAdminRows,
+  getClientReportPaths,
+  deleteClientCascade,
 };
