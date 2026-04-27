@@ -2485,7 +2485,7 @@ function renderResults() {
   const tab = state.resultsTab || 'client';
 
   // Strip any "Type N — " prefix the AI may have included in confirmed_type_name
-  const typeName = (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || TYPE_NAMES[h.confirmed_type] || '';
+  const typeName = TYPE_NAMES[h.confirmed_type] || (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || '';
 
   const instinctLabel = (h.confirmed_instinct && h.confirmed_instinct !== 'UNCERTAIN') ? ` ${h.confirmed_instinct}` : '';
   const badge = confidenceBadgeHtml(h.confidence_level);
@@ -2552,7 +2552,7 @@ function clientReportBodyHtml(result) {
   const ambiguous = h.stage4_outcome === 'AMBIGUOUS';
 
   // Strip any "Type N — " prefix the AI may have included in confirmed_type_name
-  const typeName = (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || TYPE_NAMES[h.confirmed_type] || '';
+  const typeName = TYPE_NAMES[h.confirmed_type] || (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || '';
 
   const tLib = typeData(h.confirmed_type) || {};
   const primers = (typeLibrary && typeLibrary.static_primers) || {};
@@ -2733,7 +2733,7 @@ function coachReportBodyHtml(result) {
   const scores = state.scores || {};
 
   // Strip any "Type N — " prefix the AI may have included in confirmed_type_name
-  const typeName = (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || TYPE_NAMES[h.confirmed_type] || '';
+  const typeName = TYPE_NAMES[h.confirmed_type] || (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || '';
 
   const ORANGE = '#f58527';
   const SH = (title) => `<div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${ORANGE};margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid ${ORANGE};">${esc(title)}</div>`;
