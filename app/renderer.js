@@ -635,13 +635,13 @@ function buildPdfOptions(intake) {
     'align-items:center;padding:0 72px;height:100%;">' +
     '<span>Prepared for ' + escFt(clientFullName) + ' on ' + escFt(assessmentDate) + '</span>' +
     '<span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>' +
-    '<span>&copy; ' + year + ' Hive Leadership</span>' +
+    '<span>&copy; Copyright ' + year + ' Hive, Inc. All rights reserved.</span>' +
     '</div>';
 
   const headerTemplate =
     '<div style="width:100%;box-sizing:border-box;display:flex;justify-content:flex-end;' +
     'align-items:center;padding:8px 72px 0;height:100%;">' +
-    '<img src="' + HIVE_LOGO_DATA_URI + '" style="width:75px;height:auto;display:block;">' +
+    '<img src="' + HIVE_LOGO_DATA_URI + '" style="width:100px;height:auto;display:block;">' +
     '</div>';
 
   return {
