@@ -91,12 +91,9 @@ WHERE email = 'monique@hiveleadership.com' AND password_hash IS NULL;
 UPDATE coaches SET is_admin = TRUE, is_active = TRUE
 WHERE email IN ('cai@hiveleadership.com', 'monique@hiveleadership.com');
 
--- Temporary test coaches for verifying access-control (removed after testing)
-INSERT INTO coaches (name, email, password_hash, is_admin, is_active)
-VALUES
-  ('Test Admin', 'testadmin@hiveleadership.com', '$2b$12$KKIjAkTcBqWbitbpMfG.mOYh5fZBOhqD4fv4HKaGAnuzG6QJUKWj.', TRUE, TRUE),
-  ('Test Coach', 'testcoach@hiveleadership.com', '$2b$12$KKIjAkTcBqWbitbpMfG.mOYh5fZBOhqD4fv4HKaGAnuzG6QJUKWj.', FALSE, TRUE)
-ON CONFLICT (email) DO NOTHING;
+-- Remove temporary test coaches created during access-control verification
+DELETE FROM coaches WHERE email IN ('testadmin@hiveleadership.com', 'testcoach@hiveleadership.com');
+
 `;
 
 async function initDb() {
