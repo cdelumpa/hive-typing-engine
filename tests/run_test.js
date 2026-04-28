@@ -49,7 +49,13 @@ const fixture = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
 console.log(`\n=== Hive Test Runner — ${fixture._meta.name} ===\n`);
 
 // ─── Build combined system prompt ─────────────────────────────────────────────
-const src = fs.readFileSync(APP_JS, 'utf8');
+const srcFiles = [
+  path.join(ROOT, 'app/public/state.js'),
+  path.join(ROOT, 'app/public/ui.js'),
+  path.join(ROOT, 'app/public/assessment.js'),
+  path.join(ROOT, 'app/public/app.js'),
+].filter(p => fs.existsSync(p));
+const src = srcFiles.map(p => fs.readFileSync(p, 'utf8')).join('\n\n');
 const sp  = src.match(/const SYSTEM_PROMPT = `([\s\S]*?)`;/)[1];
 const ti  = src.match(/const TASK_INSTRUCTIONS = `([\s\S]*?)`;/)[1];
 const of_ = src.match(/const OUTPUT_FORMAT = `([\s\S]*?)`;/)[1];
