@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS coaches (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
 CREATE TABLE IF NOT EXISTS clients (
   id SERIAL PRIMARY KEY,
   coach_id INTEGER REFERENCES coaches(id),
@@ -66,6 +68,12 @@ INSERT INTO coaches (name, email)
 VALUES ('Cai Delumpa', 'cai@hiveleadership.com'),
        ('Monique Breault', 'monique@hiveleadership.com')
 ON CONFLICT (email) DO NOTHING;
+
+UPDATE coaches SET password_hash = '$2b$12$NkrKjo3/RF8oMM4.D1tJU.88toD/AC1N1tHl4dm4P.ChGUJBFSey2'
+WHERE email = 'cai@hiveleadership.com' AND password_hash IS NULL;
+
+UPDATE coaches SET password_hash = '$2b$12$j76FBdX8jQoB4agtmjXpGOfhVevkpi1jnkwZMBnerFkHsWA/rkIN.'
+WHERE email = 'monique@hiveleadership.com' AND password_hash IS NULL;
 `;
 
 async function initDb() {
@@ -199,7 +207,57 @@ async function deleteClientCascade(clientId) {
   await query(`DELETE FROM clients WHERE id = $1`, [clientId]);
 }
 
+async function getAdminRowsByCoach(coachId) {
+  const r = await query(`
+    SELECT
+      c.id            AS client_id,
+      c.first_name,
+      c.last_name,
+      a.id            AS assessment_id,
+      a.confirmed_type,
+      a.confirmed_instinct,
+      a.instinct_confidence,
+      a.confidence_level,
+      co.name         AS coach_name,
+      a.created_at,
+      a.status,
+      r_cl.pdf_path   AS client_pdf,
+      r_co.pdf_path   AS coach_pdf
+    FROM clients c
+    LEFT JOIN assessments a  ON a.client_id = c.id
+    LEFT JOIN coaches co      ON co.id = c.coach_id
+    LEFT JOIN reports r_cl    ON r_cl.assessment_id = a.id AND r_cl.report_type = 'client'
+    LEFT JOIN reports r_co    ON r_co.assessment_id = a.id AND r_co.report_type = 'coach'
+    WHERE c.coach_id = $1
+    ORDER BY a.created_at DESC NULLS LAST
+  `, [coachId]);
+  return r ? r.rows : [];
+}
+
+async function getCoachByEmail(email) {
+  const r = await query('SELECT id, name, email, password_hash FROM coaches WHERE email = $1 LIMIT 1', [email]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function getClientCoachId(clientId) {
+  const r = await query('SELECT coach_id FROM clients WHERE id = $1 LIMIT 1', [clientId]);
+  return r && r.rows.length > 0 ? r.rows[0].coach_id : null;
+}
+
+async function getReportCoachId(filename) {
+  const r = await query(`
+    SELECT c.coach_id
+    FROM reports rp
+    JOIN assessments a ON a.id = rp.assessment_id
+    JOIN clients c ON c.id = a.client_id
+    WHERE rp.pdf_path LIKE '%' || $1
+    LIMIT 1
+  `, [filename]);
+  return r && r.rows.length > 0 ? r.rows[0].coach_id : null;
+}
+
 module.exports = {
+  pool,
   initDb,
   query,
   findOrCreateCoach,
@@ -209,6 +267,10 @@ module.exports = {
   failAssessment,
   createReport,
   getAdminRows,
+  getAdminRowsByCoach,
+  getCoachByEmail,
+  getClientCoachId,
+  getReportCoachId,
   getClientReportPaths,
   deleteClientCascade,
 };

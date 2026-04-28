@@ -4,6 +4,8 @@ const express    = require('express');
 const Anthropic  = require('@anthropic-ai/sdk');
 const sgMail     = require('@sendgrid/mail');
 const basicAuth  = require('express-basic-auth');
+const bcrypt     = require('bcrypt');
+const session    = require('express-session');
 const fs         = require('fs');
 const path       = require('path');
 
@@ -47,18 +49,43 @@ db.initDb().catch(e => console.error('[boot] db.initDb error:', e.message));
 
 const app = express();
 
-// Basic auth — protects all routes
-app.use(basicAuth({
+// Basic auth — protects all routes except /admin (which uses session auth)
+const basicAuthMiddleware = basicAuth({
   users: {
     [process.env.BASIC_AUTH_USER || 'hive-enneagram']: process.env.BASIC_AUTH_PASSWORD || '9Types!',
   },
   challenge: true,
   realm: 'Hive Typing Engine',
+});
+app.use((req, res, next) => {
+  if (req.path === '/admin/login' || req.path.startsWith('/admin')) return next();
+  basicAuthMiddleware(req, res, next);
+});
+
+// Session middleware (must be before admin routes)
+const PgSession = require('connect-pg-simple')(session);
+app.use(session({
+  store: new PgSession({
+    conString: process.env.DATABASE_URL,
+    tableName: 'session',
+    createTableIfMissing: true,
+  }),
+  secret: process.env.SESSION_SECRET || 'hive-session-secret-dev',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 },
 }));
 
 app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false }));
 app.use(express.static('public'));
 app.use('/content', express.static('../content'));
+
+// Session auth guard for admin routes
+function requireAdminSession(req, res, next) {
+  if (req.session && req.session.coach_id) return next();
+  res.redirect('/admin/login');
+}
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -456,6 +483,86 @@ app.post('/api/analyze', async (req, res) => {
 
 // =================== ADMIN ROUTES ===================
 
+// ── Login / Logout ────────────────────────────────────────────────────────────
+
+function renderLoginPage(errorMsg) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Admin — Sign In</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.1); padding: 48px 40px; width: 100%; max-width: 400px; }
+  .logo-bar { border-top: 4px solid #00b1d7; padding-top: 20px; margin-bottom: 32px; }
+  .logo-bar p { font-size: 11px; color: #7A96A6; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px; }
+  .logo-bar h1 { font-size: 20px; color: #00b1d7; margin: 0; font-weight: 700; }
+  label { display: block; font-size: 11px; color: #7A96A6; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
+  input[type=email], input[type=password] { width: 100%; padding: 10px 12px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 14px; color: #1A2B33; outline: none; margin-bottom: 20px; }
+  input:focus { border-color: #00b1d7; }
+  button[type=submit] { width: 100%; padding: 12px; background: #00b1d7; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 15px; font-weight: 700; cursor: pointer; }
+  button[type=submit]:hover { background: #009bbf; }
+  .error { background: #fdecea; color: #c0392b; border-radius: 4px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-bar">
+    <p>Hive Enneagram Type Tool</p>
+    <h1>Admin Sign In</h1>
+  </div>
+  ${errorMsg ? `<div class="error">${errorMsg}</div>` : ''}
+  <form method="POST" action="/admin/login">
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" required autocomplete="username">
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" required autocomplete="current-password">
+    <button type="submit">Sign In</button>
+  </form>
+</div>
+</body>
+</html>`;
+}
+
+app.get('/admin/login', (req, res) => {
+  if (req.session && req.session.coach_id) return res.redirect('/admin');
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(renderLoginPage(null));
+});
+
+app.post('/admin/login', async (req, res) => {
+  const { email, password } = req.body;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+
+  const coach = await db.getCoachByEmail((email || '').toLowerCase().trim());
+  if (!coach || !coach.password_hash) {
+    return res.send(renderLoginPage('Invalid email or password.'));
+  }
+
+  const match = await bcrypt.compare(password || '', coach.password_hash);
+  if (!match) {
+    return res.send(renderLoginPage('Invalid email or password.'));
+  }
+
+  req.session.regenerate((err) => {
+    if (err) {
+      console.error('[admin/login] session regenerate error:', err.message);
+      return res.send(renderLoginPage('Sign-in failed — please try again.'));
+    }
+    req.session.coach_id   = coach.id;
+    req.session.coach_name = coach.name;
+    res.redirect('/admin');
+  });
+});
+
+app.get('/admin/logout', (req, res) => {
+  req.session.destroy(() => res.redirect('/admin/login'));
+});
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver',   3: 'The Performer', 4: 'The Idealist',
   5: 'The Observer', 6: 'The Questioner', 7: 'The Enthusiast',
@@ -467,9 +574,9 @@ function formatAdminDate(ts) {
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-app.get('/admin', async (req, res) => {
+app.get('/admin', requireAdminSession, async (req, res) => {
   let rows = [];
-  try { rows = await db.getAdminRows(); } catch (e) { console.error('[admin] query error:', e.message); }
+  try { rows = await db.getAdminRowsByCoach(req.session.coach_id); } catch (e) { console.error('[admin] query error:', e.message); }
 
   const tableRows = rows.map(r => {
     const name      = esc(`${r.first_name || ''} ${r.last_name || ''}`.trim()) || '—';
@@ -527,9 +634,11 @@ app.get('/admin', async (req, res) => {
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; padding: 0; }
-  .top-bar { background: #1A2B33; padding: 16px 32px; display: flex; align-items: center; gap: 16px; }
+  .top-bar { background: #1A2B33; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .top-bar h1 { color: #00b1d7; font-size: 18px; margin: 0; font-weight: 700; }
   .top-bar span { color: #7A96A6; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .top-bar .sign-out { color: #7A96A6; font-size: 12px; text-decoration: none; font-family: Georgia, serif; }
+  .top-bar .sign-out:hover { color: #fff; }
   .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
   .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -555,6 +664,7 @@ app.get('/admin', async (req, res) => {
     <div><span>Hive Enneagram Type Tool</span></div>
     <h1>Admin Dashboard</h1>
   </div>
+  <a href="/admin/logout" class="sign-out">Sign out</a>
 </div>
 <div class="container">
   <div class="card">
@@ -582,12 +692,18 @@ app.get('/admin', async (req, res) => {
 </html>`);
 });
 
-// Serve PDFs — only client_*.pdf and coach_*.pdf patterns allowed
-app.get('/reports/:filename', (req, res) => {
+// Serve PDFs — only client_*.pdf and coach_*.pdf patterns allowed, coach-scoped
+app.get('/reports/:filename', requireAdminSession, async (req, res) => {
   const filename = req.params.filename;
   if (!/^(client|coach)_[^/]+\.pdf$/.test(filename)) {
     return res.status(403).send('Forbidden');
   }
+
+  const coachId = await db.getReportCoachId(filename);
+  if (coachId !== null && coachId !== req.session.coach_id) {
+    return res.status(403).send('Forbidden');
+  }
+
   const filePath = path.join(REPORTS_DIR, filename);
   if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
   res.setHeader('Content-Type', 'application/pdf');
@@ -595,10 +711,15 @@ app.get('/reports/:filename', (req, res) => {
   res.sendFile(filePath);
 });
 
-// Delete a client + all associated assessments and PDFs
-app.post('/admin/delete/:client_id', async (req, res) => {
+// Delete a client + all associated assessments and PDFs (coach-scoped)
+app.post('/admin/delete/:client_id', requireAdminSession, async (req, res) => {
   const clientId = parseInt(req.params.client_id, 10);
   if (!clientId || isNaN(clientId)) return res.status(400).send('Invalid client ID');
+
+  const ownerCoachId = await db.getClientCoachId(clientId);
+  if (ownerCoachId !== req.session.coach_id) {
+    return res.status(403).send('Forbidden');
+  }
 
   try {
     const pdfPaths = await db.getClientReportPaths(clientId);
