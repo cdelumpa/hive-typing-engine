@@ -50,7 +50,21 @@ db.initDb().catch(e => console.error('[boot] db.initDb error:', e.message));
 
 const app = express();
 
-// Basic auth — protects all routes except /admin (which uses session auth)
+// Session middleware — must run before basic auth so req.session is available for exemption checks
+const PgSession = require('connect-pg-simple')(session);
+app.use(session({
+  store: new PgSession({
+    conString: process.env.DATABASE_URL,
+    tableName: 'session',
+    createTableIfMissing: true,
+  }),
+  secret: process.env.SESSION_SECRET || 'hive-session-secret-dev',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 },
+}));
+
+// Basic auth — protects all routes except /admin (session auth) and token-based assessment sessions
 const basicAuthMiddleware = basicAuth({
   users: {
     [process.env.BASIC_AUTH_USER || 'hive-enneagram']: process.env.BASIC_AUTH_PASSWORD || '9Types!',
@@ -64,20 +78,6 @@ app.use((req, res, next) => {
   if (req.session && req.session.assessmentClientId) return next();
   basicAuthMiddleware(req, res, next);
 });
-
-// Session middleware (must be before admin routes)
-const PgSession = require('connect-pg-simple')(session);
-app.use(session({
-  store: new PgSession({
-    conString: process.env.DATABASE_URL,
-    tableName: 'session',
-    createTableIfMissing: true,
-  }),
-  secret: process.env.SESSION_SECRET || 'hive-session-secret-dev',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 },
-}));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
