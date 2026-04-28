@@ -587,7 +587,7 @@ function buildClientHTML(result, typeLibrary, intake) {
 <meta charset="utf-8">
 <title>Client Report — Type ${h.confirmed_type}</title>
 <style>
-  body { background: #fff; margin: 0; padding: 18px 0 0; font-family: Georgia, serif; }
+  body { background: #fff; margin: 0; padding: 32px 0 0; font-family: Georgia, serif; }
   .report-sh { page-break-after: avoid; break-after: avoid; }
 </style>
 </head>
@@ -608,7 +608,7 @@ function buildCoachHTML(result, typeLibrary, scores, intake) {
 <meta charset="utf-8">
 <title>Coach Report — Type ${h.confirmed_type}${instinct}</title>
 <style>
-  body { background: #fff; margin: 0; padding: 18px 0 0; font-family: Georgia, serif; }
+  body { background: #fff; margin: 0; padding: 32px 0 0; font-family: Georgia, serif; }
   .report-sh { page-break-after: avoid; break-after: avoid; }
 </style>
 </head>
@@ -651,7 +651,7 @@ function buildPdfOptions(intake) {
     headerTemplate,
     footerTemplate,
     margin: {
-      top: '1in',        // accommodates header template with extra breathing room
+      top: '1.4in',      // header logo lives here; extra space creates gap between logo and body
       bottom: '0.875in', // 0.5in footer + 0.375in no-man's-land buffer
       left: '0.75in',
       right: '0.75in',
