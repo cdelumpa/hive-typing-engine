@@ -587,7 +587,7 @@ function buildClientHTML(result, typeLibrary, intake) {
 <meta charset="utf-8">
 <title>Client Report — Type ${h.confirmed_type}</title>
 <style>
-  body { background: #fff; margin: 0; padding: 0; font-family: Georgia, serif; }
+  body { background: #fff; margin: 0; padding: 18px 0 0; font-family: Georgia, serif; }
   .report-sh { page-break-after: avoid; break-after: avoid; }
 </style>
 </head>
@@ -608,7 +608,7 @@ function buildCoachHTML(result, typeLibrary, scores, intake) {
 <meta charset="utf-8">
 <title>Coach Report — Type ${h.confirmed_type}${instinct}</title>
 <style>
-  body { background: #fff; margin: 0; padding: 0; font-family: Georgia, serif; }
+  body { background: #fff; margin: 0; padding: 18px 0 0; font-family: Georgia, serif; }
   .report-sh { page-break-after: avoid; break-after: avoid; }
 </style>
 </head>
