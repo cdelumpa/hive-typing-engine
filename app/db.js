@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS coaches (
 );
 
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 
 CREATE TABLE IF NOT EXISTS clients (
   id SERIAL PRIMARY KEY,
@@ -85,6 +87,9 @@ WHERE email = 'cai@hiveleadership.com' AND password_hash IS NULL;
 
 UPDATE coaches SET password_hash = '$2b$12$j76FBdX8jQoB4agtmjXpGOfhVevkpi1jnkwZMBnerFkHsWA/rkIN.'
 WHERE email = 'monique@hiveleadership.com' AND password_hash IS NULL;
+
+UPDATE coaches SET is_admin = TRUE, is_active = TRUE
+WHERE email IN ('cai@hiveleadership.com', 'monique@hiveleadership.com');
 `;
 
 async function initDb() {
@@ -247,13 +252,48 @@ async function getAdminRowsByCoach(coachId) {
 }
 
 async function getCoachByEmail(email) {
-  const r = await query('SELECT id, name, email, password_hash FROM coaches WHERE email = $1 LIMIT 1', [email]);
+  const r = await query('SELECT id, name, email, password_hash, is_admin, is_active FROM coaches WHERE email = $1 LIMIT 1', [email]);
   return r && r.rows.length > 0 ? r.rows[0] : null;
 }
 
 async function getCoachById(id) {
-  const r = await query('SELECT id, name, email, password_hash FROM coaches WHERE id = $1 LIMIT 1', [id]);
+  const r = await query('SELECT id, name, email, password_hash, is_admin, is_active FROM coaches WHERE id = $1 LIMIT 1', [id]);
   return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function getAllCoaches() {
+  const r = await query(`
+    SELECT co.id, co.name, co.email, co.is_admin, co.is_active,
+           COUNT(c.id) AS client_count
+    FROM coaches co
+    LEFT JOIN clients c ON c.coach_id = co.id
+    GROUP BY co.id
+    ORDER BY co.created_at ASC
+  `);
+  return r ? r.rows : [];
+}
+
+async function addCoach(name, email, passwordHash) {
+  const r = await query(
+    `INSERT INTO coaches (name, email, password_hash, is_admin, is_active)
+     VALUES ($1, $2, $3, FALSE, TRUE) RETURNING id`,
+    [name, email, passwordHash]
+  );
+  return r && r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+async function setCoachActive(coachId, isActive) {
+  await query(
+    'UPDATE coaches SET is_active = $1 WHERE id = $2',
+    [isActive, coachId]
+  );
+}
+
+async function reassignClients(fromCoachId, toCoachId) {
+  await query(
+    'UPDATE clients SET coach_id = $1 WHERE coach_id = $2',
+    [toCoachId, fromCoachId]
+  );
 }
 
 async function getClientCoachId(clientId) {
@@ -349,6 +389,10 @@ module.exports = {
   getAdminRowsByCoach,
   getCoachByEmail,
   getCoachById,
+  getAllCoaches,
+  addCoach,
+  setCoachActive,
+  reassignClients,
   updateCoachPassword,
   getClientCoachId,
   getReportCoachId,

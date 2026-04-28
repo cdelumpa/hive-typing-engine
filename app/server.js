@@ -107,6 +107,15 @@ function requireAdminSession(req, res, next) {
   res.redirect('/admin/login');
 }
 
+// Super-admin guard — requires is_admin flag in session
+function requireAdmin(req, res, next) {
+  if (!req.session || !req.session.coach_id) return res.redirect('/admin/login');
+  if (req.session.coach_is_admin !== true) {
+    return res.redirect('/admin?error=admin_required');
+  }
+  next();
+}
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // =================== PUPPETEER LAUNCH ===================
@@ -627,13 +636,18 @@ app.post('/admin/login', async (req, res) => {
     return res.send(renderLoginPage('Invalid email or password.'));
   }
 
+  if (coach.is_active === false) {
+    return res.send(renderLoginPage('This account has been deactivated. Please contact an administrator.'));
+  }
+
   req.session.regenerate((err) => {
     if (err) {
       console.error('[admin/login] session regenerate error:', err.message);
       return res.send(renderLoginPage('Sign-in failed — please try again.'));
     }
-    req.session.coach_id   = coach.id;
-    req.session.coach_name = coach.name;
+    req.session.coach_id       = coach.id;
+    req.session.coach_name     = coach.name;
+    req.session.coach_is_admin = coach.is_admin === true;
     res.redirect('/admin');
   });
 });
@@ -945,6 +959,230 @@ app.post('/assessment/:token/begin', async (req, res) => {
   });
 });
 
+// ── Coach Management (super-admin only) ──────────────────────────────────────
+
+function renderCoachesPage(coaches, errorMsg, flashMsg) {
+  const coachRows = coaches.map(co => {
+    const name        = esc(co.name);
+    const email       = esc(co.email);
+    const isAdmin     = co.is_admin ? '<span style="color:#1a7a4a;font-weight:700;">Yes</span>' : 'No';
+    const isActive    = co.is_active !== false;
+    const statusLabel = isActive
+      ? '<span style="background:#e6f7ee;color:#1a7a4a;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">Active</span>'
+      : '<span style="background:#fdecea;color:#c0392b;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">Inactive</span>';
+    const clientCount = parseInt(co.client_count, 10) || 0;
+
+    const toggleAction = isActive
+      ? `<form method="POST" action="/admin/coaches/${co.id}/deactivate" style="display:inline;"
+           onsubmit="return confirm('Deactivate ${name}? They will not be able to log in.');">
+           <button type="submit" style="background:none;border:none;cursor:pointer;font-size:12px;color:#c0392b;text-decoration:underline;padding:0;">Deactivate</button>
+         </form>`
+      : `<form method="POST" action="/admin/coaches/${co.id}/reactivate" style="display:inline;">
+           <button type="submit" style="background:none;border:none;cursor:pointer;font-size:12px;color:#1a7a4a;text-decoration:underline;padding:0;">Reactivate</button>
+         </form>`;
+
+    const reassignControl = (clientCount > 0 && isActive)
+      ? `<form method="POST" action="/admin/coaches/${co.id}/reassign" style="display:inline-flex;align-items:center;gap:6px;margin-left:10px;">
+           <select name="to_coach_id" required style="font-family:Georgia,serif;font-size:12px;padding:2px 4px;border:1px solid #D0DCE4;border-radius:3px;">
+             <option value="">Move clients to…</option>
+             ${coaches.filter(c => c.id !== co.id && c.is_active !== false).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}
+           </select>
+           <button type="submit" style="background:#f58527;color:#fff;border:none;border-radius:3px;font-family:Georgia,serif;font-size:12px;font-weight:700;padding:3px 8px;cursor:pointer;">Reassign</button>
+         </form>`
+      : '';
+
+    return `<tr>
+      <td>${name}</td>
+      <td style="color:#7A96A6;font-size:12px;">${email}</td>
+      <td>${isAdmin}</td>
+      <td>${statusLabel}</td>
+      <td style="text-align:center;">${clientCount}</td>
+      <td>${toggleAction}${reassignControl}</td>
+    </tr>`;
+  }).join('\n');
+
+  const body = coaches.length === 0
+    ? '<tr><td colspan="6" style="text-align:center;padding:40px;color:#7A96A6;">No coaches found.</td></tr>'
+    : coachRows;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Admin — Manage Coaches</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; padding: 0; }
+  .top-bar { background: #1A2B33; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .top-bar h1 { color: #00b1d7; font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar span { color: #7A96A6; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .top-bar .nav-link { color: #7A96A6; font-size: 12px; text-decoration: none; font-family: Georgia, serif; }
+  .top-bar .nav-link:hover { color: #fff; }
+  .top-bar .nav-sep { color: #3A4B55; font-size: 12px; margin: 0 8px; }
+  .flash-success { background: #e6f7ee; color: #1a7a4a; border-left: 4px solid #1a7a4a; padding: 12px 20px; font-size: 13px; }
+  .flash-error { background: #fdecea; color: #c0392b; border-left: 4px solid #c0392b; padding: 12px 20px; font-size: 13px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+  .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; margin-bottom: 32px; }
+  .card-header { padding: 18px 20px; border-bottom: 1px solid #EFE8E0; font-size: 13px; font-weight: 700; color: #1A2B33; text-transform: uppercase; letter-spacing: 0.08em; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #00b1d7; color: #fff; text-align: left; padding: 12px 14px;
+             font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700; }
+  tbody tr { border-bottom: 1px solid #EFE8E0; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafaf8; }
+  tbody td { padding: 11px 14px; vertical-align: middle; }
+  .add-form { padding: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
+  .add-form label { display: block; font-size: 11px; color: #7A96A6; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; margin-bottom: 5px; }
+  .add-form input { width: 100%; padding: 9px 11px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; color: #1A2B33; outline: none; }
+  .add-form input:focus { border-color: #00b1d7; }
+  .btn-add { background: #00b1d7; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 10px 18px; cursor: pointer; white-space: nowrap; }
+  .btn-add:hover { background: #009bbf; }
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <div>
+    <div><span>Hive Enneagram Type Tool</span></div>
+    <h1>Manage Coaches</h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <a href="/admin" class="nav-link">← Dashboard</a>
+    <span class="nav-sep">|</span>
+    <a href="/admin/logout" class="nav-link">Sign out</a>
+  </div>
+</div>
+${flashMsg   ? `<div class="flash-success">${flashMsg}</div>`   : ''}
+${errorMsg   ? `<div class="flash-error">${errorMsg}</div>`     : ''}
+<div class="container">
+  <div class="card">
+    <div class="card-header">All Coaches</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Admin</th>
+          <th>Status</th>
+          <th style="text-align:center;">Clients</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Add New Coach</div>
+    <form method="POST" action="/admin/coaches/new" class="add-form">
+      <div>
+        <label for="coach_name">Full Name</label>
+        <input type="text" id="coach_name" name="name" required placeholder="Jane Smith">
+      </div>
+      <div>
+        <label for="coach_email">Email</label>
+        <input type="email" id="coach_email" name="email" required placeholder="jane@example.com">
+      </div>
+      <div>
+        <label for="coach_password">Temporary Password</label>
+        <input type="password" id="coach_password" name="password" required minlength="8" placeholder="min 8 characters">
+      </div>
+      <div>
+        <button type="submit" class="btn-add">Add Coach</button>
+      </div>
+    </form>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+app.get('/admin/coaches', requireAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  let flashMsg = null;
+  if (req.query.flash === 'coach_added')        flashMsg = 'Coach added successfully.';
+  else if (req.query.flash === 'coach_deactivated')  flashMsg = 'Coach deactivated.';
+  else if (req.query.flash === 'coach_reactivated')  flashMsg = 'Coach reactivated.';
+  else if (req.query.flash === 'clients_reassigned') flashMsg = 'Clients reassigned successfully.';
+
+  let coaches = [];
+  try { coaches = await db.getAllCoaches(); } catch (e) { console.error('[admin/coaches] query error:', e.message); }
+
+  res.send(renderCoachesPage(coaches, null, flashMsg));
+});
+
+app.post('/admin/coaches/new', requireAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const { name, email, password } = req.body;
+
+  if (!name || !email || !password) {
+    const coaches = await db.getAllCoaches().catch(() => []);
+    return res.send(renderCoachesPage(coaches, 'Name, email, and password are all required.', null));
+  }
+  if ((password || '').length < 8) {
+    const coaches = await db.getAllCoaches().catch(() => []);
+    return res.send(renderCoachesPage(coaches, 'Password must be at least 8 characters.', null));
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(password, 12);
+    const newId = await db.addCoach(name.trim(), email.trim().toLowerCase(), passwordHash);
+    if (!newId) {
+      const coaches = await db.getAllCoaches().catch(() => []);
+      return res.send(renderCoachesPage(coaches, 'Failed to add coach — email may already be in use.', null));
+    }
+    console.log(`[admin/coaches/new] added coach #${newId}: ${name} <${email}>`);
+    res.redirect('/admin/coaches?flash=coach_added');
+  } catch (e) {
+    console.error('[admin/coaches/new] error:', e.message);
+    const coaches = await db.getAllCoaches().catch(() => []);
+    res.send(renderCoachesPage(coaches, 'An error occurred — email may already be in use.', null));
+  }
+});
+
+app.post('/admin/coaches/:coach_id/deactivate', requireAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  if (!coachId || isNaN(coachId)) return res.status(400).send('Invalid coach ID');
+
+  // Prevent self-deactivation
+  if (coachId === req.session.coach_id) {
+    const coaches = await db.getAllCoaches().catch(() => []);
+    return res.setHeader('Content-Type', 'text/html; charset=utf-8') ||
+      res.send(renderCoachesPage(coaches, 'You cannot deactivate your own account.', null));
+  }
+
+  await db.setCoachActive(coachId, false).catch(e => console.error('[admin/coaches/deactivate]', e.message));
+  console.log(`[admin/coaches] deactivated coach #${coachId}`);
+  res.redirect('/admin/coaches?flash=coach_deactivated');
+});
+
+app.post('/admin/coaches/:coach_id/reactivate', requireAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  if (!coachId || isNaN(coachId)) return res.status(400).send('Invalid coach ID');
+
+  await db.setCoachActive(coachId, true).catch(e => console.error('[admin/coaches/reactivate]', e.message));
+  console.log(`[admin/coaches] reactivated coach #${coachId}`);
+  res.redirect('/admin/coaches?flash=coach_reactivated');
+});
+
+app.post('/admin/coaches/:coach_id/reassign', requireAdmin, async (req, res) => {
+  const fromCoachId = parseInt(req.params.coach_id, 10);
+  const toCoachId   = parseInt(req.body.to_coach_id, 10);
+
+  if (!fromCoachId || isNaN(fromCoachId) || !toCoachId || isNaN(toCoachId)) {
+    return res.status(400).send('Invalid coach IDs');
+  }
+  if (fromCoachId === toCoachId) {
+    const coaches = await db.getAllCoaches().catch(() => []);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(renderCoachesPage(coaches, 'Cannot reassign clients to the same coach.', null));
+  }
+
+  await db.reassignClients(fromCoachId, toCoachId).catch(e => console.error('[admin/coaches/reassign]', e.message));
+  console.log(`[admin/coaches] reassigned clients from coach #${fromCoachId} to #${toCoachId}`);
+  res.redirect('/admin/coaches?flash=clients_reassigned');
+});
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 const TYPE_NAMES = {
@@ -960,9 +1198,15 @@ function formatAdminDate(ts) {
 
 app.get('/admin', requireAdminSession, async (req, res) => {
   let flashMsg = null;
-  if (req.query.flash === 'password_updated') flashMsg = 'Password updated successfully.';
-  else if (req.query.flash === 'invite_sent')    flashMsg = 'Invite sent successfully.';
-  else if (req.query.flash === 'invite_resent')  flashMsg = 'Invite resent successfully.';
+  let flashError = null;
+  if (req.query.flash === 'password_updated')   flashMsg   = 'Password updated successfully.';
+  else if (req.query.flash === 'invite_sent')   flashMsg   = 'Invite sent successfully.';
+  else if (req.query.flash === 'invite_resent') flashMsg   = 'Invite resent successfully.';
+  else if (req.query.flash === 'coach_added')   flashMsg   = 'Coach added successfully.';
+  else if (req.query.flash === 'coach_deactivated') flashMsg = 'Coach deactivated.';
+  else if (req.query.flash === 'coach_reactivated') flashMsg = 'Coach reactivated.';
+  else if (req.query.flash === 'clients_reassigned') flashMsg = 'Clients reassigned successfully.';
+  if (req.query.error === 'admin_required') flashError = 'Access denied — super-admin privileges required.';
 
   let rows = [];
   try { rows = await db.getAdminRowsByCoach(req.session.coach_id); } catch (e) { console.error('[admin] query error:', e.message); }
@@ -1051,6 +1295,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   .btn-new-client { background: #00b1d7; color: #fff; font-family: Georgia, serif; font-size: 12px; font-weight: 700; border: none; border-radius: 4px; padding: 7px 14px; cursor: pointer; text-decoration: none; display: inline-block; }
   .btn-new-client:hover { background: #009bbf; }
   .flash-success { background: #e6f7ee; color: #1a7a4a; border-left: 4px solid #1a7a4a; padding: 12px 20px; font-size: 13px; margin-bottom: 0; }
+  .flash-error { background: #fdecea; color: #c0392b; border-left: 4px solid #c0392b; padding: 12px 20px; font-size: 13px; margin-bottom: 0; }
   .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
   .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -1078,12 +1323,14 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   </div>
   <div style="display:flex;align-items:center;gap:16px;">
     <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
+    ${req.session.coach_is_admin ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/password" class="nav-link">Change password</a>
     <span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
-${flashMsg ? `<div class="flash-success">${flashMsg}</div>` : ''}
+${flashMsg   ? `<div class="flash-success">${flashMsg}</div>`   : ''}
+${flashError ? `<div class="flash-error">${flashError}</div>` : ''}
 <div class="container">
   <div class="card">
     <table>
