@@ -184,7 +184,7 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
     <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;">
 
       <!-- HEADER -->
-      <div style="text-align:center;padding-bottom:24px;margin-bottom:28px;border-bottom:3px solid #00b1d7;">
+      <div style="text-align:center;padding-bottom:24px;margin-bottom:28px;">
         <div style="font-size:11px;color:#7A96A6;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Hive Enneagram Report${clientFullName ? ' Prepared for ' + esc(clientFullName) : ''}</div>
         ${header}
       </div>
@@ -412,7 +412,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
     <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;">
 
       <!-- HEADER -->
-      <div style="text-align:center;padding-bottom:24px;margin-bottom:28px;border-bottom:3px solid ${ORANGE};">
+      <div style="text-align:center;padding-bottom:24px;margin-bottom:28px;">
         <div style="font-size:11px;color:#7A96A6;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Coach Prep Report</div>
         <div style="font-size:42px;font-weight:700;color:${ORANGE};line-height:1.1;margin-bottom:4px;">Type ${h.confirmed_type} · ${h.confirmed_instinct}</div>
         <div style="font-size:20px;color:#4A6070;margin-bottom:12px;">${esc(s4.subtype_name || '')}</div>
@@ -587,7 +587,7 @@ function buildClientHTML(result, typeLibrary, intake) {
 <meta charset="utf-8">
 <title>Client Report — Type ${h.confirmed_type}</title>
 <style>
-  body { background: #fff; margin: 0; padding: 32px 0 0; font-family: Georgia, serif; }
+  body { background: #fff; margin: 0; padding: 0; font-family: Georgia, serif; }
   .report-sh { page-break-after: avoid; break-after: avoid; }
 </style>
 </head>
@@ -608,7 +608,7 @@ function buildCoachHTML(result, typeLibrary, scores, intake) {
 <meta charset="utf-8">
 <title>Coach Report — Type ${h.confirmed_type}${instinct}</title>
 <style>
-  body { background: #fff; margin: 0; padding: 32px 0 0; font-family: Georgia, serif; }
+  body { background: #fff; margin: 0; padding: 0; font-family: Georgia, serif; }
   .report-sh { page-break-after: avoid; break-after: avoid; }
 </style>
 </head>
@@ -651,7 +651,7 @@ function buildPdfOptions(intake) {
     headerTemplate,
     footerTemplate,
     margin: {
-      top: '1.4in',      // header logo lives here; extra space creates gap between logo and body
+      top: '1.25in',     // header logo lives here; extra space creates gap between logo and body
       bottom: '0.875in', // 0.5in footer + 0.375in no-man's-land buffer
       left: '0.75in',
       right: '0.75in',
