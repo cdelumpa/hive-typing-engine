@@ -599,7 +599,7 @@ const TYPE_NAMES = {
 
 const state = {
   phase: 'welcome', // welcome | intake | stage0 | stage1 | stage2 | stage3 | stage4 | finalopen | stage1complete | processing | confirmation | results | error
-  intake: { firstName: '', lastName: '', email: '', organization: '', coach: 'Cai Delumpa' },
+  intake: { firstName: '', lastName: '', email: '', organization: '', coach: 'Cai Delumpa', client_id: null },
   finalOpenResponse: '',
   stage0Idx: 0,
   stage0Answers: {},     // { q1, q2, q3, q4 }
@@ -3112,7 +3112,7 @@ function attachHandlers() {
     clearResult();
     Object.assign(state, {
       phase: 'welcome',
-      intake: { firstName: '', lastName: '', email: '', organization: '', coach: 'Cai Delumpa' },
+      intake: { firstName: '', lastName: '', email: '', organization: '', coach: 'Cai Delumpa', client_id: null },
       finalOpenResponse: '',
       stage0Idx: 0, stage0Answers: {},
       stage1Idx: 0, stage1Rankings: [],
@@ -3459,7 +3459,7 @@ async function callAPI() {
         sp: s.sp, so: s.so, sx: s.sx,
         identifiedInstinct: s.identifiedInstinct,
         sortedInstincts: s.sortedInstincts,
-      }, finalOpenResponse: state.finalOpenResponse || '' }),
+      }, finalOpenResponse: state.finalOpenResponse || '', client_id: state.intake.client_id || null }),
     });
 
     const data = await res.json();
@@ -3488,4 +3488,13 @@ loadTypeLibrary();
 // If a previous result is still in localStorage (e.g. user refreshed), jump
 // straight back to the results screen with their report intact.
 loadResult();
+
+// Token-based entry: server injects window.__hiveIntake when a valid token session is active.
+if (window.__hiveIntake) {
+  Object.assign(state.intake, window.__hiveIntake);
+  if (state.phase === 'welcome') {
+    state.phase = 'stage0';
+  }
+}
+
 render();

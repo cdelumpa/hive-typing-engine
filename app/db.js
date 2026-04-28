@@ -61,6 +61,17 @@ CREATE TABLE IF NOT EXISTS reports (
 
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS confirmed_instinct VARCHAR(20);
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS instinct_confidence VARCHAR(20);
+
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'not_started';
+
+CREATE TABLE IF NOT EXISTS client_tokens (
+  id SERIAL PRIMARY KEY,
+  client_id INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+  token TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ
+);
 `;
 
 const SEED_SQL = `
@@ -213,14 +224,15 @@ async function getAdminRowsByCoach(coachId) {
       c.id            AS client_id,
       c.first_name,
       c.last_name,
+      c.status        AS client_status,
       a.id            AS assessment_id,
       a.confirmed_type,
       a.confirmed_instinct,
       a.instinct_confidence,
       a.confidence_level,
       co.name         AS coach_name,
-      a.created_at,
-      a.status,
+      COALESCE(a.created_at, c.created_at) AS created_at,
+      COALESCE(a.status, c.status, 'unknown') AS status,
       r_cl.pdf_path   AS client_pdf,
       r_co.pdf_path   AS coach_pdf
     FROM clients c
@@ -229,7 +241,7 @@ async function getAdminRowsByCoach(coachId) {
     LEFT JOIN reports r_cl    ON r_cl.assessment_id = a.id AND r_cl.report_type = 'client'
     LEFT JOIN reports r_co    ON r_co.assessment_id = a.id AND r_co.report_type = 'coach'
     WHERE c.coach_id = $1
-    ORDER BY a.created_at DESC NULLS LAST
+    ORDER BY COALESCE(a.created_at, c.created_at) DESC NULLS LAST
   `, [coachId]);
   return r ? r.rows : [];
 }
@@ -254,6 +266,61 @@ async function updateCoachPassword(coachId, passwordHash) {
     'UPDATE coaches SET password_hash = $1 WHERE id = $2',
     [passwordHash, coachId]
   );
+}
+
+async function getClientById(clientId) {
+  const r = await query('SELECT * FROM clients WHERE id = $1 LIMIT 1', [clientId]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function createClientToken(clientId, token, expiresAt) {
+  await query(
+    `INSERT INTO client_tokens (client_id, token, expires_at) VALUES ($1, $2, $3)`,
+    [clientId, token, expiresAt]
+  );
+}
+
+async function getTokenWithClient(token) {
+  const r = await query(`
+    SELECT ct.id AS token_id, ct.client_id, ct.expires_at, ct.used_at,
+           c.first_name, c.last_name, c.email, c.organization, c.status AS client_status,
+           co.name AS coach_name, co.id AS coach_id
+    FROM client_tokens ct
+    JOIN clients c ON c.id = ct.client_id
+    JOIN coaches co ON co.id = c.coach_id
+    WHERE ct.token = $1
+    LIMIT 1
+  `, [token]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function updateTokenUsedAt(tokenId) {
+  await query(`UPDATE client_tokens SET used_at = NOW() WHERE id = $1`, [tokenId]);
+}
+
+async function updateClientStatus(clientId, status) {
+  await query(`UPDATE clients SET status = $1 WHERE id = $2`, [status, clientId]);
+}
+
+async function resendInviteTransaction(clientId, newToken, expiresAt) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`DELETE FROM client_tokens WHERE client_id = $1`, [clientId]);
+    await client.query(
+      `INSERT INTO client_tokens (client_id, token, expires_at) VALUES ($1, $2, $3)`,
+      [clientId, newToken, expiresAt]
+    );
+    await client.query(`UPDATE clients SET status = 'not_started' WHERE id = $1`, [clientId]);
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('[db] resendInviteTransaction failed:', e.message);
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 async function getReportCoachId(filename) {
@@ -287,4 +354,10 @@ module.exports = {
   getReportCoachId,
   getClientReportPaths,
   deleteClientCascade,
+  getClientById,
+  createClientToken,
+  getTokenWithClient,
+  updateTokenUsedAt,
+  updateClientStatus,
+  resendInviteTransaction,
 };

@@ -6,6 +6,7 @@ const sgMail     = require('@sendgrid/mail');
 const basicAuth  = require('express-basic-auth');
 const bcrypt     = require('bcrypt');
 const session    = require('express-session');
+const crypto     = require('crypto');
 const fs         = require('fs');
 const path       = require('path');
 
@@ -59,6 +60,8 @@ const basicAuthMiddleware = basicAuth({
 });
 app.use((req, res, next) => {
   if (req.path === '/admin/login' || req.path.startsWith('/admin')) return next();
+  if (req.path.startsWith('/assessment/')) return next();
+  if (req.session && req.session.assessmentClientId) return next();
   basicAuthMiddleware(req, res, next);
 });
 
@@ -78,6 +81,23 @@ app.use(session({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
+
+// Inject window.__hiveIntake for token-based assessment sessions before static serves index.html
+const INDEX_HTML_PATH = path.join(__dirname, 'public', 'index.html');
+app.get('/', (req, res, next) => {
+  if (!req.session || !req.session.assessmentIntake) return next();
+  try {
+    let html = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
+    const scriptTag = `<script>window.__hiveIntake = ${JSON.stringify(req.session.assessmentIntake)};</script>`;
+    html = html.replace('</head>', `${scriptTag}\n</head>`);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (e) {
+    console.error('[GET /] index.html read error:', e.message);
+    next();
+  }
+});
+
 app.use(express.static('public'));
 app.use('/content', express.static('../content'));
 
@@ -306,7 +326,7 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
 
 // =================== BACKGROUND JOB ===================
 
-async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId) {
+async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId, clientId) {
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   let result = null;
 
@@ -348,6 +368,7 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
 
   // 2. Update assessment record with results
   await db.completeAssessment(assessmentId, result);
+  if (clientId) await db.updateClientStatus(clientId, 'complete');
 
   // 3. Generate PDFs
   let clientPdfPath = null;
@@ -410,7 +431,7 @@ async function sendErrorNotification(intake, err) {
 
 // New submission endpoint — returns immediately, processes in background
 app.post('/api/submit', async (req, res) => {
-  const { systemPrompt, userMessage, intake, scores } = req.body;
+  const { systemPrompt, userMessage, intake, scores, client_id: bodyClientId } = req.body;
   const intakeInfo = intake ? `${intake.firstName} ${intake.lastName} <${intake.email}>` : 'unknown';
   console.log(`[submit] received from ${intakeInfo} — system ${systemPrompt?.length ?? 0} chars, user ${userMessage?.length ?? 0} chars`);
 
@@ -419,11 +440,14 @@ app.post('/api/submit', async (req, res) => {
 
   // Create DB records (fire-and-forget safe — all wrapped in try/catch in db.js)
   let assessmentId = null;
+  let resolvedClientId = bodyClientId || null;
   try {
-    const coachId  = await db.findOrCreateCoach(intake?.coach || 'Cai Delumpa');
-    const clientId = await db.createClient(intake || {}, coachId);
-    assessmentId   = await db.createAssessment(clientId, { systemPrompt, userMessage, intake });
-    if (assessmentId) console.log(`[submit] assessment #${assessmentId} created`);
+    if (!resolvedClientId) {
+      const coachId = await db.findOrCreateCoach(intake?.coach || 'Cai Delumpa');
+      resolvedClientId = await db.createClient(intake || {}, coachId);
+    }
+    assessmentId = await db.createAssessment(resolvedClientId, { systemPrompt, userMessage, intake });
+    if (assessmentId) console.log(`[submit] assessment #${assessmentId} created for client #${resolvedClientId}`);
   } catch (e) {
     console.error('[submit] DB record creation error:', e.message);
   }
@@ -431,7 +455,7 @@ app.post('/api/submit', async (req, res) => {
   // Fire and forget background job
   (async () => {
     try {
-      await runBackgroundJob(systemPrompt, userMessage, intake || {}, scores || {}, assessmentId);
+      await runBackgroundJob(systemPrompt, userMessage, intake || {}, scores || {}, assessmentId, resolvedClientId);
     } catch (e) {
       console.error('[submit] unhandled background job error:', e.message);
     }
@@ -480,6 +504,63 @@ app.post('/api/analyze', async (req, res) => {
     message: 'Your results are being prepared — check your email within 24 hours.',
   });
 });
+
+// =================== INVITE EMAIL ===================
+
+async function sendInviteEmail(client, token, coachName) {
+  if (!process.env.SENDGRID_API_KEY) {
+    console.warn('[invite] SENDGRID_API_KEY not set — invite email skipped');
+    return;
+  }
+  const appUrl   = process.env.RAILWAY_PUBLIC_URL || 'https://hive-typing-engine-production.up.railway.app';
+  const link     = `${appUrl}/assessment/${token}`;
+  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const coachEmail = (coachName === 'Monique Breault')
+    ? (process.env.COACH_EMAIL_MONIQUE || process.env.COACH_EMAIL)
+    : (process.env.COACH_EMAIL_CAI    || process.env.COACH_EMAIL);
+
+  const msg = {
+    to:      client.email,
+    from:    { email: coachEmail, name: coachName },
+    subject: `Your Hive Enneagram Assessment`,
+    html: `
+      <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1A2B33; line-height: 1.7;">
+        <div style="border-top: 4px solid #00b1d7; padding-top: 28px; margin-bottom: 24px;">
+          <p style="font-size: 11px; color: #7A96A6; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px;">Hive Enneagram Type Tool</p>
+          <h1 style="font-size: 22px; color: #00b1d7; margin: 0; font-weight: 700;">Your Assessment is Ready</h1>
+        </div>
+
+        <p style="font-size: 15px;">Hi ${esc(client.first_name)},</p>
+
+        <p>I've set up your Hive Enneagram assessment. It takes about 30–45 minutes to complete, and you can do it at any time before our session.</p>
+
+        <p>The assessment walks you through a series of questions designed to surface your instinctive patterns and help us arrive at a working hypothesis for your Enneagram type. There are no right or wrong answers — just respond as honestly as you can.</p>
+
+        <p style="margin: 32px 0;">
+          <a href="${link}" style="display:inline-block;background:#00b1d7;color:#fff;padding:14px 28px;border-radius:4px;font-weight:700;text-decoration:none;font-size:15px;">Begin My Assessment →</a>
+        </p>
+
+        <p style="font-size: 13px; color: #4A6070;">If the button above doesn't work, copy and paste this link into your browser:<br>
+          <a href="${link}" style="color:#00b1d7;">${link}</a>
+        </p>
+
+        <p style="font-size: 13px; color: #4A6070;">Looking forward to our conversation.</p>
+        <p style="font-size: 13px; color: #4A6070; margin: 0;">Warm regards,<br><strong style="color: #1A2B33;">${esc(coachName)}</strong><br>Hive Leadership</p>
+
+        <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #E0E8EC; font-size: 11px; color: #7A96A6;">
+          This link is personal to you and expires in 30 days. © 2026 Hive, Inc. All rights reserved.
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`[invite] invite sent to ${client.email}`);
+  } catch (e) {
+    console.error('[invite] failed to send invite:', e.message, e.response && e.response.body);
+  }
+}
 
 // =================== ADMIN ROUTES ===================
 
@@ -643,6 +724,227 @@ app.post('/admin/password', requireAdminSession, async (req, res) => {
   res.redirect('/admin?flash=password_updated');
 });
 
+// ── New Client Intake ────────────────────────────────────────────────────────
+
+function renderNewClientPage(errorMsg, formValues) {
+  const v = formValues || {};
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Admin — New Client</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.1); padding: 48px 40px; width: 100%; max-width: 480px; }
+  .logo-bar { border-top: 4px solid #00b1d7; padding-top: 20px; margin-bottom: 32px; }
+  .logo-bar p { font-size: 11px; color: #7A96A6; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px; }
+  .logo-bar h1 { font-size: 20px; color: #00b1d7; margin: 0; font-weight: 700; }
+  label { display: block; font-size: 11px; color: #7A96A6; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
+  input[type=text], input[type=email] { width: 100%; padding: 10px 12px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 14px; color: #1A2B33; outline: none; margin-bottom: 20px; }
+  input:focus { border-color: #00b1d7; }
+  button[type=submit] { width: 100%; padding: 12px; background: #00b1d7; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 15px; font-weight: 700; cursor: pointer; }
+  button[type=submit]:hover { background: #009bbf; }
+  .error { background: #fdecea; color: #c0392b; border-radius: 4px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
+  .back { display: block; text-align: center; margin-top: 20px; font-size: 13px; color: #7A96A6; text-decoration: none; }
+  .back:hover { color: #00b1d7; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-bar">
+    <p>Hive Enneagram Type Tool</p>
+    <h1>New Client</h1>
+  </div>
+  ${errorMsg ? `<div class="error">${errorMsg}</div>` : ''}
+  <form method="POST" action="/admin/clients/new">
+    <label for="first_name">First Name</label>
+    <input type="text" id="first_name" name="first_name" required value="${esc(v.first_name || '')}">
+    <label for="last_name">Last Name</label>
+    <input type="text" id="last_name" name="last_name" required value="${esc(v.last_name || '')}">
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" required value="${esc(v.email || '')}">
+    <label for="organization">Organization <span style="font-weight:400;text-transform:none;">(optional)</span></label>
+    <input type="text" id="organization" name="organization" value="${esc(v.organization || '')}">
+    <button type="submit">Create Client &amp; Send Invite</button>
+  </form>
+  <a href="/admin" class="back">← Back to dashboard</a>
+</div>
+</body>
+</html>`;
+}
+
+app.get('/admin/clients/new', requireAdminSession, (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(renderNewClientPage(null, null));
+});
+
+app.post('/admin/clients/new', requireAdminSession, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const { first_name, last_name, email, organization } = req.body;
+
+  if (!first_name || !last_name || !email) {
+    return res.send(renderNewClientPage('First name, last name, and email are required.', req.body));
+  }
+
+  try {
+    const coachId = req.session.coach_id;
+    const clientId = await db.createClient(
+      { firstName: first_name.trim(), lastName: last_name.trim(), email: email.trim().toLowerCase(), organization: organization ? organization.trim() : null },
+      coachId
+    );
+    if (!clientId) {
+      return res.send(renderNewClientPage('Failed to create client — please try again.', req.body));
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await db.createClientToken(clientId, token, expiresAt);
+
+    const clientRow = { first_name: first_name.trim(), last_name: last_name.trim(), email: email.trim().toLowerCase() };
+    await sendInviteEmail(clientRow, token, req.session.coach_name);
+
+    console.log(`[admin/clients/new] created client #${clientId} and sent invite`);
+    res.redirect('/admin?flash=invite_sent');
+  } catch (e) {
+    console.error('[admin/clients/new] error:', e.message);
+    res.send(renderNewClientPage('An error occurred — please try again.', req.body));
+  }
+});
+
+// ── Resend Invite ─────────────────────────────────────────────────────────────
+
+app.post('/admin/clients/resend/:client_id', requireAdminSession, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).send('Invalid client ID');
+
+  const ownerCoachId = await db.getClientCoachId(clientId);
+  if (ownerCoachId !== req.session.coach_id) return res.status(403).send('Forbidden');
+
+  try {
+    const client = await db.getClientById(clientId);
+    if (!client) return res.status(404).send('Client not found');
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await db.resendInviteTransaction(clientId, token, expiresAt);
+    await sendInviteEmail({ first_name: client.first_name, last_name: client.last_name, email: client.email }, token, req.session.coach_name);
+
+    console.log(`[admin/clients/resend] resent invite for client #${clientId}`);
+    res.redirect('/admin?flash=invite_resent');
+  } catch (e) {
+    console.error('[admin/clients/resend] error:', e.message);
+    res.redirect('/admin');
+  }
+});
+
+// ── Assessment Token Entry ─────────────────────────────────────────────────────
+
+function renderAssessmentGate(title, message, actionHtml) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Enneagram Assessment</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.1); padding: 48px 40px; width: 100%; max-width: 520px; text-align: center; }
+  .logo-bar { border-top: 4px solid #00b1d7; padding-top: 20px; margin-bottom: 32px; }
+  .logo-bar p { font-size: 11px; color: #7A96A6; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px; }
+  .logo-bar h1 { font-size: 22px; color: #00b1d7; margin: 0; font-weight: 700; }
+  .message { font-size: 15px; color: #4A6070; line-height: 1.7; margin-bottom: 32px; }
+  .btn { display: inline-block; background: #00b1d7; color: #fff; padding: 14px 32px; border-radius: 4px; font-weight: 700; font-family: Georgia, serif; font-size: 15px; text-decoration: none; border: none; cursor: pointer; }
+  .btn:hover { background: #009bbf; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-bar">
+    <p>Hive Enneagram Type Tool</p>
+    <h1>${esc(title)}</h1>
+  </div>
+  <p class="message">${message}</p>
+  ${actionHtml || ''}
+</div>
+</body>
+</html>`;
+}
+
+app.get('/assessment/:token', async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const tokenRow = await db.getTokenWithClient(req.params.token);
+
+  if (!tokenRow) {
+    return res.send(renderAssessmentGate(
+      'Link Not Found',
+      'This assessment link is not valid. Please contact your coach to request a new invite.',
+      ''
+    ));
+  }
+
+  if (new Date(tokenRow.expires_at) < new Date()) {
+    return res.send(renderAssessmentGate(
+      'Link Expired',
+      'This assessment link has expired. Please contact your coach to request a new invite.',
+      ''
+    ));
+  }
+
+  if (tokenRow.client_status === 'complete') {
+    return res.send(renderAssessmentGate(
+      'Assessment Complete',
+      `You've already completed your Hive Enneagram assessment, ${esc(tokenRow.first_name)}. Your coach will be in touch to discuss your results.`,
+      ''
+    ));
+  }
+
+  if (tokenRow.client_status === 'in_progress') {
+    return res.send(renderAssessmentGate(
+      'Assessment In Progress',
+      `It looks like you've already started your assessment, ${esc(tokenRow.first_name)}. If you need to restart, please contact your coach.`,
+      ''
+    ));
+  }
+
+  // not_started — show welcome screen with Begin button
+  return res.send(renderAssessmentGate(
+    `Welcome, ${esc(tokenRow.first_name)}`,
+    `Your Hive Enneagram assessment is ready. It takes approximately 30–45 minutes to complete.<br><br>When you're ready, click the button below to begin.`,
+    `<form method="POST" action="/assessment/${encodeURIComponent(req.params.token)}/begin">
+      <button type="submit" class="btn">Begin My Assessment</button>
+    </form>`
+  ));
+});
+
+app.post('/assessment/:token/begin', async (req, res) => {
+  const tokenRow = await db.getTokenWithClient(req.params.token);
+
+  if (!tokenRow || new Date(tokenRow.expires_at) < new Date() || tokenRow.client_status === 'complete') {
+    return res.redirect(`/assessment/${encodeURIComponent(req.params.token)}`);
+  }
+
+  await db.updateClientStatus(tokenRow.client_id, 'in_progress');
+  await db.updateTokenUsedAt(tokenRow.token_id);
+
+  req.session.assessmentClientId = tokenRow.client_id;
+  req.session.assessmentIntake = {
+    firstName:    tokenRow.first_name,
+    lastName:     tokenRow.last_name,
+    email:        tokenRow.email,
+    organization: tokenRow.organization || '',
+    coach:        tokenRow.coach_name,
+    client_id:    tokenRow.client_id,
+  };
+
+  req.session.save((err) => {
+    if (err) console.error('[assessment/begin] session save error:', err.message);
+    res.redirect('/');
+  });
+});
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 const TYPE_NAMES = {
@@ -657,7 +959,11 @@ function formatAdminDate(ts) {
 }
 
 app.get('/admin', requireAdminSession, async (req, res) => {
-  const flashMsg = req.query.flash === 'password_updated' ? 'Password updated successfully.' : null;
+  let flashMsg = null;
+  if (req.query.flash === 'password_updated') flashMsg = 'Password updated successfully.';
+  else if (req.query.flash === 'invite_sent')    flashMsg = 'Invite sent successfully.';
+  else if (req.query.flash === 'invite_resent')  flashMsg = 'Invite resent successfully.';
+
   let rows = [];
   try { rows = await db.getAdminRowsByCoach(req.session.coach_id); } catch (e) { console.error('[admin] query error:', e.message); }
 
@@ -670,8 +976,22 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     const coach     = esc(r.coach_name || '—');
     const date      = formatAdminDate(r.created_at);
     const status    = r.status || 'unknown';
-    const statusColor = status === 'complete' ? '#1a7a4a' : status === 'processing' ? '#b07800' : status === 'failed' ? '#c0392b' : '#666';
-    const statusBg    = status === 'complete' ? '#e6f7ee' : status === 'processing' ? '#fff8e1' : status === 'failed' ? '#fdecea' : '#f4f4f4';
+    const clientStatus = r.client_status || status;
+
+    let statusColor, statusBg, statusLabel;
+    if (status === 'complete') {
+      statusColor = '#1a7a4a'; statusBg = '#e6f7ee'; statusLabel = 'Complete';
+    } else if (status === 'processing') {
+      statusColor = '#b07800'; statusBg = '#fff8e1'; statusLabel = 'Processing';
+    } else if (status === 'failed') {
+      statusColor = '#c0392b'; statusBg = '#fdecea'; statusLabel = 'Failed';
+    } else if (status === 'in_progress') {
+      statusColor = '#8b6914'; statusBg = '#fff3cd'; statusLabel = 'In Progress';
+    } else if (status === 'not_started') {
+      statusColor = '#666'; statusBg = '#f4f4f4'; statusLabel = 'Not Started';
+    } else {
+      statusColor = '#666'; statusBg = '#f4f4f4'; statusLabel = status;
+    }
 
     const clientPdfBase = r.client_pdf ? path.basename(r.client_pdf) : null;
     const coachPdfBase  = r.coach_pdf  ? path.basename(r.coach_pdf)  : null;
@@ -686,9 +1006,14 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     const clientId = r.client_id;
     const rawName  = `${r.first_name || ''} ${r.last_name || ''}`.trim();
     const deleteAction = `
-      <form method="POST" action="/admin/delete/${clientId}" style="display:inline;" onsubmit="return confirm('Delete assessment for ${rawName.replace(/'/g, "\\'")}? This will permanently remove the record and both PDFs.');">
+      <form method="POST" action="/admin/delete/${clientId}" style="display:inline;" onsubmit="return confirm('Delete record for ${rawName.replace(/'/g, "\\'")}? This will permanently remove the record and any PDFs.');">
         <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;color:#c0392b;">&#128465;</button>
       </form>`;
+
+    const resendAction = clientStatus === 'not_started' ? `
+      <form method="POST" action="/admin/clients/resend/${clientId}" style="display:inline;" onsubmit="return confirm('Resend invite to ${rawName.replace(/'/g, "\\'")}?');">
+        <button type="submit" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;">Resend</button>
+      </form> ` : '';
 
     return `<tr>
       <td>${name}</td>
@@ -697,14 +1022,14 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       <td>${conf}</td>
       <td>${coach}</td>
       <td>${date}</td>
-      <td><span style="background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">${status}</span></td>
+      <td><span style="background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">${statusLabel}</span></td>
       <td>${pdfLinks}</td>
-      <td>${deleteAction}</td>
+      <td>${resendAction}${deleteAction}</td>
     </tr>`;
   }).join('\n');
 
   const body = rows.length === 0
-    ? '<tr><td colspan="9" style="text-align:center;padding:40px;color:#7A96A6;">No assessments yet</td></tr>'
+    ? '<tr><td colspan="9" style="text-align:center;padding:40px;color:#7A96A6;">No clients yet — click + Client to add one</td></tr>'
     : tableRows;
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -723,6 +1048,8 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   .top-bar .nav-link { color: #7A96A6; font-size: 12px; text-decoration: none; font-family: Georgia, serif; }
   .top-bar .nav-link:hover { color: #fff; }
   .top-bar .nav-sep { color: #3A4B55; font-size: 12px; margin: 0 8px; }
+  .btn-new-client { background: #00b1d7; color: #fff; font-family: Georgia, serif; font-size: 12px; font-weight: 700; border: none; border-radius: 4px; padding: 7px 14px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn-new-client:hover { background: #009bbf; }
   .flash-success { background: #e6f7ee; color: #1a7a4a; border-left: 4px solid #1a7a4a; padding: 12px 20px; font-size: 13px; margin-bottom: 0; }
   .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
   .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; }
@@ -749,7 +1076,8 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     <div><span>Hive Enneagram Type Tool</span></div>
     <h1>Admin Dashboard</h1>
   </div>
-  <div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
     <a href="/admin/password" class="nav-link">Change password</a>
     <span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>
