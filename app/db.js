@@ -239,9 +239,21 @@ async function getCoachByEmail(email) {
   return r && r.rows.length > 0 ? r.rows[0] : null;
 }
 
+async function getCoachById(id) {
+  const r = await query('SELECT id, name, email, password_hash FROM coaches WHERE id = $1 LIMIT 1', [id]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
 async function getClientCoachId(clientId) {
   const r = await query('SELECT coach_id FROM clients WHERE id = $1 LIMIT 1', [clientId]);
   return r && r.rows.length > 0 ? r.rows[0].coach_id : null;
+}
+
+async function updateCoachPassword(coachId, passwordHash) {
+  await query(
+    'UPDATE coaches SET password_hash = $1 WHERE id = $2',
+    [passwordHash, coachId]
+  );
 }
 
 async function getReportCoachId(filename) {
@@ -269,6 +281,8 @@ module.exports = {
   getAdminRows,
   getAdminRowsByCoach,
   getCoachByEmail,
+  getCoachById,
+  updateCoachPassword,
   getClientCoachId,
   getReportCoachId,
   getClientReportPaths,

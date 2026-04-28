@@ -561,6 +561,88 @@ app.get('/admin/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/admin/login'));
 });
 
+// ── Change Password ───────────────────────────────────────────────────────────
+
+function renderChangePasswordPage(errorMsg) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Admin — Change Password</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.1); padding: 48px 40px; width: 100%; max-width: 400px; }
+  .logo-bar { border-top: 4px solid #00b1d7; padding-top: 20px; margin-bottom: 32px; }
+  .logo-bar p { font-size: 11px; color: #7A96A6; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px; }
+  .logo-bar h1 { font-size: 20px; color: #00b1d7; margin: 0; font-weight: 700; }
+  label { display: block; font-size: 11px; color: #7A96A6; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
+  input[type=password] { width: 100%; padding: 10px 12px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 14px; color: #1A2B33; outline: none; margin-bottom: 20px; }
+  input:focus { border-color: #00b1d7; }
+  button[type=submit] { width: 100%; padding: 12px; background: #00b1d7; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 15px; font-weight: 700; cursor: pointer; }
+  button[type=submit]:hover { background: #009bbf; }
+  .error { background: #fdecea; color: #c0392b; border-radius: 4px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
+  .back { display: block; text-align: center; margin-top: 20px; font-size: 13px; color: #7A96A6; text-decoration: none; }
+  .back:hover { color: #00b1d7; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-bar">
+    <p>Hive Enneagram Type Tool</p>
+    <h1>Change Password</h1>
+  </div>
+  ${errorMsg ? `<div class="error">${errorMsg}</div>` : ''}
+  <form method="POST" action="/admin/password">
+    <label for="current_password">Current Password</label>
+    <input type="password" id="current_password" name="current_password" required autocomplete="current-password">
+    <label for="new_password">New Password</label>
+    <input type="password" id="new_password" name="new_password" required autocomplete="new-password">
+    <label for="confirm_password">Confirm New Password</label>
+    <input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password">
+    <button type="submit">Update Password</button>
+  </form>
+  <a href="/admin" class="back">← Back to dashboard</a>
+</div>
+</body>
+</html>`;
+}
+
+app.get('/admin/password', requireAdminSession, (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(renderChangePasswordPage(null));
+});
+
+app.post('/admin/password', requireAdminSession, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const { current_password, new_password, confirm_password } = req.body;
+
+  const coach = await db.getCoachById(req.session.coach_id);
+  if (!coach || !coach.password_hash) {
+    return res.send(renderChangePasswordPage('Could not verify current password.'));
+  }
+
+  const currentMatch = await bcrypt.compare(current_password || '', coach.password_hash);
+  if (!currentMatch) {
+    return res.send(renderChangePasswordPage('Current password is incorrect.'));
+  }
+
+  if ((new_password || '') !== (confirm_password || '')) {
+    return res.send(renderChangePasswordPage('New passwords do not match.'));
+  }
+
+  if ((new_password || '').length < 8) {
+    return res.send(renderChangePasswordPage('New password must be at least 8 characters.'));
+  }
+
+  const newHash = await bcrypt.hash(new_password, 12);
+  await db.updateCoachPassword(req.session.coach_id, newHash);
+  console.log(`[admin/password] password updated for coach #${req.session.coach_id}`);
+
+  res.redirect('/admin?flash=password_updated');
+});
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 const TYPE_NAMES = {
@@ -575,6 +657,7 @@ function formatAdminDate(ts) {
 }
 
 app.get('/admin', requireAdminSession, async (req, res) => {
+  const flashMsg = req.query.flash === 'password_updated' ? 'Password updated successfully.' : null;
   let rows = [];
   try { rows = await db.getAdminRowsByCoach(req.session.coach_id); } catch (e) { console.error('[admin] query error:', e.message); }
 
@@ -637,8 +720,10 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   .top-bar { background: #1A2B33; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .top-bar h1 { color: #00b1d7; font-size: 18px; margin: 0; font-weight: 700; }
   .top-bar span { color: #7A96A6; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
-  .top-bar .sign-out { color: #7A96A6; font-size: 12px; text-decoration: none; font-family: Georgia, serif; }
-  .top-bar .sign-out:hover { color: #fff; }
+  .top-bar .nav-link { color: #7A96A6; font-size: 12px; text-decoration: none; font-family: Georgia, serif; }
+  .top-bar .nav-link:hover { color: #fff; }
+  .top-bar .nav-sep { color: #3A4B55; font-size: 12px; margin: 0 8px; }
+  .flash-success { background: #e6f7ee; color: #1a7a4a; border-left: 4px solid #1a7a4a; padding: 12px 20px; font-size: 13px; margin-bottom: 0; }
   .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
   .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -664,8 +749,13 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     <div><span>Hive Enneagram Type Tool</span></div>
     <h1>Admin Dashboard</h1>
   </div>
-  <a href="/admin/logout" class="sign-out">Sign out</a>
+  <div>
+    <a href="/admin/password" class="nav-link">Change password</a>
+    <span class="nav-sep">|</span>
+    <a href="/admin/logout" class="nav-link">Sign out</a>
+  </div>
 </div>
+${flashMsg ? `<div class="flash-success">${flashMsg}</div>` : ''}
 <div class="container">
   <div class="card">
     <table>
