@@ -333,6 +333,34 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
   }
 }
 
+// =================== PDF REPORT GENERATION HELPER ===================
+
+async function generateReportPDFs(result, scores, intake, assessmentId) {
+  const pdfOpts = buildPdfOptions(intake);
+  let clientPdfPath = null;
+  let coachPdfPath  = null;
+
+  try {
+    const clientHtml = buildClientHTML(result, typeLibrary, intake);
+    clientPdfPath = await generatePDF(clientHtml, `client_${intake.firstName}_${intake.lastName}`, pdfOpts);
+    console.log(`[pdf] client PDF generated: ${clientPdfPath}`);
+    if (assessmentId) await db.createReport(assessmentId, 'client', clientPdfPath);
+  } catch (e) {
+    console.error('[pdf] client PDF generation failed:', e.message);
+  }
+
+  try {
+    const coachHtml = buildCoachHTML(result, typeLibrary, scores, intake);
+    coachPdfPath = await generatePDF(coachHtml, `coach_${intake.firstName}_${intake.lastName}`, pdfOpts);
+    console.log(`[pdf] coach PDF generated: ${coachPdfPath}`);
+    if (assessmentId) await db.createReport(assessmentId, 'coach', coachPdfPath);
+  } catch (e) {
+    console.error('[pdf] coach PDF generation failed:', e.message);
+  }
+
+  return { clientPdfPath, coachPdfPath };
+}
+
 // =================== BACKGROUND JOB ===================
 
 async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId, clientId) {
@@ -375,37 +403,38 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     }
   }
 
-  // 2. Update assessment record with results
+  // 2. Persist raw payload before PDF generation
+  if (assessmentId) {
+    await db.query(
+      `UPDATE assessments SET api_result = $1, scores_snapshot = $2 WHERE id = $3`,
+      [JSON.stringify(result), JSON.stringify(scores), assessmentId]
+    );
+  }
+
+  // 3. Update assessment record with results
   await db.completeAssessment(assessmentId, result);
   if (clientId) await db.updateClientStatus(clientId, 'complete');
 
-  // 3. Generate PDFs
-  let clientPdfPath = null;
-  let coachPdfPath  = null;
+  // 4. Generate PDFs via shared helper
+  const { clientPdfPath, coachPdfPath } = await generateReportPDFs(result, scores, intake, assessmentId);
 
-  const pdfOpts = buildPdfOptions(intake);
-
-  try {
-    const clientHtml = buildClientHTML(result, typeLibrary, intake);
-    clientPdfPath = await generatePDF(clientHtml, `client_${intake.firstName}_${intake.lastName}`, pdfOpts);
-    console.log(`[pdf] client PDF generated: ${clientPdfPath}`);
-    await db.createReport(assessmentId, 'client', clientPdfPath);
-  } catch (e) {
-    console.error('[pdf] client PDF generation failed:', e.message);
+  // 5. Mark PDF generation timestamp
+  if (clientId) {
+    await db.query(
+      `UPDATE assessments SET pdf_generated_at = NOW() WHERE id = $1`,
+      [assessmentId]
+    );
   }
 
-  try {
-    const coachHtml = buildCoachHTML(result, typeLibrary, scores, intake);
-    coachPdfPath = await generatePDF(coachHtml, `coach_${intake.firstName}_${intake.lastName}`, pdfOpts);
-    console.log(`[pdf] coach PDF generated: ${coachPdfPath}`);
-    await db.createReport(assessmentId, 'coach', coachPdfPath);
-  } catch (e) {
-    console.error('[pdf] coach PDF generation failed:', e.message);
-  }
-
-  // 4. Send emails
+  // 6. Send emails
   try {
     await sendEmails(intake, result, clientPdfPath, coachPdfPath);
+    if (clientId) {
+      await db.query(
+        `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
+        [assessmentId]
+      );
+    }
   } catch (e) {
     console.error('[email] sendEmails threw:', e.message);
   }
@@ -962,10 +991,16 @@ app.post('/assessment/:token/begin', async (req, res) => {
 // ── Coach Management (super-admin only) ──────────────────────────────────────
 
 function renderCoachesPage(coaches, errorMsg, flashMsg) {
-  const coachRows = coaches.map(co => {
+  const TYPE_NAMES_LOCAL = {
+    1: 'The Improver', 2: 'The Giver',   3: 'The Performer', 4: 'The Idealist',
+    5: 'The Observer', 6: 'The Questioner', 7: 'The Enthusiast',
+    8: 'The Protector', 9: 'The Peacemaker',
+  };
+
+  const coachRowPairs = coaches.map(co => {
     const name        = esc(co.name);
     const email       = esc(co.email);
-    const isAdmin     = co.is_admin ? '<span style="color:#1a7a4a;font-weight:700;">Yes</span>' : 'No';
+    const isAdminFlag = co.is_admin ? '<span style="color:#1a7a4a;font-weight:700;">Yes</span>' : 'No';
     const isActive    = co.is_active !== false;
     const statusLabel = isActive
       ? '<span style="background:#e6f7ee;color:#1a7a4a;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">Active</span>'
@@ -991,19 +1026,31 @@ function renderCoachesPage(coaches, errorMsg, flashMsg) {
          </form>`
       : '';
 
-    return `<tr>
+    const clientsLink = clientCount > 0
+      ? `<a href="#" id="client-count-${co.id}" class="client-count-link" data-coach-id="${co.id}" data-count="${clientCount}" onclick="toggleAccordion(${co.id},${clientCount});return false;" style="color:#00b1d7;text-decoration:none;font-weight:600;">${clientCount} clients ▼</a>`
+      : `<span style="color:#7A96A6;">${clientCount}</span>`;
+
+    const coachRow = `<tr id="coach-row-${co.id}">
       <td>${name}</td>
       <td style="color:#7A96A6;font-size:12px;">${email}</td>
-      <td>${isAdmin}</td>
+      <td>${isAdminFlag}</td>
       <td>${statusLabel}</td>
-      <td style="text-align:center;">${clientCount}</td>
+      <td style="text-align:center;">${clientsLink}</td>
       <td>${toggleAction}${reassignControl}</td>
     </tr>`;
+
+    const accordionRow = `<tr id="accordion-${co.id}" style="display:none;">
+      <td colspan="6" style="padding:0;background:#f7f5f2;border-bottom:2px solid #00b1d7;">
+        <div id="accordion-content-${co.id}" style="padding:16px 20px;"></div>
+      </td>
+    </tr>`;
+
+    return coachRow + '\n' + accordionRow;
   }).join('\n');
 
   const body = coaches.length === 0
     ? '<tr><td colspan="6" style="text-align:center;padding:40px;color:#7A96A6;">No coaches found.</td></tr>'
-    : coachRows;
+    : coachRowPairs;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1038,6 +1085,10 @@ function renderCoachesPage(coaches, errorMsg, flashMsg) {
   .add-form input:focus { border-color: #00b1d7; }
   .btn-add { background: #00b1d7; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 10px 18px; cursor: pointer; white-space: nowrap; }
   .btn-add:hover { background: #009bbf; }
+  .sub-table { width:100%; border-collapse:collapse; font-size:12px; background:#fff; }
+  .sub-table th { background:#1A2B33; color:#fff; text-align:left; padding:8px 10px; font-size:10px; letter-spacing:0.07em; text-transform:uppercase; font-weight:700; }
+  .sub-table td { padding:8px 10px; border-bottom:1px solid #EFE8E0; vertical-align:middle; }
+  .sub-table tr:last-child td { border-bottom:none; }
 </style>
 </head>
 <body>
@@ -1093,6 +1144,206 @@ ${errorMsg   ? `<div class="flash-error">${errorMsg}</div>`     : ''}
     </form>
   </div>
 </div>
+<script>
+var _accordionCache = {};
+var _openCoachId = null;
+var _typeNames = ${JSON.stringify({1:'The Improver',2:'The Giver',3:'The Performer',4:'The Idealist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'})};
+
+function _fmt(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function _statusBadge(status) {
+  var map = {
+    complete: ['#e6f7ee','#1a7a4a','Complete'],
+    processing: ['#fff8e1','#b07800','Processing'],
+    failed: ['#fdecea','#c0392b','Failed'],
+    in_progress: ['#fff3cd','#8b6914','In Progress'],
+    not_started: ['#f4f4f4','#666','Not Started'],
+  };
+  var s = map[status] || ['#f4f4f4','#666',status];
+  return '<span style="background:'+s[0]+';color:'+s[1]+';padding:2px 7px;border-radius:3px;font-size:11px;font-weight:600;">'+s[2]+'</span>';
+}
+
+function _pdfStatusHtml(r) {
+  if (r.status !== 'complete') return '—';
+  return r.pdf_generated_at ? ('✓ '+_fmt(r.pdf_generated_at)) : '<span style="color:#b07800;">⚠ Pending</span>';
+}
+
+function _emailStatusHtml(r) {
+  if (r.status !== 'complete') return '—';
+  return r.email_sent_at ? ('✓ '+_fmt(r.email_sent_at)) : '<span style="color:#b07800;">⚠ Pending</span>';
+}
+
+function renderAccordionTable(coachId, rows) {
+  if (!rows || rows.length === 0) {
+    return '<p style="padding:12px;color:#7A96A6;font-size:13px;">No clients found.</p>';
+  }
+  var html = '<table class="sub-table"><thead><tr>' +
+    '<th>Client Name</th><th>Type</th><th>Instinct</th><th>Confidence</th><th>Coach</th>' +
+    '<th>Date</th><th>Status</th><th>PDF</th><th>Email</th><th>Reports</th><th>Actions</th>' +
+    '</tr></thead><tbody>';
+
+  rows.forEach(function(r) {
+    var name = ((r.first_name||'') + ' ' + (r.last_name||'')).trim() || '—';
+    var typeNum = r.confirmed_type;
+    var typeLabel = typeNum ? ('Type '+typeNum+' — '+(_typeNames[typeNum]||'')) : '—';
+    var instinct = r.confirmed_instinct || '—';
+    var conf = r.confidence_level ? r.confidence_level.replace(/_/g,'-') : '—';
+    var coach = r.coach_name || '—';
+    var date = _fmt(r.created_at);
+    var status = r.status || 'unknown';
+    var clientId = r.client_id;
+    var clientEmail = r.email || '';
+
+    var clientPdf = r.client_pdf ? r.client_pdf.replace(/.*[/\\\\]/,'') : null;
+    var coachPdf  = r.coach_pdf  ? r.coach_pdf.replace(/.*[/\\\\]/,'')  : null;
+    var pdfLinks = '—';
+    if (status === 'complete') {
+      var links = [];
+      if (clientPdf) links.push('<a href="/reports/'+encodeURIComponent(clientPdf)+'" style="color:#00b1d7;text-decoration:none;margin-right:6px;">&#128196; Client</a>');
+      if (coachPdf)  links.push('<a href="/reports/'+encodeURIComponent(coachPdf)+'" style="color:#f58527;text-decoration:none;">&#128196; Coach</a>');
+      pdfLinks = links.join('') || '—';
+    }
+
+    var regenBtn = '<button onclick="accordionRegen('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#f58527;padding:0;text-decoration:underline;margin-right:4px;">Regen</button>';
+    var resendBtn = status === 'complete'
+      ? '<button onclick="accordionResend('+clientId+',\\''+clientEmail.replace(/'/g,"\\\\'")+'\\',this)" style="background:none;border:none;cursor:pointer;font-size:11px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:4px;">Resend</button>'
+      : '';
+    var deleteBtn = '<button onclick="accordionDelete('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#c0392b;padding:0;">&#128465;</button>';
+
+    html += '<tr id="acc-row-'+clientId+'">' +
+      '<td>'+name+'</td>' +
+      '<td>'+typeLabel+'</td>' +
+      '<td>'+instinct+'</td>' +
+      '<td>'+conf+'</td>' +
+      '<td>'+coach+'</td>' +
+      '<td>'+date+'</td>' +
+      '<td>'+_statusBadge(status)+'</td>' +
+      '<td id="acc-pdf-'+clientId+'" style="font-size:11px;">'+_pdfStatusHtml(r)+'</td>' +
+      '<td id="acc-email-'+clientId+'" style="font-size:11px;">'+_emailStatusHtml(r)+'</td>' +
+      '<td>'+pdfLinks+'</td>' +
+      '<td>'+regenBtn+resendBtn+deleteBtn+'</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+async function toggleAccordion(coachId, count) {
+  var link = document.getElementById('client-count-'+coachId);
+  if (_openCoachId === coachId) {
+    document.getElementById('accordion-'+coachId).style.display = 'none';
+    link.textContent = count+' clients ▼';
+    _openCoachId = null;
+    return;
+  }
+  if (_openCoachId !== null) {
+    document.getElementById('accordion-'+_openCoachId).style.display = 'none';
+    var prevLink = document.getElementById('client-count-'+_openCoachId);
+    if (prevLink) prevLink.textContent = prevLink.dataset.count+' clients ▼';
+  }
+  _openCoachId = coachId;
+  link.textContent = count+' clients ▲';
+  document.getElementById('accordion-'+coachId).style.display = '';
+
+  if (!_accordionCache[coachId]) {
+    var content = document.getElementById('accordion-content-'+coachId);
+    content.innerHTML = '<p style="padding:12px;color:#7A96A6;font-size:13px;">Loading…</p>';
+    try {
+      var resp = await fetch('/admin/coaches/'+coachId+'/clients', {headers:{Accept:'application/json'}});
+      var data = await resp.json();
+      _accordionCache[coachId] = data;
+      content.innerHTML = renderAccordionTable(coachId, data);
+    } catch(e) {
+      content.innerHTML = '<p style="padding:12px;color:#c0392b;font-size:13px;">Failed to load clients.</p>';
+    }
+  }
+}
+
+async function accordionRegen(clientId, name, btn, coachId) {
+  if (!confirm('Regenerate PDFs for '+name+'?')) return;
+  var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try {
+    var r = await fetch('/admin/regenerate/'+clientId, {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.success) {
+      var cell = document.getElementById('acc-pdf-'+clientId);
+      if (cell) cell.textContent = '✓ just now';
+    } else { alert(d.error || 'Regeneration failed'); }
+  } catch(e) { alert('Request failed'); }
+  btn.disabled = false; btn.textContent = orig;
+}
+
+async function accordionResend(clientId, email, btn) {
+  if (!confirm('Resend results email to '+email+'?')) return;
+  var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try {
+    var r = await fetch('/admin/resend/'+clientId, {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.success) {
+      var cell = document.getElementById('acc-email-'+clientId);
+      if (cell) cell.textContent = '✓ just now';
+    } else { alert(d.error || 'Resend failed'); }
+  } catch(e) { alert('Request failed'); }
+  btn.disabled = false; btn.textContent = orig;
+}
+
+async function accordionDelete(clientId, name, btn, coachId) {
+  if (!confirm('Delete record for '+name+'? This will permanently remove the record and any PDFs.')) return;
+  btn.disabled = true;
+  try {
+    var r = await fetch('/admin/delete/'+clientId, {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.success) {
+      var row = document.getElementById('acc-row-'+clientId);
+      if (row) row.remove();
+      // Invalidate cache and decrement count
+      delete _accordionCache[coachId];
+      var link = document.getElementById('client-count-'+coachId);
+      if (link) {
+        var newCount = parseInt(link.dataset.count, 10) - 1;
+        link.dataset.count = newCount;
+        link.textContent = newCount+' clients ▲';
+        if (newCount === 0) {
+          link.replaceWith(document.createTextNode('0'));
+          document.getElementById('accordion-'+coachId).style.display = 'none';
+          _openCoachId = null;
+        }
+      }
+    } else { alert(d.error || 'Delete failed'); btn.disabled = false; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; }
+}
+
+// adminRegen / adminResend also used on main dashboard — define here too for coaches page
+async function adminRegen(clientId, name, btn) {
+  if (!confirm('Regenerate PDFs for '+name+'?')) return;
+  var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try {
+    var r = await fetch('/admin/regenerate/'+clientId, {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.success) {
+      var cell = document.getElementById('pdf-status-'+clientId);
+      if (cell) cell.textContent = '✓ just now';
+    } else { alert(d.error || 'Regeneration failed'); }
+  } catch(e) { alert('Request failed'); }
+  btn.disabled = false; btn.textContent = orig;
+}
+async function adminResend(clientId, email, btn) {
+  if (!confirm('Resend results email to '+email+'?')) return;
+  var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try {
+    var r = await fetch('/admin/resend/'+clientId, {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.success) {
+      var cell = document.getElementById('email-status-'+clientId);
+      if (cell) cell.textContent = '✓ just now';
+    } else { alert(d.error || 'Resend failed'); }
+  } catch(e) { alert('Request failed'); }
+  btn.disabled = false; btn.textContent = orig;
+}
+</script>
 </body>
 </html>`;
 }
@@ -1211,6 +1462,8 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   let rows = [];
   try { rows = await db.getAdminRowsByCoach(req.session.coach_id); } catch (e) { console.error('[admin] query error:', e.message); }
 
+  const isAdmin = req.session.coach_is_admin === true;
+
   const tableRows = rows.map(r => {
     const name      = esc(`${r.first_name || ''} ${r.last_name || ''}`.trim()) || '—';
     const typeNum   = r.confirmed_type;
@@ -1249,17 +1502,39 @@ app.get('/admin', requireAdminSession, async (req, res) => {
 
     const clientId = r.client_id;
     const rawName  = `${r.first_name || ''} ${r.last_name || ''}`.trim();
+    const rawEmail = r.email || '';
+
+    // PDF / Email generation status cells
+    const pdfStatus = status === 'complete'
+      ? (r.pdf_generated_at
+          ? `✓ ${formatAdminDate(r.pdf_generated_at)}`
+          : `<span style="color:#b07800;">⚠ Pending</span>`)
+      : '—';
+    const emailStatus = status === 'complete'
+      ? (r.email_sent_at
+          ? `✓ ${formatAdminDate(r.email_sent_at)}`
+          : `<span style="color:#b07800;">⚠ Pending</span>`)
+      : '—';
+
     const deleteAction = `
       <form method="POST" action="/admin/delete/${clientId}" style="display:inline;" onsubmit="return confirm('Delete record for ${rawName.replace(/'/g, "\\'")}? This will permanently remove the record and any PDFs.');">
         <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;color:#c0392b;">&#128465;</button>
       </form>`;
 
-    const resendAction = clientStatus === 'not_started' ? `
+    const inviteResendAction = clientStatus === 'not_started' ? `
       <form method="POST" action="/admin/clients/resend/${clientId}" style="display:inline;" onsubmit="return confirm('Resend invite to ${rawName.replace(/'/g, "\\'")}?');">
-        <button type="submit" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;">Resend</button>
+        <button type="submit" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;">Resend invite</button>
       </form> ` : '';
 
-    return `<tr>
+    const regenAction = isAdmin
+      ? `<button onclick="adminRegen(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#f58527;padding:0;text-decoration:underline;margin-right:6px;">Regen</button>`
+      : '';
+
+    const resendAction = status === 'complete'
+      ? `<button onclick="adminResend(${clientId},'${esc(rawEmail).replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;">Resend</button>`
+      : '';
+
+    return `<tr id="row-${clientId}">
       <td>${name}</td>
       <td>${typeLabel}</td>
       <td>${instinct}</td>
@@ -1267,13 +1542,15 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       <td>${coach}</td>
       <td>${date}</td>
       <td><span style="background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">${statusLabel}</span></td>
+      <td id="pdf-status-${clientId}" style="font-size:12px;">${pdfStatus}</td>
+      <td id="email-status-${clientId}" style="font-size:12px;">${emailStatus}</td>
       <td>${pdfLinks}</td>
-      <td>${resendAction}${deleteAction}</td>
+      <td>${regenAction}${resendAction}${inviteResendAction}${deleteAction}</td>
     </tr>`;
   }).join('\n');
 
   const body = rows.length === 0
-    ? '<tr><td colspan="9" style="text-align:center;padding:40px;color:#7A96A6;">No clients yet — click + Client to add one</td></tr>'
+    ? '<tr><td colspan="11" style="text-align:center;padding:40px;color:#7A96A6;">No clients yet — click + Client to add one</td></tr>'
     : tableRows;
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -1296,7 +1573,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   .btn-new-client:hover { background: #009bbf; }
   .flash-success { background: #e6f7ee; color: #1a7a4a; border-left: 4px solid #1a7a4a; padding: 12px 20px; font-size: 13px; margin-bottom: 0; }
   .flash-error { background: #fdecea; color: #c0392b; border-left: 4px solid #c0392b; padding: 12px 20px; font-size: 13px; margin-bottom: 0; }
-  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
   .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   thead th { background: #00b1d7; color: #fff; text-align: left; padding: 12px 14px;
@@ -1343,6 +1620,8 @@ ${flashError ? `<div class="flash-error">${flashError}</div>` : ''}
           <th>Coach</th>
           <th>Date</th>
           <th>Status</th>
+          <th>PDF</th>
+          <th>Email</th>
           <th>Reports</th>
           <th>Actions</th>
         </tr>
@@ -1353,6 +1632,36 @@ ${flashError ? `<div class="flash-error">${flashError}</div>` : ''}
     </table>
   </div>
 </div>
+<script>
+async function adminRegen(clientId, name, btn) {
+  if (!confirm('Regenerate PDFs for ' + name + '?')) return;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch('/admin/regenerate/' + clientId, {method:'POST', headers:{Accept:'application/json'}});
+    const d = await r.json();
+    if (d.success) {
+      const cell = document.getElementById('pdf-status-' + clientId);
+      if (cell) cell.textContent = '✓ just now';
+    } else { alert(d.error || 'Regeneration failed'); }
+  } catch(e) { alert('Request failed'); }
+  btn.disabled = false; btn.textContent = orig;
+}
+async function adminResend(clientId, email, btn) {
+  if (!confirm('Resend results email to ' + email + '?')) return;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch('/admin/resend/' + clientId, {method:'POST', headers:{Accept:'application/json'}});
+    const d = await r.json();
+    if (d.success) {
+      const cell = document.getElementById('email-status-' + clientId);
+      if (cell) cell.textContent = '✓ just now';
+    } else { alert(d.error || 'Resend failed'); }
+  } catch(e) { alert('Request failed'); }
+  btn.disabled = false; btn.textContent = orig;
+}
+</script>
 </body>
 </html>`);
 });
@@ -1376,14 +1685,18 @@ app.get('/reports/:filename', requireAdminSession, async (req, res) => {
   res.sendFile(filePath);
 });
 
-// Delete a client + all associated assessments and PDFs (coach-scoped)
+// Delete a client + all associated assessments and PDFs (coach-scoped; super admin unrestricted)
 app.post('/admin/delete/:client_id', requireAdminSession, async (req, res) => {
   const clientId = parseInt(req.params.client_id, 10);
-  if (!clientId || isNaN(clientId)) return res.status(400).send('Invalid client ID');
+  const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
+  if (!clientId || isNaN(clientId)) {
+    return wantsJson ? res.status(400).json({ error: 'Invalid client ID' }) : res.status(400).send('Invalid client ID');
+  }
 
   const ownerCoachId = await db.getClientCoachId(clientId);
-  if (ownerCoachId !== req.session.coach_id) {
-    return res.status(403).send('Forbidden');
+  const isSuperAdmin = req.session.coach_is_admin === true;
+  if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) {
+    return wantsJson ? res.status(403).json({ error: 'Forbidden' }) : res.status(403).send('Forbidden');
   }
 
   try {
@@ -1396,9 +1709,138 @@ app.post('/admin/delete/:client_id', requireAdminSession, async (req, res) => {
     console.log(`[admin] deleted client #${clientId} and all related records`);
   } catch (e) {
     console.error('[admin] delete error:', e.message);
+    return wantsJson ? res.status(500).json({ error: 'Delete failed' }) : res.redirect('/admin');
   }
 
+  if (wantsJson) return res.json({ success: true });
   res.redirect('/admin');
+});
+
+// ── Report Regeneration (super admin only) ───────────────────────────────────
+
+app.post('/admin/regenerate/:client_id', requireAdmin, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
+
+  const payload = await db.getAssessmentPayload(clientId);
+  if (!payload || !payload.api_result || !payload.scores_snapshot) {
+    return res.status(400).json({ error: 'No stored payload found for this client.' });
+  }
+
+  const clientInfo = await db.getClientWithCoach(clientId);
+  if (!clientInfo) return res.status(404).json({ error: 'Client not found.' });
+
+  const intake = {
+    firstName:    clientInfo.first_name,
+    lastName:     clientInfo.last_name,
+    email:        clientInfo.email,
+    organization: clientInfo.organization || '',
+    coach:        clientInfo.coach_name,
+  };
+
+  const result = typeof payload.api_result === 'string'
+    ? JSON.parse(payload.api_result)
+    : payload.api_result;
+  const scores = typeof payload.scores_snapshot === 'string'
+    ? JSON.parse(payload.scores_snapshot)
+    : payload.scores_snapshot;
+
+  // Remove stale report entries before regenerating
+  await db.deleteReportsByAssessmentId(payload.assessment_id);
+
+  try {
+    await generateReportPDFs(result, scores, intake, payload.assessment_id);
+    await db.query(
+      `UPDATE assessments SET pdf_generated_at = NOW() WHERE id = $1`,
+      [payload.assessment_id]
+    );
+    console.log(`[admin/regenerate] PDFs regenerated for client #${clientId}`);
+    return res.json({ success: true, message: 'PDFs regenerated.' });
+  } catch (e) {
+    console.error('[admin/regenerate] error:', e.message);
+    return res.status(500).json({ error: 'PDF generation failed.' });
+  }
+});
+
+// ── Result Email Resend (super admin or coach-scoped) ────────────────────────
+
+app.post('/admin/resend/:client_id', requireAdminSession, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
+
+  const ownerCoachId = await db.getClientCoachId(clientId);
+  const isSuperAdmin = req.session.coach_is_admin === true;
+  if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const payload = await db.getAssessmentPayload(clientId);
+  if (!payload || !payload.api_result) {
+    return res.status(400).json({ error: 'No stored payload found for this client.' });
+  }
+
+  const clientInfo = await db.getClientWithCoach(clientId);
+  if (!clientInfo) return res.status(404).json({ error: 'Client not found.' });
+
+  const intake = {
+    firstName:    clientInfo.first_name,
+    lastName:     clientInfo.last_name,
+    email:        clientInfo.email,
+    organization: clientInfo.organization || '',
+    coach:        clientInfo.coach_name,
+  };
+
+  const result = typeof payload.api_result === 'string'
+    ? JSON.parse(payload.api_result)
+    : payload.api_result;
+  const scores = typeof payload.scores_snapshot === 'string'
+    ? JSON.parse(payload.scores_snapshot)
+    : (payload.scores_snapshot || {});
+
+  // Regenerate PDFs if missing
+  if (!payload.pdf_generated_at) {
+    await db.deleteReportsByAssessmentId(payload.assessment_id);
+    try {
+      await generateReportPDFs(result, scores, intake, payload.assessment_id);
+      await db.query(
+        `UPDATE assessments SET pdf_generated_at = NOW() WHERE id = $1`,
+        [payload.assessment_id]
+      );
+      console.log(`[admin/resend] PDFs regenerated for client #${clientId}`);
+    } catch (e) {
+      console.error('[admin/resend] PDF regeneration failed:', e.message);
+    }
+  }
+
+  const reports = await db.getAssessmentReports(payload.assessment_id);
+
+  try {
+    await sendEmails(intake, result, reports.clientPdf, reports.coachPdf);
+    await db.query(
+      `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
+      [payload.assessment_id]
+    );
+    console.log(`[admin/resend] email resent for client #${clientId}`);
+    return res.json({ success: true, message: 'Email resent.' });
+  } catch (e) {
+    console.error('[admin/resend] sendEmails error:', e.message);
+    return res.status(500).json({ error: 'Email delivery failed.' });
+  }
+});
+
+// ── Coach client list (super admin only, JSON) ───────────────────────────────
+
+app.get('/admin/coaches/:coach_id/clients', requireAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  if (!coachId || isNaN(coachId)) return res.status(400).json({ error: 'Invalid coach ID' });
+
+  try {
+    const rows = await db.getAdminRowsByCoach(coachId);
+    return res.json(rows);
+  } catch (e) {
+    console.error('[admin/coaches/clients] query error:', e.message);
+    return res.status(500).json({ error: 'Query failed' });
+  }
 });
 
 // =================== START ===================

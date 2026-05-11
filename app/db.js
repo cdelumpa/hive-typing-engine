@@ -74,6 +74,11 @@ CREATE TABLE IF NOT EXISTS client_tokens (
   expires_at TIMESTAMPTZ NOT NULL,
   used_at TIMESTAMPTZ
 );
+
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS api_result       JSONB;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS scores_snapshot  JSONB;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS pdf_generated_at TIMESTAMPTZ;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS email_sent_at    TIMESTAMPTZ;
 `;
 
 const SEED_SQL = `
@@ -243,7 +248,9 @@ async function getAdminRowsByCoach(coachId) {
       COALESCE(a.created_at, c.created_at) AS created_at,
       COALESCE(a.status, c.status, 'unknown') AS status,
       r_cl.pdf_path   AS client_pdf,
-      r_co.pdf_path   AS coach_pdf
+      r_co.pdf_path   AS coach_pdf,
+      a.pdf_generated_at,
+      a.email_sent_at
     FROM clients c
     LEFT JOIN assessments a  ON a.client_id = c.id
     LEFT JOIN coaches co      ON co.id = c.coach_id
@@ -367,6 +374,44 @@ async function resendInviteTransaction(clientId, newToken, expiresAt) {
   }
 }
 
+async function getAssessmentPayload(clientId) {
+  const r = await query(
+    `SELECT id AS assessment_id, api_result, scores_snapshot, pdf_generated_at, email_sent_at
+     FROM assessments WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [clientId]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function getClientWithCoach(clientId) {
+  const r = await query(`
+    SELECT c.first_name, c.last_name, c.email, c.organization, co.name AS coach_name
+    FROM clients c
+    JOIN coaches co ON co.id = c.coach_id
+    WHERE c.id = $1
+    LIMIT 1
+  `, [clientId]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function getAssessmentReports(assessmentId) {
+  const r = await query(
+    `SELECT report_type, pdf_path FROM reports WHERE assessment_id = $1 ORDER BY created_at DESC`,
+    [assessmentId]
+  );
+  if (!r) return { clientPdf: null, coachPdf: null };
+  const clientRow = r.rows.find(row => row.report_type === 'client');
+  const coachRow  = r.rows.find(row => row.report_type === 'coach');
+  return {
+    clientPdf: clientRow ? clientRow.pdf_path : null,
+    coachPdf:  coachRow  ? coachRow.pdf_path  : null,
+  };
+}
+
+async function deleteReportsByAssessmentId(assessmentId) {
+  await query(`DELETE FROM reports WHERE assessment_id = $1`, [assessmentId]);
+}
+
 async function getReportCoachId(filename) {
   const r = await query(`
     SELECT c.coach_id
@@ -408,4 +453,8 @@ module.exports = {
   updateTokenUsedAt,
   updateClientStatus,
   resendInviteTransaction,
+  getAssessmentPayload,
+  getClientWithCoach,
+  getAssessmentReports,
+  deleteReportsByAssessmentId,
 };
