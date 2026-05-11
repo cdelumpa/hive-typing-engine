@@ -1329,7 +1329,7 @@ function renderCoachesPage(coaches, errorMsg, flashMsg) {
       : `<span style="color:#7A96A6;">${clientCount}</span>`;
 
     const coachRow = `<tr id="coach-row-${co.id}">
-      <td><a href="#" data-entity="coach-${co.id}" onclick="openCoachProfile(${co.id});return false;" style="color:#1A2B33;text-decoration:none;font-weight:600;">${name}</a></td>
+      <td><a href="#" data-entity="coach-${co.id}" onclick="openCoachProfile(${co.id});return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle='solid'" onmouseout="this.style.textDecorationStyle='dotted'">${name}</a></td>
       <td style="color:#7A96A6;font-size:12px;">${email}</td>
       <td>${isAdminFlag}</td>
       <td>${statusLabel}</td>
@@ -1505,7 +1505,7 @@ function renderAccordionTable(coachId, rows) {
       pdfLinks = links.join('') || '—';
     }
 
-    var nameLink = '<a href="#" data-entity="client-'+clientId+'" onclick="openClientProfile('+clientId+');return false;" style="color:#1A2B33;text-decoration:none;font-weight:600;">'+name+'</a>';
+    var nameLink = '<a href="#" data-entity="client-'+clientId+'" onclick="openClientProfile('+clientId+');return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle=\'solid\'" onmouseout="this.style.textDecorationStyle=\'dotted\'">'+name+'</a>';
     var regenBtn = '<button onclick="accordionRegen('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#f58527;padding:0;text-decoration:underline;margin-right:4px;">Regen</button>';
     var resendBtn = status === 'complete'
       ? '<button onclick="accordionResend('+clientId+',\\''+clientEmail.replace(/'/g,"\\\\'")+'\\',this)" style="background:none;border:none;cursor:pointer;font-size:11px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:4px;">Resend</button>'
@@ -1835,7 +1835,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       : '';
 
     return `<tr id="row-${clientId}">
-      <td><a href="#" data-entity="client-${clientId}" onclick="openClientProfile(${clientId});return false;" style="color:#1A2B33;text-decoration:none;font-weight:600;">${name}</a></td>
+      <td><a href="#" data-entity="client-${clientId}" onclick="openClientProfile(${clientId});return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle='solid'" onmouseout="this.style.textDecorationStyle='dotted'">${name}</a></td>
       <td>${typeLabel}</td>
       <td>${instinct}</td>
       <td>${conf}</td>
