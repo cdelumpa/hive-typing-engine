@@ -652,6 +652,7 @@ function _hideModal(){
   _overlay().style.display='none';
   _hiveRec=null; _hiveType=null;
 }
+window._hideModal=_hideModal;
 function _showLoading(){
   _content().innerHTML='<div style="padding:48px;text-align:center;color:#7A96A6;font-size:14px;">Loading…</div>';
   _showModal();
