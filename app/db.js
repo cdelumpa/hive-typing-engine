@@ -79,6 +79,23 @@ ALTER TABLE assessments ADD COLUMN IF NOT EXISTS api_result       JSONB;
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS scores_snapshot  JSONB;
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS pdf_generated_at TIMESTAMPTZ;
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS email_sent_at    TIMESTAMPTZ;
+
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS updated_by TEXT;
+
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_by TEXT;
+
+CREATE TABLE IF NOT EXISTS edit_history (
+  id             SERIAL PRIMARY KEY,
+  record_type    TEXT NOT NULL,
+  record_id      INTEGER NOT NULL,
+  edited_by_id   INTEGER NOT NULL,
+  edited_by_name TEXT NOT NULL,
+  change_summary TEXT NOT NULL,
+  editor_note    TEXT,
+  edited_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 `;
 
 const SEED_SQL = `
@@ -268,8 +285,45 @@ async function getCoachByEmail(email) {
 }
 
 async function getCoachById(id) {
-  const r = await query('SELECT id, name, email, password_hash, is_admin, is_active FROM coaches WHERE id = $1 LIMIT 1', [id]);
+  const r = await query(
+    'SELECT id, name, email, password_hash, is_admin, is_active, updated_at, updated_by FROM coaches WHERE id = $1 LIMIT 1',
+    [id]
+  );
   return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function updateCoach(coachId, fields, editorName) {
+  await query(
+    `UPDATE coaches SET name = $1, email = $2, updated_at = NOW(), updated_by = $3 WHERE id = $4`,
+    [fields.name, fields.email, editorName, coachId]
+  );
+}
+
+async function updateClient(clientId, fields, editorName) {
+  await query(
+    `UPDATE clients
+     SET first_name = $1, last_name = $2, email = $3, organization = $4,
+         updated_at = NOW(), updated_by = $5
+     WHERE id = $6`,
+    [fields.first_name, fields.last_name, fields.email, fields.organization || null, editorName, clientId]
+  );
+}
+
+async function insertEditHistory({ record_type, record_id, edited_by_id, edited_by_name, change_summary, editor_note }) {
+  await query(
+    `INSERT INTO edit_history (record_type, record_id, edited_by_id, edited_by_name, change_summary, editor_note)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [record_type, record_id, edited_by_id, edited_by_name, change_summary, editor_note || null]
+  );
+}
+
+async function getEditHistory(recordType, recordId) {
+  const r = await query(
+    `SELECT id, edited_at, edited_by_id, edited_by_name, change_summary, editor_note
+     FROM edit_history WHERE record_type = $1 AND record_id = $2 ORDER BY edited_at DESC`,
+    [recordType, recordId]
+  );
+  return r ? r.rows : [];
 }
 
 async function getAllCoaches() {
@@ -443,6 +497,10 @@ module.exports = {
   setCoachActive,
   reassignClients,
   updateCoachPassword,
+  updateCoach,
+  updateClient,
+  insertEditHistory,
+  getEditHistory,
   getClientCoachId,
   getReportCoachId,
   getClientReportPaths,

@@ -600,6 +600,303 @@ async function sendInviteEmail(client, token, coachName) {
   }
 }
 
+// =================== ADMIN HELPERS ===================
+
+// Build a plain-English summary of what changed between two DB records
+function buildChangeSummary(recordType, before, after) {
+  const fields = recordType === 'coach'
+    ? [['name', 'name'], ['email', 'email']]
+    : [['first_name', 'first name'], ['last_name', 'last name'], ['email', 'email'], ['organization', 'organization']];
+
+  const changes = [];
+  for (const [key, label] of fields) {
+    const oldVal = (before[key] || '').toString().trim();
+    const newVal = (after[key]  || '').toString().trim();
+    if (oldVal !== newVal) {
+      changes.push(`${label} changed from '${oldVal}' to '${newVal}'`);
+    }
+  }
+  return changes.length > 0 ? changes.join('; ') : 'No fields were modified.';
+}
+
+// Shared modal overlay HTML + JS injected into every admin page
+function sharedModalHTML(isAdmin) {
+  return `
+<div id="hive-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(26,43,51,0.55);z-index:9000;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;">
+  <div style="background:#fff;width:100%;max-width:580px;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.2);font-family:Georgia,serif;">
+    <div id="hive-modal-content"></div>
+  </div>
+</div>
+<div id="hive-toast" style="display:none;position:fixed;bottom:24px;right:24px;background:#1a7a4a;color:#fff;padding:12px 20px;border-radius:6px;font-size:13px;font-family:Georgia,serif;z-index:9500;box-shadow:0 2px 8px rgba(0,0,0,.18);"></div>
+<script>
+(function(){
+var _IS_ADMIN = ${isAdmin ? 'true' : 'false'};
+var _hiveRec  = null; // current profile data
+var _hiveType = null; // 'client' | 'coach'
+
+function _esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+
+function _fmtFull(ts){
+  if(!ts)return null;
+  var d=new Date(ts);
+  return d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})+' at '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+}
+
+function _overlay(){return document.getElementById('hive-modal-overlay');}
+function _content(){return document.getElementById('hive-modal-content');}
+
+function _showModal(){
+  var o=_overlay(); o.style.display='flex';
+}
+function _hideModal(){
+  _overlay().style.display='none';
+  _hiveRec=null; _hiveType=null;
+}
+function _showLoading(){
+  _content().innerHTML='<div style="padding:48px;text-align:center;color:#7A96A6;font-size:14px;">Loading…</div>';
+  _showModal();
+}
+function _showToast(msg){
+  var t=document.getElementById('hive-toast');
+  t.textContent=msg; t.style.display='block'; t.style.opacity='1';
+  setTimeout(function(){
+    t.style.transition='opacity 0.4s'; t.style.opacity='0';
+    setTimeout(function(){t.style.display='none';t.style.transition='';t.style.opacity='1';},420);
+  },2400);
+}
+
+function _profileRow(label,val){
+  return '<tr style="border-bottom:1px solid #EFE8E0;"><td style="padding:8px 0;color:#7A96A6;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;width:34%;vertical-align:top;">'+_esc(label)+'</td><td style="padding:8px 0;font-size:13px;">'+_esc(val!=null&&val!==''?String(val):'—')+'</td></tr>';
+}
+function _profileRowRaw(label,val){
+  return '<tr style="border-bottom:1px solid #EFE8E0;"><td style="padding:8px 0;color:#7A96A6;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;width:34%;vertical-align:top;">'+_esc(label)+'</td><td style="padding:8px 0;font-size:13px;">'+(val||'—')+'</td></tr>';
+}
+
+function _renderHistory(hist){
+  if(!hist||hist.length===0) return '<p style="font-size:12px;color:#7A96A6;margin:6px 0 0;">No edit history yet.</p>';
+  return hist.map(function(h){
+    return '<div style="padding:8px 0;border-bottom:1px solid #f0ece8;">'+
+      '<div style="font-size:11px;color:#7A96A6;">'+_esc(_fmtFull(h.edited_at))+' — <strong style="color:#4A6070;">'+_esc(h.edited_by_name)+'</strong></div>'+
+      '<div style="font-size:12px;margin-top:3px;color:#1A2B33;">'+_esc(h.change_summary)+'</div>'+
+      (h.editor_note?'<div style="font-size:11px;color:#7A96A6;font-style:italic;margin-top:2px;">“'+_esc(h.editor_note)+'”</div>':'')+
+      '</div>';
+  }).join('');
+}
+
+function _modalHeader(labelText, titleText, color){
+  return '<div style="border-top:4px solid '+color+';padding:24px 28px 0;">'+
+    '<p style="font-size:11px;color:#7A96A6;letter-spacing:0.1em;text-transform:uppercase;margin:0 0 4px;">'+_esc(labelText)+'</p>'+
+    '<h2 style="font-size:20px;color:#1A2B33;margin:0 0 20px;font-weight:700;">'+_esc(titleText)+'</h2>';
+}
+
+function _editInput(id, label, value, required, type){
+  type=type||'text';
+  return '<div style="margin-bottom:14px;">'+
+    '<label for="'+id+'" style="display:block;font-size:11px;color:#7A96A6;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:5px;">'+_esc(label)+(required?' <span style="color:#c0392b;">*</span>':'')+'</label>'+
+    '<input type="'+type+'" id="'+id+'" value="'+_esc(value||'')+'" style="width:100%;padding:9px 11px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;color:#1A2B33;outline:none;box-sizing:border-box;">'+
+    '</div>';
+}
+
+// ── Client profile ──────────────────────────────────────────────────────────
+
+window.openClientProfile = async function(clientId){
+  _hiveType='client'; _showLoading();
+  try{
+    var r=await fetch('/admin/clients/'+clientId+'/profile',{headers:{Accept:'application/json'}});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    var data=await r.json();
+    _hiveRec=data; _renderClientView(data);
+  }catch(e){ _hideModal(); alert('Failed to load profile: '+e.message); }
+};
+
+function _renderClientView(data){
+  var c=data.client; var a=data.assessment||{}; var hist=data.history||[];
+  var TN={1:'The Improver',2:'The Giver',3:'The Performer',4:'The Idealist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'};
+  var typeLabel=a.confirmed_type?('Type '+a.confirmed_type+' — '+(TN[a.confirmed_type]||'')):null;
+  var conf=a.confidence_level?a.confidence_level.replace(/_/g,'-'):null;
+  var SM={complete:'Complete',in_progress:'In Progress',not_started:'Not Started',processing:'Processing',failed:'Failed'};
+  var statusStr=SM[a.status||c.status]||(a.status||c.status)||null;
+  var lu=c.updated_at?('<p style="font-size:12px;color:#7A96A6;margin:0 0 16px;">Last Updated: '+_esc(_fmtFull(c.updated_at))+' by <strong>'+_esc(c.updated_by||'')+'</strong></p>'):'';
+
+  var h=_modalHeader('Client Profile',(c.first_name||'')+' '+(c.last_name||''),'#00b1d7');
+  h+='<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">';
+  h+=_profileRow('First Name',c.first_name);
+  h+=_profileRow('Last Name',c.last_name);
+  h+=_profileRow('Email',c.email);
+  h+=_profileRow('Organization',c.organization||'Not provided');
+  h+=_profileRow('Coach',c.coach_name);
+  h+=_profileRow('Type',typeLabel);
+  h+=_profileRow('Instinct',a.confirmed_instinct);
+  h+=_profileRow('Confidence',conf);
+  h+=_profileRow('Status',statusStr);
+  h+='</table>';
+  h+=lu;
+  h+='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">';
+  h+='<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Edit History</p>';
+  h+=_renderHistory(hist);
+  h+='</div>';
+  h+='<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 0 24px;">';
+  h+='<button onclick="window._editClientMode()" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Edit Profile</button>';
+  h+='<button onclick="_hideModal()" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Close</button>';
+  h+='</div></div>';
+  _content().innerHTML=h; _showModal();
+}
+
+window._editClientMode = function(){
+  var data=_hiveRec; if(!data)return;
+  var c=data.client;
+  var TN={1:'The Improver',2:'The Giver',3:'The Performer',4:'The Idealist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'};
+  var a=data.assessment||{};
+  var typeLabel=a.confirmed_type?('Type '+a.confirmed_type+' — '+(TN[a.confirmed_type]||'')):'—';
+  var conf=a.confidence_level?a.confidence_level.replace(/_/g,'-'):'—';
+  var SM={complete:'Complete',in_progress:'In Progress',not_started:'Not Started',processing:'Processing',failed:'Failed'};
+  var statusStr=SM[a.status||c.status]||(a.status||c.status)||'—';
+
+  var h=_modalHeader('Edit Client',(c.first_name||'')+' '+(c.last_name||''),'#00b1d7');
+  h+='<div id="modal-err" style="display:none;background:#fdecea;color:#c0392b;border-radius:4px;padding:10px 14px;font-size:13px;margin-bottom:14px;"></div>';
+  h+=_editInput('m_fn','First Name',c.first_name,true);
+  h+=_editInput('m_ln','Last Name',c.last_name,true);
+  h+=_editInput('m_em','Email',c.email,true,'email');
+  h+=_editInput('m_org','Organization',c.organization,false);
+  h+='<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">';
+  h+=_profileRow('Coach',c.coach_name);
+  h+=_profileRow('Type',typeLabel);
+  h+=_profileRow('Instinct',a.confirmed_instinct||'—');
+  h+=_profileRow('Confidence',conf);
+  h+=_profileRow('Status',statusStr);
+  h+='</table>';
+  h+='<div style="margin-bottom:16px;">';
+  h+='<label for="m_note" style="display:block;font-size:11px;color:#7A96A6;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:5px;">Notes <span style="font-weight:400;text-transform:none;">(optional)</span></label>';
+  h+='<textarea id="m_note" placeholder="Add a note about this change (optional)" style="width:100%;padding:9px 11px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;color:#1A2B33;outline:none;box-sizing:border-box;height:72px;resize:vertical;"></textarea>';
+  h+='</div>';
+  h+='<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 0 24px;">';
+  h+='<button id="modal-save-btn" onclick="window._saveClientProfile()" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Save Changes</button>';
+  h+='<button onclick="_renderClientView(_hiveRec)" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Cancel</button>';
+  h+='</div></div>';
+  _content().innerHTML=h;
+};
+
+window._saveClientProfile = async function(){
+  var errDiv=document.getElementById('modal-err');
+  var saveBtn=document.getElementById('modal-save-btn');
+  var fn=(document.getElementById('m_fn').value||'').trim();
+  var ln=(document.getElementById('m_ln').value||'').trim();
+  var em=(document.getElementById('m_em').value||'').trim();
+  var org=(document.getElementById('m_org').value||'').trim();
+  var note=(document.getElementById('m_note').value||'').trim();
+  errDiv.style.display='none';
+  if(!fn||!ln){errDiv.textContent='First name and last name are required.';errDiv.style.display='';return;}
+  if(!em||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(em)){errDiv.textContent='A valid email address is required.';errDiv.style.display='';return;}
+  saveBtn.disabled=true; saveBtn.textContent='Saving…';
+  try{
+    var clientId=_hiveRec.client.id;
+    var resp=await fetch('/admin/clients/'+clientId+'/update',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({first_name:fn,last_name:ln,email:em,organization:org||null,note:note||null})});
+    var data=await resp.json();
+    if(!resp.ok||!data.success){errDiv.textContent=data.error||'Update failed.';errDiv.style.display='';saveBtn.disabled=false;saveBtn.textContent='Save Changes';return;}
+    // Update name links in page
+    var newName=fn+' '+ln;
+    document.querySelectorAll('[data-entity="client-'+clientId+'"]').forEach(function(el){el.textContent=newName;});
+    // Reload record for history display
+    _hiveRec.client=Object.assign({},_hiveRec.client,{first_name:fn,last_name:ln,email:em,organization:org||null});
+    if(data.historyEntry) (_hiveRec.history=_hiveRec.history||[]).unshift(data.historyEntry);
+    _hideModal(); _showToast('Profile updated.');
+  }catch(e){errDiv.textContent='Request failed: '+e.message;errDiv.style.display='';saveBtn.disabled=false;saveBtn.textContent='Save Changes';}
+};
+
+// ── Coach profile ───────────────────────────────────────────────────────────
+
+window.openCoachProfile = async function(coachId){
+  _hiveType='coach'; _showLoading();
+  try{
+    var r=await fetch('/admin/coaches/'+coachId+'/profile',{headers:{Accept:'application/json'}});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    var data=await r.json();
+    _hiveRec=data; _renderCoachView(data);
+  }catch(e){ _hideModal(); alert('Failed to load profile: '+e.message); }
+};
+
+function _renderCoachView(data){
+  var c=data.coach; var hist=data.history||[];
+  var lu=c.updated_at?('<p style="font-size:12px;color:#7A96A6;margin:0 0 16px;">Last Updated: '+_esc(_fmtFull(c.updated_at))+' by <strong>'+_esc(c.updated_by||'')+'</strong></p>'):'';
+  var adminBadge=c.is_admin?'<span style="color:#1a7a4a;font-weight:700;">Yes</span>':'No';
+  var activeBadge=c.is_active!==false?'<span style="color:#1a7a4a;">Active</span>':'<span style="color:#c0392b;">Inactive</span>';
+
+  var h=_modalHeader('Coach Profile',c.name,'#f58527');
+  h+='<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">';
+  h+=_profileRow('Name',c.name);
+  h+=_profileRow('Email',c.email);
+  h+=_profileRowRaw('Admin',adminBadge);
+  h+=_profileRowRaw('Status',activeBadge);
+  h+='</table>';
+  h+=lu;
+  h+='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">';
+  h+='<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Edit History</p>';
+  h+=_renderHistory(hist);
+  h+='</div>';
+  h+='<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 0 24px;">';
+  if(_IS_ADMIN) h+='<button onclick="window._editCoachMode()" style="background:#f58527;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Edit Profile</button>';
+  h+='<button onclick="_hideModal()" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Close</button>';
+  h+='</div></div>';
+  _content().innerHTML=h; _showModal();
+}
+
+window._editCoachMode = function(){
+  var data=_hiveRec; if(!data)return;
+  var c=data.coach;
+  var adminBadge=c.is_admin?'<span style="color:#1a7a4a;font-weight:700;">Yes</span>':'No';
+  var activeBadge=c.is_active!==false?'<span style="color:#1a7a4a;">Active</span>':'<span style="color:#c0392b;">Inactive</span>';
+
+  var h=_modalHeader('Edit Coach',c.name,'#f58527');
+  h+='<div id="modal-err" style="display:none;background:#fdecea;color:#c0392b;border-radius:4px;padding:10px 14px;font-size:13px;margin-bottom:14px;"></div>';
+  h+=_editInput('m_cname','Full Name',c.name,true);
+  h+=_editInput('m_cemail','Email',c.email,true,'email');
+  h+='<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">';
+  h+=_profileRowRaw('Admin',adminBadge);
+  h+=_profileRowRaw('Status',activeBadge);
+  h+='</table>';
+  h+='<div style="margin-bottom:16px;">';
+  h+='<label for="m_note" style="display:block;font-size:11px;color:#7A96A6;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:5px;">Notes <span style="font-weight:400;text-transform:none;">(optional)</span></label>';
+  h+='<textarea id="m_note" placeholder="Add a note about this change (optional)" style="width:100%;padding:9px 11px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;color:#1A2B33;outline:none;box-sizing:border-box;height:72px;resize:vertical;"></textarea>';
+  h+='</div>';
+  h+='<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 0 24px;">';
+  h+='<button id="modal-save-btn" onclick="window._saveCoachProfile()" style="background:#f58527;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Save Changes</button>';
+  h+='<button onclick="_renderCoachView(_hiveRec)" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Cancel</button>';
+  h+='</div></div>';
+  _content().innerHTML=h;
+};
+
+window._saveCoachProfile = async function(){
+  var errDiv=document.getElementById('modal-err');
+  var saveBtn=document.getElementById('modal-save-btn');
+  var name=(document.getElementById('m_cname').value||'').trim();
+  var email=(document.getElementById('m_cemail').value||'').trim();
+  var note=(document.getElementById('m_note').value||'').trim();
+  errDiv.style.display='none';
+  if(!name){errDiv.textContent='Full name is required.';errDiv.style.display='';return;}
+  if(!email||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){errDiv.textContent='A valid email address is required.';errDiv.style.display='';return;}
+  saveBtn.disabled=true; saveBtn.textContent='Saving…';
+  try{
+    var coachId=_hiveRec.coach.id;
+    var resp=await fetch('/admin/coaches/'+coachId+'/update',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({name:name,email:email,note:note||null})});
+    var data=await resp.json();
+    if(!resp.ok||!data.success){errDiv.textContent=data.error||'Update failed.';errDiv.style.display='';saveBtn.disabled=false;saveBtn.textContent='Save Changes';return;}
+    // Update coach name links in page
+    document.querySelectorAll('[data-entity="coach-'+coachId+'"]').forEach(function(el){el.textContent=name;});
+    _hiveRec.coach=Object.assign({},_hiveRec.coach,{name:name,email:email});
+    if(data.historyEntry) (_hiveRec.history=_hiveRec.history||[]).unshift(data.historyEntry);
+    _hideModal(); _showToast('Profile updated.');
+  }catch(e){errDiv.textContent='Request failed: '+e.message;errDiv.style.display='';saveBtn.disabled=false;saveBtn.textContent='Save Changes';}
+};
+
+// Close on overlay click or Escape
+document.addEventListener('DOMContentLoaded',function(){
+  document.getElementById('hive-modal-overlay').addEventListener('click',function(e){if(e.target===this)_hideModal();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')_hideModal();});
+});
+})();
+</script>`;
+}
+
 // =================== ADMIN ROUTES ===================
 
 // ── Login / Logout ────────────────────────────────────────────────────────────
@@ -1031,7 +1328,7 @@ function renderCoachesPage(coaches, errorMsg, flashMsg) {
       : `<span style="color:#7A96A6;">${clientCount}</span>`;
 
     const coachRow = `<tr id="coach-row-${co.id}">
-      <td>${name}</td>
+      <td><a href="#" data-entity="coach-${co.id}" onclick="openCoachProfile(${co.id});return false;" style="color:#1A2B33;text-decoration:none;font-weight:600;">${name}</a></td>
       <td style="color:#7A96A6;font-size:12px;">${email}</td>
       <td>${isAdminFlag}</td>
       <td>${statusLabel}</td>
@@ -1202,11 +1499,12 @@ function renderAccordionTable(coachId, rows) {
     var pdfLinks = '—';
     if (status === 'complete') {
       var links = [];
-      if (clientPdf) links.push('<a href="/reports/'+encodeURIComponent(clientPdf)+'" style="color:#00b1d7;text-decoration:none;margin-right:6px;">&#128196; Client</a>');
-      if (coachPdf)  links.push('<a href="/reports/'+encodeURIComponent(coachPdf)+'" style="color:#f58527;text-decoration:none;">&#128196; Coach</a>');
+      if (clientPdf) links.push('<a href="/reports/'+encodeURIComponent(clientPdf)+'" style="display:block;color:#00b1d7;text-decoration:none;white-space:nowrap;">&#128196; Client</a>');
+      if (coachPdf)  links.push('<a href="/reports/'+encodeURIComponent(coachPdf)+'" style="display:block;color:#f58527;text-decoration:none;white-space:nowrap;">&#128196; Coach</a>');
       pdfLinks = links.join('') || '—';
     }
 
+    var nameLink = '<a href="#" data-entity="client-'+clientId+'" onclick="openClientProfile('+clientId+');return false;" style="color:#1A2B33;text-decoration:none;font-weight:600;">'+name+'</a>';
     var regenBtn = '<button onclick="accordionRegen('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#f58527;padding:0;text-decoration:underline;margin-right:4px;">Regen</button>';
     var resendBtn = status === 'complete'
       ? '<button onclick="accordionResend('+clientId+',\\''+clientEmail.replace(/'/g,"\\\\'")+'\\',this)" style="background:none;border:none;cursor:pointer;font-size:11px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:4px;">Resend</button>'
@@ -1214,7 +1512,7 @@ function renderAccordionTable(coachId, rows) {
     var deleteBtn = '<button onclick="accordionDelete('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#c0392b;padding:0;">&#128465;</button>';
 
     html += '<tr id="acc-row-'+clientId+'">' +
-      '<td>'+name+'</td>' +
+      '<td>'+nameLink+'</td>' +
       '<td>'+typeLabel+'</td>' +
       '<td>'+instinct+'</td>' +
       '<td>'+conf+'</td>' +
@@ -1344,6 +1642,7 @@ async function adminResend(clientId, email, btn) {
   btn.disabled = false; btn.textContent = orig;
 }
 </script>
+${sharedModalHTML(true)}
 </body>
 </html>`;
 }
@@ -1496,8 +1795,8 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     const coachExists   = coachPdfBase  && fs.existsSync(path.join(REPORTS_DIR, coachPdfBase));
 
     const pdfLinks = status === 'complete' ? [
-      clientExists ? `<a href="/reports/${encodeURIComponent(clientPdfBase)}" title="Client PDF" style="margin-right:8px;color:#00b1d7;text-decoration:none;">&#128196; Client</a>` : '',
-      coachExists  ? `<a href="/reports/${encodeURIComponent(coachPdfBase)}"  title="Coach PDF"  style="color:#f58527;text-decoration:none;">&#128196; Coach</a>` : '',
+      clientExists ? `<a href="/reports/${encodeURIComponent(clientPdfBase)}" title="Client PDF" style="display:block;color:#00b1d7;text-decoration:none;white-space:nowrap;">&#128196; Client</a>` : '',
+      coachExists  ? `<a href="/reports/${encodeURIComponent(coachPdfBase)}"  title="Coach PDF"  style="display:block;color:#f58527;text-decoration:none;white-space:nowrap;">&#128196; Coach</a>` : '',
     ].filter(Boolean).join('') || '—' : '—';
 
     const clientId = r.client_id;
@@ -1535,7 +1834,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       : '';
 
     return `<tr id="row-${clientId}">
-      <td>${name}</td>
+      <td><a href="#" data-entity="client-${clientId}" onclick="openClientProfile(${clientId});return false;" style="color:#1A2B33;text-decoration:none;font-weight:600;">${name}</a></td>
       <td>${typeLabel}</td>
       <td>${instinct}</td>
       <td>${conf}</td>
@@ -1662,6 +1961,7 @@ async function adminResend(clientId, email, btn) {
   btn.disabled = false; btn.textContent = orig;
 }
 </script>
+${sharedModalHTML(req.session.coach_is_admin === true)}
 </body>
 </html>`);
 });
@@ -1841,6 +2141,162 @@ app.get('/admin/coaches/:coach_id/clients', requireAdmin, async (req, res) => {
     console.error('[admin/coaches/clients] query error:', e.message);
     return res.status(500).json({ error: 'Query failed' });
   }
+});
+
+// ── Profile endpoints ─────────────────────────────────────────────────────────
+
+app.get('/admin/coaches/:coach_id/profile', requireAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  if (!coachId || isNaN(coachId)) return res.status(400).json({ error: 'Invalid coach ID' });
+
+  const coach = await db.getCoachById(coachId);
+  if (!coach) return res.status(404).json({ error: 'Coach not found' });
+
+  const history = await db.getEditHistory('coach', coachId);
+  return res.json({ coach, history });
+});
+
+app.get('/admin/coaches/:coach_id/edit-history', requireAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  if (!coachId || isNaN(coachId)) return res.status(400).json({ error: 'Invalid coach ID' });
+  const history = await db.getEditHistory('coach', coachId);
+  return res.json(history);
+});
+
+app.post('/admin/coaches/:coach_id/update', requireAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  if (!coachId || isNaN(coachId)) return res.status(400).json({ error: 'Invalid coach ID' });
+
+  const { name, email, note } = req.body;
+
+  // Validate
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required.' });
+  if (!email || !email.trim()) return res.status(400).json({ error: 'Email is required.' });
+  const emailTrimmed = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) return res.status(400).json({ error: 'Invalid email address.' });
+
+  // Check email uniqueness (exclude current coach)
+  const existing = await db.getCoachByEmail(emailTrimmed);
+  if (existing && existing.id !== coachId) return res.status(400).json({ error: 'Email is already in use by another coach.' });
+
+  const before = await db.getCoachById(coachId);
+  if (!before) return res.status(404).json({ error: 'Coach not found.' });
+
+  const after = { name: name.trim(), email: emailTrimmed };
+  const changeSummary = buildChangeSummary('coach', before, after);
+
+  await db.updateCoach(coachId, after, req.session.coach_name);
+  await db.insertEditHistory({
+    record_type:    'coach',
+    record_id:      coachId,
+    edited_by_id:   req.session.coach_id,
+    edited_by_name: req.session.coach_name,
+    change_summary: changeSummary,
+    editor_note:    note || null,
+  });
+
+  const historyEntry = {
+    edited_at:      new Date().toISOString(),
+    edited_by_id:   req.session.coach_id,
+    edited_by_name: req.session.coach_name,
+    change_summary: changeSummary,
+    editor_note:    note || null,
+  };
+
+  console.log(`[admin/coaches/update] updated coach #${coachId}: ${changeSummary}`);
+  return res.json({ success: true, updated: after, historyEntry });
+});
+
+app.get('/admin/clients/:client_id/profile', requireAdminSession, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
+
+  const ownerCoachId = await db.getClientCoachId(clientId);
+  const isSuperAdmin = req.session.coach_is_admin === true;
+  if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
+
+  // Fetch client + coach name
+  const clientR = await db.query(`
+    SELECT c.*, co.name AS coach_name
+    FROM clients c
+    LEFT JOIN coaches co ON co.id = c.coach_id
+    WHERE c.id = $1 LIMIT 1
+  `, [clientId]);
+  const client = clientR && clientR.rows.length > 0 ? clientR.rows[0] : null;
+  if (!client) return res.status(404).json({ error: 'Client not found.' });
+
+  // Latest assessment summary
+  const asmR = await db.query(
+    `SELECT confirmed_type, confirmed_instinct, confidence_level, status
+     FROM assessments WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [clientId]
+  );
+  const assessment = asmR && asmR.rows.length > 0 ? asmR.rows[0] : null;
+
+  const history = await db.getEditHistory('client', clientId);
+  return res.json({ client, assessment, history });
+});
+
+app.get('/admin/clients/:client_id/edit-history', requireAdminSession, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
+
+  const ownerCoachId = await db.getClientCoachId(clientId);
+  const isSuperAdmin = req.session.coach_is_admin === true;
+  if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
+
+  const history = await db.getEditHistory('client', clientId);
+  return res.json(history);
+});
+
+app.post('/admin/clients/:client_id/update', requireAdminSession, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
+
+  const ownerCoachId = await db.getClientCoachId(clientId);
+  const isSuperAdmin = req.session.coach_is_admin === true;
+  if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
+
+  const { first_name, last_name, email, organization, note } = req.body;
+
+  // Validate
+  if (!first_name || !first_name.trim()) return res.status(400).json({ error: 'First name is required.' });
+  if (!last_name  || !last_name.trim())  return res.status(400).json({ error: 'Last name is required.' });
+  if (!email      || !email.trim())      return res.status(400).json({ error: 'Email is required.' });
+  const emailTrimmed = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) return res.status(400).json({ error: 'Invalid email address.' });
+
+  const before = await db.getClientById(clientId);
+  if (!before) return res.status(404).json({ error: 'Client not found.' });
+
+  const after = {
+    first_name:   first_name.trim(),
+    last_name:    last_name.trim(),
+    email:        emailTrimmed,
+    organization: organization ? organization.trim() : null,
+  };
+  const changeSummary = buildChangeSummary('client', before, after);
+
+  await db.updateClient(clientId, after, req.session.coach_name);
+  await db.insertEditHistory({
+    record_type:    'client',
+    record_id:      clientId,
+    edited_by_id:   req.session.coach_id,
+    edited_by_name: req.session.coach_name,
+    change_summary: changeSummary,
+    editor_note:    note || null,
+  });
+
+  const historyEntry = {
+    edited_at:      new Date().toISOString(),
+    edited_by_id:   req.session.coach_id,
+    edited_by_name: req.session.coach_name,
+    change_summary: changeSummary,
+    editor_note:    note || null,
+  };
+
+  console.log(`[admin/clients/update] updated client #${clientId}: ${changeSummary}`);
+  return res.json({ success: true, updated: after, historyEntry });
 });
 
 // =================== START ===================
