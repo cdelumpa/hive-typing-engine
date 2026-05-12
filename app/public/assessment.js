@@ -657,7 +657,7 @@ function computeStage1Scores() {
   const sortedInstincts = Object.entries(instinctScores).sort((a, b) => b[1] - a[1]);
   const identifiedInstinct = sortedInstincts[0][0];
   const instinctGap = sortedInstincts[0][1] - sortedInstincts[1][1];
-  const instinctConfidence = instinctGap >= 4 ? 'HIGH' : instinctGap >= 2 ? 'MEDIUM' : 'LOW';
+  const instinctConfidence = instinctGap >= 6 ? 'HIGH' : instinctGap >= 3 ? 'MEDIUM' : 'LOW';
 
   // Three type hypotheses (fixed Center order: Body 8,9,1 / Heart 2,3,4 / Head 5,6,7).
   // On LOW Center confidence: primary[0], secondary[0], primary[1] — top of each
