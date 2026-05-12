@@ -633,6 +633,7 @@ function sharedModalHTML(isAdmin) {
 var _IS_ADMIN = ${isAdmin ? 'true' : 'false'};
 var _hiveRec  = null; // current profile data
 var _hiveType = null; // 'client' | 'coach'
+var _reassignState = null; // { clientId, currentCoachId, currentCoachName, fromAccordion, accordionCoachId }
 
 function _esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
 
@@ -892,6 +893,7 @@ window._saveCoachProfile = async function(){
 // ── Coach reassignment modal ────────────────────────────────────────────────
 
 window.openReassignModal = async function(clientId, clientName, currentCoachId, currentCoachName, fromAccordion, accordionCoachId) {
+  _reassignState = {clientId:clientId, currentCoachId:currentCoachId, currentCoachName:currentCoachName, fromAccordion:fromAccordion, accordionCoachId:accordionCoachId};
   _showLoading();
   try {
     var r = await fetch('/admin/coaches/active', {headers:{Accept:'application/json'}});
@@ -909,28 +911,30 @@ window.openReassignModal = async function(clientId, clientName, currentCoachId, 
     });
     h += '</select></div>';
     h += '<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 0 24px;">';
-    h += '<button id="modal-reassign-btn" onclick="window._confirmReassign('+clientId+','+currentCoachId+',\''+_esc(currentCoachName).replace(/'/g,"\\'")+'\','+(fromAccordion?'true':'false')+','+(accordionCoachId!==null&&accordionCoachId!==undefined?accordionCoachId:'null')+')" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Confirm Reassignment</button>';
+    h += '<button id="modal-reassign-btn" onclick="window._confirmReassign()" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Confirm Reassignment</button>';
     h += '<button onclick="_hideModal()" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Cancel</button>';
     h += '</div></div>';
     _content().innerHTML = h;
   } catch(e) { _hideModal(); alert('Failed to load coaches: '+e.message); }
 };
 
-window._confirmReassign = async function(clientId, currentCoachId, currentCoachName, fromAccordion, accordionCoachId) {
+window._confirmReassign = async function() {
+  var st = _reassignState;
+  if (!st) return;
   var sel = document.getElementById('reassign-coach');
   var newCoachId = parseInt(sel.value, 10);
   var newCoachName = sel.options[sel.selectedIndex].text;
   var errDiv = document.getElementById('modal-err');
   var btn = document.getElementById('modal-reassign-btn');
   errDiv.style.display = 'none';
-  if (newCoachId === currentCoachId) {
-    errDiv.textContent = 'This client is already assigned to '+currentCoachName+'.';
+  if (newCoachId === st.currentCoachId) {
+    errDiv.textContent = 'This client is already assigned to '+st.currentCoachName+'.';
     errDiv.style.display = '';
     return;
   }
   btn.disabled = true; btn.textContent = 'Reassigning…';
   try {
-    var r = await fetch('/admin/clients/'+clientId+'/reassign', {
+    var r = await fetch('/admin/clients/'+st.clientId+'/reassign', {
       method:'POST', headers:{'Content-Type':'application/json',Accept:'application/json'},
       body:JSON.stringify({new_coach_id:newCoachId})
     });
@@ -941,18 +945,19 @@ window._confirmReassign = async function(clientId, currentCoachId, currentCoachN
       return;
     }
     _hideModal();
-    if (fromAccordion) {
-      var row = document.getElementById('acc-row-'+clientId);
+    _reassignState = null;
+    if (st.fromAccordion) {
+      var row = document.getElementById('acc-row-'+st.clientId);
       if (row) row.remove();
-      if (accordionCoachId !== null) {
-        if (typeof _accordionCache !== 'undefined') delete _accordionCache[accordionCoachId];
-        var link = document.getElementById('client-count-'+accordionCoachId);
+      if (st.accordionCoachId !== null) {
+        if (typeof _accordionCache !== 'undefined') delete _accordionCache[st.accordionCoachId];
+        var link = document.getElementById('client-count-'+st.accordionCoachId);
         if (link) {
           var newCount = parseInt(link.dataset.count, 10) - 1;
           link.dataset.count = newCount;
           if (newCount === 0) {
             link.replaceWith(document.createTextNode('0'));
-            var acc = document.getElementById('accordion-'+accordionCoachId);
+            var acc = document.getElementById('accordion-'+st.accordionCoachId);
             if (acc) acc.style.display = 'none';
             if (typeof _openCoachId !== 'undefined') _openCoachId = null;
           } else {
@@ -961,7 +966,7 @@ window._confirmReassign = async function(clientId, currentCoachId, currentCoachN
         }
       }
     } else {
-      var cell = document.getElementById('coach-cell-'+clientId);
+      var cell = document.getElementById('coach-cell-'+st.clientId);
       if (cell) cell.textContent = data.new_coach_name;
     }
     _showToast('Client reassigned to '+data.new_coach_name+'.');
