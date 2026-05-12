@@ -361,6 +361,10 @@ async function reassignClients(fromCoachId, toCoachId) {
   );
 }
 
+async function reassignClientToCoach(clientId, newCoachId) {
+  await query('UPDATE clients SET coach_id = $1 WHERE id = $2', [newCoachId, clientId]);
+}
+
 async function getClientCoachId(clientId) {
   const r = await query('SELECT coach_id FROM clients WHERE id = $1 LIMIT 1', [clientId]);
   return r && r.rows.length > 0 ? r.rows[0].coach_id : null;
@@ -496,6 +500,7 @@ module.exports = {
   addCoach,
   setCoachActive,
   reassignClients,
+  reassignClientToCoach,
   updateCoachPassword,
   updateCoach,
   updateClient,

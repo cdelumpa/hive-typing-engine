@@ -889,6 +889,88 @@ window._saveCoachProfile = async function(){
   }catch(e){errDiv.textContent='Request failed: '+e.message;errDiv.style.display='';saveBtn.disabled=false;saveBtn.textContent='Save Changes';}
 };
 
+// ── Coach reassignment modal ────────────────────────────────────────────────
+
+window.openReassignModal = async function(clientId, clientName, currentCoachId, currentCoachName, fromAccordion, accordionCoachId) {
+  _showLoading();
+  try {
+    var r = await fetch('/admin/coaches/active', {headers:{Accept:'application/json'}});
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    var coaches = await r.json();
+    var h = _modalHeader('Reassign Client','Reassign Client','#00b1d7');
+    h += '<div style="padding:0 28px;">';
+    h += '<p style="font-size:13px;color:#4A6070;margin:0 0 20px;">Moving: <strong>'+_esc(clientName)+'</strong> — currently assigned to <strong>'+_esc(currentCoachName)+'</strong></p>';
+    h += '<div id="modal-err" style="display:none;background:#fdecea;color:#c0392b;border-radius:4px;padding:10px 14px;font-size:13px;margin-bottom:14px;"></div>';
+    h += '<div style="margin-bottom:20px;">';
+    h += '<label for="reassign-coach" style="display:block;font-size:11px;color:#7A96A6;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:5px;">Assign to… <span style="color:#c0392b;">*</span></label>';
+    h += '<select id="reassign-coach" style="width:100%;padding:9px 11px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;color:#1A2B33;outline:none;box-sizing:border-box;">';
+    coaches.forEach(function(c){
+      h += '<option value="'+c.id+'"'+(c.id===currentCoachId?' selected':'')+'>'+_esc(c.name)+'</option>';
+    });
+    h += '</select></div>';
+    h += '<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 0 24px;">';
+    h += '<button id="modal-reassign-btn" onclick="window._confirmReassign('+clientId+','+currentCoachId+',\''+_esc(currentCoachName).replace(/'/g,"\\'")+'\','+(fromAccordion?'true':'false')+','+(accordionCoachId!==null&&accordionCoachId!==undefined?accordionCoachId:'null')+')" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Confirm Reassignment</button>';
+    h += '<button onclick="_hideModal()" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Cancel</button>';
+    h += '</div></div>';
+    _content().innerHTML = h;
+  } catch(e) { _hideModal(); alert('Failed to load coaches: '+e.message); }
+};
+
+window._confirmReassign = async function(clientId, currentCoachId, currentCoachName, fromAccordion, accordionCoachId) {
+  var sel = document.getElementById('reassign-coach');
+  var newCoachId = parseInt(sel.value, 10);
+  var newCoachName = sel.options[sel.selectedIndex].text;
+  var errDiv = document.getElementById('modal-err');
+  var btn = document.getElementById('modal-reassign-btn');
+  errDiv.style.display = 'none';
+  if (newCoachId === currentCoachId) {
+    errDiv.textContent = 'This client is already assigned to '+currentCoachName+'.';
+    errDiv.style.display = '';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Reassigning…';
+  try {
+    var r = await fetch('/admin/clients/'+clientId+'/reassign', {
+      method:'POST', headers:{'Content-Type':'application/json',Accept:'application/json'},
+      body:JSON.stringify({new_coach_id:newCoachId})
+    });
+    var data = await r.json();
+    if (!r.ok || !data.success) {
+      errDiv.textContent = data.error || 'Reassignment failed.';
+      errDiv.style.display = ''; btn.disabled = false; btn.textContent = 'Confirm Reassignment';
+      return;
+    }
+    _hideModal();
+    if (fromAccordion) {
+      var row = document.getElementById('acc-row-'+clientId);
+      if (row) row.remove();
+      if (accordionCoachId !== null) {
+        if (typeof _accordionCache !== 'undefined') delete _accordionCache[accordionCoachId];
+        var link = document.getElementById('client-count-'+accordionCoachId);
+        if (link) {
+          var newCount = parseInt(link.dataset.count, 10) - 1;
+          link.dataset.count = newCount;
+          if (newCount === 0) {
+            link.replaceWith(document.createTextNode('0'));
+            var acc = document.getElementById('accordion-'+accordionCoachId);
+            if (acc) acc.style.display = 'none';
+            if (typeof _openCoachId !== 'undefined') _openCoachId = null;
+          } else {
+            link.textContent = newCount+' clients ▲';
+          }
+        }
+      }
+    } else {
+      var cell = document.getElementById('coach-cell-'+clientId);
+      if (cell) cell.textContent = data.new_coach_name;
+    }
+    _showToast('Client reassigned to '+data.new_coach_name+'.');
+  } catch(e) {
+    errDiv.textContent = 'Request failed: '+e.message;
+    errDiv.style.display = ''; btn.disabled = false; btn.textContent = 'Confirm Reassignment';
+  }
+};
+
 // Close on overlay click or Escape
 document.addEventListener('DOMContentLoaded',function(){
   document.getElementById('hive-modal-overlay').addEventListener('click',function(e){if(e.target===this)_hideModal();});
@@ -1506,6 +1588,7 @@ function renderAccordionTable(coachId, rows) {
     }
 
     var nameLink = '<a href="#" data-entity="client-'+clientId+'" onclick="openClientProfile('+clientId+');return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle=\\'solid\\'" onmouseout="this.style.textDecorationStyle=\\'dotted\\'">'+name+'</a>';
+    var reassignBtn = '<button onclick="openReassignModal('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\','+coachId+',\\''+coach.replace(/'/g,"\\\\'")+'\\',true,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:4px;">Reassign</button>';
     var regenBtn = '<button onclick="accordionRegen('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#f58527;padding:0;text-decoration:underline;margin-right:4px;">Regen</button>';
     var resendBtn = status === 'complete'
       ? '<button onclick="accordionResend('+clientId+',\\''+clientEmail.replace(/'/g,"\\\\'")+'\\',this)" style="background:none;border:none;cursor:pointer;font-size:11px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:4px;">Resend</button>'
@@ -1517,13 +1600,13 @@ function renderAccordionTable(coachId, rows) {
       '<td>'+typeLabel+'</td>' +
       '<td>'+instinct+'</td>' +
       '<td>'+conf+'</td>' +
-      '<td>'+coach+'</td>' +
+      '<td id="acc-coach-cell-'+clientId+'">'+coach+'</td>' +
       '<td>'+date+'</td>' +
       '<td>'+_statusBadge(status)+'</td>' +
       '<td id="acc-pdf-'+clientId+'" style="font-size:11px;">'+_pdfStatusHtml(r)+'</td>' +
       '<td id="acc-email-'+clientId+'" style="font-size:11px;">'+_emailStatusHtml(r)+'</td>' +
       '<td>'+pdfLinks+'</td>' +
-      '<td>'+regenBtn+resendBtn+deleteBtn+'</td>' +
+      '<td>'+reassignBtn+regenBtn+resendBtn+deleteBtn+'</td>' +
       '</tr>';
   });
   html += '</tbody></table>';
@@ -1660,6 +1743,11 @@ app.get('/admin/coaches', requireAdmin, async (req, res) => {
   try { coaches = await db.getAllCoaches(); } catch (e) { console.error('[admin/coaches] query error:', e.message); }
 
   res.send(renderCoachesPage(coaches, null, flashMsg));
+});
+
+app.get('/admin/coaches/active', requireAdmin, async (req, res) => {
+  const coaches = await db.getAllCoaches().catch(() => []);
+  res.json(coaches.filter(c => c.is_active !== false).map(c => ({ id: c.id, name: c.name })));
 });
 
 app.post('/admin/coaches/new', requireAdmin, async (req, res) => {
@@ -1826,6 +1914,10 @@ app.get('/admin', requireAdminSession, async (req, res) => {
         <button type="submit" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;">Resend invite</button>
       </form> ` : '';
 
+    const reassignAction = isAdmin
+      ? `<button onclick="openReassignModal(${clientId},'${rawName.replace(/'/g, "\\'")}',${req.session.coach_id},'${(r.coach_name || '').replace(/'/g, "\\'")}',false,null)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;">Reassign</button>`
+      : '';
+
     const regenAction = isAdmin
       ? `<button onclick="adminRegen(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#f58527;padding:0;text-decoration:underline;margin-right:6px;">Regen</button>`
       : '';
@@ -1839,13 +1931,13 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       <td>${typeLabel}</td>
       <td>${instinct}</td>
       <td>${conf}</td>
-      <td>${coach}</td>
+      <td id="coach-cell-${clientId}">${coach}</td>
       <td>${date}</td>
       <td><span style="background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">${statusLabel}</span></td>
       <td id="pdf-status-${clientId}" style="font-size:12px;">${pdfStatus}</td>
       <td id="email-status-${clientId}" style="font-size:12px;">${emailStatus}</td>
       <td>${pdfLinks}</td>
-      <td>${regenAction}${resendAction}${inviteResendAction}${deleteAction}</td>
+      <td>${reassignAction}${regenAction}${resendAction}${inviteResendAction}${deleteAction}</td>
     </tr>`;
   }).join('\n');
 
@@ -2298,6 +2390,39 @@ app.post('/admin/clients/:client_id/update', requireAdminSession, async (req, re
 
   console.log(`[admin/clients/update] updated client #${clientId}: ${changeSummary}`);
   return res.json({ success: true, updated: after, historyEntry });
+});
+
+app.post('/admin/clients/:client_id/reassign', requireAdmin, async (req, res) => {
+  const clientId   = parseInt(req.params.client_id, 10);
+  const newCoachId = parseInt(req.body.new_coach_id, 10);
+
+  if (!clientId || isNaN(clientId) || !newCoachId || isNaN(newCoachId)) {
+    return res.status(400).json({ error: 'Invalid client or coach ID.' });
+  }
+
+  const newCoach = await db.getCoachById(newCoachId).catch(() => null);
+  if (!newCoach || newCoach.is_active === false) {
+    return res.status(400).json({ error: 'Coach not found or inactive.' });
+  }
+
+  const oldCoachId = await db.getClientCoachId(clientId);
+  if (oldCoachId === null) return res.status(404).json({ error: 'Client not found.' });
+
+  const oldCoach = await db.getCoachById(oldCoachId).catch(() => null);
+  const oldCoachName = oldCoach ? oldCoach.name : 'Unknown';
+
+  await db.reassignClientToCoach(clientId, newCoachId);
+  await db.insertEditHistory({
+    record_type:    'client',
+    record_id:      clientId,
+    edited_by_id:   req.session.coach_id,
+    edited_by_name: req.session.coach_name,
+    change_summary: `Coach reassigned from ${oldCoachName} to ${newCoach.name}`,
+    editor_note:    null,
+  });
+
+  console.log(`[admin/clients/reassign] client #${clientId} reassigned from coach #${oldCoachId} to #${newCoachId}`);
+  return res.json({ success: true, new_coach_name: newCoach.name });
 });
 
 // =================== START ===================
