@@ -366,145 +366,145 @@ const STAGE4_HABIT_STEM = 'Without trying to control it, where does your attenti
 
 const STAGE4_STRESS = {
   1: [
-    'I become moody, self-critical, and emotionally flooded \u2014 feelings I normally keep in check start leaking out and I find myself dwelling on what\u2019s wrong with me or what\u2019s missing.', // correct (1 \u2192 4)
-    'I become more anxious and scanning \u2014 I start worrying about what could go wrong and want reassurance that things are under control.', // 6 energy
-    'I go numb and disengage \u2014 I stop caring as much about getting things right and just go through the motions.', // 9 energy
+    'I become weighed down with emotion. I start dwelling on what others have naturally that I don\u2019t and I long to be whole.', // correct (1\u21924)
+    'I become more anxious and suspicious. I start worrying about what could go wrong and need reassurance that things will be okay.', // 6 energy
+    'I go numb and withdraw. I go along to get along, hoping that will restore the peace both internally and externally.', // 9 energy
   ],
   2: [
-    'I get forceful and confrontational \u2014 the usual warmth and giving disappears and I become demanding, blunt, or even aggressive about what I need.', // correct (2 \u2192 8)
-    'I get anxious and clingy \u2014 I worry about whether people really appreciate me and start second-guessing my relationships.', // 6 energy
-    'I become critical and resentful \u2014 I notice everything people are doing wrong and feel bitter that I give so much and it isn\u2019t reciprocated.', // 1 energy
+    'I get angry, forceful, and confrontational. My usual warm and giving self disappears and I become demanding, blunt, or even aggressive about what I need.', // correct (2\u21928)
+    'I become hypervigilant about who I can trust. I get suspicious and start needing reassurance that the people in my life are actually there for me.', // 6 energy
+    'I turn inward and become absorbed in how I\u2019m feeling. I pull away from others and get lost in my own emotional world.', // 4 energy
   ],
   3: [
-    'I start to go through the motions \u2014 the drive and energy that usually comes naturally disappears and I find myself disengaging, numbing out, or just getting by.', // correct (3 \u2192 9)
-    'I become sharper and more critical \u2014 I notice everything that\u2019s wrong and feel an urgency to fix it before things fall apart.', // 1 energy
-    'I get scattered and start chasing too many things at once \u2014 it\u2019s hard to focus and I keep jumping to the next option.', // 7 energy
+    'I shut down. The drive and ambition that usually feel effortless just vanish and I find myself checked out and disengaged.', // correct (3\u21929)
+    'I become anxious and start second-guessing myself. I lose confidence in my own judgment and need others to tell me I\u2019m on the right track.', // 6 energy
+    'I become overly focused on others and what they need. I shift into caretaking mode as a way to feel needed and connected.', // 2 energy
   ],
   4: [
-    'I lose myself in trying to be helpful and needed \u2014 I start focusing heavily on others\u2019 needs and seeking reassurance through being indispensable to them.', // correct (4 \u2192 2)
-    'I become anxious and suspicious \u2014 I start worrying about what others think of me and whether I can trust the people around me.', // 6 energy
-    'I go flat and checked out \u2014 the intensity and depth I usually feel gets replaced by numbness and a kind of foggy disconnection.', // 9 energy
+    'I become overly helpful and acutely aware of what others need. I set my own needs aside and seek the appreciation of others.', // correct (4\u21922)
+    'I become self-critical and rigid. I get fixated on what I\u2019ve done wrong and feel a strong pull to correct myself.', // 1 energy
+    'I go into overdrive seeking stimulation. I start filling my schedule and looking for the next thing that will make me feel alive again.', // 7 energy
   ],
   5: [
-    'I become scattered, impulsive, and restless \u2014 I lose my usual focus and start jumping between ideas, activities, or distractions in a way that feels out of character.', // correct (5 \u2192 7)
-    'I become emotionally intense and self-absorbed \u2014 feelings I usually keep at a distance start flooding in and I get stuck in my own head in a darker way.', // 4 energy
-    'I become more anxious and paranoid \u2014 I start worrying about worst-case scenarios and feel like I can\u2019t trust what\u2019s around me.', // 6 energy
+    'I become scattered and overextended. I start taking on too much, chasing new ideas, and lose the focused stillness that usually grounds me.', // correct (5\u21927)
+    'I become reactive and forceful. I lose my usual calm detachment and feel an intense need to push back and take control.', // 8 energy
+    'I become more anxious and catastrophizing. I lose my objective detachment and start spiraling into what could go wrong.', // 6 energy
   ],
   6: [
-    'I go into overdrive \u2014 I focus intensely on performing, achieving, and looking competent, almost as if staying busy and successful will keep the anxiety at bay.', // correct (6 \u2192 3)
-    'I turn inward and get moody \u2014 I start feeling like something is fundamentally wrong with me and withdraw into my own emotional world.', // 4 energy
-    'I get aggressive and confrontational \u2014 the anxiety underneath turns into forward-pushing energy and I start fighting rather than worrying.', // 8 energy
+    'I become hyper-focused on getting after my own goals. I get driven and image-conscious and start pushing hard to make things happen and be seen as capable.', // correct (6\u21923)
+    'I become forceful and combative. I stop hesitating and start pushing hard \u2014 I need to feel powerful and in control.', // 8 energy
+    'I check out and go numb. I stop engaging with the anxiety and just try to get through it by not feeling anything.', // 9 energy
   ],
   7: [
-    'I become critical, rigid, and perfectionistic \u2014 I lose my usual lightness and start fixating on what\u2019s wrong, what needs correcting, and whether things are being done properly.', // correct (7 \u2192 1)
-    'I become anxious and suspicious \u2014 I start worrying about whether things will work out and whether I can trust the people around me.', // 6 energy
-    'I become emotionally heavy and self-absorbed \u2014 the optimism drops away and I get stuck in feelings of longing or loss.', // 4 energy
+    'I become critical and perfectionistic. I lose my lightness and get fixated on what\u2019s wrong, what\u2019s not good enough, and what needs to be corrected.', // correct (7\u21921)
+    'I become emotionally flooded and self-absorbed. I get lost in longing for what\u2019s missing and find it hard to focus on anything else.', // 4 energy
+    'I withdraw and go quiet. I stop engaging and start retreating into my own world, needing a lot of alone time to recover.', // 5 energy
   ],
   8: [
-    'I withdraw and go silent \u2014 instead of engaging directly I pull back, observe from a distance, and start hoarding my energy and information in a way that feels very unlike me.', // correct (8 \u2192 5)
-    'I become paranoid and suspicious \u2014 I start questioning who\u2019s really loyal and preparing for the worst in a way that feels anxious rather than strong.', // 6 energy
-    'I become rigidly principled and controlling \u2014 I dig into what\u2019s right and wrong and start imposing my standards on the situation more forcefully than usual.', // 1 energy
+    'I disengage and go silent. I pull back, observe from a distance, and become protective of my space and privacy.', // correct (8\u21925)
+    'I become more giving and focused on others. I move toward people and shift into support mode, wanting to feel needed.', // 2 energy
+    'I become more driven and performance-focused. I push myself harder to stay productive and appear capable under pressure.', // 3 energy
   ],
   9: [
-    'I become anxious and worried \u2014 instead of my usual calm I find myself scanning for what could go wrong, doubting myself, and needing reassurance from others.', // correct (9 \u2192 6)
-    'I get moody and withdrawn \u2014 I pull into myself and start feeling a vague sense of emptiness or that something important is missing.', // 4 energy
-    'I become irritable and critical \u2014 the things I usually let pass start bothering me and I find myself wanting to correct and fix more than usual.', // 1 energy
+    'I become anxious and hypervigilant. The usual peace disappears and I start worrying about what could go wrong and whether I\u2019m prepared.', // correct (9\u21926)
+    'I become emotionally flooded and withdrawn. I get absorbed in my feelings and pull away from people and obligations.', // 4 energy
+    'I become driven and task-focused. I throw myself into productivity to avoid feeling what\u2019s happening under the surface.', // 3 energy
   ],
 };
 
 const STAGE4_SECURITY = {
   1: [
-    'I become lighter, more playful, and spontaneous \u2014 I stop being so hard on myself and find it easier to enjoy things without worrying about doing them perfectly.', // correct (1 \u2192 7)
-    'I become warmer and more focused on others \u2014 I want to give more and feel more connected to the people I care about.', // 2 energy
-    'I become more reflective and emotionally open \u2014 I drop the doing and let myself just feel and be for a while.', // 4 energy
+    'I become lighter, more playful, and spontaneous. I stop being so hard on myself and find it easier to enjoy things without worrying about doing them perfectly.', // correct (1\u21927)
+    'I become warmer and more focused on others. I want to give more and feel more connected to the people I care about.', // 2 energy
+    'I become more reflective and emotionally open. I drop the doing and let myself just feel and be for a while.', // 4 energy
   ],
   2: [
-    'I become more inward and emotionally honest \u2014 I let myself acknowledge my own needs and feelings rather than immediately focusing on others.', // correct (2 \u2192 4)
-    'I become quieter and more easygoing \u2014 I stop trying so hard and just let things be without needing to help or fix anything.', // 9 energy
-    'I become more playful and self-indulgent \u2014 I give myself permission to enjoy things just for me without worrying about what others need.', // 7 energy
+    'I turn inward and become introspective. I stop trying to take care of others and allow myself to focus on how I\u2019m feeling and what I need.', // correct (2\u21924)
+    'I become easier to be around and less agenda-driven. I stop pushing so hard to be needed and let myself just relax and enjoy things.', // 9 energy
+    'I become more playful and spontaneous. I stop focusing on what others need and let myself just explore and enjoy things freely.', // 7 energy
   ],
   3: [
-    'I become more loyal, collaborative, and questioning \u2014 I actually want to check in with people I trust and think things through more carefully before acting.', // correct (3 \u2192 6)
-    'I become more expansive and playful \u2014 I want to explore new ideas and enjoy myself without worrying about outcomes.', // 7 energy
-    'I become more reflective and inward \u2014 I want to slow down, feel things more deeply, and connect with what actually matters to me.', // 4 energy
+    'I care more about the people around me and feel a stronger sense of loyalty to them. I realize I don\u2019t need to go it alone and actually want us to win together.', // correct (3\u21926)
+    'I slow down and become more easygoing. I stop needing to achieve and just let myself be present without an agenda.', // 9 energy
+    'I become more spontaneous and curious. I stop focusing on goals and let myself just explore and enjoy what\u2019s in front of me.', // 7 energy
   ],
   4: [
-    'I become more grounded, disciplined, and action-oriented \u2014 I stop dwelling and start doing, with a clearer sense of what\u2019s right and what needs to happen.', // correct (4 \u2192 1)
-    'I become more productive and goal-focused \u2014 I channel my energy into achieving things and feel good about what I\u2019m building.', // 3 energy
-    'I become more detached and analytical \u2014 I step back from the emotional intensity and find comfort in thinking things through quietly.', // 5 energy
+    'I become more grounded, disciplined, and action-oriented. I stop dwelling on what\u2019s missing and start doing, with a clearer sense of what\u2019s right and what needs to happen.', // correct (4\u21921)
+    'I become lighter and more optimistic. I stop focusing on what\u2019s wrong and let myself enjoy what\u2019s actually good in my life.', // 7 energy
+    'I become more outward-focused and giving. I stop dwelling on myself and feel genuinely energized by helping and connecting with others.', // 2 energy
   ],
   5: [
-    'I become more confident, decisive, and present in my body \u2014 I stop overthinking and step into situations with a directness and groundedness that doesn\u2019t usually come easily.', // correct (5 \u2192 8)
-    'I become warmer and more generous \u2014 I reach out more, offer more, and find it easier to connect with the people around me.', // 2 energy
-    'I become more expansive and playful \u2014 I let myself enjoy things without worrying about conserving energy or staying within my comfort zone.', // 7 energy
+    'I become more present, decisive, and action-oriented. I step into the world with confidence and feel energized by direct engagement rather than observation.', // correct (5\u21928)
+    'I become more easygoing and comfortable in my own skin. I stop overthinking and let myself just be present without needing to analyze everything.', // 9 energy
+    'I become more connected and warm. I drop the detachment and feel genuinely open to the people around me.', // 2 energy
   ],
   6: [
-    'I become genuinely peaceful and easy \u2014 the usual mental noise quiets down and I find myself just present, comfortable, and okay with how things are.', // correct (6 \u2192 9)
-    'I become warmer and more giving \u2014 I focus outward on the people I love and feel secure through connection and being needed.', // 2 energy
-    'I become more optimistic and forward-looking \u2014 I stop scanning for what could go wrong and start feeling genuinely excited about possibilities.', // 7 energy
+    'I become genuinely peaceful and easy. I find myself just present, comfortable, and okay with how things are without needing to figure anything out.', // correct (6\u21929)
+    'I become warmer and more giving. I feel safe enough to focus on others and genuinely enjoy taking care of the people I care about.', // 2 energy
+    'I become more emotionally open and introspective. I feel safe enough to explore my inner world without it feeling threatening.', // 4 energy
   ],
   7: [
-    'I become quieter, more focused, and genuinely still \u2014 I stop needing stimulation and find deep satisfaction in going deep on one thing rather than wide on many.', // correct (7 \u2192 5)
-    'I become more nurturing and giving \u2014 I focus less on my own experience and more on what the people around me need.', // 2 energy
-    'I become easy and easygoing \u2014 I stop pushing forward and find real peace in just being present without an agenda.', // 9 energy
+    'I become quieter, more focused, and genuinely still. I stop needing to share and stimulate and find deep satisfaction in solitude and going deep on one thing.', // correct (7\u21925)
+    'I become more easygoing and present. I stop planning ahead and let myself just be where I am without needing something else to be happening.', // 9 energy
+    'I become more focused and goal-oriented. I channel my energy into building something and feel grounded by the progress I\u2019m making.', // 3 energy
   ],
   8: [
-    'I become genuinely soft, caring, and openly giving \u2014 the armor comes down and I find myself nurturing the people I love in a way I don\u2019t usually let show.', // correct (8 \u2192 2)
-    'I become peaceful and easygoing \u2014 the intensity settles and I find myself just comfortable and present without needing to drive anything.', // 9 energy
-    'I become playful and expansive \u2014 I let myself enjoy things fully and feel free in a way that the usual guardedness doesn\u2019t allow.', // 7 energy
+    'I become magnanimous and open to connection. I put the armor down and allow myself to show my care and support for others.', // correct (8\u21922)
+    'I become more relaxed and easygoing. I stop pushing so hard and let things unfold without needing to be in control.', // 9 energy
+    'I become more loyal and collaborative. I feel a strong pull toward the people I trust and want to make sure everyone is okay.', // 6 energy
   ],
   9: [
-    'I become more focused, energized, and goal-oriented \u2014 I actually know what I want and feel motivated to go after it in a way that doesn\u2019t usually come this naturally.', // correct (9 \u2192 3)
-    'I become warmer and more engaged with others \u2014 I reach out more, initiate more, and feel genuinely present in my relationships.', // 2 energy
-    'I become lighter and more playful \u2014 I stop accommodating and start actually enjoying myself and pursuing what sounds fun.', // 7 energy
+    'I become more focused, energized, and directed. I connect with what I actually want and feel a pull to make things happen rather than just going along.', // correct (9\u21923)
+    'I become lighter and more playful. I stop worrying about keeping the peace and let myself just enjoy what\u2019s in front of me.', // 7 energy
+    'I become warmer and more attuned. I feel a pull toward the people around me and genuinely enjoy caring for them.', // 2 energy
   ],
 };
 
 const STAGE4_HABIT = {
   1: [
-    'To what\u2019s wrong, imprecise, or could be improved \u2014 I notice errors, inconsistencies, and what needs fixing almost before I notice anything else.', // correct
-    'To what could go wrong or what I might not be prepared for \u2014 I\u2019m scanning for potential problems and threats before they materialize.', // 6 attention
-    'To what needs to be done and how to do it efficiently \u2014 I\u2019m already thinking about tasks, goals, and getting things moving.', // 3 attention
+    'To what\u2019s wrong, imprecise, or could be improved. I notice errors, inconsistencies, and what needs fixing almost before I notice anything else.', // correct
+    'To what could go wrong or what I might not be prepared for. I\u2019m scanning for potential problems and threats before they materialize.', // 6 attention
+    'To what needs to be done and how to do it efficiently. I\u2019m already thinking about tasks, goals, and getting things moving.', // 3 attention
   ],
   2: [
-    'To how other people are feeling and what they might need \u2014 I\u2019m reading the room emotionally and sensing who needs something before they ask.', // correct
-    'To the atmosphere and whether things feel comfortable and harmonious \u2014 I notice tension or discord immediately and feel pulled to smooth things over.', // 9 attention
-    'To whether people are being genuine and trustworthy \u2014 I\u2019m reading people carefully to figure out who I can rely on.', // 6 attention
+    'To how other people are feeling and what they might need. I\u2019m reading the room emotionally and sensing who needs something before they ask.', // correct
+    'To the overall atmosphere and whether everyone feels comfortable. I\u2019m aware of the group energy and pulled toward making sure things feel settled.', // 9 attention
+    'To whether things are going to be okay and who I can rely on. I\u2019m scanning for reliability and trying to anticipate what might go sideways.', // 6 attention
   ],
   3: [
-    'To how I\u2019m coming across and whether I\u2019m making the right impression \u2014 I\u2019m aware of my image and whether I\u2019m landing as capable and effective.', // correct
-    'To what\u2019s possible and what could come next \u2014 my mind is already scanning for opportunities, options, and what\u2019s interesting.', // 7 attention
-    'To who has power in the situation and whether things are being handled fairly \u2014 I notice the dynamics and feel a pull to take charge if needed.', // 8 attention
+    'To what needs to happen and who\u2019s going to make it happen. I\u2019m assessing quickly and feel a pull to take charge and get things moving.', // correct
+    'To what could be done better. I notice quickly when something isn\u2019t quite right and feel a pull to fix it.', // 1 attention
+    'To what\u2019s possible and what else could be interesting. My mind moves toward options, opportunities, and what could make this better.', // 7 attention
   ],
   4: [
-    'To what\u2019s absent or incomplete \u2014 what could be deeper, more meaningful, or more real than what\u2019s actually present right now.', // correct
-    'To what could go wrong or what I might be missing \u2014 a background vigilance about what\u2019s being overlooked.', // 6 attention
-    'To the overall feeling in the room \u2014 whether things feel comfortable and whether I can settle into the situation.', // 9 attention
+    'To what\u2019s absent or incomplete. There\u2019s a persistent sense that something essential is missing, and my attention keeps returning to that gap even when things are going reasonably well.', // correct
+    'To how other people are feeling. I\u2019m attuned to the emotional undercurrent and feel a pull to respond to what I sense in others.', // 2 attention
+    'To the overall feel of things. I\u2019m drawn to what\u2019s harmonious and what might disrupt the atmosphere.', // 9 attention
   ],
   5: [
-    'To understanding what\u2019s happening before I engage \u2014 I\u2019m observing, analyzing, and gathering information before I decide whether or how to participate.', // correct
-    'To what feels real or meaningful about the situation \u2014 I\u2019m looking for depth and authenticity beneath the surface.', // 4 attention
-    'To what\u2019s correct or incorrect about what\u2019s being said or done \u2014 I notice errors in reasoning or gaps in knowledge quickly.', // 1 attention
+    'To understanding the situation fully before engaging. I want to gather enough information to feel confident about what\u2019s happening before I say or do anything.', // correct
+    'To what could go wrong and whether I\u2019m prepared. I find myself anticipating problems and wanting to have a plan before I\u2019m in over my head.', // 6 attention
+    'To what\u2019s not quite right. I notice inconsistencies and gaps quickly and feel a pull to correct or clarify.', // 1 attention
   ],
   6: [
-    'To what could go wrong or what I might not be prepared for \u2014 I\u2019m running scenarios and looking for potential problems before they arrive.', // correct
-    'To what\u2019s wrong or needs correcting \u2014 I notice what\u2019s off and feel a pull toward fixing it.', // 1 attention
-    'To understanding the situation fully before engaging \u2014 I want to gather enough information to feel confident about what\u2019s happening.', // 5 attention
+    'To what could go wrong or what I might not be prepared for. I\u2019m scanning for potential problems and threats before they materialize.', // correct
+    'To understanding the situation fully before engaging. I want enough information to feel confident before I commit to anything.', // 5 attention
+    'To the overall atmosphere and whether things feel stable. I\u2019m drawn to keeping things easy and avoiding unnecessary disruption.', // 9 attention
   ],
   7: [
-    'To what\u2019s next, what\u2019s possible, and what else is available \u2014 my mind is already moving toward new ideas, options, and what could be exciting about what\u2019s ahead.', // correct
-    'To what needs to happen and how to make it happen quickly \u2014 I\u2019m already thinking about goals, tasks, and getting things moving.', // 3 attention
-    'To the people in the room and what might make this more enjoyable for everyone \u2014 I want to create energy and connection.', // 2 attention
+    'To what\u2019s next, what\u2019s possible, and what else is available. My mind is already moving toward new ideas, options, and what could be exciting about what\u2019s ahead.', // correct
+    'To what needs to happen and how to make it happen quickly. I\u2019m already thinking about goals, tasks, and getting things moving.', // 3 attention
+    'To the people in the room and what might make this more enjoyable for everyone. I want to create energy and connection.', // 2 attention
   ],
   8: [
-    'To who has power in the situation and whether it\u2019s being used fairly \u2014 I read the dynamics immediately and feel a pull to challenge anything that seems unjust or weak.', // correct
-    'To what needs to happen and who\u2019s going to make it happen \u2014 I\u2019m assessing quickly and feel a pull to take charge if no one else is.', // 3 attention
-    'To potential threats and whether I can trust what\u2019s happening \u2014 I\u2019m scanning for danger and assessing who\u2019s reliable.', // 6 attention
+    'To the power dynamics in the room and whether power is being used fairly. I step up and take charge if I start feeling controlled or manipulated.', // correct
+    'To what needs to happen and who\u2019s going to make it happen. I\u2019m assessing quickly and feel a pull to take charge if no one else is.', // 3 attention
+    'To potential threats and whether I can trust what\u2019s happening. I\u2019m scanning for danger and assessing who\u2019s reliable.', // 6 attention
   ],
   9: [
-    'To the overall atmosphere and whether everyone feels included and comfortable \u2014 I\u2019m aware of the whole room and pulled toward making sure things feel settled and okay for everyone.', // correct
-    'To who might need something \u2014 I notice quickly if someone seems left out or uncomfortable and feel a pull to help.', // 2 attention
-    'To what might make this more enjoyable or interesting \u2014 I\u2019m looking for the positive angle and what could make the situation feel lighter.', // 7 attention
+    'To the overall atmosphere and whether everyone feels included and comfortable. I\u2019m aware of the whole room and pulled toward making sure things feel settled and okay for everyone.', // correct
+    'To who might need something. I notice quickly if someone seems left out or uncomfortable and feel a pull to help.', // 2 attention
+    'To what might make this more enjoyable or interesting. I\u2019m looking for the positive angle and what could make the situation feel lighter.', // 7 attention
   ],
 };
 
@@ -591,7 +591,7 @@ const STAGE4_CT_COMPARATIVE = {
 
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver', 3: 'The Performer',
-  4: 'The Idealist', 5: 'The Observer', 6: 'The Questioner',
+  4: 'The Individualist', 5: 'The Observer', 6: 'The Questioner',
   7: 'The Enthusiast', 8: 'The Protector', 9: 'The Peacemaker',
 };
 
