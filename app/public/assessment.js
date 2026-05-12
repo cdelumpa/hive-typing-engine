@@ -255,60 +255,70 @@ const STAGE3_CORE_MOTIVATIONS = {
 // High-ambiguity pairs. Q2 avoidance fires automatically for these. Keys are
 // 'lower-higher' numerical pairs; lower-numbered type is always Person A.
 const STAGE3_HIGH_AMBIGUITY_PAIRS = new Set([
-  '1-6', '1-9', '2-6', '2-9', '3-7', '3-8', '4-5', '4-9', '5-9', '6-8',
+  '1-6', '1-9', '2-6', '2-9', '3-6', '3-7', '3-8', '4-5', '4-9', '5-6', '5-9', '6-8',
 ]);
 
 // Avoidance Q2 content per high-ambiguity pair.
 const STAGE3_AVOIDANCE_QUESTIONS = {
   '1-6': {
-    label: 'Inner Standards vs. External Certainty',
-    personA: 'Realizing I\u2019ve done something wrong or fallen short of my own standards \u2014 the self-criticism that follows is hard to shake.',
-    personB: 'Feeling unprepared or uncertain about what\u2019s coming \u2014 not knowing who or what I can count on genuinely unsettles me.',
+    label: 'Inner Critic vs. External Certainty',
+    personA: 'The voice in my head that tells me I\u2019m not enough, not good enough, or that I\u2019m wrong.',
+    personB: 'Feeling unsupported, unprepared, or uncertain about what\u2019s about to happen.',
   },
   '1-9': {
     label: 'Inner Critic vs. Conflict Avoidance',
-    personA: 'Knowing something is wrong and feeling unable to correct it \u2014 the gap between how things are and how they should be creates real internal tension.',
-    personB: 'Feeling tension or conflict with people I care about \u2014 disruption to harmony feels genuinely uncomfortable in my body.',
+    personA: 'Seeing something wrong, incorrect, or broken and not being able to fix it.',
+    personB: 'Experiencing conflict or tension in the peace and not being able to escape it.',
   },
   '2-6': {
     label: 'Rejection vs. Uncertainty',
-    personA: 'Feeling unwanted, unneeded, or like my care isn\u2019t appreciated \u2014 the possibility of being rejected by someone I\u2019ve given myself to.',
-    personB: 'Feeling like I don\u2019t know where things stand or who I can truly trust \u2014 uncertainty about what\u2019s coming or whether I\u2019m really supported.',
+    personA: 'Feeling like my care and support is unwanted or unnecessary.',
+    personB: 'Feeling like I don\u2019t know where things stand or who I can truly trust.',
   },
   '2-9': {
     label: 'Being Unloved vs. Disrupted Peace',
-    personA: 'Feeling disconnected or unappreciated by people who matter to me \u2014 like my presence doesn\u2019t make a difference to them.',
-    personB: 'Feeling pulled into conflict or tension I didn\u2019t create \u2014 having my sense of inner peace disrupted by other people\u2019s agendas.',
+    personA: 'Feeling like I\u2019m no longer needed by people that matter to me.',
+    personB: 'Feeling friction or conflict with people that matter to me.',
+  },
+  '3-6': {
+    label: 'Recognition vs. Support',
+    personA: 'Feeling like my efforts aren\u2019t being noticed or valued.',
+    personB: 'Feeling unsupported in the face of uncertainty.',
   },
   '3-7': {
-    label: 'Failure vs. Limitation',
-    personA: 'Failing visibly or being seen as incompetent \u2014 the idea that people might think I\u2019m not capable or successful is genuinely hard to sit with.',
-    personB: 'Feeling trapped, constrained, or stuck with no good options \u2014 when life starts to feel repetitive or limited I feel a real urgency to find a way out.',
+    label: 'Goal Orientation vs. Limitation',
+    personA: 'Not having a clear goal to achieve or things on my to-do list.',
+    personB: 'Running out of ideas, energy, or possibilities.',
   },
   '3-8': {
-    label: 'Image vs. Control',
-    personA: 'Being seen in a way that doesn\u2019t reflect well on me \u2014 I\u2019m aware of how I\u2019m coming across and it matters that the impression is a good one.',
-    personB: 'Being controlled, overruled, or made to feel powerless \u2014 when someone tries to limit what I can do or tell me what I can\u2019t have, something in me pushes back hard.',
+    label: 'Image vs. Power',
+    personA: 'People who don\u2019t appreciate what it took for me to achieve a goal.',
+    personB: 'People who won\u2019t go head-to-head with me in tough conversations.',
   },
   '4-5': {
-    label: 'Abandonment vs. Depletion',
-    personA: 'Feeling ordinary, unseen, or like I don\u2019t have a meaningful place \u2014 a sense that something essential about me is being missed or overlooked.',
-    personB: 'Feeling intruded upon, drained, or like too much is being demanded of me \u2014 when my time, energy, or privacy feel threatened I need to pull back.',
+    label: 'Ordinariness vs. Emotional Overwhelm',
+    personA: 'Feeling like there\u2019s nothing special about me \u2014 that I\u2019m just like everyone else.',
+    personB: 'Feeling overwhelmed by an emotional experience, mine or someone else\u2019s.',
   },
   '4-9': {
-    label: 'Amplified Emotion vs. Muted Emotion',
-    personA: 'Feeling emotionally flat or cut off from what\u2019s real \u2014 I\u2019d rather feel something intensely than feel nothing at all.',
-    personB: 'Feeling overwhelmed by emotional intensity or conflict \u2014 when things get too charged I find myself going numb or withdrawing until it passes.',
+    label: 'Emotional Flatness vs. Emotional Intensity',
+    personA: 'Feeling emotionally flat or numb \u2014 like nothing is moving inside me.',
+    personB: 'Feeling pulled into someone else\u2019s emotional intensity or drama.',
+  },
+  '5-6': {
+    label: 'Resource Scarcity vs. Lack of Support',
+    personA: 'Feeling like I don\u2019t have the resources to navigate the world.',
+    personB: 'Feeling unsupported in the face of uncertainty.',
   },
   '5-9': {
-    label: 'Energy Conservation vs. Tension Avoidance',
-    personA: 'Feeling depleted by too much engagement or contact \u2014 when people need too much from me I feel my resources running out and I need to withdraw to recover.',
-    personB: 'Feeling pressured to assert myself or take a strong position \u2014 when there\u2019s conflict or expectation I find it easier to go along or disengage than to push back.',
+    label: 'Depletion vs. Conflict',
+    personA: 'Feeling depleted by too much engagement or contact.',
+    personB: 'Feeling pressured to take a position that could cause conflict or disharmony.',
   },
   '6-8': {
     label: 'Managed Fear vs. Denied Vulnerability',
-    personA: 'Feeling unprepared for something that could go wrong \u2014 an undercurrent of worry that I might not have what it takes to handle what\u2019s coming.',
-    personB: 'Feeling weak, dependent, or like someone has gotten the upper hand \u2014 vulnerability isn\u2019t something I show easily and being in that position feels genuinely wrong.',
+    personA: 'Feeling unprepared for something that could go wrong.',
+    personB: 'Feeling weak, vulnerable, or like someone has gotten the upper hand.',
   },
 };
 
