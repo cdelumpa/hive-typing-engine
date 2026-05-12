@@ -363,73 +363,79 @@ async function generateReportPDFs(result, scores, intake, assessmentId) {
 
 // =================== BACKGROUND JOB ===================
 
-async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId, clientId) {
+// Shared helper: call Claude API with up to 3 attempts + exponential backoff.
+// Resolves to the parsed JSON result, or throws if all attempts fail.
+async function callClaudeWithRetry(systemPrompt, userMessage) {
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  let result = null;
-
-  // 1. Call Claude API with retries
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const response = await client.messages.create({
         model: 'claude-sonnet-4-6',
         max_tokens: 12000,
-        system: [
-          {
-            type: 'text',
-            text: systemPrompt,
-            cache_control: { type: 'ephemeral' },
-          },
-        ],
+        system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: userMessage }],
       });
-
       const text  = response.content[0].text;
       const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-      result = JSON.parse(clean);
-
-      console.log(`[submit] usage — ${JSON.stringify(response.usage)}`);
-      console.log(`[submit] Claude success — attempt ${attempt}, confirmed_type=${result?.hypothesis?.confirmed_type}, confidence=${result?.hypothesis?.confidence_level}`);
-      break;
+      const result = JSON.parse(clean);
+      console.log(`[claude] usage — ${JSON.stringify(response.usage)}`);
+      console.log(`[claude] success — attempt ${attempt}, confirmed_type=${result?.hypothesis?.confirmed_type}, confidence=${result?.hypothesis?.confidence_level}`);
+      return result;
     } catch (err) {
-      console.error(`[submit] attempt ${attempt} failed:`, err.message);
-      if (attempt < 3) {
-        await delay(Math.pow(2, attempt) * 1000);
-      } else {
-        // All retries exhausted
-        await db.failAssessment(assessmentId);
-        await sendErrorNotification(intake, err);
-        return;
-      }
+      console.error(`[claude] attempt ${attempt} failed:`, err.message);
+      if (attempt < 3) await delay(Math.pow(2, attempt) * 1000);
+      else throw err;
     }
   }
+}
 
-  // 2. Persist raw payload before PDF generation
+async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId, clientId) {
+  // 1. Persist scores_snapshot immediately — before the API call — so the
+  //    assessment is recoverable even if Claude fails.
   if (assessmentId) {
     await db.query(
-      `UPDATE assessments SET api_result = $1, scores_snapshot = $2 WHERE id = $3`,
-      [JSON.stringify(result), JSON.stringify(scores), assessmentId]
+      `UPDATE assessments SET scores_snapshot = $1 WHERE id = $2`,
+      [JSON.stringify(scores), assessmentId]
     );
   }
 
-  // 3. Update assessment record with results
+  // 2. Call Claude API with retries
+  let result;
+  try {
+    result = await callClaudeWithRetry(systemPrompt, userMessage);
+  } catch (err) {
+    await db.failAssessment(assessmentId);
+    await sendErrorNotification(intake, err);
+    return;
+  }
+
+  // 3. Persist api_result now that the call succeeded
+  if (assessmentId) {
+    await db.query(
+      `UPDATE assessments SET api_result = $1 WHERE id = $2`,
+      [JSON.stringify(result), assessmentId]
+    );
+  }
+
+  // 4. Update assessment record with results
   await db.completeAssessment(assessmentId, result);
   if (clientId) await db.updateClientStatus(clientId, 'complete');
 
-  // 4. Generate PDFs via shared helper
+  // 5. Generate PDFs via shared helper
   const { clientPdfPath, coachPdfPath } = await generateReportPDFs(result, scores, intake, assessmentId);
 
-  // 5. Mark PDF generation timestamp
-  if (clientId) {
+  // 6. Mark PDF generation timestamp
+  if (assessmentId) {
     await db.query(
       `UPDATE assessments SET pdf_generated_at = NOW() WHERE id = $1`,
       [assessmentId]
     );
   }
 
-  // 6. Send emails
+  // 7. Send emails
   try {
     await sendEmails(intake, result, clientPdfPath, coachPdfPath);
-    if (clientId) {
+    if (assessmentId) {
       await db.query(
         `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
         [assessmentId]
@@ -1592,10 +1598,18 @@ function renderAccordionTable(coachId, rows) {
       pdfLinks = links.join('') || '—';
     }
 
+    var hasScores    = !!r.has_scores_snapshot;
+    var hasApiResult = !!r.has_api_result;
+
     var nameLink = '<a href="#" data-entity="client-'+clientId+'" onclick="openClientProfile('+clientId+');return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle=\\'solid\\'" onmouseout="this.style.textDecorationStyle=\\'dotted\\'">'+name+'</a>';
     var reassignBtn = '<button onclick="openReassignModal('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\','+coachId+',\\''+coach.replace(/'/g,"\\\\'")+'\\',true,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:4px;">Reassign</button>';
-    var regenBtn = '<button onclick="accordionRegen('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#f58527;padding:0;text-decoration:underline;margin-right:4px;">Regen</button>';
-    var resendBtn = status === 'complete'
+    var retryBtn = (hasScores && !hasApiResult)
+      ? '<button onclick="accordionRetry('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#e67e22;padding:0;text-decoration:underline;margin-right:4px;">Retry API</button>'
+      : '';
+    var regenBtn = hasApiResult
+      ? '<button onclick="accordionRegen('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#f58527;padding:0;text-decoration:underline;margin-right:4px;">Regen</button>'
+      : '';
+    var resendBtn = hasApiResult
       ? '<button onclick="accordionResend('+clientId+',\\''+clientEmail.replace(/'/g,"\\\\'")+'\\',this)" style="background:none;border:none;cursor:pointer;font-size:11px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:4px;">Resend</button>'
       : '';
     var deleteBtn = '<button onclick="accordionDelete('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#c0392b;padding:0;">&#128465;</button>';
@@ -1611,7 +1625,7 @@ function renderAccordionTable(coachId, rows) {
       '<td id="acc-pdf-'+clientId+'" style="font-size:11px;">'+_pdfStatusHtml(r)+'</td>' +
       '<td id="acc-email-'+clientId+'" style="font-size:11px;">'+_emailStatusHtml(r)+'</td>' +
       '<td>'+pdfLinks+'</td>' +
-      '<td>'+reassignBtn+regenBtn+resendBtn+deleteBtn+'</td>' +
+      '<td>'+reassignBtn+retryBtn+regenBtn+resendBtn+deleteBtn+'</td>' +
       '</tr>';
   });
   html += '</tbody></table>';
@@ -1647,6 +1661,32 @@ async function toggleAccordion(coachId, count) {
       content.innerHTML = '<p style="padding:12px;color:#c0392b;font-size:13px;">Failed to load clients.</p>';
     }
   }
+}
+
+function showToast(msg) {
+  var t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1a7a4a;color:#fff;padding:12px 20px;border-radius:5px;font-family:Georgia,serif;font-size:13px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.25);';
+  document.body.appendChild(t);
+  setTimeout(function(){t.remove();}, 4000);
+}
+
+async function accordionRetry(clientId, name, btn, coachId) {
+  if (!confirm('Re-run Claude API call for '+name+' and deliver results?')) return;
+  var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try {
+    var r = await fetch('/admin/retry/'+clientId, {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.success) {
+      var pdfCell = document.getElementById('acc-pdf-'+clientId);
+      if (pdfCell) pdfCell.textContent = '✓ just now';
+      var emailCell = document.getElementById('acc-email-'+clientId);
+      if (emailCell) emailCell.textContent = '✓ just now';
+      btn.style.display = 'none';
+      showToast('API call succeeded. Results delivered.');
+      delete _accordionCache[coachId];
+    } else { alert(d.error || 'Retry failed'); btn.disabled = false; btn.textContent = orig; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
 }
 
 async function accordionRegen(clientId, name, btn, coachId) {
@@ -1703,7 +1743,23 @@ async function accordionDelete(clientId, name, btn, coachId) {
   } catch(e) { alert('Request failed'); btn.disabled = false; }
 }
 
-// adminRegen / adminResend also used on main dashboard — define here too for coaches page
+// adminRetry / adminRegen / adminResend also used on main dashboard — define here too for coaches page
+async function adminRetry(clientId, name, btn) {
+  if (!confirm('Re-run Claude API call for '+name+' and deliver results?')) return;
+  var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try {
+    var r = await fetch('/admin/retry/'+clientId, {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.success) {
+      var pdfCell = document.getElementById('pdf-status-'+clientId);
+      if (pdfCell) pdfCell.textContent = '✓ just now';
+      var emailCell = document.getElementById('email-status-'+clientId);
+      if (emailCell) emailCell.textContent = '✓ just now';
+      btn.style.display = 'none';
+      showToast('API call succeeded. Results delivered.');
+    } else { alert(d.error || 'Retry failed'); btn.disabled = false; btn.textContent = orig; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
+}
 async function adminRegen(clientId, name, btn) {
   if (!confirm('Regenerate PDFs for '+name+'?')) return;
   var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
@@ -1919,15 +1975,22 @@ app.get('/admin', requireAdminSession, async (req, res) => {
         <button type="submit" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;">Resend invite</button>
       </form> ` : '';
 
+    const hasScores    = !!r.has_scores_snapshot;
+    const hasApiResult = !!r.has_api_result;
+
     const reassignAction = isAdmin
       ? `<button onclick="openReassignModal(${clientId},'${rawName.replace(/'/g, "\\'")}',${req.session.coach_id},'${(r.coach_name || '').replace(/'/g, "\\'")}',false,null)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;">Reassign</button>`
       : '';
 
-    const regenAction = isAdmin
+    const retryAction = (isAdmin && hasScores && !hasApiResult)
+      ? `<button onclick="adminRetry(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#e67e22;padding:0;text-decoration:underline;margin-right:6px;">Retry API</button>`
+      : '';
+
+    const regenAction = (isAdmin && hasApiResult)
       ? `<button onclick="adminRegen(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#f58527;padding:0;text-decoration:underline;margin-right:6px;">Regen</button>`
       : '';
 
-    const resendAction = status === 'complete'
+    const resendAction = hasApiResult
       ? `<button onclick="adminResend(${clientId},'${esc(rawEmail).replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;">Resend</button>`
       : '';
 
@@ -1942,7 +2005,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       <td id="pdf-status-${clientId}" style="font-size:12px;">${pdfStatus}</td>
       <td id="email-status-${clientId}" style="font-size:12px;">${emailStatus}</td>
       <td>${pdfLinks}</td>
-      <td>${reassignAction}${regenAction}${resendAction}${inviteResendAction}${deleteAction}</td>
+      <td>${reassignAction}${retryAction}${regenAction}${resendAction}${inviteResendAction}${deleteAction}</td>
     </tr>`;
   }).join('\n');
 
@@ -2030,6 +2093,30 @@ ${flashError ? `<div class="flash-error">${flashError}</div>` : ''}
   </div>
 </div>
 <script>
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1a7a4a;color:#fff;padding:12px 20px;border-radius:5px;font-family:Georgia,serif;font-size:13px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.25);';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+async function adminRetry(clientId, name, btn) {
+  if (!confirm('Re-run Claude API call for ' + name + ' and deliver results?')) return;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch('/admin/retry/' + clientId, {method:'POST', headers:{Accept:'application/json'}});
+    const d = await r.json();
+    if (d.success) {
+      const pdfCell = document.getElementById('pdf-status-' + clientId);
+      if (pdfCell) pdfCell.textContent = '✓ just now';
+      const emailCell = document.getElementById('email-status-' + clientId);
+      if (emailCell) emailCell.textContent = '✓ just now';
+      btn.style.display = 'none';
+      showToast('API call succeeded. Results delivered.');
+    } else { alert(d.error || 'Retry failed'); btn.disabled = false; btn.textContent = orig; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
+}
 async function adminRegen(clientId, name, btn) {
   if (!confirm('Regenerate PDFs for ' + name + '?')) return;
   const orig = btn.textContent;
@@ -2157,6 +2244,80 @@ app.post('/admin/regenerate/:client_id', requireAdmin, async (req, res) => {
   } catch (e) {
     console.error('[admin/regenerate] error:', e.message);
     return res.status(500).json({ error: 'PDF generation failed.' });
+  }
+});
+
+// ── Retry Claude API call (super admin only — for assessments where scores_snapshot exists but api_result is NULL) ──
+
+app.post('/admin/retry/:client_id', requireAdmin, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
+
+  const payload = await db.getAssessmentPayload(clientId);
+  if (!payload || !payload.scores_snapshot) {
+    return res.status(400).json({ error: 'No scores snapshot found. Client may need to retake the assessment.' });
+  }
+  if (payload.api_result) {
+    return res.status(400).json({ error: 'API result already exists. Use Regenerate instead.' });
+  }
+
+  const responses = typeof payload.responses === 'string'
+    ? JSON.parse(payload.responses)
+    : (payload.responses || {});
+  const { systemPrompt, userMessage } = responses;
+  if (!systemPrompt || !userMessage) {
+    return res.status(400).json({ error: 'Stored prompts missing — cannot retry. Client may need to retake.' });
+  }
+
+  const scores = typeof payload.scores_snapshot === 'string'
+    ? JSON.parse(payload.scores_snapshot)
+    : payload.scores_snapshot;
+
+  const clientInfo = await db.getClientWithCoach(clientId);
+  if (!clientInfo) return res.status(404).json({ error: 'Client not found.' });
+
+  const intake = {
+    firstName:    clientInfo.first_name,
+    lastName:     clientInfo.last_name,
+    email:        clientInfo.email,
+    organization: clientInfo.organization || '',
+    coach:        clientInfo.coach_name,
+  };
+
+  let result;
+  try {
+    result = await callClaudeWithRetry(systemPrompt, userMessage);
+  } catch (err) {
+    console.error('[admin/retry] Claude API failed:', err.message);
+    return res.status(500).json({ error: `Claude API call failed: ${err.message}` });
+  }
+
+  try {
+    await db.query(
+      `UPDATE assessments SET api_result = $1 WHERE id = $2`,
+      [JSON.stringify(result), payload.assessment_id]
+    );
+    await db.completeAssessment(payload.assessment_id, result);
+    await db.updateClientStatus(clientId, 'complete');
+
+    await db.deleteReportsByAssessmentId(payload.assessment_id);
+    const { clientPdfPath, coachPdfPath } = await generateReportPDFs(result, scores, intake, payload.assessment_id);
+    await db.query(
+      `UPDATE assessments SET pdf_generated_at = NOW() WHERE id = $1`,
+      [payload.assessment_id]
+    );
+
+    await sendEmails(intake, result, clientPdfPath, coachPdfPath);
+    await db.query(
+      `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
+      [payload.assessment_id]
+    );
+
+    console.log(`[admin/retry] succeeded for client #${clientId}`);
+    return res.json({ success: true, message: 'API call succeeded. PDFs generated and email sent.' });
+  } catch (err) {
+    console.error('[admin/retry] post-API processing failed:', err.message);
+    return res.status(500).json({ error: err.message });
   }
 });
 

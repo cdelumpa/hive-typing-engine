@@ -255,6 +255,7 @@ async function getAdminRowsByCoach(coachId) {
       c.id            AS client_id,
       c.first_name,
       c.last_name,
+      c.email,
       c.status        AS client_status,
       a.id            AS assessment_id,
       a.confirmed_type,
@@ -267,7 +268,9 @@ async function getAdminRowsByCoach(coachId) {
       r_cl.pdf_path   AS client_pdf,
       r_co.pdf_path   AS coach_pdf,
       a.pdf_generated_at,
-      a.email_sent_at
+      a.email_sent_at,
+      (a.scores_snapshot IS NOT NULL) AS has_scores_snapshot,
+      (a.api_result IS NOT NULL)      AS has_api_result
     FROM clients c
     LEFT JOIN assessments a  ON a.client_id = c.id
     LEFT JOIN coaches co      ON co.id = c.coach_id
@@ -434,7 +437,7 @@ async function resendInviteTransaction(clientId, newToken, expiresAt) {
 
 async function getAssessmentPayload(clientId) {
   const r = await query(
-    `SELECT id AS assessment_id, api_result, scores_snapshot, pdf_generated_at, email_sent_at
+    `SELECT id AS assessment_id, api_result, scores_snapshot, responses, pdf_generated_at, email_sent_at
      FROM assessments WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1`,
     [clientId]
   );
