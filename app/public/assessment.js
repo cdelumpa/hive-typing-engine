@@ -206,33 +206,33 @@ const STAGE2_QUESTIONS = [
     id: 'xref-q1',
     framework: 'Hornevian',
     title: 'SOCIAL STANCE',
-    text: 'What is your default strategy for getting what you want or need?',
+    text: 'How do you tend to go about getting what you want or need in life?',
     options: {
-      A: 'I step up and go for it \u2014 I\u2019m direct, sometimes forceful, and I trust myself to make things happen.',
-      B: 'I work with others carefully \u2014 I try to do the right thing, follow the right process, or earn it through effort and relationship.',
-      C: 'I pull back and figure out my approach first \u2014 I need time to think, feel, or map things out before I move.',
+      A: 'I go for what I want, knowing I can make it happen.',
+      B: 'I actively attend to what\u2019s needed by the person, situation, or group.',
+      C: 'I move inward where I know I\u2019ll find peace, solitude, and meaning.',
     },
   },
   {
     id: 'xref-q2',
     framework: 'Harmonic',
     title: 'CONFLICT RESPONSE',
-    text: 'How do you react when things don\u2019t go the way you were expecting?',
+    text: 'How do you experience not getting what matters most to you?',
     options: {
-      A: 'I call it out directly \u2014 I feel it intensely and I want to deal with it immediately.',
-      B: 'I try to look on the bright side \u2014 I\u2019d rather find what\u2019s still working than dwell on what went wrong.',
-      C: 'I go into problem-solving mode \u2014 I want to understand what happened and figure out how to fix it.',
+      A: 'I call out what\u2019s wrong, sometimes loudly, and challenge the status quo.',
+      B: 'I look on the bright side and try to make the best of the situation.',
+      C: 'I switch to analysis mode and start correcting what\u2019s wrong.',
     },
   },
   {
     id: 'xref-q3',
     framework: 'ObjectRelations',
     title: 'LIFE THEME',
-    text: 'Which of these has been a quiet but consistent theme over the arc of your life, even when things are otherwise going well?',
+    text: 'Which of the following have you tended to prioritize most over the course of your life?',
     options: {
-      A: 'Needing to feel genuinely connected and knowing where I stand \u2014 with people, in relationships, or in the structures and groups that matter to me.',
-      B: 'A sense that things \u2014 relationships, experiences, or life itself \u2014 rarely quite live up to what they could or should be.',
-      C: 'A quiet discomfort with feeling too exposed, too dependent, or too vulnerable with others.',
+      A: 'Having a sense of connection and belonging with others.',
+      B: 'Reaching toward something better, deeper, or more complete.',
+      C: 'Protecting myself from intrusion, overwhelm, and control by others.',
     },
   },
 ];
@@ -1207,7 +1207,7 @@ Gap to next Center: ${s.centerGap} points
 Center confidence: ${s.centerConfidence}
 ${secondCenterLine}
 Stage 1 — Instinct Scoring
-Maximum per Instinct: 12. Confidence: HIGH = gap 4+, MEDIUM = gap 2-3, LOW = gap 0-1.
+Maximum per Instinct: 18. Confidence: HIGH = gap 6+, MEDIUM = gap 3-5, LOW = gap 0-2.
 SP total: ${s.sp} / 12
 SO total: ${s.so} / 12
 SX total: ${s.sx} / 12
