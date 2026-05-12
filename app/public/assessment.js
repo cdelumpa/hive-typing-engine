@@ -236,20 +236,20 @@ const STAGE2_FRAMEWORK_LABELS = {
 // =================== STAGE 3 DATA ===================
 
 // Shared stems.
-const STAGE3_Q1_STEM = 'When you\u2019re at your best, how would you describe your internal experience?';
-const STAGE3_Q2_STEM = 'Which of these feels most uncomfortable or intolerable when it shows up in your life?';
+const STAGE3_Q1_STEM = 'Which of these sounds most like you at your best?';
+const STAGE3_Q2_STEM = 'Which of these is hardest for you to be with?';
 
 // Nine core-motivation descriptions. Pairs are assembled dynamically.
 const STAGE3_CORE_MOTIVATIONS = {
   1: 'I am doing things the right way. I feel principled, clear, and in integrity with my own standards.',
   2: 'I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected.',
-  3: 'I am achieving something meaningful. I feel capable, successful, and recognized for what I bring.',
-  4: 'I am fully and authentically myself. I feel deeply seen, creatively alive, and emotionally real.',
-  5: 'I understand what\u2019s happening at a deep level. I feel clear, self-sufficient, and completely capable.',
-  6: 'I am prepared and loyal to what matters. I feel reliable, certain, and securely connected to people I trust.',
+  3: 'I am achieving my goals and getting things done. I feel capable, successful, and recognized for what I bring.',
+  4: 'I am expressing who I really am \u2014 nothing hidden, nothing performed. I feel a sense of meaning and purpose, alive, and creative.',
+  5: 'I am deeply knowledgeable about things that matter. I feel well-boundaried, self-sufficient, and resourced.',
+  6: 'I am prepared for whatever life throws at me. I feel steady, certain, and loyal to people I trust.',
   7: 'I am experiencing life to the fullest. I feel free, expansive, and open to everything available to me.',
   8: 'I am fully in control of my world. I feel strong, powerful, and completely unbothered by outside pressure.',
-  9: 'Everything feels settled and at peace. I feel harmonious, easy, and genuinely okay with where things are.',
+  9: 'I am experiencing a sense of inner and outer calm. I feel connected to everyone and everything.',
 };
 
 // High-ambiguity pairs. Q2 avoidance fires automatically for these. Keys are
