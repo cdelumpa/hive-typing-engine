@@ -515,76 +515,76 @@ const STAGE4_CT_COMPARATIVE = {
   'SO-7': {
     label: 'SO 7 vs. Type 2',
     stress: {
-      personA: 'I become critical, rigid, and perfectionistic \u2014 I lose my usual lightness and warmth and start fixating on what\u2019s wrong, what needs correcting, and whether things are being done properly.',
-      personB: 'I get forceful and confrontational \u2014 the usual warmth and giving disappears and I become demanding, blunt, or even aggressive about what I need.',
+      personA: 'I become critical, rigid, and perfectionistic. I lose my usual lightness and start fixating on what\u2019s wrong, what needs correcting, and whether things are being done properly.',
+      personB: 'I get angry, forceful, and confrontational. My usual warm and giving self disappears and I become demanding, blunt, or even aggressive about what I need.',
     },
     security: {
-      personA: 'I become quieter, more focused, and genuinely still \u2014 I stop needing to share and stimulate and find deep satisfaction in solitude and going deep on one thing.',
-      personB: 'I become more inward and emotionally honest \u2014 I let myself acknowledge my own needs and feelings rather than immediately focusing on what others need.',
+      personA: 'I become quieter, more focused, and genuinely still. I stop needing to share and stimulate and find deep satisfaction in solitude and going deep on one thing.',
+      personB: 'I turn inward and become introspective. I stop trying to take care of others and allow myself to focus on how I\u2019m feeling and what I need.',
     },
     habit: {
-      personA: 'To what\u2019s possible and what I can share \u2014 my attention goes toward experiences, ideas, and people I can bring into what I love, so that others feel the aliveness I feel.',
-      personB: 'To how other people are feeling and what they might need \u2014 I\u2019m reading the room emotionally and sensing who needs something before they ask.',
+      personA: 'To what\u2019s possible and what I can share. My attention goes toward experiences, ideas, and people I can bring into what I love, so that others feel the aliveness I feel.',
+      personB: 'To how other people are feeling and what they might need. I\u2019m reading the room emotionally and sensing who needs something before they ask.',
     },
   },
   'SX-6': {
     label: 'SX 6 vs. Type 8',
     stress: {
-      personA: 'I go into overdrive \u2014 I focus intensely on performing, achieving, and looking competent, almost as if staying busy and successful will keep the anxiety at bay.',
-      personB: 'I withdraw and go silent \u2014 instead of engaging directly I pull back, observe from a distance, and start hoarding my energy and information in a way that feels very unlike me.',
+      personA: 'I become hyper-focused on getting after my own goals. I put energy into efficiency, achievement, and being seen as successful.',
+      personB: 'I disengage and go silent. I pull back, observe from a distance, and become protective of my space and privacy.',
     },
     security: {
-      personA: 'I become genuinely peaceful and easy \u2014 the usual mental noise and vigilance quiets down and I find myself just present, comfortable, and okay with how things are.',
-      personB: 'I become genuinely soft, caring, and openly giving \u2014 the armor comes down and I find myself nurturing the people I love in a way I don\u2019t usually let show.',
+      personA: 'I become genuinely peaceful and easy. I find myself just present, comfortable, and okay with how things are.',
+      personB: 'I become magnanimous and open to connection. I put the armor down and allow myself to show my care and support for others.',
     },
     habit: {
-      personA: 'To what could go wrong or what I might not be prepared for \u2014 there\u2019s an undercurrent of scanning and vigilance even when things seem fine, and I\u2019m always assessing who and what I can trust.',
-      personB: 'To who has power in the situation and whether it\u2019s being used fairly \u2014 I read the dynamics immediately and feel a pull to challenge anything that seems unjust or weak.',
+      personA: 'To what could go wrong or what I might not be prepared for. I\u2019m constantly scanning for danger and coming up with contingency plans.',
+      personB: 'To the power dynamics in the room and whether power is being used fairly. I step up and take charge if I start feeling controlled or manipulated.',
     },
   },
   'SP-3': {
     label: 'SP 3 vs. Type 1',
     stress: {
-      personA: 'I start to go through the motions \u2014 the drive and self-sufficiency that usually comes naturally disappears and I find myself disengaging, numbing out, or just getting by.',
-      personB: 'I become moody, self-critical, and emotionally flooded \u2014 feelings I normally keep in check start leaking out and I find myself dwelling on what\u2019s wrong with me or what\u2019s missing.',
+      personA: 'I shut down. The drive and ambition that usually feel effortless just vanish and I find myself checked out and disengaged.',
+      personB: 'I become weighed down with emotion. I start dwelling on what others have naturally that I don\u2019t and I long to be whole.',
     },
     security: {
-      personA: 'I become more loyal, collaborative, and questioning \u2014 I want to check in with people I trust and think things through more carefully, and I feel less need to prove myself.',
-      personB: 'I become lighter, more playful, and spontaneous \u2014 I stop being so hard on myself and find it easier to enjoy things without worrying about doing them perfectly.',
+      personA: 'I care more about the people around me and feel a stronger sense of loyalty to them. I realize I don\u2019t need to go it alone and actually want us to win together.',
+      personB: 'I become lighter, more playful, and spontaneous. I stop being so hard on myself and find it easier to enjoy things without worrying about doing them perfectly.',
     },
     habit: {
-      personA: 'To what needs to be done and whether I\u2019m being effective \u2014 my attention goes to tasks, results, and whether I\u2019m building something solid, without needing anyone to notice.',
-      personB: 'To what\u2019s wrong, imprecise, or could be improved \u2014 I notice errors, inconsistencies, and what needs fixing almost before I notice anything else.',
+      personA: 'To what needs to be done and whether I\u2019m being effective. My attention goes to tasks, results, and whether I\u2019m building something solid, without needing anyone to notice.',
+      personB: 'To what\u2019s wrong, imprecise, or could be improved. I notice errors, inconsistencies, and what needs fixing almost before I notice anything else.',
     },
   },
   'SP-4': {
     label: 'SP 4 vs. Type 3',
     stress: {
-      personA: 'I lose myself in trying to be helpful and needed \u2014 I start focusing heavily on others\u2019 needs and seeking reassurance through being indispensable to them.',
-      personB: 'I start to go through the motions \u2014 the drive and energy that usually comes naturally disappears and I find myself disengaging, numbing out, or just getting by.',
+      personA: 'I become overly helpful and acutely aware of what others need. I set my own needs aside and seek the appreciation of others.',
+      personB: 'I shut down. The drive and ambition that usually feel effortless just vanish and I find myself checked out and disengaged.',
     },
     security: {
-      personA: 'I become more grounded, disciplined, and action-oriented \u2014 I stop dwelling on what\u2019s missing and start doing, with a clearer sense of what\u2019s right and what needs to happen.',
-      personB: 'I become more loyal, collaborative, and questioning \u2014 I actually want to check in with people I trust and think things through more carefully before acting.',
+      personA: 'I become more grounded, disciplined, and action-oriented. I stop dwelling on what\u2019s missing and start doing, with a clearer sense of what\u2019s right and what needs to happen.',
+      personB: 'I care more about the people around me and feel a stronger sense of loyalty to them. I realize I don\u2019t need to go it alone and actually want us to win together.',
     },
     habit: {
-      personA: 'To what\u2019s absent or incomplete \u2014 there\u2019s a persistent sense that something essential is missing, and my attention keeps returning to that gap even when things are going reasonably well.',
-      personB: 'To how I\u2019m coming across and whether I\u2019m building something meaningful \u2014 I\u2019m aware of whether I\u2019m being effective and whether the people who matter can see what I\u2019m capable of.',
+      personA: 'To what\u2019s absent or incomplete. There\u2019s a persistent sense that something essential is missing, and my attention keeps returning to that gap even when things are going reasonably well.',
+      personB: 'To how I\u2019m coming across and whether I\u2019m building something meaningful. I\u2019m aware of whether I\u2019m being effective and whether the people who matter can see what I\u2019m capable of.',
     },
   },
   'SX-1': {
     label: 'SX 1 vs. Type 8',
     stress: {
-      personA: 'I become moody, self-critical, and emotionally flooded \u2014 the usual intensity and certainty gives way to dwelling on what\u2019s wrong with me, what I\u2019ve fallen short of, and what feels missing.',
-      personB: 'I withdraw and go silent \u2014 instead of engaging directly I pull back, observe from a distance, and start hoarding my energy and information in a way that feels very unlike me.',
+      personA: 'I become weighed down with emotion. I start dwelling on what others have naturally that I don\u2019t and I long to be whole.',
+      personB: 'I disengage and go silent. I pull back, observe from a distance, and become protective of my space and privacy.',
     },
     security: {
-      personA: 'I become lighter, more playful, and spontaneous \u2014 I stop being so hard on myself and others, and find it easier to enjoy things without the usual urgency about getting things right.',
-      personB: 'I become genuinely soft, caring, and openly giving \u2014 the armor comes down and I find myself nurturing the people I love in a way I don\u2019t usually let show.',
+      personA: 'I become more loyal, collaborative, and questioning. I want to check in with people I trust and think things through more carefully, and I feel less need to prove myself.',
+      personB: 'I become magnanimous and open to connection. I put the armor down and allow myself to show my care and support for others.',
     },
     habit: {
-      personA: 'To what\u2019s wrong or needs correcting \u2014 but especially in the people and causes I care most about. There\u2019s a moral intensity to my attention; I notice when something falls short of what it could or should be.',
-      personB: 'To who has power in the situation and whether it\u2019s being used fairly \u2014 I read the dynamics immediately and feel a pull to challenge anything that seems unjust or weak.',
+      personA: 'To what\u2019s wrong, imprecise, or could be improved. I notice errors, inconsistencies, and what needs fixing almost before I notice anything else.',
+      personB: 'To the power dynamics in the room and whether power is being used fairly. I step up and take charge if I start feeling controlled or manipulated.',
     },
   },
 };
