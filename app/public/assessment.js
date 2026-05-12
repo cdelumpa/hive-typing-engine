@@ -1439,7 +1439,7 @@ function renderStage1() {
     </div>`;
 
   return `<div class="screen">
-    <div class="stage-label">Stage 1 · ${trackLabel} · ${state.stage1Idx + 1} of 12</div>
+    <div class="stage-label">Stage 1 · ${trackLabel} · ${state.stage1Idx + 1} of ${STAGE1_QUESTIONS.length}</div>
     <div class="q-title">${q.title}</div>
     <div class="q-text">${q.text}</div>
     <p style="font-size:13px;color:var(--ink-lt);margin-bottom:16px;">Rank each from most like you <strong>(1st)</strong> to least like you <strong>(3rd)</strong>.</p>
@@ -2624,7 +2624,7 @@ function attachHandlers() {
 
     const btnNext1 = document.getElementById('btn-next');
     if (btnNext1) btnNext1.addEventListener('click', () => {
-      if (state.stage1Idx < 9) {
+      if (state.stage1Idx < STAGE1_QUESTIONS.length - 1) {
         state.stage1Idx++;
         render();
       } else {
