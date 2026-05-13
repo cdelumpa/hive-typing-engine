@@ -1520,22 +1520,7 @@ function renderStage3() {
     <div class="q-text">${esc(stem)}</div>
 
     <div class="person-options">
-      <div class="person-option ${sel === 'A' ? 'selected' : ''}" data-choice="A">
-        <div class="person-label">Person A</div>
-        <div class="person-text">${esc(personAText)}</div>
-      </div>
-      <div class="person-option ${sel === 'B' ? 'selected' : ''}" data-choice="B">
-        <div class="person-label">Person B</div>
-        <div class="person-text">${esc(personBText)}</div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="person-option ${sel === 'A-slight' ? 'selected' : ''}" data-choice="A-slight" style="text-align:center;">
-          <div class="person-label" style="font-size:12px;">Both, but more A</div>
-        </div>
-        <div class="person-option ${sel === 'B-slight' ? 'selected' : ''}" data-choice="B-slight" style="text-align:center;">
-          <div class="person-label" style="font-size:12px;">Both, but more B</div>
-        </div>
-      </div>
+      ${render4WayOptions(personAText, personBText, sel)}
     </div>
 
     <div class="nav-row">
@@ -1629,18 +1614,17 @@ function render4WayOptions(personAText, personBText, sel) {
       <div class="person-label">Person A</div>
       <div class="person-text">${esc(personAText)}</div>
     </div>
+    <div class="person-option ${sel === 'A-slight' ? 'selected' : ''}" data-choice="A-slight">
+      <div class="person-label">Both, but more A</div>
+    </div>
+    <div class="person-option ${sel === 'B-slight' ? 'selected' : ''}" data-choice="B-slight">
+      <div class="person-label">Both, but more B</div>
+    </div>
     <div class="person-option ${sel === 'B' ? 'selected' : ''}" data-choice="B">
       <div class="person-label">Person B</div>
       <div class="person-text">${esc(personBText)}</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div class="person-option ${sel === 'A-slight' ? 'selected' : ''}" data-choice="A-slight" style="text-align:center;">
-        <div class="person-label" style="font-size:12px;">Both, but more A</div>
-      </div>
-      <div class="person-option ${sel === 'B-slight' ? 'selected' : ''}" data-choice="B-slight" style="text-align:center;">
-        <div class="person-label" style="font-size:12px;">Both, but more B</div>
-      </div>
-    </div>`;
+  `;
 }
 
 // Helper for renderStage1Complete: renders the Stage 2 output block.
