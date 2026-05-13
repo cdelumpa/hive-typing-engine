@@ -1283,6 +1283,157 @@ app.post('/admin/clients/resend/:client_id', requireAdminSession, async (req, re
 
 // ── Assessment Token Entry ─────────────────────────────────────────────────────
 
+function renderAssessmentWelcome(tokenRow, token) {
+  const firstName  = esc(tokenRow.first_name);
+  const lastName   = esc(tokenRow.last_name);
+  const orgRaw     = esc(tokenRow.organization || '');
+  const orgDisplay = orgRaw || '<span style="color:#7A96A6;">—</span>';
+  const tokenEnc   = encodeURIComponent(token);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Enneagram Assessment</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px 16px; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.1); padding: 48px 40px; width: 100%; max-width: 520px; }
+  .logo-bar { border-top: 4px solid #00b1d7; padding-top: 20px; margin-bottom: 28px; text-align: center; }
+  .logo-bar p { font-size: 11px; color: #7A96A6; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px; }
+  .logo-bar h1 { font-size: 22px; color: #00b1d7; margin: 0; font-weight: 700; }
+  .subhead { font-size: 14px; color: #4A6070; text-align: center; margin: 0 0 22px; line-height: 1.6; }
+  .details-block { background: #f7f5f2; border-radius: 6px; padding: 14px 18px; margin-bottom: 14px; }
+  .detail-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid #EFE8E0; font-size: 13px; }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { color: #7A96A6; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+  .detail-value { color: #1A2B33; font-weight: 500; }
+  .text-link { font-size: 12px; color: #7A96A6; text-decoration: underline; text-decoration-style: dotted; cursor: pointer; }
+  .text-link:hover { color: #00b1d7; }
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 11px; font-weight: 700; color: #4A6070; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
+  .opt-label { color: #7A96A6; font-weight: 400; text-transform: none; font-size: 11px; }
+  .form-input { width: 100%; padding: 10px 14px; border: 1.5px solid #C5DDE8; border-radius: 6px; font-family: Georgia, serif; font-size: 14px; color: #1A2B33; outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: #00b1d7; }
+  .btn { display: inline-block; background: #00b1d7; color: #fff; padding: 14px 32px; border-radius: 4px; font-weight: 700; font-family: Georgia, serif; font-size: 15px; text-decoration: none; border: none; cursor: pointer; width: 100%; text-align: center; }
+  .btn:hover:not(:disabled) { background: #009bbf; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .begin-wrap { margin-top: 20px; text-align: center; }
+  .begin-wrap .btn { width: auto; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-bar">
+    <p>Hive Enneagram Type Tool</p>
+    <h1>Welcome, ${firstName}.</h1>
+  </div>
+
+  <div id="view-mode">
+    <p class="subhead">Before you begin, make sure your details are correct.</p>
+    <div class="details-block">
+      <div class="detail-row">
+        <span class="detail-label">First Name</span>
+        <span class="detail-value">${firstName}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Last Name</span>
+        <span class="detail-value">${lastName}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Organization</span>
+        <span class="detail-value">${orgDisplay}</span>
+      </div>
+    </div>
+    <p style="text-align:center;margin:10px 0 0;">
+      <a href="#" id="edit-link" class="text-link">Edit my details</a>
+    </p>
+  </div>
+
+  <div id="edit-mode" style="display:none;">
+    <div class="form-group">
+      <label class="form-label">First Name <span style="color:#f58527;">*</span></label>
+      <input id="inp-fn" type="text" class="form-input" value="${firstName}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Last Name <span style="color:#f58527;">*</span></label>
+      <input id="inp-ln" type="text" class="form-input" value="${lastName}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Organization <span class="opt-label">(optional)</span></label>
+      <input id="inp-org" type="text" class="form-input" value="${orgRaw}">
+    </div>
+    <div id="edit-error" style="display:none;color:#C44530;font-size:13px;margin-bottom:14px;"></div>
+    <button id="btn-save-begin" class="btn">Looks Good — Let's Begin</button>
+    <p style="text-align:center;margin:12px 0 0;">
+      <a href="#" id="cancel-link" class="text-link">Cancel</a>
+    </p>
+  </div>
+
+  <div class="begin-wrap">
+    <form method="POST" action="/assessment/${tokenEnc}/begin" id="begin-form">
+      <button type="submit" class="btn">Start Assessment</button>
+    </form>
+  </div>
+</div>
+<script>
+(function() {
+  var TOKEN = ${JSON.stringify(token)};
+
+  document.getElementById('edit-link').addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('view-mode').style.display = 'none';
+    document.getElementById('edit-mode').style.display = '';
+    document.getElementById('inp-fn').focus();
+  });
+
+  document.getElementById('cancel-link').addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('edit-mode').style.display = 'none';
+    document.getElementById('edit-error').style.display = 'none';
+    document.getElementById('view-mode').style.display = '';
+  });
+
+  document.getElementById('btn-save-begin').addEventListener('click', async function() {
+    var btn = this;
+    var errDiv = document.getElementById('edit-error');
+    var fn  = document.getElementById('inp-fn').value.trim();
+    var ln  = document.getElementById('inp-ln').value.trim();
+    var org = document.getElementById('inp-org').value.trim();
+    errDiv.style.display = 'none';
+    if (!fn || !ln) {
+      errDiv.textContent = 'First name and last name are required.';
+      errDiv.style.display = '';
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      var r = await fetch('/assessment/' + encodeURIComponent(TOKEN) + '/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: fn, last_name: ln, organization: org || null }),
+      });
+      var data = await r.json();
+      if (!r.ok || !data.success) {
+        errDiv.textContent = data.error || 'Could not save your details. Please try again.';
+        errDiv.style.display = '';
+        btn.disabled = false; btn.textContent = 'Looks Good — Let’s Begin';
+        return;
+      }
+      document.getElementById('begin-form').submit();
+    } catch(e) {
+      errDiv.textContent = 'Something went wrong. Please try again.';
+      errDiv.style.display = '';
+      btn.disabled = false; btn.textContent = 'Looks Good — Let’s Begin';
+    }
+  });
+})();
+</script>
+</body>
+</html>`;
+}
+
 function renderAssessmentGate(title, message, actionHtml) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1351,14 +1502,8 @@ app.get('/assessment/:token', async (req, res) => {
     ));
   }
 
-  // not_started — show welcome screen with Begin button
-  return res.send(renderAssessmentGate(
-    `Welcome, ${esc(tokenRow.first_name)}`,
-    `Your Hive Enneagram assessment is ready. It takes approximately 30–45 minutes to complete.<br><br>When you're ready, click the button below to begin.`,
-    `<form method="POST" action="/assessment/${encodeURIComponent(req.params.token)}/begin">
-      <button type="submit" class="btn">Begin My Assessment</button>
-    </form>`
-  ));
+  // not_started — show welcome screen with profile self-edit + Begin button
+  return res.send(renderAssessmentWelcome(tokenRow, req.params.token));
 });
 
 app.post('/assessment/:token/begin', async (req, res) => {
@@ -1385,6 +1530,24 @@ app.post('/assessment/:token/begin', async (req, res) => {
     if (err) console.error('[assessment/begin] session save error:', err.message);
     res.redirect('/');
   });
+});
+
+app.patch('/assessment/:token/profile', async (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  const tokenRow = await db.getTokenWithClient(req.params.token).catch(() => null);
+  if (!tokenRow) return res.status(404).json({ error: 'Token not found.' });
+  if (new Date(tokenRow.expires_at) < new Date()) return res.status(410).json({ error: 'This link has expired.' });
+  if (tokenRow.client_status !== 'not_started') return res.status(409).json({ error: 'Assessment has already started.' });
+  const firstName    = (req.body.first_name    || '').trim();
+  const lastName     = (req.body.last_name     || '').trim();
+  const organization = (req.body.organization  || '').trim() || null;
+  if (!firstName || !lastName) return res.status(400).json({ error: 'First name and last name are required.' });
+  await db.query(
+    `UPDATE clients SET first_name = $1, last_name = $2, organization = $3, updated_at = NOW(), updated_by = 'self' WHERE id = $4`,
+    [firstName, lastName, organization, tokenRow.client_id]
+  );
+  console.log(`[assessment/profile] client #${tokenRow.client_id} updated their profile`);
+  return res.json({ success: true });
 });
 
 // ── Coach Management (super-admin only) ──────────────────────────────────────
