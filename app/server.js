@@ -207,7 +207,7 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
   // ---- Client email ----
   const clientMsg = {
     to:      intake.email,
-    from:    fromEmail,
+    from:    { name: 'InsightOut by Hive', email: fromEmail },
     subject: `Your Hive Enneagram Report is Ready, ${intake.firstName}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1A2B33; line-height: 1.7;">
@@ -249,7 +249,7 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath) {
   // ---- Coach email ----
   const coachMsg = {
     to:      coachEmail,
-    from:    fromEmail,
+    from:    { name: 'InsightOut by Hive', email: fromEmail },
     subject: `Coach Prep Report — ${intake.firstName} ${intake.lastName}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1A2B33; line-height: 1.7;">
@@ -452,7 +452,7 @@ async function sendErrorNotification(intake, err) {
   try {
     await sgMail.send({
       to:      coachEmail,
-      from:    process.env.SENDGRID_FROM_EMAIL,
+      from:    { name: 'InsightOut by Hive', email: process.env.SENDGRID_FROM_EMAIL },
       subject: `[Hive Error] Assessment processing failed — ${intake.firstName} ${intake.lastName}`,
       text: [
         `Assessment processing failed after all retries.`,
@@ -565,7 +565,7 @@ async function sendInviteEmail(client, token, coachName) {
 
   const msg = {
     to:      client.email,
-    from:    { email: coachEmail, name: coachName },
+    from:    { name: 'InsightOut by Hive', email: coachEmail },
     subject: `Your Hive Enneagram Assessment`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1A2B33; line-height: 1.7;">
@@ -916,6 +916,12 @@ window.openReassignModal = async function(clientId, clientName, currentCoachId, 
       h += '<option value="'+c.id+'"'+(c.id===currentCoachId?' selected':'')+'>'+_esc(c.name)+'</option>';
     });
     h += '</select></div>';
+    h += '<div style="margin-bottom:20px;">';
+    h += '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#4A6070;cursor:pointer;">';
+    h += '<input type="checkbox" id="notify-coach-cb" name="notify_coach" value="true" checked style="width:15px;height:15px;cursor:pointer;">';
+    h += 'Notify the receiving coach by email';
+    h += '</label>';
+    h += '</div>';
     h += '<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 0 24px;">';
     h += '<button id="modal-reassign-btn" onclick="window._confirmReassign()" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Confirm Reassignment</button>';
     h += '<button onclick="_hideModal()" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Cancel</button>';
@@ -938,11 +944,13 @@ window._confirmReassign = async function() {
     errDiv.style.display = '';
     return;
   }
+  var notifyCb = document.getElementById('notify-coach-cb');
+  var notifyCoach = notifyCb ? notifyCb.checked : true;
   btn.disabled = true; btn.textContent = 'Reassigning…';
   try {
     var r = await fetch('/admin/clients/'+st.clientId+'/reassign', {
       method:'POST', headers:{'Content-Type':'application/json',Accept:'application/json'},
-      body:JSON.stringify({new_coach_id:newCoachId})
+      body:JSON.stringify({new_coach_id:newCoachId, notify_coach:notifyCoach})
     });
     var data = await r.json();
     if (!r.ok || !data.success) {
@@ -2201,6 +2209,19 @@ app.post('/admin/delete/:client_id', requireAdminSession, async (req, res) => {
   res.redirect('/admin');
 });
 
+// ── TEMPORARY DIAGNOSTIC — remove when done ──────────────────────────────────
+
+app.get('/admin/export/:client_id', requireAdmin, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
+  const r = await db.query(
+    `SELECT * FROM assessments WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    [clientId]
+  );
+  if (!r || r.rows.length === 0) return res.status(404).json({ error: 'No assessment found' });
+  return res.json(r.rows[0]);
+});
+
 // ── Report Regeneration (super admin only) ───────────────────────────────────
 
 app.post('/admin/regenerate/:client_id', requireAdmin, async (req, res) => {
@@ -2561,6 +2582,7 @@ app.post('/admin/clients/:client_id/update', requireAdminSession, async (req, re
 app.post('/admin/clients/:client_id/reassign', requireAdmin, async (req, res) => {
   const clientId   = parseInt(req.params.client_id, 10);
   const newCoachId = parseInt(req.body.new_coach_id, 10);
+  const notifyCoach = req.body.notify_coach === true || req.body.notify_coach === 'true';
 
   if (!clientId || isNaN(clientId) || !newCoachId || isNaN(newCoachId)) {
     return res.status(400).json({ error: 'Invalid client or coach ID.' });
@@ -2577,6 +2599,8 @@ app.post('/admin/clients/:client_id/reassign', requireAdmin, async (req, res) =>
   const oldCoach = await db.getCoachById(oldCoachId).catch(() => null);
   const oldCoachName = oldCoach ? oldCoach.name : 'Unknown';
 
+  const clientRow = await db.getClientById(clientId).catch(() => null);
+
   await db.reassignClientToCoach(clientId, newCoachId);
   await db.insertEditHistory({
     record_type:    'client',
@@ -2586,6 +2610,54 @@ app.post('/admin/clients/:client_id/reassign', requireAdmin, async (req, res) =>
     change_summary: `Coach reassigned from ${oldCoachName} to ${newCoach.name}`,
     editor_note:    null,
   });
+
+  if (notifyCoach && newCoach.email) {
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+    const appUrl    = process.env.RAILWAY_PUBLIC_URL || 'https://hive-typing-engine-production.up.railway.app';
+    const coachFirstName = newCoach.name ? newCoach.name.split(' ')[0] : newCoach.name;
+    const clientFullName = clientRow ? `${clientRow.first_name} ${clientRow.last_name}` : `Client #${clientId}`;
+    try {
+      await sgMail.send({
+        to:      newCoach.email,
+        from:    { name: 'InsightOut by Hive', email: fromEmail },
+        subject: `You've Been Assigned an InsightOut Client`,
+        text: [
+          `Hi ${coachFirstName},`,
+          ``,
+          `A client has been added to your InsightOut roster.`,
+          ``,
+          `Client: ${clientFullName}`,
+          ``,
+          `You can view their assessment status and access their report from your dashboard.`,
+          ``,
+          `View Dashboard: ${appUrl}/admin`,
+          ``,
+          `— InsightOut by Hive`,
+        ].join('\n'),
+        html: `
+          <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;color:#1A2B33;line-height:1.7;">
+            <div style="border-top:4px solid #00b1d7;padding-top:28px;margin-bottom:24px;">
+              <p style="font-size:11px;color:#7A96A6;letter-spacing:0.1em;text-transform:uppercase;margin:0 0 6px;">InsightOut by Hive</p>
+              <h1 style="font-size:22px;color:#00b1d7;margin:0;font-weight:700;">New Client Assignment</h1>
+            </div>
+            <p style="font-size:15px;">Hi ${esc(coachFirstName)},</p>
+            <p>A client has been added to your InsightOut roster.</p>
+            <p><strong>Client:</strong> ${esc(clientFullName)}</p>
+            <p>You can view their assessment status and access their report from your dashboard.</p>
+            <p style="margin:32px 0;">
+              <a href="${appUrl}/admin" style="display:inline-block;background:#00b1d7;color:#fff;padding:14px 28px;border-radius:4px;font-weight:700;text-decoration:none;font-size:15px;">View Dashboard →</a>
+            </p>
+            <div style="margin-top:40px;padding-top:16px;border-top:1px solid #E0E8EC;font-size:11px;color:#7A96A6;">
+              — InsightOut by Hive
+            </div>
+          </div>
+        `,
+      });
+      console.log(`[admin/clients/reassign] notification sent to coach ${newCoach.email}`);
+    } catch (e) {
+      console.error('[admin/clients/reassign] notification email failed:', e.message);
+    }
+  }
 
   console.log(`[admin/clients/reassign] client #${clientId} reassigned from coach #${oldCoachId} to #${newCoachId}`);
   return res.json({ success: true, new_coach_name: newCoach.name });
