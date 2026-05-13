@@ -3,11 +3,11 @@
  * Hive Typing Engine — end-to-end fixture test runner
  *
  * Usage:
- *   node tests/run_test.js so7
- *   node tests/run_test.js sp9
+ *   node tests/run_test.js sp4
+ *   node tests/run_test.js sx7
  *
  * What it does:
- *   1. Loads the named fixture from tests/fixtures/<name>_fixture.json
+ *   1. Loads the named fixture from tests/fixtures/<name>.json
  *   2. Builds the context block (user message) from the fixture data
  *   3. POSTs to http://localhost:3000/api/analyze
  *   4. Verifies the JSON result against expected values
@@ -28,7 +28,7 @@ const path = require('path');
 // ─── Args ─────────────────────────────────────────────────────────────────────
 const fixtureName = (process.argv[2] || '').toLowerCase();
 if (!fixtureName) {
-  console.error('Usage: node tests/run_test.js <fixture>   (e.g. so7 or sp9)');
+  console.error('Usage: node tests/run_test.js <fixture>   (e.g. sp4 or sx7)');
   process.exit(1);
 }
 
@@ -36,7 +36,7 @@ if (!fixtureName) {
 const ROOT      = path.resolve(__dirname, '..');
 const APP_JS    = path.join(ROOT, 'app/public/app.js');
 const TYPE_LIB  = path.join(ROOT, 'content/type_library.json');
-const FIXTURE   = path.join(__dirname, `fixtures/${fixtureName}_fixture.json`);
+const FIXTURE   = path.join(__dirname, `fixtures/${fixtureName}.json`);
 const SAMPLES   = path.join(ROOT, 'samples');
 
 if (!fs.existsSync(FIXTURE)) {

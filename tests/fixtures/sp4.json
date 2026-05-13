@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "name": "SP4 Self-Preservation Four — Stage 2/3 Divergence with Lookalike Ambiguity",
+    "description": "Self-Preservation Four. HIGH confidence. Stage 2 cross-reference points to Type 1; Stage 3 pairwise discrimination resolves to Type 4. Triggers stage2_stage3_divergence and lookalike_ambiguity flags. Section 6A (type confusion) should appear in coach report. Section 1A should NOT appear.",
+    "expected_type": 4,
+    "expected_instinct": "SP",
+    "expected_confidence": "HIGH",
+    "expected_flags": ["stage2_stage3_divergence", "lookalike_ambiguity"],
+    "expected_sections": ["section6a"]
+  },
+  "coach": "Cai Delumpa",
+  "final_open_response": "[none provided]",
+  "stage0": {
+    "q1": "I feel things very deeply, I'm drawn to authenticity and beauty, and I struggle with feeling misunderstood or like something essential is missing in me",
+    "q2": "creative, intense, self-absorbed at times, but very genuine and committed",
+    "q3": "emotional depth and the ability to connect authentically with what is real and meaningful",
+    "q4": "envy — a persistent sense that others have something I lack, which can pull me away from what I actually have"
+  },
+  "stage1": {
+    "centers": { "Head": 7, "Heart": 18, "Body": 11 },
+    "identifiedCenter": "Heart",
+    "centerGap": 7,
+    "centerConfidence": "HIGH",
+    "secondCenter": null,
+    "instincts": { "SP": 18, "SX": 11, "SO": 7 },
+    "identifiedInstinct": "SP",
+    "instinctGap": 7,
+    "instinctConfidence": "HIGH",
+    "typeHypotheses": [4, 1, 5],
+    "counterTypeFlag": "NO",
+    "counterTypeCombination": null
+  },
+  "stage2": {
+    "hornevian": "B",
+    "harmonic": "C",
+    "objectRelations": "B",
+    "xrefPrimary": 1,
+    "xrefAlternative": 4,
+    "ambiguityAxis": "Stage 2 cross-referencing pointed toward Type 1 (Compliant, Competency, Frustration) rather than Type 4 (Withdrawn, Intensity, Frustration). SP Four and SP One are a well-documented lookalike pair: both are internally focused, self-critical, and driven by a felt gap between who they are and an internalized ideal. The Hornevian and Harmonic answers landed outside Type 4's expected profile, creating the divergence.",
+    "counterTypeModeTriggered": false
+  },
+  "stage3": {
+    "mode": "STANDARD",
+    "pair": "Type 4 vs Type 1",
+    "ctAnswer": "N/A",
+    "leading": 4,
+    "confidence": "HIGH"
+  },
+  "stage4": {
+    "path": "STANDARD",
+    "option": "A",
+    "leadType": 4,
+    "secondType": null,
+    "stressConfirmed": true,
+    "securityConfirmed": true,
+    "habitConfirmed": true,
+    "outcome": "CONFIRMED",
+    "stressDescription": "Under stress, Type 4 moves toward Type 2 territory — the client recognized an increase in seeking validation and attention from others, becoming more emotionally expressive and needy when under pressure. This matched Type 4's stress point cleanly.",
+    "securityDescription": "In ease, Type 4 moves toward Type 1 — the client recognized increased discipline, objectivity, and the ability to set aside personal feelings and act with principled focus when feeling safe and secure. This matched Type 4's security point cleanly.",
+    "habitDescription": "The client's habit of mind matched Type 4's attention pattern: scanning for what is missing or unavailable, comparing themselves unfavorably to others, and a persistent longing for something more authentic or complete."
+  },
+  "mockScores": {
+    "head": 7,
+    "heart": 18,
+    "body": 11,
+    "identifiedCenter": "Heart",
+    "sortedInstincts": [["SP", 18], ["SX", 11], ["SO", 7]]
+  }
+}
