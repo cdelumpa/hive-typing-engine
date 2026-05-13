@@ -1371,7 +1371,6 @@ function renderConfirmation() {
 function renderFinalOpen() {
   const val = state.finalOpenResponse || '';
   return `<div class="screen">
-    <div class="stage-label">Final Question · Optional</div>
     <div class="q-title">ANYTHING ELSE?</div>
     <div class="q-text" style="margin-bottom:20px;">Is there anything about how you experience the world — what drives you, what you tend to avoid, or what you've learned about yourself — that the assessment didn't quite capture?</div>
     <p style="font-size:13px;color:var(--ink-lt);margin-bottom:16px;font-style:italic;">Optional — skip if nothing comes to mind.</p>
@@ -1396,7 +1395,6 @@ function renderStage0() {
     </div>` : '';
 
   return `<div class="screen">
-    <div class="stage-label">Stage 0 of 2 · Warm-Up · ${state.stage0Idx + 1} of 4</div>
     <div class="q-title">${q.title}</div>
     <div class="q-text">${q.text}</div>
     ${refHtml}
@@ -1439,7 +1437,6 @@ function renderStage1() {
     </div>`;
 
   return `<div class="screen">
-    <div class="stage-label">Stage 1 · ${trackLabel} · ${state.stage1Idx + 1} of ${STAGE1_QUESTIONS.length}</div>
     <div class="q-title">${q.title}</div>
     <div class="q-text">${q.text}</div>
     <p style="font-size:13px;color:var(--ink-lt);margin-bottom:16px;">Rank each from most like you <strong>(1st)</strong> to least like you <strong>(3rd)</strong>.</p>
@@ -1468,7 +1465,6 @@ function renderStage2() {
     </div>`;
 
   return `<div class="screen">
-    <div class="stage-label">Stage 2 \u00b7 Cross-Referencing \u00b7 ${state.stage2Idx + 1} of ${STAGE2_QUESTIONS.length}</div>
     <div class="q-title">${q.title}</div>
     <div class="q-text">${esc(q.text)}</div>
     <div class="person-options">
@@ -1520,7 +1516,6 @@ function renderStage3() {
   const isLast = idx === totalQs - 1;
 
   return `<div class="screen">
-    <div class="stage-label">Stage 3 \u00b7 Pairwise Discrimination \u00b7 ${idx + 1} of ${totalQs}</div>
     <div class="q-title">${esc(subtitle)}</div>
     <div class="q-text">${esc(stem)}</div>
 
@@ -1613,7 +1608,6 @@ function renderStage4() {
   }
 
   return `<div class="screen">
-    <div class="stage-label">Stage 4 \u00b7 Confirmation \u00b7 ${state.stage4Idx + 1} of ${totalQs}</div>
     <div class="q-title">${esc(subtitle)}</div>
     <div class="q-text">${esc(stem)}</div>
 

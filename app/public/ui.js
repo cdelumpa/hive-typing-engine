@@ -66,40 +66,47 @@ function renderMultiPara(str, style) {
 
 // =================== PROGRESS ===================
 
-function totalSteps() {
-  // Stage 3 max = 2 questions; Stage 4 max = 3 (Stress + Security + optional Habit).
-  // Non-★ pairs + clean Stage 4 will finish a few steps early — acceptable.
-  return (
-    1 + // welcome
-    4 + // stage 0
-    10 + // stage 1
-    3 + // stage 2
-    2 + // stage 3 (max)
-    3 + // stage 4 (max)
-    1   // finalopen
-  );
-}
+// Returns a cumulative count of questions answered so far (max 23).
+// Used to drive the progress bar — no text or labels, just a fill width.
+function getQuestionsAnswered() {
+  const p = state.phase;
+  if (p === 'welcome' || p === 'intake') return 0;
+  if (p === 'confirmation' || p === 'results' || p === 'processing' || p === 'stage1complete') return 23;
 
-function currentStep() {
-  const phaseOrder = {
-    welcome: 0,
-    intake: 0,
-    stage0: 1 + state.stage0Idx,
-    stage1: 5 + state.stage1Idx,
-    stage2: 15 + state.stage2Idx,
-    stage3: 18 + state.stage3Idx,
-    stage4: 20 + state.stage4Idx,
-    finalopen: 23,
-    stage1complete: 24,
-    processing: 24,
-    confirmation: 24,
-    results: 24,
-    error: 24,
-  };
-  return phaseOrder[state.phase] || 0;
+  const a0 = state.stage0Answers || {};
+  const s0 = ['q1', 'q2', 'q3', 'q4'].filter(k => a0[k] && String(a0[k]).trim()).length;
+  if (p === 'stage0') return s0;
+
+  // stage1: idx = number of questions completed so far on this pass
+  const s1 = (p === 'stage1') ? (state.stage1Idx || 0) : 10;
+  if (p === 'stage1') return 4 + s1;
+
+  // stage2
+  const s2 = (p === 'stage2') ? (state.stage2Idx || 0) : 3;
+  if (p === 'stage2') return 14 + s2;
+
+  // stage3 and beyond: use array lengths for completed stages
+  const s3 = (state.stage3Answers || []).length;
+  if (p === 'stage3') return 17 + s3;
+
+  const s4 = (state.stage4Answers || []).length;
+  if (p === 'stage4') return 17 + s3 + s4;
+
+  if (p === 'finalopen') return 17 + s3 + s4 + 1;
+
+  return 23;
 }
 
 function updateProgress() {
-  const pct = Math.round((currentStep() / totalSteps()) * 100);
-  document.getElementById('progress-bar').style.width = Math.min(pct, 100) + '%';
+  const wrap = document.getElementById('progress-bar-wrap');
+  const bar  = document.getElementById('progress-bar');
+  if (!wrap || !bar) return;
+  const p = state.phase;
+  if (p === 'welcome' || p === 'intake') {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+  const pct = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
+  bar.style.width = pct + '%';
 }
