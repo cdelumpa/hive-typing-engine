@@ -276,10 +276,10 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
       <!-- WHAT TO EXPLORE -->
       ${exploreHtml}
 
-      ${result.final_response && result.final_response.trim() ? `
+      ${(result.final_response && result.final_response.present && result.final_response.contextual_note) ? `
       <!-- YOUR FINAL RESPONSE -->
       ${SH('Your Final Response')}
-      <div style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${esc(result.final_response)}</div>
+      <div style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${esc(result.final_response.contextual_note)}</div>
       ` : ''}
 
       <!-- FOOTER -->
@@ -575,12 +575,12 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
           : ''
       }
 
-      ${result.final_response && result.final_response.trim() ? `
+      ${(result.final_response && result.final_response.present && result.final_response.contextual_note) ? `
       <!-- FINAL OPEN-ENDED RESPONSE -->
       ${SH('Final Open-Ended Response')}
       <div style="background:#FAF6F2;padding:14px 18px;border-radius:6px;border-left:4px solid ${ORANGE};margin:0 0 16px;">
         <div style="font-size:10px;font-weight:700;color:${ORANGE};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Final Open-Ended Response</div>
-        <div style="font-style:italic;color:#1A2B33;line-height:1.7;">${esc(result.final_response)}</div>
+        <div style="font-style:italic;color:#1A2B33;line-height:1.7;">${esc(result.final_response.contextual_note)}</div>
       </div>
       ` : ''}
 
