@@ -1367,8 +1367,12 @@ function renderConfirmation() {
 // ---- Final Open Question ----
 function renderFinalOpen() {
   const val = state.finalOpenResponse || '';
+  const pct = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="q-title">ANYTHING ELSE?</div>
+    <div class="progress-section">
+      <div class="progress-label">Completed</div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+    </div>
     <div class="q-text" style="margin-bottom:20px;">Is there anything about how you experience the world — what drives you, what you tend to avoid, or what you've learned about yourself — that the assessment didn't quite capture?</div>
     <p style="font-size:13px;color:var(--ink-lt);margin-bottom:16px;font-style:italic;">Optional — skip if nothing comes to mind.</p>
     <textarea class="text-input" id="finalopen-input" placeholder="Type your response here…" style="min-height:130px;">${esc(val)}</textarea>
@@ -1391,8 +1395,12 @@ function renderStage0() {
       <strong>How others describe you:</strong> ${esc(state.stage0Answers.q2 || '')}
     </div>` : '';
 
+  const pct0 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="q-title">${q.title}</div>
+    <div class="progress-section">
+      <div class="progress-label">Completed</div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct0}%"></div></div>
+    </div>
     <div class="q-text">${q.text}</div>
     ${refHtml}
     <textarea class="text-input" id="stage0-input" placeholder="Type your response here…">${esc(val)}</textarea>
@@ -1433,8 +1441,12 @@ function renderStage1() {
       <div class="rank-btn-group">${rankBtns(letter)}</div>
     </div>`;
 
+  const pct1 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="q-title">${q.title}</div>
+    <div class="progress-section">
+      <div class="progress-label">Completed</div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct1}%"></div></div>
+    </div>
     <div class="q-text">${q.text}</div>
     <p style="font-size:13px;color:var(--ink-lt);margin-bottom:16px;">Rank each from most like you <strong>(1st)</strong> to least like you <strong>(3rd)</strong>.</p>
     <div class="rank-options">
@@ -1461,8 +1473,12 @@ function renderStage2() {
       <div class="person-text">${esc(q.options[key])}</div>
     </div>`;
 
+  const pct2 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="q-title">${q.title}</div>
+    <div class="progress-section">
+      <div class="progress-label">Completed</div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct2}%"></div></div>
+    </div>
     <div class="q-text">${esc(q.text)}</div>
     <div class="person-options">
       ${optHtml('A')}
@@ -1512,8 +1528,12 @@ function renderStage3() {
   const totalQs = pair.mode === 'COUNTER-TYPE' ? 1 : (pair.hasAvoidance ? 2 : 1);
   const isLast = idx === totalQs - 1;
 
+  const pct3 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="q-title">${esc(subtitle)}</div>
+    <div class="progress-section">
+      <div class="progress-label">Completed</div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct3}%"></div></div>
+    </div>
     <div class="q-text">${esc(stem)}</div>
 
     <div class="person-options">
@@ -1589,8 +1609,12 @@ function renderStage4() {
     bodyHtml = render4WayOptions(block.personA, block.personB, sel);
   }
 
+  const pct4 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="q-title">${esc(subtitle)}</div>
+    <div class="progress-section">
+      <div class="progress-label">Completed</div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct4}%"></div></div>
+    </div>
     <div class="q-text">${esc(stem)}</div>
 
     <div class="person-options">
