@@ -30,16 +30,36 @@ body {
   flex-direction: column;
 }
 
+/* ---- Assessment Header ---- */
+#assessment-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 48px;
+  background: #fff;
+  border-bottom: 1px solid #D6E2E8;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  box-sizing: border-box;
+  z-index: 99;
+}
+#header-logo {
+  height: 28px;
+  width: auto;
+}
+
 /* ---- Progress Bar ---- */
 #progress-bar-wrap {
   position: fixed;
   top: 0; left: 0; right: 0;
-  height: 4px;
+  height: 8px;
   background: #EFE8E0;
   z-index: 100;
 }
 #progress-bar {
-  height: 100%;
+  height: 8px;
   background: #f58527;
   width: 0%;
   transition: width 0.3s ease;
@@ -51,7 +71,7 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 48px 20px 80px;
+  padding: 56px 20px 80px;
 }
 
 .screen {
@@ -703,6 +723,6 @@ body {
   .q-text { font-size: 17px; }
   .resonance-options { grid-template-columns: 1fr; }
   .scores-grid { grid-template-columns: 1fr; }
-  #app { padding: 36px 16px 60px; }
+  #app { padding: 56px 16px 60px; }
   .rank-btn-group { flex-wrap: wrap; }
 }

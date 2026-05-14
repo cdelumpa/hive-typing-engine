@@ -91,18 +91,18 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
   const instinctKey = (h.confirmed_instinct || '').toLowerCase();
 
   const SH = (title) =>
-    `<div class="report-sh" style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#00b1d7;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #00b1d7;">${esc(title)}</div>`;
+    `<div class="report-sh" style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#00b1d7;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #00b1d7;">${esc(title)}</div>`;
   const SUB = (title) =>
-    `<div style="font-size:10px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${esc(title)}</div>`;
+    `<div style="font-size:11px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${esc(title)}</div>`;
   const EVIDENCE = (text) =>
     text
-      ? `<div style="font-size:12px;color:#4A6070;font-style:italic;margin:0 0 14px;">In your responses: ${renderMultiPara(text, 'display:inline;')}</div>`
+      ? `<div style="font-size:14px;color:#4A6070;font-style:italic;margin:0 0 14px;">In your responses: ${renderMultiPara(text, 'display:inline;')}</div>`
       : '';
 
   const header = ambiguous
     ? `<div style="font-size:28px;font-weight:700;color:#00b1d7;line-height:1.2;margin-bottom:12px;">A Genuinely Complex Pattern</div>`
-    : `<div style="font-size:42px;font-weight:700;color:#00b1d7;line-height:1.1;margin-bottom:4px;">Type ${h.confirmed_type}</div>
-       <div style="font-size:20px;color:#4A6070;margin-bottom:12px;">${esc(typeName)}</div>`;
+    : `<div style="font-size:44px;font-weight:700;color:#00b1d7;line-height:1.1;margin-bottom:4px;">Type ${h.confirmed_type}</div>
+       <div style="font-size:22px;color:#4A6070;margin-bottom:12px;">${esc(typeName)}</div>`;
 
   const noteText = ambiguous
     ? `Your responses reflect a genuinely complex pattern — one that resonates with more than one Enneagram type in meaningful ways. This isn't a limitation of the assessment; it's an honest finding about you. Rather than offering a premature hypothesis, we'd like to invite you into a conversation with your Enneagram coach or practitioner where this complexity can be explored properly.`
@@ -167,11 +167,11 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
     exploreQuestions.length > 0
       ? `
     ${SH('What to Explore With Your Enneagram Coach or Practitioner')}
-    <p style="color:#4A6070;margin:0 0 10px;font-size:13px;">These questions are designed to help you get the most out of your work with a coach or practitioner. Take a moment to sit with each one before your session.</p>
+    <p style="color:#4A6070;margin:0 0 10px;font-size:15px;">These questions are designed to help you get the most out of your work with a coach or practitioner. Take a moment to sit with each one before your session.</p>
     ${exploreQuestions
       .map(
         (q, i) => `
-      <div style="padding:8px 14px;margin-bottom:6px;background:#F5F9FB;border-radius:4px;font-size:13px;display:flex;gap:10px;">
+      <div style="padding:8px 14px;margin-bottom:6px;background:#F5F9FB;border-radius:4px;font-size:15px;display:flex;gap:10px;">
         <span style="color:#00b1d7;font-weight:700;">${i + 1}.</span>
         <span>${esc(q)}</span>
       </div>`
@@ -181,7 +181,7 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
       : '';
 
   return `
-    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;">
+    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:15px;">
 
       <!-- HEADER -->
       <div style="text-align:center;padding-bottom:12px;margin-bottom:14px;">
@@ -306,9 +306,9 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
 
   const ORANGE = '#f58527';
   const SH = (title) =>
-    `<div class="report-sh" style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${ORANGE};margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid ${ORANGE};">${esc(title)}</div>`;
+    `<div class="report-sh" style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${ORANGE};margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid ${ORANGE};">${esc(title)}</div>`;
   const SUBH = (title) =>
-    `<div style="font-size:10px;font-weight:700;color:${ORANGE};text-transform:uppercase;letter-spacing:0.08em;margin:18px 0 8px;">${esc(title)}</div>`;
+    `<div style="font-size:11px;font-weight:700;color:${ORANGE};text-transform:uppercase;letter-spacing:0.08em;margin:18px 0 8px;">${esc(title)}</div>`;
   const PROBE = (text) =>
     text
       ? `<div style="background:#FAF6F2;padding:10px 14px;border-radius:4px;font-style:italic;color:#1A2B33;margin:6px 0;border-left:3px solid ${ORANGE};">${esc(text)}</div>`
@@ -335,7 +335,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
   const metaRow = (label, value, style) => `
     <div style="display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;border-bottom:1px solid #EFE8E0;">
       <span style="font-size:11px;color:#7A96A6;letter-spacing:0.05em;text-transform:uppercase;font-weight:700;">${esc(label)}</span>
-      <span style="font-size:14px;color:${style || '#1A2B33'};font-weight:600;">${value}</span>
+      <span style="font-size:15px;color:${style || '#1A2B33'};font-weight:600;">${value}</span>
     </div>`;
 
   const s1 = cr.section1 || {};
@@ -363,7 +363,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
       : pct >= 44
       ? 'background:#F5B988;'
       : 'background:#FBDDC2;';
-    return `<div style="display:grid;grid-template-columns:160px 1fr 60px;gap:10px;align-items:center;margin-bottom:10px;font-size:13px;">
+    return `<div style="display:grid;grid-template-columns:160px 1fr 60px;gap:10px;align-items:center;margin-bottom:10px;font-size:15px;">
       <span style="font-weight:${isId ? '700' : '600'};color:${isId ? ORANGE : '#1A2B33'};">${esc(name)} Center${isId ? ' ●' : ''}</span>
       <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#EFE8E0;border-radius:3px;height:14px;overflow:hidden;"><div style="${fillClass}height:100%;border-radius:3px;width:${pct}%;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div></div>
       <span style="color:#4A6070;font-size:12px;text-align:right;">${score} / ${totalCenter}</span>
@@ -382,7 +382,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
       ? 'background:#F5B988;'
       : 'background:#FBDDC2;';
     const label = { SP: 'Self-Preservation', SO: 'Social', SX: 'One-to-One' }[name] || name;
-    return `<div style="display:grid;grid-template-columns:160px 1fr 60px;gap:10px;align-items:center;margin-bottom:10px;font-size:13px;">
+    return `<div style="display:grid;grid-template-columns:160px 1fr 60px;gap:10px;align-items:center;margin-bottom:10px;font-size:15px;">
       <span style="font-weight:${isId ? '700' : '600'};color:${isId ? ORANGE : '#1A2B33'};">${esc(label)}${isId ? ' ●' : ''}</span>
       <div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#EFE8E0;border-radius:3px;height:14px;overflow:hidden;"><div style="${fillStyle}height:100%;border-radius:3px;width:${pct}%;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div></div>
       <span style="color:#4A6070;font-size:12px;text-align:right;">${score} / ${instinctTotal}</span>
@@ -415,7 +415,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
     .join('');
 
   return `
-    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:13px;">
+    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:15px;">
 
       <!-- HEADER -->
       <div style="text-align:center;padding-bottom:12px;margin-bottom:14px;">

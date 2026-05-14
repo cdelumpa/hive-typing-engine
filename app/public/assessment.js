@@ -1283,7 +1283,6 @@ function render() {
 // ---- Welcome ----
 function renderWelcome() {
   return `<div class="screen">
-    <div class="welcome-logo">Hive <span>· Enneagram Type Tool</span></div>
     <h1 class="welcome-heading">Discover your<br><strong>Enneagram type.</strong></h1>
     <p class="welcome-body">
       This assessment guides you through a series of questions about how you experience the world, what drives you, and what matters most to you. There are no right or wrong answers — simply respond as honestly as you can.<br><br>
@@ -1297,7 +1296,6 @@ function renderWelcome() {
 function renderIntake() {
   const i = state.intake || {};
   return `<div class="screen">
-    <div class="welcome-logo">Hive <span>· Enneagram Type Tool</span></div>
     <h1 class="welcome-heading" style="font-size:22px;margin-bottom:8px;">Before we begin</h1>
     <p class="welcome-body" style="margin-bottom:28px;">
       Please share a few details so we can send your personalized report to the right place.
@@ -1354,7 +1352,6 @@ function renderConfirmation() {
   return `<div class="screen" style="text-align:center;">
     <div style="margin:0 auto;max-width:480px;">
       <div style="font-size:42px;margin-bottom:16px;">✓</div>
-      <div class="welcome-logo" style="margin-bottom:16px;">Hive <span>· Enneagram Type Tool</span></div>
       <h1 style="font-family:Georgia,serif;font-size:26px;color:#00b1d7;font-weight:700;margin:0 0 12px;">Thank you, ${esc(firstName)}.</h1>
       <p style="font-family:Georgia,serif;font-size:16px;color:#1A2B33;margin:0 0 16px;line-height:1.7;">
         Your Hive Enneagram Report is on its way.
@@ -1614,15 +1611,15 @@ function render4WayOptions(personAText, personBText, sel) {
       <div class="person-label">Person A</div>
       <div class="person-text">${esc(personAText)}</div>
     </div>
+    <div class="person-option ${sel === 'B' ? 'selected' : ''}" data-choice="B">
+      <div class="person-label">Person B</div>
+      <div class="person-text">${esc(personBText)}</div>
+    </div>
     <div class="person-option ${sel === 'A-slight' ? 'selected' : ''}" data-choice="A-slight">
       <div class="person-label">Both, but more A</div>
     </div>
     <div class="person-option ${sel === 'B-slight' ? 'selected' : ''}" data-choice="B-slight">
       <div class="person-label">Both, but more B</div>
-    </div>
-    <div class="person-option ${sel === 'B' ? 'selected' : ''}" data-choice="B">
-      <div class="person-label">Person B</div>
-      <div class="person-text">${esc(personBText)}</div>
     </div>
   `;
 }
@@ -1783,8 +1780,6 @@ function renderStage1Complete() {
     : `<strong>Counter-type flag:</strong> NO`;
 
   return `<div class="screen">
-    <div class="results-logo">Hive · Enneagram Type Tool</div>
-
     <div class="section-heading">Stage 1 Complete</div>
     <p style="color:var(--ink-lt);font-size:14px;margin-bottom:24px;">
       Stages 2, 3, and 4 are under construction. The output below is what Stage 1
