@@ -1,12 +1,15 @@
 {
   "_meta": {
-    "name": "SP4 Self-Preservation Four — Stage 2/3 Divergence with Lookalike Ambiguity",
-    "description": "Self-Preservation Four. HIGH confidence. Stage 2 cross-reference points to Type 1; Stage 3 pairwise discrimination resolves to Type 4. Triggers stage2_stage3_divergence and lookalike_ambiguity flags. Section 6A (type confusion) should appear in coach report. Section 1A should NOT appear.",
+    "name": "SP4 Self-Preservation Four — Counter-Type Clean Confirmation",
+    "description": "Self-Preservation Four. HIGH confidence. Stage 1 canonical rankings: Heart center dominant (18/9/9), SP instinct dominant (18/12/6). Stage 1 flags SP-4 Tenacity counter-type. Stage 2 cross-reference lands cleanly on Type 4 (Withdrawn/Intensity/Frustration), confirming the counter-type and routing Stage 3 to CT mode (SP 4 vs Type 3). Stage 3 clean A — confirms Type 4. Stage 4 Option A confirms cleanly. Section 1A (counter-type) should appear in coach report. Section 6A should NOT appear.",
     "expected_type": 4,
     "expected_instinct": "SP",
     "expected_confidence": "HIGH",
-    "expected_flags": ["stage2_stage3_divergence", "lookalike_ambiguity"],
-    "expected_sections": ["section6a"]
+    "expected_flags": ["counter_type"],
+    "expected_sections": ["section1a"],
+    "expected_centerGap": 9,
+    "expected_instinctGap": 6,
+    "expected_final_response_classification": "EMPTY"
   },
   "coach": "Cai Delumpa",
   "final_open_response": "[none provided]",
@@ -17,53 +20,57 @@
     "q4": "envy — a persistent sense that others have something I lack, which can pull me away from what I actually have"
   },
   "stage1": {
-    "centers": { "Head": 7, "Heart": 18, "Body": 11 },
+    "centers": { "Head": 9, "Heart": 18, "Body": 9 },
     "identifiedCenter": "Heart",
-    "centerGap": 7,
+    "centerGap": 9,
     "centerConfidence": "HIGH",
     "secondCenter": null,
-    "instincts": { "SP": 18, "SX": 11, "SO": 7 },
+    "instincts": { "SP": 18, "SX": 12, "SO": 6 },
     "identifiedInstinct": "SP",
-    "instinctGap": 7,
+    "instinctGap": 6,
     "instinctConfidence": "HIGH",
-    "typeHypotheses": [4, 1, 5],
-    "counterTypeFlag": "NO",
-    "counterTypeCombination": null
+    "typeHypotheses": [2, 3, 4],
+    "counterTypeFlag": "YES",
+    "counterTypeCombination": "SP 4 Tenacity",
+    "counterTypeKey": "SP-4"
   },
   "stage2": {
-    "hornevian": "B",
-    "harmonic": "C",
+    "hornevian": "C",
+    "harmonic": "A",
     "objectRelations": "B",
-    "xrefPrimary": 1,
-    "xrefAlternative": 4,
-    "ambiguityAxis": "Stage 2 cross-referencing pointed toward Type 1 (Compliant, Competency, Frustration) rather than Type 4 (Withdrawn, Intensity, Frustration). SP Four and SP One are a well-documented lookalike pair: both are internally focused, self-critical, and driven by a felt gap between who they are and an internalized ideal. The Hornevian and Harmonic answers landed outside Type 4's expected profile, creating the divergence.",
-    "counterTypeModeTriggered": false
+    "xrefPrimary": 4,
+    "xrefAlternative": 2,
+    "ambiguityAxis": "All three Stage 2 frameworks land on Type 4's signature: Withdrawn (Hornevian), Intensity (Harmonic), Frustration (Object Relations). No competing type signal — Stage 2 cleanly confirms the SP-4 counter-type combination flagged in Stage 1.",
+    "counterTypeModeTriggered": true
   },
   "stage3": {
-    "mode": "STANDARD",
-    "pair": "Type 4 vs Type 1",
-    "ctAnswer": "N/A",
+    "mode": "COUNTER-TYPE",
+    "pair": "SP 4 vs. Type 3",
+    "pairKey": "SP-4",
+    "ctAnswer": "CLEAN",
+    "q1Result": "Person A clean (Type 4)",
+    "q2Result": "N/A",
     "leading": 4,
     "confidence": "HIGH"
   },
   "stage4": {
-    "path": "STANDARD",
+    "path": "COUNTER_TYPE_CONFIRMED",
     "option": "A",
     "leadType": 4,
     "secondType": null,
     "stressConfirmed": true,
     "securityConfirmed": true,
-    "habitConfirmed": true,
+    "habitConfirmed": null,
     "outcome": "CONFIRMED",
-    "stressDescription": "Under stress, Type 4 moves toward Type 2 territory — the client recognized an increase in seeking validation and attention from others, becoming more emotionally expressive and needy when under pressure. This matched Type 4's stress point cleanly.",
-    "securityDescription": "In ease, Type 4 moves toward Type 1 — the client recognized increased discipline, objectivity, and the ability to set aside personal feelings and act with principled focus when feeling safe and secure. This matched Type 4's security point cleanly.",
-    "habitDescription": "The client's habit of mind matched Type 4's attention pattern: scanning for what is missing or unavailable, comparing themselves unfavorably to others, and a persistent longing for something more authentic or complete."
+    "stressDescription": "Picked the canonical Type 4 answer — under stress the client moves toward Type 2 territory, becoming overly attentive to others' needs and setting aside their own, seeking appreciation in the process. This matched Type 4's stress point cleanly.",
+    "securityDescription": "Picked the canonical Type 4 answer — in ease the client moves toward Type 1, becoming more grounded, disciplined, and action-oriented, stopping the dwell on what's missing and starting to do with a clearer sense of what's right. This matched Type 4's security point cleanly.",
+    "habitDescription": "N/A — did not fire"
   },
   "mockScores": {
-    "head": 7,
+    "head": 9,
     "heart": 18,
-    "body": 11,
+    "body": 9,
     "identifiedCenter": "Heart",
-    "sortedInstincts": [["SP", 18], ["SX", 11], ["SO", 7]]
+    "sortedInstincts": [["SP", 18], ["SX", 12], ["SO", 6]]
   }
 }

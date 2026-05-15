@@ -35,41 +35,125 @@ const STAGE1_QUESTIONS = [
   {
     id: 'q1',
     type: 'centers',
-    title: 'PRIMARY CONCERN',
-    text: 'Rank the following concerns by how much they\u2019ve been a theme over the course of your life.',
+    title: 'SOMETHING WENT RIGHT',
+    text: 'Think about a time when things were going really well at work or in your personal life. Rank the following for what that experience was like.',
     options: {
-      a: 'Having a sense of control over my life and my environment.',
-      b: 'Being in life-affirming relationships.',
-      c: 'Knowing what might be coming next.',
+      a: 'I had the autonomy and ability to do things my way.',
+      b: 'The people around me had my back and I had theirs.',
+      c: 'Things went as I planned and the result was better than I imagined.',
     },
     mapping: { a: 'body', b: 'heart', c: 'head' },
   },
   {
     id: 'q2',
     type: 'instinct',
-    title: 'PRIMARY FOCUS',
-    text: 'Rank the following in terms of how much of your energy and attention gets directed towards them.',
+    title: 'MEETING SOMEONE NEW',
+    text: 'You\u2019re meeting a friend of a friend at a social event. Rank the following by what you become most curious about.',
     options: {
-      a: 'Material security and comfort.',
-      b: 'Belonging and navigating social landscapes.',
-      c: 'Intense connection \u2014 with people, ideas, or passions.',
+      a: 'Where they live and what they like to do.',
+      b: 'How they\u2019re connected to our mutual friend and this group.',
+      c: 'Whether there\u2019s a real connection to be had.',
     },
     mapping: { a: 'sp', b: 'so', c: 'sx' },
   },
   {
     id: 'q3',
     type: 'centers',
-    title: 'WHAT THEY WANT MOST',
-    text: 'Rank the following in terms of how they play a role in making your life worthwhile.',
+    title: 'AT YOUR BEST',
+    text: 'Think about a moment when you were at your best. Rank the following in terms of how much each contributed to that.',
     options: {
-      a: 'Making an impact in my work and my world.',
-      b: 'Having the admiration of others important to me.',
-      c: 'Feeling reassured that things will work out.',
+      a: 'I felt grounded and impactful.',
+      b: 'I felt seen and valued.',
+      c: 'I felt knowledgeable and prepared.',
     },
     mapping: { a: 'body', b: 'heart', c: 'head' },
   },
   {
     id: 'q4',
+    type: 'instinct',
+    title: 'WORST CASE',
+    text: 'What\u2019s the worst thing that could happen? Rank the following for what would rock your world the most.',
+    options: {
+      a: 'Losing my financial security and stability.',
+      b: 'Losing my community and sense of belonging.',
+      c: 'Losing a close relationship.',
+    },
+    mapping: { a: 'sp', b: 'so', c: 'sx' },
+  },
+  {
+    id: 'q5',
+    type: 'centers',
+    title: 'SITTING QUIETLY',
+    text: 'You\u2019re sitting quietly with nothing demanding your attention. Rank the following by where your mind most naturally drifts.',
+    options: {
+      a: 'Something in the present that isn\u2019t quite right and could be better.',
+      b: 'Something in the past you wish had gone differently.',
+      c: 'Something in the future you\u2019re looking forward to or thinking through.',
+    },
+    mapping: { a: 'body', b: 'heart', c: 'head' },
+  },
+  {
+    id: 'q6',
+    type: 'instinct',
+    title: 'NEW JOB',
+    text: 'You\u2019ve just started a new job and it\u2019s your first week. Rank the following by what would make you feel most comfortable right away.',
+    options: {
+      a: 'Making sure I have my work area set up the way I want it.',
+      b: 'Meeting \u2014 and sussing out \u2014 all of my co-workers.',
+      c: 'Finding one or two people I genuinely connect with.',
+    },
+    mapping: { a: 'sp', b: 'so', c: 'sx' },
+  },
+  {
+    id: 'q7',
+    type: 'centers',
+    title: 'FREE TIME',
+    text: 'A big meeting just got cancelled and you suddenly have a big chunk of free time. Rank the following in terms of what you naturally gravitate towards.',
+    options: {
+      a: 'I get busy doing something active or productive.',
+      b: 'I connect with someone or something meaningful.',
+      c: 'I sit down and plan for what\u2019s next.',
+    },
+    mapping: { a: 'body', b: 'heart', c: 'head' },
+  },
+  {
+    id: 'q8',
+    type: 'instinct',
+    title: 'RETURNING HOME',
+    text: 'You\u2019ve just returned home after two weeks away. Rank the following by what you find yourself doing first.',
+    options: {
+      a: 'Getting my space and routine back in order.',
+      b: 'Catching up on the latest in my social circle.',
+      c: 'Reconnecting with my significant other or best friend.',
+    },
+    mapping: { a: 'sp', b: 'so', c: 'sx' },
+  },
+  {
+    id: 'q9',
+    type: 'centers',
+    title: 'RESTRUCTURING',
+    text: 'You\u2019ve just learned that your organization is going through a significant restructuring that will affect your role. Rank the following by how closely each matches your immediate internal reaction.',
+    options: {
+      a: 'I feel a surge of resistance \u2014 this is not okay.',
+      b: 'My heart sinks with concern about my worth and place.',
+      c: 'I feel anxious about what this means for me.',
+    },
+    mapping: { a: 'body', b: 'heart', c: 'head' },
+  },
+  {
+    id: 'q10',
+    type: 'centers',
+    title: 'DECISION MAKING',
+    text: 'Recall a time when you had to choose between two equally important and viable options. Rank the following in terms of what played the biggest role in your decision-making.',
+    options: {
+      a: 'I trusted my gut.',
+      b: 'I followed my emotions.',
+      c: 'I considered all the facts and options.',
+    },
+    mapping: { a: 'body', b: 'heart', c: 'head' },
+  },
+  {
+    id: 'q11',
     type: 'instinct',
     title: 'HOW YOU RECHARGE',
     text: 'It\u2019s Sunday night and you\u2019re about to embark on a busy week. Rank the following in terms of how you prefer to spend your time.',
@@ -77,90 +161,6 @@ const STAGE1_QUESTIONS = [
       a: 'Laying low and taking it easy, making sure I have energy for the week ahead.',
       b: 'Getting together with friends for one last hurrah before the busy week starts.',
       c: 'Spending quality time with someone I care about.',
-    },
-    mapping: { a: 'sp', b: 'so', c: 'sx' },
-  },
-  {
-    id: 'q5',
-    type: 'centers',
-    title: 'WHAT THEY WANT MOST \u2014 VALIDATION',
-    text: 'Rank the following in terms of what would upset you the most.',
-    options: {
-      a: 'Feeling like I\u2019m being controlled by others.',
-      b: 'Feeling invisible to the people who matter to me.',
-      c: 'Feeling unprepared for potential adversity.',
-    },
-    mapping: { a: 'body', b: 'heart', c: 'head' },
-  },
-  {
-    id: 'q6',
-    type: 'instinct',
-    title: 'RELATIONAL STYLE',
-    text: 'Rank the following in terms of your relational style.',
-    options: {
-      a: 'I prefer a small, carefully chosen circle.',
-      b: 'I move naturally toward groups.',
-      c: 'I\u2019m drawn to intense, deep connection.',
-    },
-    mapping: { a: 'sp', b: 'so', c: 'sx' },
-  },
-  {
-    id: 'q7',
-    type: 'centers',
-    title: 'DRIVING EMOTION',
-    text: 'Rank the following emotions by how aware you are of their presence in your everyday life.',
-    options: {
-      a: 'Anger',
-      b: 'Shame',
-      c: 'Fear',
-    },
-    mapping: { a: 'body', b: 'heart', c: 'head' },
-  },
-  {
-    id: 'q8',
-    type: 'instinct',
-    title: 'WHAT YOU MOST NEED',
-    text: 'Rank the following in terms of what you most need to feel okay.',
-    options: {
-      a: 'A sense that my basic needs and personal world are taken care of.',
-      b: 'A sense of belonging and knowing where I stand in the groups that matter to me.',
-      c: 'A sense of aliveness and intensity in what matters most to me.',
-    },
-    mapping: { a: 'sp', b: 'so', c: 'sx' },
-  },
-  {
-    id: 'q9',
-    type: 'centers',
-    title: 'DRIVING EMOTION \u2014 VALIDATION',
-    text: 'You\u2019ve just received unexpected critical feedback from someone whose opinion matters to you. Rank the following by how closely each matches your immediate internal experience.',
-    options: {
-      a: 'I feel the urge to dig in or push back.',
-      b: 'I feel sad that I haven\u2019t lived up to their expectations.',
-      c: 'I worry about how I\u2019ll be impacted as a result of this feedback.',
-    },
-    mapping: { a: 'body', b: 'heart', c: 'head' },
-  },
-  {
-    id: 'q10',
-    type: 'centers',
-    title: 'LEAD WITH',
-    text: 'Rank the following in terms of how you tend to sense and make sense of the world.',
-    options: {
-      a: 'Gut instinct/intuition',
-      b: 'Emotions/feelings',
-      c: 'Ideas/analysis',
-    },
-    mapping: { a: 'body', b: 'heart', c: 'head' },
-  },
-  {
-    id: 'q11',
-    type: 'instinct',
-    title: 'WHAT FEELS MOST THREATENING',
-    text: 'Rank the following in terms of how threatening each would feel to your sense of wellbeing.',
-    options: {
-      a: 'Feeling like my personal security and resources are at risk.',
-      b: 'Feeling like I no longer belong in the groups that matter to me.',
-      c: 'Feeling disconnected from the people or things that make life feel alive.',
     },
     mapping: { a: 'sp', b: 'so', c: 'sx' },
   },
@@ -657,7 +657,7 @@ function computeStage1Scores() {
   const sortedInstincts = Object.entries(instinctScores).sort((a, b) => b[1] - a[1]);
   const identifiedInstinct = sortedInstincts[0][0];
   const instinctGap = sortedInstincts[0][1] - sortedInstincts[1][1];
-  const instinctConfidence = instinctGap >= 6 ? 'HIGH' : instinctGap >= 3 ? 'MEDIUM' : 'LOW';
+  const instinctConfidence = instinctGap >= 4 ? 'HIGH' : instinctGap >= 2 ? 'MEDIUM' : 'LOW';
 
   // Three type hypotheses (fixed Center order: Body 8,9,1 / Heart 2,3,4 / Head 5,6,7).
   // On LOW Center confidence: primary[0], secondary[0], primary[1] — top of each
@@ -1207,10 +1207,10 @@ Gap to next Center: ${s.centerGap} points
 Center confidence: ${s.centerConfidence}
 ${secondCenterLine}
 Stage 1 — Instinct Scoring
-Maximum per Instinct: 18. Confidence: HIGH = gap 6+, MEDIUM = gap 3-5, LOW = gap 0-2.
-SP total: ${s.sp} / 12
-SO total: ${s.so} / 12
-SX total: ${s.sx} / 12
+Maximum per Instinct: 18. Confidence: HIGH = gap 4+, MEDIUM = gap 2-3, LOW = gap 0-1.
+SP total: ${s.sp} / 18
+SO total: ${s.so} / 18
+SX total: ${s.sx} / 18
 Identified Instinct: ${s.identifiedInstinct}
 Gap to next Instinct: ${s.instinctGap} points
 Instinct confidence: ${s.instinctConfidence}

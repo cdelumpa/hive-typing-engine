@@ -121,10 +121,10 @@ Gap to next Center: ${s1.centerGap} points
 Center confidence: ${s1.centerConfidence}
 ${secondCenterLine}
 Stage 1 — Instinct Scoring
-Maximum per Instinct: 12. Confidence: HIGH = gap 4+, MEDIUM = gap 2-3, LOW = gap 0-1.
-SP total: ${s1.instincts.SP} / 12
-SO total: ${s1.instincts.SO} / 12
-SX total: ${s1.instincts.SX} / 12
+Maximum per Instinct: 18. Confidence: HIGH = gap 4+, MEDIUM = gap 2-3, LOW = gap 0-1.
+SP total: ${s1.instincts.SP} / 18
+SO total: ${s1.instincts.SO} / 18
+SX total: ${s1.instincts.SX} / 18
 Identified Instinct: ${s1.identifiedInstinct}
 Gap to next Instinct: ${s1.instinctGap} points
 Instinct confidence: ${s1.instinctConfidence}

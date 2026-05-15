@@ -1,12 +1,14 @@
 {
   "_meta": {
     "name": "SX7 Sexual Seven — Clean Confirmation",
-    "description": "Sexual Seven. HIGH confidence. Stage 2 cross-reference cleanly confirms Type 7; Stage 3 and Stage 4 confirm without ambiguity. No counter-type, no type confusion. Section 1A and Section 6A should NOT appear.",
+    "description": "Sexual Seven. HIGH confidence. Stage 1 canonical rankings: Head center dominant (18/12/6), SX instinct dominant (18/12/6). No counter-type flag. Stage 2 cross-reference cleanly confirms Type 7 (Assertive/Positive/Frustration). Stage 3 Standard mode resolves to Type 7. Stage 4 Option A confirms cleanly. No counter-type, no type confusion. Section 1A and Section 6A should NOT appear.",
     "expected_type": 7,
     "expected_instinct": "SX",
     "expected_confidence": "HIGH",
     "expected_flags": [],
     "expected_sections": [],
+    "expected_centerGap": 6,
+    "expected_instinctGap": 6,
     "expected_final_response_classification": "EMPTY"
   },
   "coach": "Cai Delumpa",
@@ -18,32 +20,36 @@
     "q4": "I avoid discomfort and difficult emotions — I reframe or escape rather than sitting with what's hard"
   },
   "stage1": {
-    "centers": { "Head": 15, "Heart": 10, "Body": 8 },
+    "centers": { "Head": 18, "Heart": 6, "Body": 12 },
     "identifiedCenter": "Head",
-    "centerGap": 5,
+    "centerGap": 6,
     "centerConfidence": "HIGH",
     "secondCenter": null,
-    "instincts": { "SX": 15, "SP": 9, "SO": 6 },
+    "instincts": { "SX": 18, "SP": 6, "SO": 12 },
     "identifiedInstinct": "SX",
     "instinctGap": 6,
     "instinctConfidence": "HIGH",
-    "typeHypotheses": [7, 3, 2],
+    "typeHypotheses": [5, 6, 7],
     "counterTypeFlag": "NO",
-    "counterTypeCombination": null
+    "counterTypeCombination": null,
+    "counterTypeKey": null
   },
   "stage2": {
     "hornevian": "A",
     "harmonic": "B",
     "objectRelations": "B",
     "xrefPrimary": 7,
-    "xrefAlternative": 3,
-    "ambiguityAxis": "Type 7 and Type 3 both score Assertive on Hornevian, but diverge on Harmonic (Positive Outlook vs Competency) and Object Relations (Frustration vs Attachment). All three Stage 2 answers align with Type 7's profile; Type 3 partially overlaps only on Hornevian.",
+    "xrefAlternative": 5,
+    "ambiguityAxis": "All three Stage 2 frameworks land on Type 7's signature: Assertive (Hornevian), Positive (Harmonic), Frustration (Object Relations). Types 5 and 6 do not overlap on any framework — clean Type 7 cross-reference confirmation.",
     "counterTypeModeTriggered": false
   },
   "stage3": {
     "mode": "STANDARD",
-    "pair": "Type 7 vs Type 3",
+    "pair": "Type 5 vs Type 7",
+    "pairKey": "5-7",
     "ctAnswer": "N/A",
+    "q1Result": "Person B clean (Type 7)",
+    "q2Result": "N/A",
     "leading": 7,
     "confidence": "HIGH"
   },
@@ -54,17 +60,17 @@
     "secondType": null,
     "stressConfirmed": true,
     "securityConfirmed": true,
-    "habitConfirmed": true,
+    "habitConfirmed": null,
     "outcome": "CONFIRMED",
-    "stressDescription": "Under stress, Type 7 moves toward Type 1 territory — the client recognized becoming more critical, perfectionistic, and rigid when under pressure, losing their usual flexibility and optimism. This matched Type 7's stress point cleanly.",
-    "securityDescription": "In ease, Type 7 moves toward Type 5 — the client recognized becoming more focused, quiet, and capable of sustained depth when feeling safe, able to stay with one thing rather than jumping to the next. This matched Type 7's security point cleanly.",
-    "habitDescription": "The client's habit of mind matched Type 7's attention pattern: mentally planning future pleasures and possibilities, reframing difficulty into opportunity, and maintaining a forward-looking orientation to keep options open and pain at bay."
+    "stressDescription": "Picked the canonical Type 7 answer — under stress the client moves toward Type 1 territory, becoming more critical, perfectionistic, and rigid, losing their usual flexibility and optimism. This matched Type 7's stress point cleanly.",
+    "securityDescription": "Picked the canonical Type 7 answer — in ease the client moves toward Type 5, becoming more focused, quiet, and capable of sustained depth when feeling safe, able to stay with one thing rather than jumping to the next. This matched Type 7's security point cleanly.",
+    "habitDescription": "N/A — did not fire"
   },
   "mockScores": {
-    "head": 15,
-    "heart": 10,
-    "body": 8,
+    "head": 18,
+    "heart": 6,
+    "body": 12,
     "identifiedCenter": "Head",
-    "sortedInstincts": [["SX", 15], ["SP", 9], ["SO", 6]]
+    "sortedInstincts": [["SX", 18], ["SO", 12], ["SP", 6]]
   }
 }

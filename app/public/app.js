@@ -24,6 +24,15 @@ Object Relations (Life Theme): Attachment (3, 6, 9) / Frustration (1, 4, 7) / Re
 
 Every type has a unique three-framework signature. No two types share the same combination.
 
+STAGE 1 INSTRUMENT — How To Read These Scores
+Stage 1 consists of 12 forced-rank questions: 6 Centers (Body / Heart / Head) and 6 Instincts (SP / SO / SX). Every question presents a concrete scenario or moment and asks the client to rank three responses from most to least like them. This is by design — the questions are NOT reflective self-categorization asking the client to choose which Center or Instinct they belong to. They surface involuntary responses to specific situations, which tend to be more diagnostic of structure than abstract self-description. Rank 1 = 3pts, Rank 2 = 2pts, Rank 3 = 1pt. Each option maps to one Center or one Instinct via a fixed letter→dimension mapping per question.
+
+Centers questions (6 total — titles: SOMETHING WENT RIGHT, AT YOUR BEST, SITTING QUIETLY, FREE TIME, RESTRUCTURING, DECISION MAKING) surface where the client lives by default — what shows up when they're at their best, where the mind drifts at rest, what fires first under threat, how they make decisions. Read the Centers score as a structural signal about which intelligence center the client habitually operates from, not as a self-report of which center they identify with.
+
+Instincts questions (6 total — titles: MEETING SOMEONE NEW, WORST CASE, NEW JOB, RETURNING HOME, HOW YOU RECHARGE, YOUR FIRST MOVE) surface where attention and energy go in everyday moments — meeting new people, returning home, recharging, arriving at a gathering, scanning for what could go wrong. Read the Instinct score as the dominant survival-strategy lens (Self-Preservation / Social / Sexual) the client filters experience through, not as a self-report of identification.
+
+Because the questions are scenario-based and surface involuntary patterns, scores can occasionally diverge from how the client would describe themselves abstractly. That divergence is a feature, not a bug, and is one of the inputs you should weigh when reading the full picture alongside Stage 0 language and the Stage 2 cross-referencing result.
+
 Counter-Types
 Counter-types present differently from their type's standard description:
 SP 3 (Anti-Vanity): humble, hardworking, downplays image — looks like 1

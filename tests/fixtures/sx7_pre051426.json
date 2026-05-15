@@ -1,0 +1,70 @@
+{
+  "_meta": {
+    "name": "SX7 Sexual Seven — Clean Confirmation",
+    "description": "Sexual Seven. HIGH confidence. Stage 2 cross-reference cleanly confirms Type 7; Stage 3 and Stage 4 confirm without ambiguity. No counter-type, no type confusion. Section 1A and Section 6A should NOT appear.",
+    "expected_type": 7,
+    "expected_instinct": "SX",
+    "expected_confidence": "HIGH",
+    "expected_flags": [],
+    "expected_sections": [],
+    "expected_final_response_classification": "EMPTY"
+  },
+  "coach": "Cai Delumpa",
+  "final_open_response": "[none provided]",
+  "stage0": {
+    "q1": "enthusiastic, curious, always chasing what's interesting — I love deep conversations and exploring ideas with people I find genuinely fascinating",
+    "q2": "fun, energetic, a bit scattered, good at starting things and inspiring others but not always at following through",
+    "q3": "seeing possibilities everywhere and getting the people I care about excited about them",
+    "q4": "I avoid discomfort and difficult emotions — I reframe or escape rather than sitting with what's hard"
+  },
+  "stage1": {
+    "centers": { "Head": 15, "Heart": 10, "Body": 8 },
+    "identifiedCenter": "Head",
+    "centerGap": 5,
+    "centerConfidence": "HIGH",
+    "secondCenter": null,
+    "instincts": { "SX": 15, "SP": 9, "SO": 6 },
+    "identifiedInstinct": "SX",
+    "instinctGap": 6,
+    "instinctConfidence": "HIGH",
+    "typeHypotheses": [7, 3, 2],
+    "counterTypeFlag": "NO",
+    "counterTypeCombination": null
+  },
+  "stage2": {
+    "hornevian": "A",
+    "harmonic": "B",
+    "objectRelations": "B",
+    "xrefPrimary": 7,
+    "xrefAlternative": 3,
+    "ambiguityAxis": "Type 7 and Type 3 both score Assertive on Hornevian, but diverge on Harmonic (Positive Outlook vs Competency) and Object Relations (Frustration vs Attachment). All three Stage 2 answers align with Type 7's profile; Type 3 partially overlaps only on Hornevian.",
+    "counterTypeModeTriggered": false
+  },
+  "stage3": {
+    "mode": "STANDARD",
+    "pair": "Type 7 vs Type 3",
+    "ctAnswer": "N/A",
+    "leading": 7,
+    "confidence": "HIGH"
+  },
+  "stage4": {
+    "path": "STANDARD",
+    "option": "A",
+    "leadType": 7,
+    "secondType": null,
+    "stressConfirmed": true,
+    "securityConfirmed": true,
+    "habitConfirmed": true,
+    "outcome": "CONFIRMED",
+    "stressDescription": "Under stress, Type 7 moves toward Type 1 territory — the client recognized becoming more critical, perfectionistic, and rigid when under pressure, losing their usual flexibility and optimism. This matched Type 7's stress point cleanly.",
+    "securityDescription": "In ease, Type 7 moves toward Type 5 — the client recognized becoming more focused, quiet, and capable of sustained depth when feeling safe, able to stay with one thing rather than jumping to the next. This matched Type 7's security point cleanly.",
+    "habitDescription": "The client's habit of mind matched Type 7's attention pattern: mentally planning future pleasures and possibilities, reframing difficulty into opportunity, and maintaining a forward-looking orientation to keep options open and pain at bay."
+  },
+  "mockScores": {
+    "head": 15,
+    "heart": 10,
+    "body": 8,
+    "identifiedCenter": "Head",
+    "sortedInstincts": [["SX", 15], ["SP", 9], ["SO", 6]]
+  }
+}
