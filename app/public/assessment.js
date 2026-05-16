@@ -1148,23 +1148,30 @@ function shuffleIndices(n) {
   return arr;
 }
 
-// Builds the Stage 0 Language Analysis block + (when relevant) the Counter-Type
-// Flag Active cross-reference instruction. Returns the empty string when there
-// is nothing to inject. The leading newline keeps spacing consistent with the
-// surrounding template.
-function buildStage0SignalBlock(s, signal) {
+// Builds the Stage 0 Language Analysis + Counter-Type adjustment / cross-reference
+// blocks. Returns three strings keyed by role so the caller controls assembly
+// order. Each returned string already includes its leading/trailing newlines so
+// joining with the rest of the context preserves spacing. Empty strings when
+// the corresponding state isn't present.
+//
+// Spec ordering (Patch — fixes JSON priming regression): Stage 0 language
+// analysis → CT adjustment → CT cross-reference instruction. The CT adjustment
+// must come BEFORE the cross-reference instruction so the model knows the
+// hypothesis list was already revised before being asked to cross-check it.
+function buildStage0SignalParts(s, signal) {
   const ctActive = s && s.counterTypeFlag === 'YES';
   const ctKey = (s && s.counterTypeKey) || '';
   const hasSignal = Array.isArray(signal) && signal.length > 0;
   const ctAdj = state.ctAdjustment;
   const ctAdjMade = !!(ctAdj && ctAdj.adjustment_made && Array.isArray(ctAdj.revised_hypotheses));
 
-  if (!hasSignal && !ctActive && !ctAdjMade) return '';
+  let stage0SignalText = '';
+  let ctAdjustmentText = '';
+  let ctCrossRefText = '';
 
-  let block = '';
   if (hasSignal) {
     const lines = signal.slice(0, 3).map(s0 => `Type ${s0.type} — ${s0.rationale}`).join('\n');
-    block += `\nSTAGE 0 LANGUAGE ANALYSIS
+    stage0SignalText = `\nSTAGE 0 LANGUAGE ANALYSIS
 The following types were identified as most consistent with the client's open-ended self-description responses, in order of likelihood:
 
 ${lines}
@@ -1172,31 +1179,47 @@ ${lines}
 Note: This is a soft signal derived from unstructured language. Weight it appropriately — it informs but does not determine the hypothesis.\n`;
   }
 
-  if (ctActive) {
-    if (hasSignal) {
-      block += `
-COUNTER-TYPE FLAG ACTIVE: ${ctKey}
-The scoring pattern is consistent with a known counter-type combination. Cross-reference the Stage 0 language analysis above before confirming this hypothesis. If the Stage 0 signal includes the expected counter-type's base type in the top 2, treat the CT hypothesis as supported. If the expected type is absent from the Stage 0 signal, flag this for coach review in the coach note.\n`;
-    } else {
-      block += `
-COUNTER-TYPE FLAG ACTIVE: ${ctKey}
-The scoring pattern is consistent with a known counter-type combination.\n`;
-    }
-  }
-
   if (ctAdjMade) {
-    block += `
+    ctAdjustmentText = `
 COUNTER-TYPE HYPOTHESIS ADJUSTMENT
 After cross-referencing Stage 0 language signal with Stage 1 scores, the hypothesis list was revised:
 Revised primary type: ${ctAdj.revised_hypotheses[0]}
 Rationale: ${ctAdj.rationale}\n`;
   }
 
-  return block;
+  if (ctActive) {
+    if (hasSignal) {
+      ctCrossRefText = `
+COUNTER-TYPE FLAG ACTIVE: ${ctKey}
+The scoring pattern is consistent with a known counter-type combination. Cross-reference the Stage 0 language analysis above before confirming this hypothesis. If the Stage 0 signal includes the expected counter-type's base type in the top 2, treat the CT hypothesis as supported. If the expected type is absent from the Stage 0 signal, flag this for coach review in the coach note.\n`;
+    } else {
+      ctCrossRefText = `
+COUNTER-TYPE FLAG ACTIVE: ${ctKey}
+The scoring pattern is consistent with a known counter-type combination.\n`;
+    }
+  }
+
+  return { stage0SignalText, ctAdjustmentText, ctCrossRefText };
 }
 
 // Serializes the full Stage 0/1/2/3/4 state into the v2 context block format
-// the AI expects. Each section mirrors the {{variable}} slots in the spec.
+// the AI expects. Assembles named parts into an array, then joins — this keeps
+// optional injection sites explicit and prevents accidental insertion of
+// content after the final block. The OUTPUT_FORMAT JSON-priming block is
+// appended by the caller (callAPI), never by this function.
+//
+// Block order (Patch — fixes JSON priming regression caused by mis-ordered
+// optional blocks):
+//   1. Client information + Stage 0 raw responses
+//   2. Stage 0 language analysis (optional, from mid-assessment mini-call)
+//   3. Counter-type hypothesis adjustment (optional, from CT mini-call)
+//   4. Counter-type cross-reference instruction (optional, when CT flag active)
+//   5. Stage 1 — Centers, Instincts, Type Hypotheses (+ CT flag line)
+//   6. Stage 2 — Cross-referencing results (+ optional cross-center divergence)
+//   7. Stage 3 — Pairwise discrimination results
+//   8. Stage 4 — Confirmation results + answer details
+//   9. Final open response (if provided)
+// OUTPUT_FORMAT is then appended last, unconditionally, in callAPI.
 function buildContextBlock(s) {
   const a0 = state.stage0Answers;
   const s2 = s.stage2;
@@ -1221,12 +1244,8 @@ function buildContextBlock(s) {
     ? `Second candidate tested: Type ${s4.secondType}\n`
     : '';
 
-  // Stage 0 Language Analysis block — built from the mid-assessment mini-call.
-  // Sits between Stage 0 responses and Stage 1 scores. When a counter-type flag
-  // is active, append a cross-reference instruction so the main model checks
-  // the soft signal against the CT hypothesis. If the signal is null, only the
-  // CT flag header is included (no cross-reference instruction).
-  const stage0SignalBlock = buildStage0SignalBlock(s, state.stage0_signal);
+  const { stage0SignalText, ctAdjustmentText, ctCrossRefText } =
+    buildStage0SignalParts(s, state.stage0_signal);
 
   const intake = state.intake || {};
   const clientName = [intake.firstName, intake.lastName].filter(Boolean).join(' ') || 'Not provided';
@@ -1236,7 +1255,7 @@ function buildContextBlock(s) {
     ? `"${state.finalOpenResponse.trim()}"`
     : '[none provided]';
 
-  return `CLIENT INFORMATION
+  const header = `CLIENT INFORMATION
 ==================
 Name: ${clientName}
 Organization: ${clientOrg}
@@ -1249,9 +1268,9 @@ Stage 0 — Open Text Responses
 Self-description (client's own words): "${a0.q1 || 'not provided'}"
 How others describe them: "${a0.q2 || 'not provided'}"
 Greatest strength: "${a0.q3 || 'not provided'}"
-Most problematic quality: "${a0.q4 || 'not provided'}"
-${stage0SignalBlock}
-Stage 1 — Centers Scoring
+Most problematic quality: "${a0.q4 || 'not provided'}"`;
+
+  const stage1Block = `Stage 1 — Centers Scoring
 Scoring: Rank 1 = 3pts, Rank 2 = 2pts, Rank 3 = 1pt. Maximum per Center: 18. Confidence: HIGH = gap 5+, MEDIUM = gap 3-4, LOW = gap 0-2.
 Head Center total: ${s.head} / 18
 Heart Center total: ${s.heart} / 18
@@ -1271,9 +1290,9 @@ Instinct confidence: ${s.instinctConfidence}
 
 Stage 1 — Type Hypotheses
 Three type hypotheses from Stage 1: Type ${s.typeHypotheses[0]}, Type ${s.typeHypotheses[1]}, Type ${s.typeHypotheses[2]}
-${ctStage1Line}
+${ctStage1Line}`;
 
-Stage 2 — Cross-Referencing Results
+  const stage2Block = `Stage 2 — Cross-Referencing Results
 Q1 Hornevian answer: ${s2.answers[0]} (${STAGE2_BUCKET_LABELS.Hornevian[s2.answers[0]]})
 Q2 Harmonic answer: ${s2.answers[1]} (${STAGE2_BUCKET_LABELS.Harmonic[s2.answers[1]]})
 Q3 Object Relations answer: ${s2.answers[2]} (${STAGE2_BUCKET_LABELS.ObjectRelations[s2.answers[2]]})
@@ -1281,18 +1300,18 @@ Q3 Object Relations answer: ${s2.answers[2]} (${STAGE2_BUCKET_LABELS.ObjectRelat
 Cross-referencing primary hypothesis: Type ${s2.xrefPrimary}
 Cross-referencing live alternative: Type ${s2.xrefAlternative}
 Ambiguity axis: ${s2.xrefAmbiguityAxis}
-Counter-type mode triggered: ${s2.xrefCounterType}${crossCenterBlock}
+Counter-type mode triggered: ${s2.xrefCounterType}${crossCenterBlock}`;
 
-Stage 3 — Pairwise Discrimination Results
+  const stage3Block = `Stage 3 — Pairwise Discrimination Results
 Mode: ${s3.mode}
 Pair tested: ${s3.pair}
 Q1 Core Motivation result: ${s3.q1Result}
 Q2 Avoidance result: ${s3.q2Result}
 Stage 3 leading hypothesis: Type ${s3.leading}
 Stage 3 confidence: ${s3.confidence}
-Counter-type mode answer: ${s3.ctAnswer}
+Counter-type mode answer: ${s3.ctAnswer}`;
 
-Stage 4 — Confirmation Results
+  const stage4Block = `Stage 4 — Confirmation Results
 Path: ${s4.path}
 Option: ${s4.option}
 Lead type tested: Type ${s4.leadType}
@@ -1304,9 +1323,25 @@ Stage 4 outcome: ${s4.outcome}
 Stage 4 — Answer Details (use for stress_point_description / security_point_description / habit_of_mind_description)
 Stress: ${s4.stressDescription || 'not provided'}
 Security: ${s4.securityDescription || 'not provided'}
-Habit of Mind: ${s4.habitDescription || 'N/A — did not fire'}
+Habit of Mind: ${s4.habitDescription || 'N/A — did not fire'}`;
 
-Final open response (optional): ${finalOpen}`;
+  const finalOpenBlock = `Final open response (optional): ${finalOpen}`;
+
+  // Assemble in strict order. Optional blocks are filtered out when empty so
+  // they leave no trailing whitespace artifacts.
+  const parts = [
+    header,
+    stage0SignalText,
+    ctAdjustmentText,
+    ctCrossRefText,
+    stage1Block,
+    stage2Block,
+    stage3Block,
+    stage4Block,
+    finalOpenBlock,
+  ].filter(p => p && p.trim().length > 0);
+
+  return parts.join('\n\n');
 }
 // =================== RENDER ===================
 

@@ -646,6 +646,16 @@ async function callAPI() {
   const s = state.scores;
   const contextBlock = buildContextBlock(s);
   const systemPrompt = `${SYSTEM_PROMPT}\n\n${TASK_INSTRUCTIONS}`;
+
+  // CRITICAL: OUTPUT_FORMAT must be the ABSOLUTE LAST content in the user
+  // message — it's the JSON-priming signal that tells the model to start its
+  // response with `{`. Any block appended after OUTPUT_FORMAT (Stage 0 signal,
+  // CT adjustment, etc.) breaks the priming and the model returns prose
+  // ("I'll work through..."), causing a JSON parse failure on the server.
+  // buildContextBlock is responsible for assembling every other block in spec
+  // order; this line appends OUTPUT_FORMAT unconditionally. Do not move
+  // OUTPUT_FORMAT into the cached system block — caching it kills the priming
+  // effect for the same reason.
   const userMessage = `${contextBlock}\n\n${OUTPUT_FORMAT}`;
 
   try {
