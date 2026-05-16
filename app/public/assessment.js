@@ -1156,8 +1156,10 @@ function buildStage0SignalBlock(s, signal) {
   const ctActive = s && s.counterTypeFlag === 'YES';
   const ctKey = (s && s.counterTypeKey) || '';
   const hasSignal = Array.isArray(signal) && signal.length > 0;
+  const ctAdj = state.ctAdjustment;
+  const ctAdjMade = !!(ctAdj && ctAdj.adjustment_made && Array.isArray(ctAdj.revised_hypotheses));
 
-  if (!hasSignal && !ctActive) return '';
+  if (!hasSignal && !ctActive && !ctAdjMade) return '';
 
   let block = '';
   if (hasSignal) {
@@ -1180,6 +1182,14 @@ The scoring pattern is consistent with a known counter-type combination. Cross-r
 COUNTER-TYPE FLAG ACTIVE: ${ctKey}
 The scoring pattern is consistent with a known counter-type combination.\n`;
     }
+  }
+
+  if (ctAdjMade) {
+    block += `
+COUNTER-TYPE HYPOTHESIS ADJUSTMENT
+After cross-referencing Stage 0 language signal with Stage 1 scores, the hypothesis list was revised:
+Revised primary type: ${ctAdj.revised_hypotheses[0]}
+Rationale: ${ctAdj.rationale}\n`;
   }
 
   return block;
@@ -1310,6 +1320,7 @@ function render() {
     case 'stage0':         app.innerHTML = renderStage0(); break;
     case 'mid-assessment-reminders': app.innerHTML = renderMidAssessmentReminders(); break;
     case 'stage1':         app.innerHTML = renderStage1(); break;
+    case 'ct-analyzing':   app.innerHTML = renderCtAnalyzing(); break;
     case 'stage2':         app.innerHTML = renderStage2(); break;
     case 'stage3':         app.innerHTML = renderStage3(); break;
     case 'stage4':         app.innerHTML = renderStage4(); break;
@@ -1479,6 +1490,26 @@ function renderMidAssessmentReminders() {
       <button class="btn btn-ghost" id="btn-mid-back">Go Back</button>
       <div class="spacer"></div>
       <button class="btn btn-primary" id="btn-mid-continue">Continue</button>
+    </div>
+  </div>`;
+}
+
+// ---- CT Analyzing Transition ----
+// Fires between Stage 1 and Stage 2 only when a CT flag was raised in Stage 1.
+// Provides latency cover for the CT mini-call, which runs in the background
+// from attachHandlers. Auto-advances to Stage 2 on success or after the
+// 8-second timeout. The progress bar reflects Stage 1 completion (14/23).
+function renderCtAnalyzing() {
+  const pctCt = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
+  return `<div class="screen">
+    <div class="progress-section">
+      <div class="progress-label">Completed</div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pctCt}%"></div></div>
+    </div>
+    <div class="processing-wrap">
+      <div class="spinner"></div>
+      <div class="processing-heading">Analyzing your responses…</div>
+      <div class="processing-sub">Thanks for your patience — we’re preparing your next set of questions.</div>
     </div>
   </div>`;
 }
@@ -2571,6 +2602,7 @@ function attachHandlers() {
       finalOpenResponse: '',
       stage0Idx: 0, stage0Answers: {},
       stage0_signal: null, stage0LastSnapshot: null,
+      ctAdjustment: null, ctLastSnapshot: null,
       stage1Idx: 0, stage1Rankings: [],
       stage2Idx: 0, stage2Answers: [],
       stage3Mode: null, stage3Idx: 0, stage3Answers: [],
@@ -2720,14 +2752,94 @@ function attachHandlers() {
         state.stage1Idx++;
         render();
       } else {
-        // Done with Stage 1 — compute scores and advance to Stage 2.
+        // Done with Stage 1 — compute scores. If a CT flag is active, route
+        // through the 'ct-analyzing' transition screen so the mini-call can
+        // refine the hypothesis list before Stage 2 renders. Otherwise jump
+        // straight to Stage 2 as normal.
         state.scores = computeStage1Scores();
         console.log('=== STAGE 1 OUTPUT ===', state.scores);
+        if (state.scores.counterTypeFlag === 'YES') {
+          state.phase = 'ct-analyzing';
+          render();
+        } else {
+          // Edge case 1: a CT flag was previously active (so ctAdjustment may
+          // exist from an earlier pass), but the user edited answers and the
+          // flag is no longer firing. Clear the adjustment in memory and
+          // persist null to the DB so the main API call doesn't use stale CT
+          // data. Also clear the snapshot so a future re-edit that re-enables
+          // the flag will fire the mini-call afresh.
+          if (state.ctAdjustment || state.ctLastSnapshot !== null) {
+            state.ctAdjustment = null;
+            state.ctLastSnapshot = null;
+            const cid = state.intake && state.intake.client_id;
+            if (cid) {
+              fetch('/api/ct-adjustment-clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ client_id: cid }),
+              }).catch(() => {});
+            }
+          }
+          state.phase = 'stage2';
+          state.stage2Idx = 0;
+          render();
+        }
+      }
+    });
+  }
+
+  // ---- CT Analyzing Transition ----
+  // Snapshot guard handles all three re-entry cases:
+  //   1. First entry — fires the mini-call, records the snapshot
+  //   2. Re-entry with unchanged inputs — skip the call, auto-advance immediately
+  //   3. Re-entry with changed inputs — fires a fresh call (snapshot mismatch)
+  // An 8s timeout caps the wait so the user never sees a stuck screen. On
+  // timeout we keep the original Stage 1 hypotheses and write null for
+  // ct_adjustment (handled in fireCtMiniCall via the catch path).
+  if (state.phase === 'ct-analyzing') {
+    const snapshot = ctSnapshot();
+    const unchanged = state.ctLastSnapshot !== null && snapshot === state.ctLastSnapshot;
+
+    const advance = () => {
+      if (state.phase === 'ct-analyzing') {
         state.phase = 'stage2';
         state.stage2Idx = 0;
         render();
       }
-    });
+    };
+
+    if (unchanged) {
+      // Cached — advance on next tick so the spinner doesn't flash.
+      setTimeout(advance, 200);
+    } else {
+      const timeoutMs = 8000;
+      let advanced = false;
+      const timer = setTimeout(() => {
+        if (!advanced) {
+          advanced = true;
+          // Timeout — clear any partial adjustment, persist null to DB.
+          state.ctAdjustment = null;
+          const cid = state.intake && state.intake.client_id;
+          if (cid) {
+            fetch('/api/ct-adjustment-clear', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ client_id: cid }),
+            }).catch(() => {});
+          }
+          console.warn('[ct-adjustment] 8s timeout — proceeding with original Stage 1 hypotheses');
+          advance();
+        }
+      }, timeoutMs);
+
+      fireCtMiniCall().finally(() => {
+        if (!advanced) {
+          advanced = true;
+          clearTimeout(timer);
+          advance();
+        }
+      });
+    }
   }
 
   // ---- Stage 2: Cross-Referencing ----

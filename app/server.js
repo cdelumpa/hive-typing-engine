@@ -591,6 +591,102 @@ Based on these responses, identify 2-3 Enneagram types most consistent with this
   return res.json({ ok: true, signal });
 });
 
+// Counter-type mini-call — fires from the 'ct-analyzing' transition screen
+// after Stage 1 scoring when a CT flag was detected. Reconciles Stage 0
+// language signal + Stage 1 scores + CT combination into a revised, reordered
+// hypothesis list. On success the parsed result is stored on
+// clients.ct_adjustment. On failure or timeout we return adjustment: null so
+// the client can fall back to the original Stage 1 hypotheses.
+app.post('/api/ct-adjustment', async (req, res) => {
+  const { client_id, stage0_signal, stage1_scores, ct_key } = req.body || {};
+  const sc = stage1_scores || {};
+
+  const CT_SYSTEM = `You are an expert Enneagram practitioner helping to refine a type hypothesis based on two sources of evidence: a client's open-ended self-description (Stage 0) and their structured assessment scores (Stage 1).
+
+You will receive:
+- A Stage 0 language signal — 2-3 type candidates identified from the client's own words
+- Stage 1 scores — numeric scores across the three Centers and three Instincts
+- A counter-type flag — a specific CT combination that was detected in the scoring
+
+Your task is to return a revised hypothesis list that best reconciles all three signals. The counter-type pattern means the client's dominant instinct is suppressing the expected expression of their Center, which can cause scoring ambiguity.
+
+Guidelines:
+- Weight the Stage 0 language signal heavily — it is uncontaminated by framework priming
+- Weight the CT flag as a known structural pattern, not a scoring artifact
+- Return exactly 3 type numbers in order of likelihood
+- Include a one-sentence plain-English rationale for the primary type only
+- If the evidence strongly supports the CT hypothesis, place the CT base type first
+- If the evidence does not support the CT hypothesis, place it second or third
+- Respond only with valid JSON. No preamble, no markdown, no explanation outside the JSON object.`;
+
+  const signalBlock = Array.isArray(stage0_signal) && stage0_signal.length > 0
+    ? stage0_signal.map(s => `Type ${s.type} (likelihood ${s.likelihood}): ${s.rationale}`).join('\n')
+    : 'No Stage 0 signal available.';
+
+  const userMessage = `Stage 0 language signal:
+${signalBlock}
+
+Stage 1 scores:
+Centers: Body=${sc.body}, Heart=${sc.heart}, Head=${sc.head}
+Instincts: SP=${sc.sp}, SO=${sc.so}, SX=${sc.sx}
+
+Counter-type flag: ${ct_key}
+
+Return a revised hypothesis list in exactly this format:
+{
+  "revised_hypotheses": [n, n, n],
+  "adjustment_made": true/false,
+  "rationale": "one sentence in plain English about why the primary type was selected"
+}`;
+
+  let adjustment = null;
+  try {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 300,
+      system: [{ type: 'text', text: CT_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: userMessage }],
+    });
+    const text = response.content[0].text;
+    const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+    const parsed = JSON.parse(clean);
+    if (parsed && Array.isArray(parsed.revised_hypotheses) && parsed.revised_hypotheses.length === 3) {
+      adjustment = parsed;
+      console.log(`[ct-adjustment] success — client #${client_id} ct_key=${ct_key} revised=${parsed.revised_hypotheses.join(',')} made=${parsed.adjustment_made}`);
+    } else {
+      console.warn('[ct-adjustment] parsed payload missing revised_hypotheses array');
+    }
+  } catch (err) {
+    console.error('[ct-adjustment] failed:', err.message);
+  }
+
+  if (client_id) {
+    try {
+      await db.updateClientCtAdjustment(client_id, adjustment);
+    } catch (e) {
+      console.error('[ct-adjustment] DB write failed:', e.message);
+    }
+  }
+
+  if (!adjustment) return res.json({ ok: false, adjustment: null });
+  return res.json({ ok: true, adjustment });
+});
+
+// Clear ct_adjustment to null for a client. Called when a CT flag drops on
+// re-entry or when the 8s mini-call timeout fires, so the persisted record
+// matches what the main API call will use.
+app.post('/api/ct-adjustment-clear', async (req, res) => {
+  const { client_id } = req.body || {};
+  if (client_id) {
+    try {
+      await db.updateClientCtAdjustment(client_id, null);
+    } catch (e) {
+      console.error('[ct-adjustment-clear] DB write failed:', e.message);
+    }
+  }
+  return res.json({ ok: true });
+});
+
 // Original endpoint — kept unchanged for the test runner
 app.post('/api/analyze', async (req, res) => {
   const { systemPrompt, userMessage } = req.body;

@@ -82,6 +82,9 @@ function getQuestionsAnswered() {
   const s1 = (p === 'stage1') ? (state.stage1Idx || 0) : 10;
   if (p === 'stage1') return 4 + s1;
 
+  // ct-analyzing: transition screen between Stage 1 and Stage 2 — full Stage 1 (14)
+  if (p === 'ct-analyzing') return 14;
+
   // stage2
   const s2 = (p === 'stage2') ? (state.stage2Idx || 0) : 3;
   if (p === 'stage2') return 14 + s2;

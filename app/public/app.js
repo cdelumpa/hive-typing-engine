@@ -514,6 +514,75 @@ async function fireStage0MiniCall() {
   }
 }
 
+// =================== CT MINI-CALL ===================
+
+// Snapshot string for the CT mini-call: ct_key plus the six Stage 1 totals.
+// We re-fire whenever any of these change so an edit-and-return from Stage 2
+// doesn't reuse a stale adjustment.
+function ctSnapshot() {
+  const s = state.scores || {};
+  return [
+    s.counterTypeKey || '',
+    s.body, s.heart, s.head,
+    s.sp, s.so, s.sx,
+  ].join('|');
+}
+
+// Fires from the 'ct-analyzing' transition screen. Returns a promise that
+// resolves when the call completes (success or failure) — the caller races it
+// against an 8-second timeout. When adjustment_made is true the revised
+// hypothesis list overwrites state.scores.typeHypotheses for downstream stages.
+// Snapshot-guarded: if the current ct_key + Stage 1 scores match the last
+// fire's snapshot, we skip the network call and reuse the cached adjustment.
+async function fireCtMiniCall() {
+  const s = state.scores;
+  if (!s || s.counterTypeFlag !== 'YES') return;
+
+  const snapshot = ctSnapshot();
+  if (state.ctLastSnapshot !== null && snapshot === state.ctLastSnapshot) {
+    console.log('[ct-adjustment] snapshot unchanged — skipping re-fire');
+    return;
+  }
+
+  // Record the snapshot up-front so a re-entry mid-flight doesn't double-fire.
+  state.ctLastSnapshot = snapshot;
+
+  const clientId = (state.intake && state.intake.client_id) || null;
+  const payload = {
+    client_id: clientId,
+    stage0_signal: state.stage0_signal || null,
+    stage1_scores: {
+      body: s.body, heart: s.heart, head: s.head,
+      sp: s.sp, so: s.so, sx: s.sx,
+    },
+    ct_key: s.counterTypeKey,
+  };
+
+  try {
+    const res = await fetch('/api/ct-adjustment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data && data.ok && data.adjustment) {
+      state.ctAdjustment = data.adjustment;
+      if (data.adjustment.adjustment_made && Array.isArray(data.adjustment.revised_hypotheses)) {
+        state.scores.typeHypotheses = data.adjustment.revised_hypotheses.slice(0, 3);
+        console.log('[ct-adjustment] revised hypotheses applied:', state.scores.typeHypotheses);
+      } else {
+        console.log('[ct-adjustment] no adjustment made — keeping original hypotheses');
+      }
+    } else {
+      state.ctAdjustment = null;
+      console.warn('[ct-adjustment] no adjustment returned');
+    }
+  } catch (err) {
+    state.ctAdjustment = null;
+    console.error('[ct-adjustment] request failed:', err && err.message);
+  }
+}
+
 // =================== API CALL ===================
 
 async function callAPI() {

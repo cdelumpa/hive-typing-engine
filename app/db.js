@@ -81,6 +81,7 @@ ALTER TABLE assessments ADD COLUMN IF NOT EXISTS pdf_generated_at TIMESTAMPTZ;
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS email_sent_at    TIMESTAMPTZ;
 
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage0_signal JSONB;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS ct_adjustment JSONB;
 
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS updated_by TEXT;
@@ -398,7 +399,7 @@ async function getTokenWithClient(token) {
   const r = await query(`
     SELECT ct.id AS token_id, ct.client_id, ct.expires_at, ct.used_at,
            c.first_name, c.last_name, c.email, c.organization, c.status AS client_status,
-           c.stage0_signal,
+           c.stage0_signal, c.ct_adjustment,
            co.name AS coach_name, co.id AS coach_id
     FROM client_tokens ct
     JOIN clients c ON c.id = ct.client_id
@@ -419,6 +420,18 @@ async function updateClientStage0Signal(clientId, signal) {
 async function getClientStage0Signal(clientId) {
   const r = await query('SELECT stage0_signal FROM clients WHERE id = $1 LIMIT 1', [clientId]);
   return r && r.rows.length > 0 ? r.rows[0].stage0_signal : null;
+}
+
+async function updateClientCtAdjustment(clientId, adjustment) {
+  await query(
+    `UPDATE clients SET ct_adjustment = $1 WHERE id = $2`,
+    [adjustment === null ? null : JSON.stringify(adjustment), clientId]
+  );
+}
+
+async function getClientCtAdjustment(clientId) {
+  const r = await query('SELECT ct_adjustment FROM clients WHERE id = $1 LIMIT 1', [clientId]);
+  return r && r.rows.length > 0 ? r.rows[0].ct_adjustment : null;
 }
 
 async function updateTokenUsedAt(tokenId) {
@@ -540,4 +553,6 @@ module.exports = {
   deleteReportsByAssessmentId,
   updateClientStage0Signal,
   getClientStage0Signal,
+  updateClientCtAdjustment,
+  getClientCtAdjustment,
 };
