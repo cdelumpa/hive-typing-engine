@@ -1,0 +1,76 @@
+{
+  "_meta": {
+    "name": "SO7 Social Seven — Counter-Type Clean Confirmation",
+    "description": "Social Seven. HIGH confidence. Stage 1 canonical rankings: Head center dominant (18/10/8), SO instinct dominant (18/10/8). Stage 1 flags SO-7 Sacrifice counter-type. Stage 2 cross-reference (Assertive/Positive/Frustration) lands cleanly on Type 7, triggering counter-type Stage 3 mode (SO 7 vs. Type 2). Stage 3 CLEAN — client chose Person A (standard Type 7), confirming Type 7 over the counter-type mask. Stage 4 Option A confirms cleanly. Section 1A (counter-type) should appear in coach report. Section 6A should NOT appear.",
+    "expected_type": 7,
+    "expected_instinct": "SO",
+    "expected_confidence": "HIGH",
+    "expected_flags": ["counter_type"],
+    "expected_sections": ["section1a"],
+    "expected_centerGap": 8,
+    "expected_instinctGap": 8,
+    "expected_final_response_classification": "CONTEXTUAL"
+  },
+  "coach": "Cai Delumpa",
+  "final_open_response": "What I don't think gets captured easily is how much of my energy goes into creating experiences that other people will remember. It's not about me being the center of attention — it's more that I genuinely light up when I see the people around me having a great time. I'm always scanning for what could make a moment better, more alive, more memorable. The hardest thing for me is feeling like the energy in a room is flat or that people aren't connecting — I can't just sit with that. I have to do something about it.\nAt the same time there's a part of me that's always looking ahead. Even when something is really good, I'm already thinking about what's next, what else is possible, how to make the next thing even better. I've learned that this is both my greatest strength and the thing that most gets in my way — because sometimes the best thing is just to be here, in this moment, and let it be enough.",
+  "stage0": {
+    "q1": "Enthusiastic, generous, fun to be around, always thinking about what's next, someone who loves bringing people together.",
+    "q2": "The life of the party, endlessly optimistic, someone who makes everything more fun, a little scattered sometimes, genuinely warm.",
+    "q3": "Bringing people together — I have a genuine gift for creating experiences that people remember and that make them feel like they're part of something special.",
+    "q4": "Always thinking about what's next — I can struggle to stay present and fully enjoy what's right in front of me because I'm already planning the next thing or imagining how it could be even better."
+  },
+  "stage1": {
+    "centers": { "Head": 18, "Heart": 8, "Body": 10 },
+    "identifiedCenter": "Head",
+    "centerGap": 8,
+    "centerConfidence": "HIGH",
+    "secondCenter": null,
+    "instincts": { "SP": 8, "SO": 18, "SX": 10 },
+    "identifiedInstinct": "SO",
+    "instinctGap": 8,
+    "instinctConfidence": "HIGH",
+    "typeHypotheses": [5, 6, 7],
+    "counterTypeFlag": "YES",
+    "counterTypeCombination": "SO 7 Sacrifice",
+    "counterTypeKey": "SO-7"
+  },
+  "stage2": {
+    "hornevian": "A",
+    "harmonic": "B",
+    "objectRelations": "B",
+    "xrefPrimary": 7,
+    "xrefAlternative": 5,
+    "ambiguityAxis": "All three Stage 2 frameworks land on Type 7's signature: Assertive (Hornevian), Positive (Harmonic), Frustration (Object Relations). The SO-7 counter-type flag from Stage 1 is reinforced — cross-reference cleanly confirms Type 7 as primary, with the Social instinct driving the Sacrifice presentation warranting targeted Stage 3 discrimination.",
+    "counterTypeModeTriggered": true
+  },
+  "stage3": {
+    "mode": "COUNTER-TYPE",
+    "pair": "SO 7 vs. Type 2",
+    "pairKey": "SO-7",
+    "ctAnswer": "CLEAN",
+    "q1Result": "Person A clean (Type 7)",
+    "q2Result": "N/A",
+    "leading": 7,
+    "confidence": "HIGH"
+  },
+  "stage4": {
+    "path": "COUNTER_TYPE_CONFIRMED",
+    "option": "A",
+    "leadType": 7,
+    "secondType": null,
+    "stressConfirmed": true,
+    "securityConfirmed": true,
+    "habitConfirmed": null,
+    "outcome": "CONFIRMED",
+    "stressDescription": "Picked the canonical Type 7 answer — under stress the client moves toward Type 1 territory, becoming more critical, perfectionistic, and rigid, losing their usual flexibility and optimism. This matched Type 7's stress point cleanly.",
+    "securityDescription": "Picked the canonical Type 7 answer — in ease the client moves toward Type 5, becoming more focused, quiet, and capable of sustained depth when feeling safe, able to stay with one thing rather than jumping to the next. This matched Type 7's security point cleanly.",
+    "habitDescription": "N/A — did not fire"
+  },
+  "mockScores": {
+    "head": 18,
+    "heart": 8,
+    "body": 10,
+    "identifiedCenter": "Head",
+    "sortedInstincts": [["SO", 18], ["SX", 10], ["SP", 8]]
+  }
+}
