@@ -389,7 +389,7 @@ async function callClaudeWithRetry(systemPrompt, userMessage) {
   }
 }
 
-async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId, clientId) {
+async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId, clientId, responsesSnapshot) {
   // 1. Persist scores_snapshot immediately — before the API call — so the
   //    assessment is recoverable even if Claude fails.
   if (assessmentId) {
@@ -397,6 +397,16 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
       `UPDATE assessments SET scores_snapshot = $1 WHERE id = $2`,
       [JSON.stringify(scores), assessmentId]
     );
+  }
+
+  // 1b. Persist responses_snapshot to the clients table so the raw answers
+  //     across every stage are recoverable for debugging and engine calibration.
+  if (clientId && responsesSnapshot) {
+    try {
+      await db.updateClientResponsesSnapshot(clientId, responsesSnapshot);
+    } catch (e) {
+      console.error('[submit] responses_snapshot DB write failed:', e.message);
+    }
   }
 
   // 2. Call Claude API with retries
@@ -475,7 +485,7 @@ async function sendErrorNotification(intake, err) {
 
 // New submission endpoint — returns immediately, processes in background
 app.post('/api/submit', async (req, res) => {
-  const { systemPrompt, userMessage, intake, scores, client_id: bodyClientId } = req.body;
+  const { systemPrompt, userMessage, intake, scores, client_id: bodyClientId, responses_snapshot: responsesSnapshot } = req.body;
   const intakeInfo = intake ? `${intake.firstName} ${intake.lastName} <${intake.email}>` : 'unknown';
   console.log(`[submit] received from ${intakeInfo} — system ${systemPrompt?.length ?? 0} chars, user ${userMessage?.length ?? 0} chars`);
 
@@ -499,7 +509,7 @@ app.post('/api/submit', async (req, res) => {
   // Fire and forget background job
   (async () => {
     try {
-      await runBackgroundJob(systemPrompt, userMessage, intake || {}, scores || {}, assessmentId, resolvedClientId);
+      await runBackgroundJob(systemPrompt, userMessage, intake || {}, scores || {}, assessmentId, resolvedClientId, responsesSnapshot || null);
     } catch (e) {
       console.error('[submit] unhandled background job error:', e.message);
     }

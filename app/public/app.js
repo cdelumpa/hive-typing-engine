@@ -583,6 +583,60 @@ async function fireCtMiniCall() {
   }
 }
 
+// =================== RESPONSES SNAPSHOT ===================
+
+// Serializes the complete raw client response data across every stage so the
+// server can persist it alongside scores_snapshot. Captures the actual answers
+// (not the derived scores) so a client's assessment can be reconstructed,
+// debugged, or replayed against engine changes.
+function buildResponsesSnapshot() {
+  const a0 = state.stage0Answers || {};
+  const stage0 = { q1: a0.q1 || '', q2: a0.q2 || '', q3: a0.q3 || '', q4: a0.q4 || '' };
+
+  // Stage 1 — preserve the canonical question ids (q1..q12) rather than array
+  // indices so the structure is self-describing and resilient to reordering.
+  const stage1 = {};
+  STAGE1_QUESTIONS.forEach((q, idx) => {
+    const r = state.stage1Rankings[idx] || { a: null, b: null, c: null };
+    stage1[q.id] = { a: r.a, b: r.b, c: r.c };
+  });
+
+  // Stage 2 — three single-select answers ('A' | 'B' | 'C').
+  const s2a = state.stage2Answers || [];
+  const stage2 = { q1: s2a[0] || null, q2: s2a[1] || null, q3: s2a[2] || null };
+
+  // Stage 3 — normalize the internal 4-way encoding ('A'|'A-slight'|'B-slight'|'B')
+  // to the spec's 'a'|'both_a'|'both_b'|'b' vocabulary. Q2 fires only on high-
+  // ambiguity standard pairs; null otherwise.
+  const s3map = { 'A': 'a', 'A-slight': 'both_a', 'B-slight': 'both_b', 'B': 'b' };
+  const s3a = state.stage3Answers || [];
+  const stage3 = {
+    q1: s3a[0] ? (s3map[s3a[0]] || s3a[0]) : null,
+    q2: s3a[1] ? (s3map[s3a[1]] || s3a[1]) : null,
+  };
+
+  // Stage 4 — sequence drives which slot is stress/security/habit. The raw
+  // answer is preserved verbatim — 'correct'|'alt1'|'alt2' for 3opt and
+  // 'A'|'A-slight'|'B-slight'|'B' for pairwise / ct-pairwise — so the format
+  // is recoverable from the answer plus the slot metadata. Habit is null when
+  // it didn't fire.
+  const seq = state.stage4Sequence || [];
+  const s4a = state.stage4Answers || [];
+  const stage4 = { stress: null, security: null, habit: null };
+  seq.forEach((slot, idx) => {
+    const ans = s4a[idx];
+    if (ans != null && slot && stage4[slot.instrument] !== undefined) {
+      stage4[slot.instrument] = ans;
+    }
+  });
+
+  const finalQuestion = (state.finalOpenResponse && state.finalOpenResponse.trim())
+    ? state.finalOpenResponse
+    : null;
+
+  return { stage0, stage1, stage2, stage3, stage4, finalQuestion };
+}
+
 // =================== API CALL ===================
 
 async function callAPI() {
@@ -604,7 +658,8 @@ async function callAPI() {
         sp: s.sp, so: s.so, sx: s.sx,
         identifiedInstinct: s.identifiedInstinct,
         sortedInstincts: s.sortedInstincts,
-      }, finalOpenResponse: state.finalOpenResponse || '', client_id: state.intake.client_id || null }),
+      }, finalOpenResponse: state.finalOpenResponse || '', client_id: state.intake.client_id || null,
+      responses_snapshot: buildResponsesSnapshot() }),
     });
 
     const data = await res.json();
