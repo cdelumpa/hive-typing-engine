@@ -506,6 +506,91 @@ app.post('/api/submit', async (req, res) => {
   })();
 });
 
+// Stage 0 mini-call — analyzes the four open-text Stage 0 responses to
+// produce a soft Enneagram-type signal (2-3 candidate types with rationale).
+// Fires from the Mid-Assessment Reminders screen as background latency cover.
+// Stores the parsed array (or null on failure) on clients.stage0_signal.
+app.post('/api/stage0-signal', async (req, res) => {
+  const { client_id, stage0_answers } = req.body || {};
+  const a = stage0_answers || {};
+
+  const STAGE0_SYSTEM = `You are an expert Enneagram practitioner analyzing a client's open-ended self-description responses to identify possible Enneagram type patterns. Your task is to identify 2-3 Enneagram types that are most consistent with the language and themes in the client's responses.
+
+Guidelines:
+- Focus on the specific words and phrases the client uses, not just the content
+- Look for idealization language (how they want to be seen) and shadow language (what they admit is problematic)
+- Consider which types would most naturally use this specific vocabulary
+- Return exactly 2-3 type numbers in order of likelihood, with a one-sentence rationale for each
+- This is a soft signal only — hold it lightly
+- Do not mention the Enneagram framework, type names, or any technical terminology in your rationale — use plain descriptive language only
+- Respond only with valid JSON. No preamble, no markdown, no explanation outside the JSON object.`;
+
+  const userMessage = `Here are a client's responses to four open-ended questions:
+
+Q1 - Words or phrases they use to describe themselves:
+${a.q1 || ''}
+
+Q2 - Words or phrases others would use to describe them:
+${a.q2 || ''}
+
+Q3 - Their greatest strength:
+${a.q3 || ''}
+
+Q4 - Their most problematic trait:
+${a.q4 || ''}
+
+Based on these responses, identify 2-3 Enneagram types most consistent with this language. Return your response as a JSON object in exactly this format:
+
+{
+  "stage0_signal": [
+    {
+      "type": [number],
+      "likelihood": 1,
+      "rationale": "[one sentence in plain English]"
+    },
+    {
+      "type": [number],
+      "likelihood": 2,
+      "rationale": "[one sentence in plain English]"
+    }
+  ]
+}`;
+
+  let signal = null;
+  try {
+    const response = await client.messages.create({
+      // Spec asked for claude-sonnet-4-20250514; that snapshot 404s on this
+      // workspace, so use the same Sonnet 4 model the main /api/analyze call
+      // uses to keep the mini-call functional.
+      model: 'claude-sonnet-4-6',
+      max_tokens: 300,
+      system: [{ type: 'text', text: STAGE0_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: userMessage }],
+    });
+    const text = response.content[0].text;
+    const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+    const parsed = JSON.parse(clean);
+    if (parsed && Array.isArray(parsed.stage0_signal) && parsed.stage0_signal.length > 0) {
+      signal = parsed.stage0_signal;
+      console.log(`[stage0-signal] success — client #${client_id} types=${signal.map(s => s.type).join(',')}`);
+    } else {
+      console.warn(`[stage0-signal] parsed payload missing stage0_signal array`);
+    }
+  } catch (err) {
+    console.error('[stage0-signal] failed:', err.message);
+  }
+
+  if (client_id) {
+    try {
+      await db.updateClientStage0Signal(client_id, signal);
+    } catch (e) {
+      console.error('[stage0-signal] DB write failed:', e.message);
+    }
+  }
+
+  return res.json({ ok: true, signal });
+});
+
 // Original endpoint — kept unchanged for the test runner
 app.post('/api/analyze', async (req, res) => {
   const { systemPrompt, userMessage } = req.body;

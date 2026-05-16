@@ -76,6 +76,7 @@ function getQuestionsAnswered() {
   const a0 = state.stage0Answers || {};
   const s0 = ['q1', 'q2', 'q3', 'q4'].filter(k => a0[k] && String(a0[k]).trim()).length;
   if (p === 'stage0') return s0;
+  if (p === 'mid-assessment-reminders') return 4;
 
   // stage1: idx = number of questions completed so far on this pass
   const s1 = (p === 'stage1') ? (state.stage1Idx || 0) : 10;
@@ -103,6 +104,12 @@ function updateProgress() {
   if (!wrap || !bar) return;
   const p = state.phase;
   if (p === 'welcome' || p === 'intake') {
+    wrap.style.display = 'none';
+    return;
+  }
+  // The mid-assessment-reminders screen uses its own inline progress markup,
+  // so suppress the shared bar to avoid double-rendering.
+  if (p === 'mid-assessment-reminders') {
     wrap.style.display = 'none';
     return;
   }

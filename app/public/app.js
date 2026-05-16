@@ -465,6 +465,34 @@ const OUTPUT_FORMAT = `CRITICAL: Return your complete analysis as a single JSON 
     "contextual_note": <string or null>
   }
 }`;
+// =================== STAGE 0 MINI-CALL ===================
+
+// Fires from the Mid-Assessment Reminders screen. Runs in the background — never
+// blocks the UI, and a failure leaves state.stage0_signal null so the final
+// API call simply omits the Stage 0 Language Analysis block.
+async function fireStage0MiniCall() {
+  const a = state.stage0Answers || {};
+  const clientId = (state.intake && state.intake.client_id) || null;
+  try {
+    const res = await fetch('/api/stage0-signal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, stage0_answers: { q1: a.q1, q2: a.q2, q3: a.q3, q4: a.q4 } }),
+    });
+    const data = await res.json();
+    if (data && data.ok && Array.isArray(data.signal) && data.signal.length > 0) {
+      state.stage0_signal = data.signal;
+      console.log('[stage0-signal] received', data.signal);
+    } else {
+      state.stage0_signal = null;
+      console.warn('[stage0-signal] no signal returned');
+    }
+  } catch (err) {
+    state.stage0_signal = null;
+    console.error('[stage0-signal] request failed:', err && err.message);
+  }
+}
+
 // =================== API CALL ===================
 
 async function callAPI() {

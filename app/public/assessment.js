@@ -1148,6 +1148,43 @@ function shuffleIndices(n) {
   return arr;
 }
 
+// Builds the Stage 0 Language Analysis block + (when relevant) the Counter-Type
+// Flag Active cross-reference instruction. Returns the empty string when there
+// is nothing to inject. The leading newline keeps spacing consistent with the
+// surrounding template.
+function buildStage0SignalBlock(s, signal) {
+  const ctActive = s && s.counterTypeFlag === 'YES';
+  const ctKey = (s && s.counterTypeKey) || '';
+  const hasSignal = Array.isArray(signal) && signal.length > 0;
+
+  if (!hasSignal && !ctActive) return '';
+
+  let block = '';
+  if (hasSignal) {
+    const lines = signal.slice(0, 3).map(s0 => `Type ${s0.type} — ${s0.rationale}`).join('\n');
+    block += `\nSTAGE 0 LANGUAGE ANALYSIS
+The following types were identified as most consistent with the client's open-ended self-description responses, in order of likelihood:
+
+${lines}
+
+Note: This is a soft signal derived from unstructured language. Weight it appropriately — it informs but does not determine the hypothesis.\n`;
+  }
+
+  if (ctActive) {
+    if (hasSignal) {
+      block += `
+COUNTER-TYPE FLAG ACTIVE: ${ctKey}
+The scoring pattern is consistent with a known counter-type combination. Cross-reference the Stage 0 language analysis above before confirming this hypothesis. If the Stage 0 signal includes the expected counter-type's base type in the top 2, treat the CT hypothesis as supported. If the expected type is absent from the Stage 0 signal, flag this for coach review in the coach note.\n`;
+    } else {
+      block += `
+COUNTER-TYPE FLAG ACTIVE: ${ctKey}
+The scoring pattern is consistent with a known counter-type combination.\n`;
+    }
+  }
+
+  return block;
+}
+
 // Serializes the full Stage 0/1/2/3/4 state into the v2 context block format
 // the AI expects. Each section mirrors the {{variable}} slots in the spec.
 function buildContextBlock(s) {
@@ -1174,6 +1211,13 @@ function buildContextBlock(s) {
     ? `Second candidate tested: Type ${s4.secondType}\n`
     : '';
 
+  // Stage 0 Language Analysis block — built from the mid-assessment mini-call.
+  // Sits between Stage 0 responses and Stage 1 scores. When a counter-type flag
+  // is active, append a cross-reference instruction so the main model checks
+  // the soft signal against the CT hypothesis. If the signal is null, only the
+  // CT flag header is included (no cross-reference instruction).
+  const stage0SignalBlock = buildStage0SignalBlock(s, state.stage0_signal);
+
   const intake = state.intake || {};
   const clientName = [intake.firstName, intake.lastName].filter(Boolean).join(' ') || 'Not provided';
   const clientOrg = intake.organization || 'Not provided';
@@ -1196,7 +1240,7 @@ Self-description (client's own words): "${a0.q1 || 'not provided'}"
 How others describe them: "${a0.q2 || 'not provided'}"
 Greatest strength: "${a0.q3 || 'not provided'}"
 Most problematic quality: "${a0.q4 || 'not provided'}"
-
+${stage0SignalBlock}
 Stage 1 — Centers Scoring
 Scoring: Rank 1 = 3pts, Rank 2 = 2pts, Rank 3 = 1pt. Maximum per Center: 18. Confidence: HIGH = gap 5+, MEDIUM = gap 3-4, LOW = gap 0-2.
 Head Center total: ${s.head} / 18
@@ -1264,6 +1308,7 @@ function render() {
     case 'welcome':        app.innerHTML = renderWelcome(); break;
     case 'intake':         app.innerHTML = renderIntake(); break;
     case 'stage0':         app.innerHTML = renderStage0(); break;
+    case 'mid-assessment-reminders': app.innerHTML = renderMidAssessmentReminders(); break;
     case 'stage1':         app.innerHTML = renderStage1(); break;
     case 'stage2':         app.innerHTML = renderStage2(); break;
     case 'stage3':         app.innerHTML = renderStage3(); break;
@@ -1408,6 +1453,32 @@ function renderStage0() {
       ${state.stage0Idx > 0 ? '<button class="btn btn-ghost" id="btn-back">Back</button>' : ''}
       <div class="spacer"></div>
       <button class="btn btn-primary" id="btn-next" ${val.trim() ? '' : 'disabled'}>Continue</button>
+    </div>
+  </div>`;
+}
+
+// ---- Mid-Assessment Reminders ----
+// Fires after Stage 0 Q4 is submitted and before Stage 1 Q1. Doubles as latency
+// cover for the Stage 0 mini-call (kicked off from attachHandlers on entry).
+function renderMidAssessmentReminders() {
+  const pctMid = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
+  return `<div class="screen">
+    <div class="progress-section">
+      <div class="progress-label">Completed</div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pctMid}%"></div></div>
+    </div>
+    <div class="q-text" style="margin-bottom:18px;">Great work — you’ve completed the first part of the assessment. If you want to review or edit your responses, hit the “Go Back” button. Otherwise, here are a few tips to help you complete the rest of the assessment:</div>
+    <ul style="margin:0 0 24px;padding-left:20px;line-height:1.7;font-size:14px;color:#1A2B33;">
+      <li style="margin-bottom:10px;">Answer the questions in the context of your life in general and try not to confine your answers to your work life only.</li>
+      <li style="margin-bottom:10px;">Choose a response that applies to the arc of your life, rather than answering only from what is true in the current moment. If you get stuck on a question, recall how your 25-year-old self might respond to the questions.</li>
+      <li style="margin-bottom:10px;">Try to complete the assessment in one sitting without interruptions.</li>
+      <li style="margin-bottom:10px;">From here it should take you no longer than 20–25 minutes. If it’s taking longer, that could mean you’re overthinking things. Trust your gut when this happens.</li>
+      <li style="margin-bottom:10px;">Now, take a deep breath, hit “Continue” and have fun!</li>
+    </ul>
+    <div class="nav-row">
+      <button class="btn btn-ghost" id="btn-mid-back">Go Back</button>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="btn-mid-continue">Continue</button>
     </div>
   </div>`;
 }
@@ -2499,6 +2570,7 @@ function attachHandlers() {
       intake: { firstName: '', lastName: '', email: '', organization: '', coach: 'Cai Delumpa', client_id: null },
       finalOpenResponse: '',
       stage0Idx: 0, stage0Answers: {},
+      stage0_signal: null, stage0SignalRequested: false,
       stage1Idx: 0, stage1Rankings: [],
       stage2Idx: 0, stage2Answers: [],
       stage3Mode: null, stage3Idx: 0, stage3Answers: [],
@@ -2587,12 +2659,35 @@ function attachHandlers() {
         state.stage0Idx++;
         render();
       } else {
-        // Move to stage 1
-        initStage1();
-        state.phase = 'stage1';
-        state.stage1Idx = 0;
+        // Stage 0 complete — pause on Mid-Assessment Reminders before Stage 1.
+        // The mini-call is fired from that screen's attachHandlers block.
+        state.phase = 'mid-assessment-reminders';
         render();
       }
+    });
+  }
+
+  // ---- Mid-Assessment Reminders ----
+  if (state.phase === 'mid-assessment-reminders') {
+    // Fire the Stage 0 mini-call once on entry — runs in background, never blocks.
+    if (!state.stage0SignalRequested) {
+      state.stage0SignalRequested = true;
+      fireStage0MiniCall();
+    }
+
+    const btnMidBack = document.getElementById('btn-mid-back');
+    if (btnMidBack) btnMidBack.addEventListener('click', () => {
+      state.phase = 'stage0';
+      state.stage0Idx = 3;
+      render();
+    });
+
+    const btnMidContinue = document.getElementById('btn-mid-continue');
+    if (btnMidContinue) btnMidContinue.addEventListener('click', () => {
+      initStage1();
+      state.phase = 'stage1';
+      state.stage1Idx = 0;
+      render();
     });
   }
 
