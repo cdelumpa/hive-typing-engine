@@ -7,7 +7,7 @@ const state = {
   stage0Idx: 0,
   stage0Answers: {},     // { q1, q2, q3, q4 }
   stage0_signal: null,   // [{type, likelihood, rationale}, ...] from Stage 0 mini-call, or null on failure
-  stage0SignalRequested: false, // guards the mini-call from firing more than once per session
+  stage0LastSnapshot: null, // concatenated Stage 0 responses from the last mini-call; re-fire only when responses change
   stage1Idx: 0,
   stage1Rankings: [],    // [{a:rank, b:rank, c:rank}, ...] per question (1=most, 3=least)
   stage2Idx: 0,

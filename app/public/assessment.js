@@ -2570,7 +2570,7 @@ function attachHandlers() {
       intake: { firstName: '', lastName: '', email: '', organization: '', coach: 'Cai Delumpa', client_id: null },
       finalOpenResponse: '',
       stage0Idx: 0, stage0Answers: {},
-      stage0_signal: null, stage0SignalRequested: false,
+      stage0_signal: null, stage0LastSnapshot: null,
       stage1Idx: 0, stage1Rankings: [],
       stage2Idx: 0, stage2Answers: [],
       stage3Mode: null, stage3Idx: 0, stage3Answers: [],
@@ -2669,11 +2669,11 @@ function attachHandlers() {
 
   // ---- Mid-Assessment Reminders ----
   if (state.phase === 'mid-assessment-reminders') {
-    // Fire the Stage 0 mini-call once on entry — runs in background, never blocks.
-    if (!state.stage0SignalRequested) {
-      state.stage0SignalRequested = true;
-      fireStage0MiniCall();
-    }
+    // Fire the Stage 0 mini-call on entry — runs in the background, never blocks.
+    // Snapshot comparison inside the function skips the call when responses
+    // haven't changed since the last successful fire (so navigating back/forward
+    // without edits is a no-op, but editing any answer triggers a fresh call).
+    fireStage0MiniCall();
 
     const btnMidBack = document.getElementById('btn-mid-back');
     if (btnMidBack) btnMidBack.addEventListener('click', () => {

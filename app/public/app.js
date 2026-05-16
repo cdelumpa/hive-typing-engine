@@ -467,12 +467,33 @@ const OUTPUT_FORMAT = `CRITICAL: Return your complete analysis as a single JSON 
 }`;
 // =================== STAGE 0 MINI-CALL ===================
 
+// Concatenates the four Stage 0 responses into a single string used to decide
+// whether the cached signal is still aligned with the client's current answers.
+// A simple string compare is enough — we only need to detect change, not collisions.
+function stage0Snapshot() {
+  const a = state.stage0Answers || {};
+  return ['q1', 'q2', 'q3', 'q4'].map(k => (a[k] || '').trim()).join('');
+}
+
 // Fires from the Mid-Assessment Reminders screen. Runs in the background — never
-// blocks the UI, and a failure leaves state.stage0_signal null so the final
-// API call simply omits the Stage 0 Language Analysis block.
+// blocks the UI, and a failure leaves state.stage0_signal null so the final API
+// call simply omits the Stage 0 Language Analysis block. Skips the call when
+// the Stage 0 responses haven't changed since the previous fire; re-fires (and
+// overwrites the stored signal + DB row) when any answer has been edited.
 async function fireStage0MiniCall() {
+  const snapshot = stage0Snapshot();
+  if (state.stage0LastSnapshot !== null && snapshot === state.stage0LastSnapshot) {
+    console.log('[stage0-signal] responses unchanged — skipping re-fire');
+    return;
+  }
+
   const a = state.stage0Answers || {};
   const clientId = (state.intake && state.intake.client_id) || null;
+
+  // Record the snapshot up-front so an in-flight call doesn't get launched a
+  // second time if the user toggles back into the screen mid-request.
+  state.stage0LastSnapshot = snapshot;
+
   try {
     const res = await fetch('/api/stage0-signal', {
       method: 'POST',
