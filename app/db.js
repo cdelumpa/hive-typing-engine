@@ -92,6 +92,9 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_by TEXT;
 
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS beta_report_generated_at TIMESTAMPTZ;
 
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS session_state JSONB DEFAULT NULL;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS reminder_sent_at JSONB DEFAULT NULL;
+
 CREATE TABLE IF NOT EXISTS app_settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
   beta_mode_enabled BOOLEAN NOT NULL DEFAULT FALSE,
@@ -413,7 +416,8 @@ async function getTokenWithClient(token) {
     SELECT ct.id AS token_id, ct.client_id, ct.expires_at, ct.used_at,
            c.first_name, c.last_name, c.email, c.organization, c.status AS client_status,
            c.stage0_signal, c.ct_adjustment, c.responses_snapshot,
-           co.name AS coach_name, co.id AS coach_id
+           c.session_state,
+           co.name AS coach_name, co.id AS coach_id, co.email AS coach_email
     FROM client_tokens ct
     JOIN clients c ON c.id = ct.client_id
     JOIN coaches co ON co.id = c.coach_id
@@ -549,6 +553,46 @@ async function stampBetaReport(clientId) {
   );
 }
 
+async function saveClientSessionState(clientId, sessionState) {
+  await query(
+    'UPDATE clients SET session_state = $1 WHERE id = $2',
+    [JSON.stringify(sessionState), clientId]
+  );
+}
+
+async function clearClientSessionState(clientId) {
+  await query(
+    'UPDATE clients SET session_state = NULL, reminder_sent_at = NULL WHERE id = $1',
+    [clientId]
+  );
+}
+
+async function getAbandonedClients() {
+  const r = await query(`
+    SELECT c.id AS client_id, c.first_name, c.email, c.reminder_sent_at,
+           co.email AS coach_email, co.name AS coach_name,
+           ct.token, ct.expires_at, ct.used_at
+    FROM clients c
+    JOIN coaches co ON co.id = c.coach_id
+    JOIN client_tokens ct ON ct.client_id = c.id
+    WHERE c.status = 'in_progress'
+      AND c.session_state IS NOT NULL
+      AND ct.used_at IS NOT NULL
+      AND ct.expires_at > NOW()
+    ORDER BY ct.used_at ASC
+  `);
+  return r ? r.rows : [];
+}
+
+async function recordReminderSent(clientId, key, timestamp) {
+  await query(
+    `UPDATE clients
+     SET reminder_sent_at = COALESCE(reminder_sent_at, '{}'::jsonb) || $1::jsonb
+     WHERE id = $2`,
+    [JSON.stringify({ [key]: timestamp }), clientId]
+  );
+}
+
 module.exports = {
   pool,
   initDb,
@@ -595,4 +639,8 @@ module.exports = {
   getBetaModeEnabled,
   setBetaModeEnabled,
   stampBetaReport,
+  saveClientSessionState,
+  clearClientSessionState,
+  getAbandonedClients,
+  recordReminderSent,
 };

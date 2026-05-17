@@ -82,3 +82,30 @@ function loadResult() {
 function clearResult() {
   try { localStorage.removeItem(RESULT_STORAGE_KEY); } catch (_) {}
 }
+
+// Returns a plain object of all rehydratable state fields for mid-assessment
+// persistence. Deliberately excludes apiResult, scores, and resultsTab which
+// are only valid after a completed API call.
+function getSerializableState() {
+  return {
+    phase:               state.phase,
+    stage0Idx:           state.stage0Idx,
+    stage0Answers:       state.stage0Answers,
+    stage0_signal:       state.stage0_signal,
+    stage0LastSnapshot:  state.stage0LastSnapshot,
+    ctAdjustment:        state.ctAdjustment,
+    ctLastSnapshot:      state.ctLastSnapshot,
+    stage1Idx:           state.stage1Idx,
+    stage1Rankings:      state.stage1Rankings,
+    stage2Idx:           state.stage2Idx,
+    stage2Answers:       state.stage2Answers,
+    stage3Mode:          state.stage3Mode,
+    stage3Idx:           state.stage3Idx,
+    stage3Answers:       state.stage3Answers,
+    stage4Sequence:      state.stage4Sequence,
+    stage4Idx:           state.stage4Idx,
+    stage4Answers:       state.stage4Answers,
+    stage4Shuffles:      state.stage4Shuffles,
+    finalOpenResponse:   state.finalOpenResponse,
+  };
+}

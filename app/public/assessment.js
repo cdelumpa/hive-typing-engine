@@ -1345,6 +1345,11 @@ Habit of Mind: ${s4.habitDescription || 'N/A — did not fire'}`;
 }
 // =================== RENDER ===================
 
+const SAVE_LATER_PHASES = new Set([
+  'stage0', 'mid-assessment-reminders', 'stage1', 'ct-analyzing',
+  'stage2', 'stage3', 'stage4', 'finalopen',
+]);
+
 function render() {
   updateProgress();
   const app = document.getElementById('app');
@@ -1365,6 +1370,15 @@ function render() {
     case 'confirmation':   app.innerHTML = renderConfirmation(); break;
     case 'results':        app.innerHTML = renderResults(); break;
     case 'error':          app.innerHTML = renderError(); break;
+  }
+
+  // Inject Save and Continue Later link for active assessment stages
+  if (SAVE_LATER_PHASES.has(state.phase) && state.intake && state.intake.token) {
+    const saveLaterEl = document.createElement('div');
+    saveLaterEl.id = 'save-later-bar';
+    saveLaterEl.style.cssText = 'text-align:center;padding:16px 0 8px;';
+    saveLaterEl.innerHTML = '<button id="btn-save-later" style="background:none;border:none;color:#7A96A6;font-size:13px;font-family:Georgia,serif;cursor:pointer;text-decoration:underline;padding:4px 8px;">Save and Continue Later</button>';
+    app.appendChild(saveLaterEl);
   }
 
   attachHandlers();
@@ -2755,6 +2769,7 @@ function attachHandlers() {
       state.phase = 'stage1';
       state.stage1Idx = 0;
       render();
+      saveSessionState();
     });
   }
 
@@ -2796,6 +2811,7 @@ function attachHandlers() {
         if (state.scores.counterTypeFlag === 'YES') {
           state.phase = 'ct-analyzing';
           render();
+          saveSessionState();
         } else {
           // Edge case 1: a CT flag was previously active (so ctAdjustment may
           // exist from an earlier pass), but the user edited answers and the
@@ -2818,6 +2834,7 @@ function attachHandlers() {
           state.phase = 'stage2';
           state.stage2Idx = 0;
           render();
+          saveSessionState();
         }
       }
     });
@@ -2914,6 +2931,7 @@ function attachHandlers() {
         state.stage3Answers = [];
         state.phase = 'stage3';
         render();
+        saveSessionState();
       }
     });
   }
@@ -2960,6 +2978,7 @@ function attachHandlers() {
         state.stage4Shuffles = [];
         state.phase = 'stage4';
         render();
+        saveSessionState();
       }
     });
   }
@@ -3020,6 +3039,7 @@ function attachHandlers() {
         console.log('=== STAGE 4 OUTPUT ===', state.scores.stage4);
         state.phase = 'finalopen';
         render();
+        saveSessionState();
       }
     });
   }
@@ -3062,5 +3082,16 @@ function attachHandlers() {
   // ---- Stage 1 Complete (placeholder) ----
   // Only the Restart button lives here for now. Restart handler is attached
   // above in the shared block.
+
+  // ---- Save and Continue Later ----
+  const btnSaveLater = document.getElementById('btn-save-later');
+  if (btnSaveLater) btnSaveLater.addEventListener('click', async () => {
+    const token = state.intake && state.intake.token;
+    if (!token) return;
+    btnSaveLater.disabled = true;
+    btnSaveLater.textContent = 'Saving…';
+    await saveSessionState();
+    window.location.href = '/assessment/' + encodeURIComponent(token) + '/saved';
+  });
 }
 

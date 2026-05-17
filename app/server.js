@@ -901,7 +901,10 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
 
   // 4. Update assessment record with results
   await db.completeAssessment(assessmentId, result);
-  if (clientId) await db.updateClientStatus(clientId, 'complete');
+  if (clientId) {
+    await db.updateClientStatus(clientId, 'complete');
+    await db.clearClientSessionState(clientId);
+  }
 
   // 5. Generate PDFs via shared helper
   const { clientPdfPath, coachPdfPath } = await generateReportPDFs(result, scores, intake, assessmentId);
@@ -2162,6 +2165,28 @@ app.get('/assessment/:token', async (req, res) => {
   }
 
   if (tokenRow.client_status === 'in_progress') {
+    if (tokenRow.session_state) {
+      // Resumable — inject intake + saved session state and serve the full app
+      try {
+        let html = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
+        const intake = {
+          firstName:    tokenRow.first_name,
+          lastName:     tokenRow.last_name,
+          email:        tokenRow.email,
+          organization: tokenRow.organization || '',
+          coach:        tokenRow.coach_name,
+          client_id:    tokenRow.client_id,
+          token:        req.params.token,
+        };
+        const intakeTag = `<script>window.__hiveIntake = ${JSON.stringify(intake)};</script>`;
+        const sessionTag = `<script>window.__hiveSessionState = ${JSON.stringify(tokenRow.session_state)};</script>`;
+        html = html.replace('</head>', `${intakeTag}\n${sessionTag}\n</head>`);
+        return res.send(html);
+      } catch (e) {
+        console.error('[assessment/resume] index.html read error:', e.message);
+      }
+    }
+    // No saved state — dead-end gate
     return res.send(renderAssessmentGate(
       'Assessment In Progress',
       `It looks like you've already started your assessment, ${esc(tokenRow.first_name)}. If you need to restart, please contact your coach.`,
@@ -2191,12 +2216,37 @@ app.post('/assessment/:token/begin', async (req, res) => {
     organization: tokenRow.organization || '',
     coach:        tokenRow.coach_name,
     client_id:    tokenRow.client_id,
+    token:        req.params.token,
   };
 
   req.session.save((err) => {
     if (err) console.error('[assessment/begin] session save error:', err.message);
     res.redirect('/');
   });
+});
+
+// Save mid-assessment session state — called by the browser on stage advance
+// and by the Save and Continue Later button. Token is the identity mechanism.
+app.post('/assessment/:token/save', async (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  const tokenRow = await db.getTokenWithClient(req.params.token);
+  if (!tokenRow) return res.status(400).json({ error: 'Token not found.' });
+  if (new Date(tokenRow.expires_at) < new Date()) return res.status(400).json({ error: 'Token expired.' });
+  if (tokenRow.client_status !== 'in_progress') return res.status(400).json({ error: 'Assessment not in progress.' });
+  const sessionState = req.body && req.body.sessionState;
+  if (!sessionState || typeof sessionState !== 'object') return res.status(400).json({ error: 'Invalid sessionState.' });
+  await db.saveClientSessionState(tokenRow.client_id, sessionState);
+  return res.json({ ok: true });
+});
+
+// Confirmation page after Save and Continue Later
+app.get('/assessment/:token/saved', async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send(renderAssessmentGate(
+    'Progress Saved',
+    'Your progress has been saved. Return to your invite link anytime to continue where you left off.',
+    ''
+  ));
 });
 
 app.patch('/assessment/:token/profile', async (req, res) => {
@@ -3651,6 +3701,79 @@ app.post('/admin/clients/:client_id/reassign', requireAdmin, async (req, res) =>
   console.log(`[admin/clients/reassign] client #${clientId} reassigned from coach #${oldCoachId} to #${newCoachId}`);
   return res.json({ success: true, new_coach_name: newCoach.name });
 });
+
+// =================== ABANDONMENT REMINDER POLLER ===================
+
+async function runReminderPoller() {
+  if (!process.env.SENDGRID_API_KEY) return;
+  const appUrl = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
+  let clients;
+  try {
+    clients = await db.getAbandonedClients();
+  } catch (e) {
+    console.error('[reminder-poller] failed to query abandoned clients:', e.message);
+    return;
+  }
+
+  for (const row of clients) {
+    try {
+      const usedAt = new Date(row.used_at);
+      const now = new Date();
+      const elapsedHours = (now - usedAt) / (1000 * 60 * 60);
+      const reminderSent = row.reminder_sent_at || {};
+      const expiryDate = new Date(row.expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const inviteLink = `${appUrl}/assessment/${row.token}`;
+
+      // Determine coach first name
+      const coachFirstName = (row.coach_name || '').split(' ')[0] || 'Your coach';
+
+      const reminderKeys = [
+        { key: '72h', minHours: 72 },
+        { key: '120h', minHours: 120 },
+      ];
+
+      for (const { key, minHours } of reminderKeys) {
+        if (elapsedHours >= minHours && !reminderSent[key]) {
+          const body = [
+            `Hi ${row.first_name},`,
+            ``,
+            `You started your Enneagram assessment with ${coachFirstName} but haven't finished yet. It only takes a few more minutes to complete.`,
+            ``,
+            `Pick up where you left off:`,
+            inviteLink,
+            ``,
+            `Your link is valid until ${expiryDate}.`,
+            ``,
+            coachFirstName,
+          ].join('\n');
+
+          try {
+            await sgMail.send({
+              to:      row.email,
+              from:    { name: coachFirstName, email: row.coach_email || process.env.SENDGRID_FROM_EMAIL },
+              subject: 'A gentle nudge — your Enneagram assessment is waiting',
+              text:    body,
+            });
+            console.log(`[reminder-poller] sent ${key} reminder to client #${row.client_id} (${row.email})`);
+          } catch (emailErr) {
+            console.error(`[reminder-poller] email send failed for client #${row.client_id}:`, emailErr.message);
+            continue;
+          }
+
+          await db.recordReminderSent(row.client_id, key, now.toISOString());
+        }
+      }
+    } catch (clientErr) {
+      console.error(`[reminder-poller] error processing client #${row.client_id}:`, clientErr.message);
+    }
+  }
+}
+
+// Run every 30 minutes; first tick after 30s to avoid hammering DB at cold start
+setTimeout(() => {
+  runReminderPoller();
+  setInterval(runReminderPoller, 30 * 60 * 1000);
+}, 30 * 1000);
 
 // =================== START ===================
 

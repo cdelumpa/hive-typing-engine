@@ -210,6 +210,22 @@ async function callAPI() {
 
   render();
 }
+// =================== SESSION SAVE ===================
+
+async function saveSessionState() {
+  const token = state.intake && state.intake.token;
+  if (!token) return;
+  try {
+    await fetch(`/assessment/${encodeURIComponent(token)}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionState: getSerializableState() }),
+    });
+  } catch (e) {
+    // silent fail — save is best-effort
+  }
+}
+
 // =================== INIT ===================
 
 initStage1();
@@ -222,7 +238,22 @@ loadResult();
 // Token-based entry: server injects window.__hiveIntake when a valid token session is active.
 if (window.__hiveIntake) {
   Object.assign(state.intake, window.__hiveIntake);
-  if (state.phase === 'welcome') {
+
+  // Resume flow: server injects window.__hiveSessionState when the client had
+  // saved mid-assessment progress. Rehydrate all resumable fields and skip the
+  // normal Stage 0 initialization so the client lands at the correct stage.
+  if (window.__hiveSessionState) {
+    const ss = window.__hiveSessionState;
+    const rehydratable = [
+      'phase', 'stage0Idx', 'stage0Answers', 'stage0_signal', 'stage0LastSnapshot',
+      'ctAdjustment', 'ctLastSnapshot', 'stage1Idx', 'stage1Rankings',
+      'stage2Idx', 'stage2Answers', 'stage3Mode', 'stage3Idx', 'stage3Answers',
+      'stage4Sequence', 'stage4Idx', 'stage4Answers', 'stage4Shuffles', 'finalOpenResponse',
+    ];
+    rehydratable.forEach(function(key) {
+      if (ss[key] !== undefined) state[key] = ss[key];
+    });
+  } else if (state.phase === 'welcome') {
     state.phase = 'stage0';
   }
 }
