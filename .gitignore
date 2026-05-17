@@ -1,3 +1,5 @@
+.env
+.env.*
 app/.env
 app/node_modules/
 app/reports/

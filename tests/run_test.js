@@ -38,6 +38,7 @@ const APP_JS    = path.join(ROOT, 'app/public/app.js');
 const TYPE_LIB  = path.join(ROOT, 'content/type_library.json');
 const FIXTURE   = path.join(__dirname, `fixtures/${fixtureName}.json`);
 const SAMPLES   = path.join(ROOT, 'samples');
+const SERVER_JS = path.join(ROOT, 'app/server.js');
 
 if (!fs.existsSync(FIXTURE)) {
   console.error(`Fixture not found: ${FIXTURE}`);
@@ -48,7 +49,9 @@ if (!fs.existsSync(FIXTURE)) {
 const fixture = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
 console.log(`\n=== Hive Test Runner — ${fixture._meta.name} ===\n`);
 
-// ─── Build combined system prompt ─────────────────────────────────────────────
+// ─── Build context block (prompt constants now live in server.js) ─────────────
+// The test runner reads non-public source files only to extract rendering
+// functions (buildClientHTML etc.) — prompt assembly is done server-side.
 const srcFiles = [
   path.join(ROOT, 'app/public/state.js'),
   path.join(ROOT, 'app/public/ui.js'),
@@ -56,12 +59,6 @@ const srcFiles = [
   path.join(ROOT, 'app/public/app.js'),
 ].filter(p => fs.existsSync(p));
 const src = srcFiles.map(p => fs.readFileSync(p, 'utf8')).join('\n\n');
-const sp  = src.match(/const SYSTEM_PROMPT = `([\s\S]*?)`;/)[1];
-const ti  = src.match(/const TASK_INSTRUCTIONS = `([\s\S]*?)`;/)[1];
-const of_ = src.match(/const OUTPUT_FORMAT = `([\s\S]*?)`;/)[1];
-// SYSTEM_PROMPT + TASK_INSTRUCTIONS → cached system block (~5,365 tokens)
-// OUTPUT_FORMAT → appended to userMessage to prime JSON generation
-const systemPrompt = `${sp}\n\n${ti}`;
 
 // ─── Build user message (context block) from fixture ─────────────────────────
 function buildContextFromFixture(f) {
@@ -169,14 +166,13 @@ Habit of Mind: ${s4.habitDescription || 'N/A — did not fire'}
 Final open response (optional): ${finalOpen}`;
 }
 
-const userMessage = `${buildContextFromFixture(fixture)}\n\n${of_}`;
-console.log(`systemPrompt: ${systemPrompt.length} chars (~${Math.round(systemPrompt.length/4)} tokens)`);
-console.log(`userMessage:  ${userMessage.length} chars (~${Math.round(userMessage.length/4)} tokens)`);
+const contextBlock = buildContextFromFixture(fixture);
+console.log(`contextBlock: ${contextBlock.length} chars (~${Math.round(contextBlock.length/4)} tokens)`);
 
 // ─── API call ─────────────────────────────────────────────────────────────────
 function postAnalyze() {
   return new Promise((resolve, reject) => {
-    const body  = JSON.stringify({ systemPrompt, userMessage });
+    const body  = JSON.stringify({ contextBlock });
     const start = Date.now();
     console.log(`\n[API] Starting — ${new Date().toISOString()}`);
 
