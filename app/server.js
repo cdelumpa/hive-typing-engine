@@ -3602,7 +3602,7 @@ app.post('/admin/clients/:client_id/reassign', requireAdmin, async (req, res) =>
 
   if (notifyCoach && newCoach.email) {
     const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-    const appUrl    = process.env.RAILWAY_PUBLIC_URL || 'https://hive-typing-engine-production.up.railway.app';
+    const appUrl    = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
     const coachFirstName = newCoach.name ? newCoach.name.split(' ')[0] : newCoach.name;
     const clientFullName = clientRow ? `${clientRow.first_name} ${clientRow.last_name}` : `Client #${clientId}`;
     try {
