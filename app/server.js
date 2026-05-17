@@ -27,7 +27,7 @@ if (process.env.SENDGRID_API_KEY) {
 
 // Load renderer and type library
 const { buildClientHTML, buildCoachHTML, buildPdfOptions } = require('./renderer');
-const { generateBetaReport } = require('../beta/generate_report');
+const { generateBetaReport } = require('./generate_report');
 const db = require('./db');
 
 const TYPE_LIBRARY_PATH = path.join(__dirname, 'type_library.json');
