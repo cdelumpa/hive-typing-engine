@@ -90,6 +90,17 @@ ALTER TABLE coaches ADD COLUMN IF NOT EXISTS updated_by TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_by TEXT;
 
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS beta_report_generated_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  beta_mode_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  CHECK (id = 1)
+);
+INSERT INTO app_settings (id, beta_mode_enabled)
+VALUES (1, FALSE)
+ON CONFLICT (id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS edit_history (
   id             SERIAL PRIMARY KEY,
   record_type    TEXT NOT NULL,
@@ -274,7 +285,8 @@ async function getAdminRowsByCoach(coachId) {
       a.pdf_generated_at,
       a.email_sent_at,
       (a.scores_snapshot IS NOT NULL) AS has_scores_snapshot,
-      (a.api_result IS NOT NULL)      AS has_api_result
+      (a.api_result IS NOT NULL)      AS has_api_result,
+      c.beta_report_generated_at
     FROM clients c
     LEFT JOIN assessments a  ON a.client_id = c.id
     LEFT JOIN coaches co      ON co.id = c.coach_id
@@ -521,6 +533,22 @@ async function getReportCoachId(filename) {
   return r && r.rows.length > 0 ? r.rows[0].coach_id : null;
 }
 
+async function getBetaModeEnabled() {
+  const r = await query('SELECT beta_mode_enabled FROM app_settings WHERE id = 1 LIMIT 1');
+  return r && r.rows.length > 0 ? r.rows[0].beta_mode_enabled : false;
+}
+
+async function setBetaModeEnabled(enabled) {
+  await query('UPDATE app_settings SET beta_mode_enabled = $1 WHERE id = 1', [!!enabled]);
+}
+
+async function stampBetaReport(clientId) {
+  await query(
+    'UPDATE clients SET beta_report_generated_at = NOW() WHERE id = $1',
+    [clientId]
+  );
+}
+
 module.exports = {
   pool,
   initDb,
@@ -564,4 +592,7 @@ module.exports = {
   updateClientCtAdjustment,
   getClientCtAdjustment,
   updateClientResponsesSnapshot,
+  getBetaModeEnabled,
+  setBetaModeEnabled,
+  stampBetaReport,
 };

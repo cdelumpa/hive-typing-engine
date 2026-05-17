@@ -27,6 +27,7 @@ if (process.env.SENDGRID_API_KEY) {
 
 // Load renderer and type library
 const { buildClientHTML, buildCoachHTML, buildPdfOptions } = require('./renderer');
+const { generateBetaReport } = require('../beta/generate_report');
 const db = require('./db');
 
 const TYPE_LIBRARY_PATH = path.join(__dirname, 'type_library.json');
@@ -1743,7 +1744,7 @@ app.patch('/assessment/:token/profile', async (req, res) => {
 
 // ── Coach Management (super-admin only) ──────────────────────────────────────
 
-function renderCoachesPage(coaches, errorMsg, flashMsg) {
+function renderCoachesPage(coaches, errorMsg, flashMsg, betaModeEnabled = false) {
   const TYPE_NAMES_LOCAL = {
     1: 'The Improver', 2: 'The Giver',   3: 'The Performer', 4: 'The Idealist',
     5: 'The Observer', 6: 'The Questioner', 7: 'The Enthusiast',
@@ -1858,7 +1859,26 @@ function renderCoachesPage(coaches, errorMsg, flashMsg) {
 </div>
 ${flashMsg   ? `<div class="flash-success">${flashMsg}</div>`   : ''}
 ${errorMsg   ? `<div class="flash-error">${errorMsg}</div>`     : ''}
+<div id="beta-flash" style="display:none;padding:12px 20px;font-size:13px;border-left:4px solid #1a7a4a;background:#e6f7ee;color:#1a7a4a;"></div>
 <div class="container">
+  <div class="card" style="margin-bottom:24px;border-left:4px solid ${betaModeEnabled ? '#7c3aed' : '#aaa'};">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Beta Mode</span>
+      <span id="beta-mode-badge" style="background:${betaModeEnabled ? '#ede9fe' : '#f4f4f4'};color:${betaModeEnabled ? '#7c3aed' : '#666'};padding:3px 10px;border-radius:3px;font-size:12px;font-weight:700;letter-spacing:0.05em;">
+        ${betaModeEnabled ? 'ON' : 'OFF'}
+      </span>
+    </div>
+    <div style="padding:16px 20px;display:flex;align-items:center;gap:16px;">
+      <p style="margin:0;font-size:13px;color:#1A2B33;">
+        When Beta Mode is <strong>ON</strong>, super-admins can generate <code>.docx</code> beta review reports for completed clients directly from the Admin Dashboard.
+      </p>
+      <button id="beta-toggle-btn"
+        onclick="toggleBetaMode(${betaModeEnabled ? 'false' : 'true'})"
+        style="flex-shrink:0;background:${betaModeEnabled ? '#c0392b' : '#7c3aed'};color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 20px;cursor:pointer;white-space:nowrap;">
+        ${betaModeEnabled ? 'Turn Off' : 'Turn On'}
+      </button>
+    </div>
+  </div>
   <div class="card">
     <div class="card-header">All Coaches</div>
     <table>
@@ -1901,6 +1921,44 @@ ${errorMsg   ? `<div class="flash-error">${errorMsg}</div>`     : ''}
 var _accordionCache = {};
 var _openCoachId = null;
 var _typeNames = ${JSON.stringify({1:'The Improver',2:'The Giver',3:'The Performer',4:'The Idealist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'})};
+
+async function toggleBetaMode(enable) {
+  var btn = document.getElementById('beta-toggle-btn');
+  var badge = document.getElementById('beta-mode-badge');
+  var card = btn.closest('.card');
+  var flashEl = document.getElementById('beta-flash');
+  var orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    var r = await fetch('/admin/settings/beta-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ enabled: enable }),
+    });
+    var d = await r.json();
+    if (d.success) {
+      var on = d.beta_mode_enabled;
+      badge.textContent = on ? 'ON' : 'OFF';
+      badge.style.background = on ? '#ede9fe' : '#f4f4f4';
+      badge.style.color = on ? '#7c3aed' : '#666';
+      btn.textContent = on ? 'Turn Off' : 'Turn On';
+      btn.style.background = on ? '#c0392b' : '#7c3aed';
+      btn.onclick = function(){ toggleBetaMode(!on); };
+      card.style.borderLeftColor = on ? '#7c3aed' : '#aaa';
+      flashEl.textContent = 'Beta mode ' + (on ? 'enabled' : 'disabled') + '.';
+      flashEl.style.background = '#e6f7ee'; flashEl.style.color = '#1a7a4a';
+      flashEl.style.borderLeftColor = '#1a7a4a'; flashEl.style.display = '';
+      setTimeout(function(){ flashEl.style.display = 'none'; }, 4000);
+    } else {
+      alert(d.error || 'Failed to update beta mode');
+      btn.textContent = orig;
+    }
+  } catch(e) {
+    alert('Request failed');
+    btn.textContent = orig;
+  }
+  btn.disabled = false;
+}
 
 function _fmt(ts) {
   if (!ts) return '—';
@@ -2165,7 +2223,8 @@ app.get('/admin/coaches', requireAdmin, async (req, res) => {
   let coaches = [];
   try { coaches = await db.getAllCoaches(); } catch (e) { console.error('[admin/coaches] query error:', e.message); }
 
-  res.send(renderCoachesPage(coaches, null, flashMsg));
+  const betaModeEnabled = await db.getBetaModeEnabled().catch(() => false);
+  res.send(renderCoachesPage(coaches, null, flashMsg, betaModeEnabled));
 });
 
 app.get('/admin/coaches/active', requireAdmin, async (req, res) => {
@@ -2245,6 +2304,46 @@ app.post('/admin/coaches/:coach_id/reassign', requireAdmin, async (req, res) => 
   res.redirect('/admin/coaches?flash=clients_reassigned');
 });
 
+// ── Beta Report generation ────────────────────────────────────────────────────
+
+app.post('/admin/beta-report/:client_id', requireAdmin, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) {
+    return res.status(400).json({ success: false, error: 'Invalid client ID' });
+  }
+
+  const betaModeEnabled = await db.getBetaModeEnabled().catch(() => false);
+  if (!betaModeEnabled) {
+    return res.status(403).json({ success: false, error: 'Beta mode is currently disabled. Enable it on the Manage Coaches page.' });
+  }
+
+  try {
+    const result = await generateBetaReport(clientId, {
+      queryFn:    db.query.bind(db),
+      reportsDir: REPORTS_DIR,
+      force:      true,
+    });
+    return res.json({ success: true, filename: result.filename, generated_at: result.generated_at });
+  } catch (e) {
+    console.error(`[admin/beta-report] error for client #${clientId}:`, e.message);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ── Beta mode settings ────────────────────────────────────────────────────────
+
+app.post('/admin/settings/beta-mode', requireAdmin, async (req, res) => {
+  const enabled = req.body.enabled === true || req.body.enabled === 'true';
+  try {
+    await db.setBetaModeEnabled(enabled);
+    console.log(`[admin/settings] beta_mode_enabled set to ${enabled} by coach #${req.session.coach_id}`);
+    return res.json({ success: true, beta_mode_enabled: enabled });
+  } catch (e) {
+    console.error('[admin/settings/beta-mode] error:', e.message);
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 const TYPE_NAMES = {
@@ -2274,6 +2373,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   try { rows = await db.getAdminRowsByCoach(req.session.coach_id); } catch (e) { console.error('[admin] query error:', e.message); }
 
   const isAdmin = req.session.coach_is_admin === true;
+  const betaModeEnabled = isAdmin ? await db.getBetaModeEnabled().catch(() => false) : false;
 
   const tableRows = rows.map(r => {
     const name      = esc(`${r.first_name || ''} ${r.last_name || ''}`.trim()) || '—';
@@ -2356,6 +2456,32 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       ? `<button onclick="adminResend(${clientId},'${esc(rawEmail).replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;">Resend</button>`
       : '';
 
+    // Beta Report cell (super admin only)
+    let betaCell = '';
+    if (isAdmin) {
+      if (!betaModeEnabled) {
+        betaCell = `<td id="beta-cell-${clientId}" style="font-size:11px;color:#aaa;">—</td>`;
+      } else if (status !== 'complete') {
+        betaCell = `<td id="beta-cell-${clientId}" style="font-size:11px;color:#aaa;">—</td>`;
+      } else {
+        const betaTs = r.beta_report_generated_at;
+        if (betaTs) {
+          const betaFilename = r.beta_report_filename || null;
+          const betaLink = betaFilename
+            ? `<a href="/reports/${encodeURIComponent(betaFilename)}" style="display:block;color:#7c3aed;text-decoration:none;white-space:nowrap;font-size:11px;">&#128196; Download</a>`
+            : '';
+          betaCell = `<td id="beta-cell-${clientId}" style="font-size:11px;">
+            ✓ ${formatAdminDate(betaTs)}${betaLink}
+            <button onclick="adminGenBetaReport(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="display:block;background:none;border:none;cursor:pointer;font-size:11px;color:#7c3aed;padding:0;text-decoration:underline;margin-top:2px;">Regenerate</button>
+          </td>`;
+        } else {
+          betaCell = `<td id="beta-cell-${clientId}" style="font-size:11px;">
+            <button onclick="adminGenBetaReport(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#7c3aed;padding:0;text-decoration:underline;">Generate</button>
+          </td>`;
+        }
+      }
+    }
+
     return `<tr id="row-${clientId}">
       <td><a href="#" data-entity="client-${clientId}" onclick="openClientProfile(${clientId});return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle='solid'" onmouseout="this.style.textDecorationStyle='dotted'">${name}</a></td>
       <td>${typeLabel}</td>
@@ -2367,12 +2493,14 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       <td id="pdf-status-${clientId}" style="font-size:12px;">${pdfStatus}</td>
       <td id="email-status-${clientId}" style="font-size:12px;">${emailStatus}</td>
       <td>${pdfLinks}</td>
+      ${betaCell}
       <td>${reassignAction}${retryAction}${regenAction}${resendAction}${inviteResendAction}${deleteAction}</td>
     </tr>`;
   }).join('\n');
 
+  const colCount = isAdmin ? 12 : 11;
   const body = rows.length === 0
-    ? '<tr><td colspan="11" style="text-align:center;padding:40px;color:#7A96A6;">No clients yet — click + Client to add one</td></tr>'
+    ? `<tr><td colspan="${colCount}" style="text-align:center;padding:40px;color:#7A96A6;">No clients yet — click + Client to add one</td></tr>`
     : tableRows;
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -2445,6 +2573,7 @@ ${flashError ? `<div class="flash-error">${flashError}</div>` : ''}
           <th>PDF</th>
           <th>Email</th>
           <th>Reports</th>
+          ${isAdmin ? '<th style="color:#d8b4fe;">Beta Report</th>' : ''}
           <th>Actions</th>
         </tr>
       </thead>
@@ -2507,28 +2636,59 @@ async function adminResend(clientId, email, btn) {
   } catch(e) { alert('Request failed'); }
   btn.disabled = false; btn.textContent = orig;
 }
+async function adminGenBetaReport(clientId, name, btn) {
+  if (!confirm('Generate beta report for ' + name + '?')) return;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch('/admin/beta-report/' + clientId, {method:'POST', headers:{Accept:'application/json'}});
+    const d = await r.json();
+    if (d.success) {
+      const cell = document.getElementById('beta-cell-' + clientId);
+      if (cell) {
+        const dl = d.filename ? '<a href="/reports/'+encodeURIComponent(d.filename)+'" style="display:block;color:#7c3aed;text-decoration:none;white-space:nowrap;font-size:11px;">&#128196; Download</a>' : '';
+        cell.innerHTML = '✓ just now' + dl + '<button onclick="adminGenBetaReport('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this)" style="display:block;background:none;border:none;cursor:pointer;font-size:11px;color:#7c3aed;padding:0;text-decoration:underline;margin-top:2px;">Regenerate</button>';
+      }
+      showToast('Beta report generated.');
+    } else { alert(d.error || 'Generation failed'); btn.disabled = false; btn.textContent = orig; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
+}
 </script>
 ${sharedModalHTML(req.session.coach_is_admin === true)}
 </body>
 </html>`);
 });
 
-// Serve PDFs — only client_*.pdf and coach_*.pdf patterns allowed, coach-scoped
+// Serve PDFs/Docx — only client_*.pdf, coach_*.pdf, and beta_*.docx patterns allowed
 app.get('/reports/:filename', requireAdminSession, async (req, res) => {
   const filename = req.params.filename;
-  if (!/^(client|coach)_[^/]+\.pdf$/.test(filename)) {
+  const isBetaDocx = /^beta_[^/]+\.docx$/.test(filename);
+  const isPdf      = /^(client|coach)_[^/]+\.pdf$/.test(filename);
+
+  if (!isBetaDocx && !isPdf) {
     return res.status(403).send('Forbidden');
   }
 
-  const coachId = await db.getReportCoachId(filename);
-  if (coachId !== null && coachId !== req.session.coach_id) {
+  // PDF reports are coach-scoped; beta docx files are super-admin only (no coach scope check needed)
+  if (isPdf) {
+    const coachId = await db.getReportCoachId(filename);
+    if (coachId !== null && coachId !== req.session.coach_id) {
+      return res.status(403).send('Forbidden');
+    }
+  } else if (!req.session.coach_is_admin) {
     return res.status(403).send('Forbidden');
   }
 
   const filePath = path.join(REPORTS_DIR, filename);
   if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+
+  if (isBetaDocx) {
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  } else {
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+  }
   res.sendFile(filePath);
 });
 

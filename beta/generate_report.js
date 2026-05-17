@@ -138,37 +138,81 @@ const TYPE_NAMES = {
   7: 'The Enthusiast', 8: 'The Protector', 9: 'The Peacemaker',
 };
 
-// ─── DB Setup ────────────────────────────────────────────────────────────────
+// ─── Output path ─────────────────────────────────────────────────────────────
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+const REPORTS_DIR = process.env.REPORTS_DIR || path.join(ROOT, 'app/reports');
 
-async function fetchClients(clientId) {
-  const where = clientId ? 'AND cl.id = $1' : '';
-  const params = clientId ? [clientId] : [];
-  const sql = `
+// ─── Lazy DB pool (CLI only — server passes queryFn explicitly) ───────────────
+
+let _pool = null;
+function getPool() {
+  if (!_pool) {
+    _pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    });
+  }
+  return _pool;
+}
+
+// Default query function — uses module-level pool (CLI usage)
+async function defaultQuery(sql, params) {
+  return getPool().query(sql, params);
+}
+
+// Fetch a single client row for generation
+async function fetchClientRow(clientId, queryFn) {
+  const r = await queryFn(`
     SELECT
-      cl.id            AS client_id,
+      cl.id                        AS client_id,
       cl.first_name,
       cl.last_name,
       cl.email,
       cl.created_at,
       cl.responses_snapshot,
-      co.name          AS coach_name,
+      cl.beta_report_generated_at,
+      co.name                      AS coach_name,
       a.scores_snapshot,
       a.api_result,
-      a.created_at     AS assessment_date
+      a.created_at                 AS assessment_date
     FROM clients cl
     JOIN coaches co   ON co.id = cl.coach_id
     JOIN assessments a ON a.client_id = cl.id
     WHERE cl.status = 'complete'
-      ${where}
+      AND cl.id = $1
     ORDER BY a.created_at DESC
-  `;
-  const r = await pool.query(sql, params);
-  return r.rows;
+    LIMIT 1
+  `, [clientId]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// Fetch all complete clients (CLI --all mode)
+async function fetchAllClients(queryFn) {
+  const r = await queryFn(`
+    SELECT
+      cl.id                        AS client_id,
+      cl.first_name,
+      cl.last_name,
+      cl.email,
+      cl.created_at,
+      cl.responses_snapshot,
+      cl.beta_report_generated_at,
+      co.name                      AS coach_name,
+      a.scores_snapshot,
+      a.api_result,
+      a.created_at                 AS assessment_date
+    FROM clients cl
+    JOIN coaches co   ON co.id = cl.coach_id
+    JOIN assessments a ON a.client_id = cl.id
+    WHERE cl.status = 'complete'
+    ORDER BY a.created_at DESC
+  `, []);
+  return r ? r.rows : [];
+}
+
+// Build safe filename segment from a name string
+function safeName(str) {
+  return (str || 'unknown').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
 }
 
 // ─── docx helpers ────────────────────────────────────────────────────────────
@@ -729,84 +773,116 @@ function buildReport(row) {
   return doc;
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Core exported function ───────────────────────────────────────────────────
 
-async function main() {
-  const arg = process.argv[2];
-  if (!arg) {
-    console.error('Usage: node beta/generate_report.js <client_id>');
-    console.error('       node beta/generate_report.js --all');
-    process.exit(1);
-  }
+/**
+ * Generate a beta .docx report for a single client.
+ *
+ * opts.queryFn   — async (sql, params) => pg result  [defaults to module pool]
+ * opts.reportsDir — output directory                 [defaults to REPORTS_DIR]
+ * opts.force     — bypass the already-generated skip check
+ *
+ * Returns { filename, outPath, generated_at } on success, or throws.
+ */
+async function generateBetaReport(clientId, opts = {}) {
+  const queryFn   = opts.queryFn   || defaultQuery;
+  const outDir    = opts.reportsDir || REPORTS_DIR;
+  const force     = opts.force     || false;
 
-  if (!process.env.DATABASE_URL) {
-    console.error('DATABASE_URL not set — cannot connect to database');
-    process.exit(1);
-  }
-
-  const outDir = path.join(__dirname, 'user_reports');
   fs.mkdirSync(outDir, { recursive: true });
 
-  let rows;
-  try {
-    if (arg === '--all') {
-      rows = await fetchClients(null);
-    } else {
-      const id = parseInt(arg);
-      if (isNaN(id)) {
-        console.error(`Invalid client_id: ${arg}`);
-        process.exit(1);
-      }
-      rows = await fetchClients(id);
-    }
-  } catch (e) {
-    console.error('DB query failed:', e.message);
-    process.exit(1);
+  const row = await fetchClientRow(clientId, queryFn);
+  if (!row) throw new Error(`No completed client found for id=${clientId}`);
+
+  if (!force && row.beta_report_generated_at) {
+    return { skipped: true, reason: 'already generated', filename: null, generated_at: row.beta_report_generated_at };
   }
 
-  if (rows.length === 0) {
-    console.log('No completed clients found for the given criteria.');
-    await pool.end();
-    return;
+  if (!row.scores_snapshot || !row.responses_snapshot) {
+    throw new Error(`Missing snapshots for client #${clientId} — cannot generate report`);
   }
 
-  for (const row of rows) {
-    if (!row.scores_snapshot || !row.responses_snapshot) {
-      console.warn(`Skipping client ${row.client_id} (${row.first_name} ${row.last_name}) — missing snapshots`);
-      continue;
-    }
+  const date    = row.assessment_date ? new Date(row.assessment_date) : new Date();
+  const dateStr = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('');
+  const filename = `beta_${safeName(row.last_name)}_${safeName(row.first_name)}_${dateStr}.docx`;
+  const outPath  = path.join(outDir, filename);
 
-    const date = row.assessment_date ? new Date(row.assessment_date) : new Date();
-    const dateStr = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, '0'),
-      String(date.getDate()).padStart(2, '0'),
-    ].join('');
+  const doc    = buildReport(row);
+  const buffer = await Packer.toBuffer(doc);
+  fs.writeFileSync(outPath, buffer);
 
-    const lastName  = (row.last_name  || 'unknown').toLowerCase().replace(/\s+/g, '_');
-    const firstName = (row.first_name || 'unknown').toLowerCase().replace(/\s+/g, '_');
-    const filename  = `${lastName}_${firstName}_${dateStr}.docx`;
-    const outPath   = path.join(outDir, filename);
+  // Stamp the timestamp on the client row
+  await queryFn(
+    'UPDATE clients SET beta_report_generated_at = NOW() WHERE id = $1',
+    [clientId]
+  );
 
-    console.log(`Generating: ${filename}  (client #${row.client_id})`);
-
-    let doc;
-    try {
-      doc = buildReport(row);
-    } catch (e) {
-      console.error(`  ERROR building report for client #${row.client_id}:`, e.message);
-      continue;
-    }
-
-    const buffer = await Packer.toBuffer(doc);
-    fs.writeFileSync(outPath, buffer);
-    console.log(`  Written: ${outPath} (${(buffer.length / 1024).toFixed(1)} KB)`);
-  }
-
-  await pool.end();
+  const generated_at = new Date().toISOString();
+  console.log(`[beta-report] Generated: ${filename} (client #${clientId}, ${(buffer.length / 1024).toFixed(1)} KB)`);
+  return { filename, outPath, generated_at };
 }
 
-main().catch(e => {
-  console.error('Fatal:', e.message);
-  process.exit(1);
-});
+module.exports = { generateBetaReport };
+
+// ─── CLI entry point ──────────────────────────────────────────────────────────
+
+if (require.main === module) {
+  (async () => {
+    const args = process.argv.slice(2);
+    const forceFlag = args.includes('--force');
+    const mainArg   = args.find(a => !a.startsWith('--'));
+
+    if (!mainArg) {
+      console.error('Usage: node beta/generate_report.js <client_id> [--force]');
+      console.error('       node beta/generate_report.js --all [--force]');
+      process.exit(1);
+    }
+
+    if (!process.env.DATABASE_URL) {
+      console.error('DATABASE_URL not set — cannot connect to database');
+      process.exit(1);
+    }
+
+    const outDir = REPORTS_DIR;
+    fs.mkdirSync(outDir, { recursive: true });
+
+    if (mainArg === '--all') {
+      let rows;
+      try { rows = await fetchAllClients(defaultQuery); }
+      catch (e) { console.error('DB query failed:', e.message); process.exit(1); }
+
+      if (rows.length === 0) { console.log('No completed clients found.'); }
+
+      for (const row of rows) {
+        if (!forceFlag && row.beta_report_generated_at) {
+          console.log(`Skipping client #${row.client_id} (${row.first_name} ${row.last_name}) — already generated`);
+          continue;
+        }
+        try {
+          const result = await generateBetaReport(row.client_id, { reportsDir: outDir, force: forceFlag });
+          if (result.skipped) console.log(`Skipped: client #${row.client_id} — ${result.reason}`);
+          else console.log(`  → ${result.outPath}`);
+        } catch (e) {
+          console.error(`  ERROR client #${row.client_id} (${row.first_name} ${row.last_name}):`, e.message);
+        }
+      }
+    } else {
+      const id = parseInt(mainArg, 10);
+      if (isNaN(id)) { console.error(`Invalid client_id: ${mainArg}`); process.exit(1); }
+      try {
+        const result = await generateBetaReport(id, { reportsDir: outDir, force: forceFlag });
+        if (result.skipped) console.log(`Skipped: already generated at ${result.generated_at}`);
+        else console.log(`  → ${result.outPath}`);
+      } catch (e) {
+        console.error('ERROR:', e.message);
+        process.exit(1);
+      }
+    }
+
+    if (_pool) await _pool.end();
+  })().catch(e => { console.error('Fatal:', e.message); process.exit(1); });
+}
