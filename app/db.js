@@ -114,6 +114,15 @@ CREATE TABLE IF NOT EXISTS edit_history (
   editor_note    TEXT,
   edited_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS pdf_tokens (
+  token TEXT PRIMARY KEY,
+  filename TEXT NOT NULL,
+  coach_id INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  redeemed_at TIMESTAMPTZ
+);
 `;
 
 const SEED_SQL = `
@@ -584,6 +593,26 @@ async function getAbandonedClients() {
   return r ? r.rows : [];
 }
 
+async function createPdfToken(token, filename, coachId, expiresAt) {
+  await query(
+    `INSERT INTO pdf_tokens (token, filename, coach_id, expires_at) VALUES ($1, $2, $3, $4)`,
+    [token, filename, coachId, expiresAt]
+  );
+}
+
+async function getPdfToken(token) {
+  const r = await query(
+    `SELECT token, filename, coach_id, created_at, expires_at, redeemed_at
+     FROM pdf_tokens WHERE token = $1 LIMIT 1`,
+    [token]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function markPdfTokenRedeemed(token) {
+  await query(`UPDATE pdf_tokens SET redeemed_at = NOW() WHERE token = $1`, [token]);
+}
+
 async function recordReminderSent(clientId, key, timestamp) {
   await query(
     `UPDATE clients
@@ -643,4 +672,7 @@ module.exports = {
   clearClientSessionState,
   getAbandonedClients,
   recordReminderSent,
+  createPdfToken,
+  getPdfToken,
+  markPdfTokenRedeemed,
 };

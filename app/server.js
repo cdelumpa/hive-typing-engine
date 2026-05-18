@@ -76,6 +76,9 @@ const basicAuthMiddleware = basicAuth({
 app.use((req, res, next) => {
   if (req.path === '/admin/login' || req.path.startsWith('/admin')) return next();
   if (req.path.startsWith('/assessment/')) return next();
+  // Tokenized PDF access: generation is session-gated, redemption is token-gated.
+  // Both must bypass basic auth so coaches and their PDF viewer can reach them.
+  if (req.path.startsWith('/reports/token/') || req.path.startsWith('/reports/view/')) return next();
   if (req.session && req.session.assessmentClientId) return next();
   basicAuthMiddleware(req, res, next);
 });
@@ -2566,8 +2569,8 @@ function renderAccordionTable(coachId, rows) {
     var pdfLinks = '—';
     if (status === 'complete') {
       var links = [];
-      if (clientPdf) links.push('<a href="/reports/'+encodeURIComponent(clientPdf)+'" style="display:block;color:#00b1d7;text-decoration:none;white-space:nowrap;">&#128196; Client</a>');
-      if (coachPdf)  links.push('<a href="/reports/'+encodeURIComponent(coachPdf)+'" style="display:block;color:#f58527;text-decoration:none;white-space:nowrap;">&#128196; Coach</a>');
+      if (clientPdf) links.push('<a href="/reports/token/'+encodeURIComponent(clientPdf)+'" style="display:block;color:#00b1d7;text-decoration:none;white-space:nowrap;">&#128196; Client</a>');
+      if (coachPdf)  links.push('<a href="/reports/token/'+encodeURIComponent(coachPdf)+'" style="display:block;color:#f58527;text-decoration:none;white-space:nowrap;">&#128196; Coach</a>');
       pdfLinks = links.join('') || '—';
     }
 
@@ -2960,8 +2963,8 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     const coachExists   = coachPdfBase  && fs.existsSync(path.join(REPORTS_DIR, coachPdfBase));
 
     const pdfLinks = status === 'complete' ? [
-      clientExists ? `<a href="/reports/${encodeURIComponent(clientPdfBase)}" title="Client PDF" style="display:block;color:#00b1d7;text-decoration:none;white-space:nowrap;">&#128196; Client</a>` : '',
-      coachExists  ? `<a href="/reports/${encodeURIComponent(coachPdfBase)}"  title="Coach PDF"  style="display:block;color:#f58527;text-decoration:none;white-space:nowrap;">&#128196; Coach</a>` : '',
+      clientExists ? `<a href="/reports/token/${encodeURIComponent(clientPdfBase)}" title="Client PDF" style="display:block;color:#00b1d7;text-decoration:none;white-space:nowrap;">&#128196; Client</a>` : '',
+      coachExists  ? `<a href="/reports/token/${encodeURIComponent(coachPdfBase)}"  title="Coach PDF"  style="display:block;color:#f58527;text-decoration:none;white-space:nowrap;">&#128196; Coach</a>` : '',
     ].filter(Boolean).join('') || '—' : '—';
 
     const clientId = r.client_id;
@@ -3021,7 +3024,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
         if (betaTs) {
           const betaFilename = r.beta_report_filename || null;
           const betaLink = betaFilename
-            ? `<a href="/reports/${encodeURIComponent(betaFilename)}" style="display:block;color:#7c3aed;text-decoration:none;white-space:nowrap;font-size:11px;">&#128196; Download</a>`
+            ? `<a href="/reports/token/${encodeURIComponent(betaFilename)}" style="display:block;color:#7c3aed;text-decoration:none;white-space:nowrap;font-size:11px;">&#128196; Download</a>`
             : '';
           betaCell = `<td id="beta-cell-${clientId}" style="font-size:11px;">
             ✓ ${formatAdminDate(betaTs)}${betaLink}
@@ -3199,7 +3202,7 @@ async function adminGenBetaReport(clientId, name, btn) {
     if (d.success) {
       const cell = document.getElementById('beta-cell-' + clientId);
       if (cell) {
-        const dl = d.filename ? '<a href="/reports/'+encodeURIComponent(d.filename)+'" style="display:block;color:#7c3aed;text-decoration:none;white-space:nowrap;font-size:11px;">&#128196; Download</a>' : '';
+        const dl = d.filename ? '<a href="/reports/token/'+encodeURIComponent(d.filename)+'" style="display:block;color:#7c3aed;text-decoration:none;white-space:nowrap;font-size:11px;">&#128196; Download</a>' : '';
         cell.innerHTML = '✓ just now' + dl + '<button onclick="adminGenBetaReport('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this)" style="display:block;background:none;border:none;cursor:pointer;font-size:11px;color:#7c3aed;padding:0;text-decoration:underline;margin-top:2px;">Regenerate</button>';
       }
       showToast('Beta report generated.');
@@ -3212,36 +3215,53 @@ ${sharedModalHTML(req.session.coach_is_admin === true)}
 </html>`);
 });
 
-// Serve PDFs/Docx — only client_*.pdf, coach_*.pdf, and beta_*.docx patterns allowed
-app.get('/reports/:filename', requireAdminSession, async (req, res) => {
-  const filename = req.params.filename;
-  const isBetaDocx = /^beta_[^/]+\.docx$/.test(filename);
-  const isPdf      = /^(client|coach)_[^/]+\.pdf$/.test(filename);
+// Tokenized PDF access — generation step. Coach must be logged in. Returns a
+// 302 redirect to /reports/view/<token>, which is a single-use, 15-min URL.
+const PDF_FILENAME_RE = /^(client|coach|beta)_[^/]+\.pdf$/;
 
-  if (!isBetaDocx && !isPdf) {
-    return res.status(403).send('Forbidden');
+app.get('/reports/token/:filename', requireAdminSession, async (req, res) => {
+  const filename = req.params.filename;
+  if (!PDF_FILENAME_RE.test(filename)) {
+    return res.status(400).send('Bad request');
   }
 
-  // PDF reports are coach-scoped; beta docx files are super-admin only (no coach scope check needed)
-  if (isPdf) {
-    const coachId = await db.getReportCoachId(filename);
-    if (coachId !== null && coachId !== req.session.coach_id) {
+  // Preserve coach-scope check from the old route: client/coach PDFs are scoped
+  // to the owning coach; beta PDFs require super-admin.
+  if (/^beta_/.test(filename)) {
+    if (!req.session.coach_is_admin) return res.status(403).send('Forbidden');
+  } else {
+    const ownerCoachId = await db.getReportCoachId(filename);
+    if (ownerCoachId !== null && ownerCoachId !== req.session.coach_id) {
       return res.status(403).send('Forbidden');
     }
-  } else if (!req.session.coach_is_admin) {
-    return res.status(403).send('Forbidden');
   }
 
   const filePath = path.join(REPORTS_DIR, filename);
   if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
 
-  if (isBetaDocx) {
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  } else {
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-  }
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  await db.createPdfToken(token, filename, req.session.coach_id, expiresAt);
+
+  res.redirect(302, `/reports/view/${token}`);
+});
+
+// Tokenized PDF access — redemption step. Public route: no session required.
+// Token is single-use and expires 15 minutes after issue.
+app.get('/reports/view/:token', async (req, res) => {
+  const token = req.params.token;
+  const row = await db.getPdfToken(token);
+  if (!row) return res.status(403).send('Forbidden');
+  if (row.redeemed_at) return res.status(403).send('Forbidden');
+  if (new Date(row.expires_at).getTime() <= Date.now()) return res.status(403).send('Forbidden');
+
+  await db.markPdfTokenRedeemed(token);
+
+  const filePath = path.join(REPORTS_DIR, row.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${row.filename}"`);
   res.sendFile(filePath);
 });
 
