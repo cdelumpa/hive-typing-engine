@@ -893,6 +893,10 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     result = await callClaudeWithRetry(systemPrompt, userMessage);
   } catch (err) {
     await db.failAssessment(assessmentId);
+    // Revert client status so the invite link stops showing the processing
+    // gate. session_state is already null, so the in_progress branch will
+    // render the "contact your coach" dead-end message.
+    if (clientId) await db.updateClientStatus(clientId, 'in_progress');
     await sendErrorNotification(intake, err);
     return;
   }
@@ -972,7 +976,17 @@ app.post('/api/submit', async (req, res) => {
   const intakeInfo = intake ? `${intake.firstName} ${intake.lastName} <${intake.email}>` : 'unknown';
   console.log(`[submit] received from ${intakeInfo} — context ${contextBlock?.length ?? 0} chars`);
 
-  // Respond immediately
+  // Lock the invite link before responding — must happen before Claude fires so
+  // a client returning to their link mid-processing hits the processing gate.
+  if (bodyClientId) {
+    try {
+      await db.updateClientStatus(bodyClientId, 'processing');
+      await db.clearClientSessionState(bodyClientId);
+    } catch (e) {
+      console.error('[submit] processing-status update failed:', e.message);
+    }
+  }
+
   res.json({ ok: true, status: 'processing' });
 
   // Create DB records (fire-and-forget safe — all wrapped in try/catch in db.js)
@@ -2166,6 +2180,14 @@ app.get('/assessment/:token', async (req, res) => {
     return res.send(renderAssessmentGate(
       'Assessment Complete',
       `You've already completed your Hive Enneagram assessment, ${esc(tokenRow.first_name)}. Your coach will be in touch to discuss your results.`,
+      ''
+    ));
+  }
+
+  if (tokenRow.client_status === 'processing') {
+    return res.send(renderAssessmentGate(
+      'Assessment Being Processed',
+      "Your assessment is being processed. You'll receive your results by email shortly — there's nothing more you need to do.",
       ''
     ));
   }
