@@ -100,7 +100,13 @@ app.get('/', (req, res, next) => {
 });
 
 app.use(express.static('public'));
-app.use('/content', express.static('../content'));
+
+// Serve the type library from the in-memory copy loaded at boot.
+// Previously this was a file mount at '../content', which depended on the
+// process CWD and broke in production where only app/ is deployed.
+app.get('/content/type_library.json', (req, res) => {
+  res.json(typeLibrary);
+});
 
 // Session auth guard for admin routes
 function requireAdminSession(req, res, next) {

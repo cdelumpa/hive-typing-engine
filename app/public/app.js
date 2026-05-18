@@ -249,6 +249,7 @@ if (window.__hiveIntake) {
       'ctAdjustment', 'ctLastSnapshot', 'stage1Idx', 'stage1Rankings',
       'stage2Idx', 'stage2Answers', 'stage3Mode', 'stage3Idx', 'stage3Answers',
       'stage4Sequence', 'stage4Idx', 'stage4Answers', 'stage4Shuffles', 'finalOpenResponse',
+      'scores',
     ];
     rehydratable.forEach(function(key) {
       if (ss[key] !== undefined) state[key] = ss[key];

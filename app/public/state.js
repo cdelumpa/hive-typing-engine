@@ -84,8 +84,9 @@ function clearResult() {
 }
 
 // Returns a plain object of all rehydratable state fields for mid-assessment
-// persistence. Deliberately excludes apiResult, scores, and resultsTab which
-// are only valid after a completed API call.
+// persistence. Excludes apiResult and resultsTab which are only valid after a
+// completed API call. Includes scores because stage3Pair / stage4PathResolve
+// are derived mid-assessment and are required to render Stages 3 and 4 on resume.
 function getSerializableState() {
   return {
     phase:               state.phase,
@@ -107,5 +108,6 @@ function getSerializableState() {
     stage4Answers:       state.stage4Answers,
     stage4Shuffles:      state.stage4Shuffles,
     finalOpenResponse:   state.finalOpenResponse,
+    scores:              state.scores,
   };
 }
