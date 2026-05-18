@@ -91,6 +91,7 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_by TEXT;
 
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS beta_report_generated_at TIMESTAMPTZ;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS beta_report_filename TEXT;
 
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS session_state JSONB DEFAULT NULL;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS reminder_sent_at JSONB DEFAULT NULL;
@@ -298,7 +299,8 @@ async function getAdminRowsByCoach(coachId) {
       a.email_sent_at,
       (a.scores_snapshot IS NOT NULL) AS has_scores_snapshot,
       (a.api_result IS NOT NULL)      AS has_api_result,
-      c.beta_report_generated_at
+      c.beta_report_generated_at,
+      c.beta_report_filename
     FROM clients c
     LEFT JOIN assessments a  ON a.client_id = c.id
     LEFT JOIN coaches co      ON co.id = c.coach_id

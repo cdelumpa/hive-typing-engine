@@ -1,5 +1,8 @@
 'use strict';
 
+// In-app version of beta/generate_report.js — kept in sync because production
+// deployments only ship the app/ folder. ROOT is app/ here; modules and
+// renderer paths are adjusted accordingly.
 const path = require('path');
 const ROOT = __dirname;  // app/ is the root when deployed
 const APP_MODULES = path.join(ROOT, 'node_modules');
@@ -9,11 +12,7 @@ require(path.join(APP_MODULES, 'dotenv')).config({ path: path.join(ROOT, '.env')
 const fs   = require('fs');
 const { Pool } = require(path.join(APP_MODULES, 'pg'));
 
-const {
-  Document, Packer, Paragraph, TextRun, HeadingLevel,
-  Table, TableRow, TableCell, WidthType, ShadingType,
-  AlignmentType, LevelFormat,
-} = require(path.join(APP_MODULES, 'docx'));
+const { buildBetaHTML, buildPdfOptions } = require(path.join(ROOT, 'renderer'));
 
 // ─── Question data (mirrored from assessment.js — single source of truth) ───
 
@@ -133,7 +132,7 @@ const STAGE4_CT_COMPARATIVE = {
 
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver', 3: 'The Performer',
-  4: 'The Individualist', 5: 'The Observer', 6: 'The Questioner',
+  4: 'The Idealist', 5: 'The Observer', 6: 'The Questioner',
   7: 'The Enthusiast', 8: 'The Protector', 9: 'The Peacemaker',
 };
 
@@ -214,396 +213,215 @@ function safeName(str) {
   return (str || 'unknown').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
 }
 
-// ─── docx helpers ────────────────────────────────────────────────────────────
+// ─── Stage 3 / Stage 4 answer decoding ────────────────────────────────────────
 
-const LIGHT_GRAY = 'E8E8E8';
-const DXA_PAGE_WIDTH  = 12240;
-const DXA_PAGE_HEIGHT = 15840;
-const DXA_MARGIN      = 1440; // 1 inch
-const DXA_CONTENT     = DXA_PAGE_WIDTH - 2 * DXA_MARGIN; // 9360
-
-function h1(text) {
-  return new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text, bold: true })] });
-}
-
-function h2(text) {
-  return new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text })] });
-}
-
-function para(text, opts = {}) {
-  return new Paragraph({ children: [new TextRun({ text, ...opts })] });
-}
-
-function boldPara(text) {
-  return para(text, { bold: true });
-}
-
-function spacer() {
-  return new Paragraph({ children: [] });
-}
-
-// Two-column label:value table row
-function labelRow(label, value, shade = false) {
-  const fill = shade ? LIGHT_GRAY : 'FFFFFF';
-  return new TableRow({
-    children: [
-      new TableCell({
-        width: { size: 2800, type: WidthType.DXA },
-        shading: { type: ShadingType.CLEAR, color: 'auto', fill },
-        children: [new Paragraph({ children: [new TextRun({ text: label, bold: true })] })],
-      }),
-      new TableCell({
-        width: { size: DXA_CONTENT - 2800, type: WidthType.DXA },
-        shading: { type: ShadingType.CLEAR, color: 'auto', fill },
-        children: [new Paragraph({ children: [new TextRun({ text: value || '' })] })],
-      }),
-    ],
-  });
-}
-
-function simpleTable(rows) {
-  return new Table({
-    width: { size: DXA_CONTENT, type: WidthType.DXA },
-    columnWidths: [2800, DXA_CONTENT - 2800],
-    rows,
-  });
-}
-
-// Pairwise option row — shows A / B labels + text, marks selected
-function pairRow(label, text, selected, shade = false) {
-  const fill = shade ? LIGHT_GRAY : 'FFFFFF';
-  const displayText = selected ? `>> ${text}` : text;
-  return new TableRow({
-    children: [
-      new TableCell({
-        width: { size: 1200, type: WidthType.DXA },
-        shading: { type: ShadingType.CLEAR, color: 'auto', fill },
-        children: [new Paragraph({ children: [new TextRun({ text: label, bold: true })] })],
-      }),
-      new TableCell({
-        width: { size: DXA_CONTENT - 1200, type: WidthType.DXA },
-        shading: { type: ShadingType.CLEAR, color: 'auto', fill },
-        children: [new Paragraph({ children: [new TextRun({ text: displayText, bold: selected })] })],
-      }),
-    ],
-  });
-}
-
-function pairTable(rows) {
-  return new Table({
-    width: { size: DXA_CONTENT, type: WidthType.DXA },
-    columnWidths: [1200, DXA_CONTENT - 1200],
-    rows,
-  });
-}
-
-// Stage 1 ranking table — 3 options with rank + dimension label
-function stage1RankTable(q, ranking) {
-  // Sort options by rank (1 first)
-  const opts = ['a', 'b', 'c'].map(letter => ({
-    letter,
-    rank: ranking[letter],
-    text: q.options[letter],
-    dim: q.mapping[letter].toUpperCase(),
-  })).sort((x, y) => x.rank - y.rank);
-
-  const colWidths = [800, 1000, DXA_CONTENT - 1800];
-  const rows = [
-    new TableRow({
-      children: [
-        new TableCell({ width: { size: colWidths[0], type: WidthType.DXA }, shading: { type: ShadingType.CLEAR, color: 'auto', fill: LIGHT_GRAY }, children: [new Paragraph({ children: [new TextRun({ text: 'Rank', bold: true })] })] }),
-        new TableCell({ width: { size: colWidths[1], type: WidthType.DXA }, shading: { type: ShadingType.CLEAR, color: 'auto', fill: LIGHT_GRAY }, children: [new Paragraph({ children: [new TextRun({ text: 'Dimension', bold: true })] })] }),
-        new TableCell({ width: { size: colWidths[2], type: WidthType.DXA }, shading: { type: ShadingType.CLEAR, color: 'auto', fill: LIGHT_GRAY }, children: [new Paragraph({ children: [new TextRun({ text: 'Option Text', bold: true })] })] }),
-      ],
-    }),
-    ...opts.map((o, i) => {
-      const rankLabel = ['1st', '2nd', '3rd'][o.rank - 1] || `${o.rank}`;
-      const shade = i % 2 === 1;
-      const fill = shade ? LIGHT_GRAY : 'FFFFFF';
-      return new TableRow({
-        children: [
-          new TableCell({ width: { size: colWidths[0], type: WidthType.DXA }, shading: { type: ShadingType.CLEAR, color: 'auto', fill }, children: [new Paragraph({ children: [new TextRun({ text: rankLabel, bold: o.rank === 1 })] })] }),
-          new TableCell({ width: { size: colWidths[1], type: WidthType.DXA }, shading: { type: ShadingType.CLEAR, color: 'auto', fill }, children: [new Paragraph({ children: [new TextRun({ text: o.dim })] })] }),
-          new TableCell({ width: { size: colWidths[2], type: WidthType.DXA }, shading: { type: ShadingType.CLEAR, color: 'auto', fill }, children: [new Paragraph({ children: [new TextRun({ text: o.text, bold: o.rank === 1 })] })] }),
-        ],
-      });
-    }),
-  ];
-
-  return new Table({
-    width: { size: DXA_CONTENT, type: WidthType.DXA },
-    columnWidths: colWidths,
-    rows,
-  });
-}
-
-// Stage 2 option rows — shows all options, marks selected
-function stage2OptionsTable(q, selectedLetter) {
-  const colWidths = [800, DXA_CONTENT - 800];
-  const rows = ['A', 'B', 'C'].map((letter, i) => {
-    const selected = letter === selectedLetter;
-    const fill = i % 2 === 1 ? LIGHT_GRAY : 'FFFFFF';
-    return new TableRow({
-      children: [
-        new TableCell({ width: { size: colWidths[0], type: WidthType.DXA }, shading: { type: ShadingType.CLEAR, color: 'auto', fill }, children: [new Paragraph({ children: [new TextRun({ text: selected ? `>> ${letter}` : letter, bold: selected })] })] }),
-        new TableCell({ width: { size: colWidths[1], type: WidthType.DXA }, shading: { type: ShadingType.CLEAR, color: 'auto', fill }, children: [new Paragraph({ children: [new TextRun({ text: q.options[letter], bold: selected })] })] }),
-      ],
-    });
-  });
-  return new Table({
-    width: { size: DXA_CONTENT, type: WidthType.DXA },
-    columnWidths: colWidths,
-    rows,
-  });
-}
-
-// Stage 4 three-option table — 3 options, marks selected
-function stage4ThreeOptTable(options, selectedKey) {
-  const keyOrder = ['correct', 'alt1', 'alt2'];
-  const colWidths = [1000, DXA_CONTENT - 1000];
-  const rows = keyOrder.map((key, i) => {
-    const selected = key === selectedKey;
-    const fill = i % 2 === 1 ? LIGHT_GRAY : 'FFFFFF';
-    const labelText = selected ? `>> ${key.toUpperCase()}` : key.toUpperCase();
-    return new TableRow({
-      children: [
-        new TableCell({ width: { size: colWidths[0], type: WidthType.DXA }, shading: { type: ShadingType.CLEAR, color: 'auto', fill }, children: [new Paragraph({ children: [new TextRun({ text: labelText, bold: selected })] })] }),
-        new TableCell({ width: { size: colWidths[1], type: WidthType.DXA }, shading: { type: ShadingType.CLEAR, color: 'auto', fill }, children: [new Paragraph({ children: [new TextRun({ text: options[i], bold: selected })] })] }),
-      ],
-    });
-  });
-  return new Table({
-    width: { size: DXA_CONTENT, type: WidthType.DXA },
-    columnWidths: colWidths,
-    rows,
-  });
-}
-
-// ─── Stage 3 answer decoding ─────────────────────────────────────────────────
-
-// 'a' | 'both_a' | 'both_b' | 'b'
+// 'a' | 'both_a' | 'both_b' | 'b'  (from responses_snapshot)
 function decodeStage3Answer(raw) {
   switch (raw) {
-    case 'a':      return { label: 'Person A',              leanA: true,  leanB: false, both: false };
-    case 'both_a': return { label: 'Both — leaning A',     leanA: true,  leanB: false, both: true  };
-    case 'both_b': return { label: 'Both — leaning B',     leanA: false, leanB: true,  both: true  };
-    case 'b':      return { label: 'Person B',              leanA: false, leanB: true,  both: false };
-    default:       return { label: raw || 'N/A',            leanA: false, leanB: false, both: false };
+    case 'a':      return { label: 'Person A',          leanA: true,  leanB: false, both: false };
+    case 'both_a': return { label: 'Both — leaning A', leanA: true,  leanB: false, both: true  };
+    case 'both_b': return { label: 'Both — leaning B', leanA: false, leanB: true,  both: true  };
+    case 'b':      return { label: 'Person B',          leanA: false, leanB: true,  both: false };
+    default:       return { label: raw || 'N/A',        leanA: false, leanB: false, both: false };
   }
 }
 
-// ─── Stage 4 answer decoding ─────────────────────────────────────────────────
-
-// For pairwise answers: 'A' | 'A-slight' | 'B-slight' | 'B'
+// Stage-4 pairwise (A | A-slight | B-slight | B)
 function decodeStage4Pairwise(raw) {
   switch (raw) {
-    case 'A':       return { leanA: true,  leanB: false, both: false, label: 'Person A' };
-    case 'A-slight':return { leanA: true,  leanB: false, both: true,  label: 'Both — leaning A' };
-    case 'B-slight':return { leanA: false, leanB: true,  both: true,  label: 'Both — leaning B' };
-    case 'B':       return { leanA: false, leanB: true,  both: false, label: 'Person B' };
-    default:        return { leanA: false, leanB: false, both: false, label: raw || 'N/A' };
+    case 'A':        return { leanA: true,  leanB: false, both: false, label: 'Person A' };
+    case 'A-slight': return { leanA: true,  leanB: false, both: true,  label: 'Both — leaning A' };
+    case 'B-slight': return { leanA: false, leanB: true,  both: true,  label: 'Both — leaning B' };
+    case 'B':        return { leanA: false, leanB: true,  both: false, label: 'Person B' };
+    default:         return { leanA: false, leanB: false, both: false, label: raw || 'N/A' };
   }
 }
 
-// Determine if a Stage 4 answer is pairwise or 3opt
 function isStage4Pairwise(raw) {
   return ['A', 'A-slight', 'B-slight', 'B'].includes(raw);
 }
 
-// ─── Report builder ───────────────────────────────────────────────────────────
+// ─── Build the pre-resolved data object that buildBetaHTML consumes ─────────
 
-function buildReport(row) {
+function buildBetaData(row) {
   const scores = typeof row.scores_snapshot === 'string'
     ? JSON.parse(row.scores_snapshot)
     : (row.scores_snapshot || {});
   const responses = typeof row.responses_snapshot === 'string'
     ? JSON.parse(row.responses_snapshot)
     : (row.responses_snapshot || {});
-
-  // api_result.hypothesis carries confirmed type/instinct and Stage 4 outcome
-  // for all clients. scores_snapshot may lack stage2/3/4 sub-objects for older
-  // records, so we fall back to hypothesis fields.
   const apiResult = typeof row.api_result === 'string'
     ? JSON.parse(row.api_result)
     : (row.api_result || {});
   const hyp = apiResult.hypothesis || {};
   const apiFlags = apiResult.flags || [];
 
-  const s1  = scores;              // stage1 fields live at top level
-  const s2  = scores.stage2 || {};
-  const s3  = scores.stage3 || {};
-  // Synthesize s4 from scores_snapshot (newer) or api_result.hypothesis (older)
-  const s4  = scores.stage4 || {
-    path:             hyp.stage4_path     || null,
-    option:           hyp.stage4_option   || null,
-    leadType:         hyp.confirmed_type  || null,
-    secondType:       hyp.second_candidate_type || null,
-    outcome:          hyp.stage4_outcome  || null,
-    stressConfirmed:  hyp.stage4_stress_confirmed   ?? null,
+  const s1 = scores;                  // Stage-1 fields live at the top level
+  const s2 = scores.stage2 || {};     // present in newer (post-fix) snapshots
+  const s3 = scores.stage3 || {};
+  // Stage 4: scores.stage4 (newer) or synthesize from hyp (older records).
+  const s4 = scores.stage4 || {
+    path:              hyp.stage4_path     || null,
+    option:            hyp.stage4_option   || null,
+    leadType:          hyp.confirmed_type  || null,
+    secondType:        hyp.second_candidate_type || null,
+    outcome:           hyp.stage4_outcome  || null,
+    stressConfirmed:   hyp.stage4_stress_confirmed   ?? null,
     securityConfirmed: hyp.stage4_security_confirmed ?? null,
-    habitConfirmed:   hyp.stage4_habit_confirmed     ?? null,
+    habitConfirmed:    hyp.stage4_habit_confirmed     ?? null,
   };
 
-  const r0  = responses.stage0  || {};
-  const r1  = responses.stage1  || {};
-  const r2  = responses.stage2  || {};
-  const r3  = responses.stage3  || {};
-  const r4  = responses.stage4  || {};
+  const r0 = responses.stage0 || {};
+  const r1 = responses.stage1 || {};
+  const r2 = responses.stage2 || {};
+  const r3 = responses.stage3 || {};
+  const r4 = responses.stage4 || {};
   const finalQ = responses.finalQuestion;
 
   const confirmedType    = s4.leadType || hyp.confirmed_type || s1.typeHypotheses?.[0];
   const confirmedInstinct = hyp.confirmed_instinct || s1.identifiedInstinct || '?';
   const typeName         = TYPE_NAMES[confirmedType] || '';
 
-  // Assessment date
   const assessDate = row.assessment_date
     ? new Date(row.assessment_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : 'Unknown';
 
-  const children = [];
-
-  // ── HEADER ──────────────────────────────────────────────────────────────────
-  children.push(h1('HIVE ENNEAGRAM BETA REPORT'));
-  children.push(spacer());
-  children.push(simpleTable([
-    labelRow('Client Name',    `${row.first_name} ${row.last_name}`, false),
-    labelRow('Email',          row.email,     true),
-    labelRow('Coach',          row.coach_name, false),
-    labelRow('Assessment Date', assessDate,    true),
-  ]));
-  children.push(spacer());
-
-  // ── ENGINE OUTCOME ───────────────────────────────────────────────────────────
-  children.push(h1('Engine Outcome'));
   const typeLabel = confirmedType
     ? `${confirmedInstinct} ${confirmedType} — ${typeName}`
     : 'Not confirmed';
-  children.push(boldPara(`Confirmed Type: ${typeLabel}`));
-  children.push(spacer());
-  children.push(simpleTable([
-    labelRow('Confirmed Type',     typeLabel,                         false),
-    labelRow('Confidence Level',   hyp.confidence_level || s1.instinctConfidence || '?', true),
-    labelRow('Stage 4 Outcome',    s4.outcome  || 'N/A',             false),
-    labelRow('Stage 4 Path',       s4.path     || 'N/A',             true),
-  ]));
-  children.push(spacer());
 
-  // Use api_result.flags when scores_snapshot doesn't carry them
-  const flags = (scores.flags && scores.flags.length > 0) ? scores.flags : apiFlags;
-  children.push(h2('Flags Raised'));
-  if (flags.length === 0) {
-    children.push(para('None'));
-  } else {
-    flags.forEach(f => {
-      const ft = typeof f === 'string' ? f : (f.flag_type || JSON.stringify(f));
-      const desc = typeof f === 'object' ? (f.description || f.explanation || '') : '';
-      children.push(para(`• ${ft}${desc ? ': ' + desc : ''}`));
-    });
-  }
-  children.push(spacer());
-
-  // ── STAGE 0 ──────────────────────────────────────────────────────────────────
-  children.push(h1('Stage 0 — Warm-Up'));
-  STAGE0_QUESTIONS.forEach(q => {
-    children.push(h2(q.title));
-    children.push(boldPara(q.text));
-    children.push(para(r0[q.id] || '[No response]'));
-    children.push(spacer());
+  // Flags: prefer scores.flags when present, otherwise api_result.flags
+  const rawFlags = (scores.flags && scores.flags.length > 0) ? scores.flags : apiFlags;
+  const flags = (rawFlags || []).map(f => {
+    if (typeof f === 'string') return { label: f, description: '' };
+    return {
+      label: f.flag_type || f.label || JSON.stringify(f),
+      description: f.description || f.explanation || '',
+    };
   });
 
-  // ── STAGE 1 ──────────────────────────────────────────────────────────────────
-  children.push(h1('Stage 1 — Centers & Instincts'));
+  // ── Stage 0
+  const stage0 = STAGE0_QUESTIONS.map(q => ({
+    title: q.title,
+    text: q.text,
+    response: r0[q.id] || '',
+  }));
 
-  // Summary scores
-  const centerHead   = s1.head   ?? '?';
-  const centerHeart  = s1.heart  ?? '?';
-  const centerBody   = s1.body   ?? '?';
-  const instSP       = s1.sp     ?? '?';
-  const instSO       = s1.so     ?? '?';
-  const instSX       = s1.sx     ?? '?';
+  // ── Stage 1 summary + questions
+  // Pull confidence / gap from the flattened keys first; fall back to s1 (old snapshots).
+  const centerGap        = scores.centerGap ?? s1.centerGap ?? '—';
+  const centerConfidence = scores.centerConfidence || s1.centerConfidence || '—';
+  const instinctGap        = s1.instinctGap ?? '—';
+  const instinctConfidence = hyp.instinct_confidence || s1.instinctConfidence || '—';
 
-  children.push(h2('Score Summary'));
-  children.push(simpleTable([
-    labelRow('Head / Heart / Body',      `${centerHead} / ${centerHeart} / ${centerBody}  (gap: ${s1.centerGap ?? '?'})`, false),
-    labelRow('Confirmed Center',          s1.identifiedCenter || '?',  true),
-    labelRow('Center Confidence',         s1.centerConfidence || '?',  false),
-    labelRow('SP / SO / SX',            `${instSP} / ${instSO} / ${instSX}  (gap: ${s1.instinctGap ?? '?'})`, true),
-    labelRow('Confirmed Instinct',        confirmedInstinct, false),
-    labelRow('Instinct Confidence',       hyp.instinct_confidence || s1.instinctConfidence || '?', true),
-    labelRow('Type Hypotheses',           (s1.typeHypotheses || []).map(t => `Type ${t}`).join(', '), false),
-    labelRow('Counter-Type Flag',         s1.counterTypeFlag || (hyp.counter_type_confirmed ? 'YES' : 'NO'), true),
-    ...(s1.counterTypeCombination || hyp.counter_type_combination
-      ? [labelRow('Counter-Type Combination', s1.counterTypeCombination || hyp.counter_type_combination || '', false)]
-      : []),
-  ]));
-  children.push(spacer());
+  const stage1Summary = [
+    { label: 'Head / Heart / Body',     value: `${s1.head ?? '?'} / ${s1.heart ?? '?'} / ${s1.body ?? '?'}  (gap: ${centerGap})` },
+    { label: 'Confirmed Center',         value: s1.identifiedCenter || '—' },
+    { label: 'Center Confidence',        value: centerConfidence },
+    { label: 'SP / SO / SX',             value: `${s1.sp ?? '?'} / ${s1.so ?? '?'} / ${s1.sx ?? '?'}  (gap: ${instinctGap})` },
+    { label: 'Confirmed Instinct',       value: confirmedInstinct },
+    { label: 'Instinct Confidence',      value: instinctConfidence },
+    { label: 'Type Hypotheses',          value: (s1.typeHypotheses || []).map(t => `Type ${t}`).join(', ') || '—' },
+    { label: 'Counter-Type Flag',        value: s1.counterTypeFlag || (hyp.counter_type_confirmed ? 'YES' : 'NO') },
+  ];
+  if (s1.counterTypeCombination || hyp.counter_type_combination) {
+    stage1Summary.push({
+      label: 'Counter-Type Combination',
+      value: s1.counterTypeCombination || hyp.counter_type_combination || '',
+    });
+  }
 
-  // Individual questions
-  STAGE1_QUESTIONS.forEach((q, idx) => {
+  const stage1Questions = STAGE1_QUESTIONS.map((q, idx) => {
     const rankingRaw = r1[q.id] || {};
-    // ranking values: a/b/c = 1/2/3
     const ranking = {
       a: typeof rankingRaw.a === 'number' ? rankingRaw.a : parseInt(rankingRaw.a) || 0,
       b: typeof rankingRaw.b === 'number' ? rankingRaw.b : parseInt(rankingRaw.b) || 0,
       c: typeof rankingRaw.c === 'number' ? rankingRaw.c : parseInt(rankingRaw.c) || 0,
     };
-    const dimLabel = q.type === 'centers' ? 'Centers (Body / Heart / Head)' : 'Instincts (SP / SO / SX)';
-    children.push(h2(`Q${idx + 1}: ${q.title} [${dimLabel}]`));
-    children.push(boldPara(q.text));
-    children.push(stage1RankTable(q, ranking));
-    children.push(spacer());
+    const opts = ['a', 'b', 'c'].map(letter => ({
+      letter,
+      rank: ranking[letter],
+      text: q.options[letter],
+      dim: q.mapping[letter].toUpperCase(),
+    })).sort((x, y) => (x.rank || 99) - (y.rank || 99));
+
+    return {
+      idx: idx + 1,
+      title: q.title,
+      dimLabel: q.type === 'centers' ? 'Centers (Body / Heart / Head)' : 'Instincts (SP / SO / SX)',
+      text: q.text,
+      rows: opts.map(o => ({
+        rankLabel: o.rank ? ['1st', '2nd', '3rd'][o.rank - 1] || String(o.rank) : '—',
+        dim: o.dim,
+        text: o.text,
+        isTop: o.rank === 1,
+      })),
+    };
   });
 
-  // ── STAGE 2 ──────────────────────────────────────────────────────────────────
-  children.push(h1('Stage 2 — Cross-Referencing'));
-  children.push(h2('Summary'));
-  children.push(simpleTable([
-    labelRow('Primary Hypothesis',   `Type ${s2.xrefPrimary || '?'}`,     false),
-    labelRow('Alternative Hypothesis', `Type ${s2.xrefAlternative || '?'}`, true),
-    labelRow('Ambiguity Axis',       s2.xrefAmbiguityAxis || '?',          false),
-    labelRow('Cross-Center Divergence', s2.crossCenterDivergence ? 'YES' : 'NO', true),
-  ]));
-  children.push(spacer());
+  // ── Stage 2 summary + questions
+  const xrefPrimary     = scores.xrefPrimary     ?? s2.xrefPrimary     ?? hyp.stage2_primary;
+  const xrefAlternative = scores.xrefAlternative ?? s2.xrefAlternative;
+  const xrefAmbiguity   = scores.xrefAmbiguityAxis || s2.xrefAmbiguityAxis;
+
+  const stage2Summary = [
+    { label: 'Primary Hypothesis',      value: xrefPrimary     ? `Type ${xrefPrimary}`     : '—' },
+    { label: 'Alternative Hypothesis',  value: xrefAlternative ? `Type ${xrefAlternative}` : '—' },
+    { label: 'Ambiguity Axis',          value: xrefAmbiguity || '—' },
+    { label: 'Cross-Center Divergence', value: s2.crossCenterDivergence ? 'YES' : 'NO' },
+  ];
 
   const s2QuestionKeys = ['q1', 'q2', 'q3'];
-  STAGE2_QUESTIONS.forEach((q, idx) => {
+  const stage2Questions = STAGE2_QUESTIONS.map((q, idx) => {
     const selected = r2[s2QuestionKeys[idx]] || null;
-    children.push(h2(`Q${idx + 1}: ${q.title} [${q.framework}]`));
-    children.push(boldPara(q.text));
-    children.push(stage2OptionsTable(q, selected));
-    children.push(spacer());
+    return {
+      idx: idx + 1,
+      title: q.title,
+      framework: q.framework,
+      text: q.text,
+      options: ['A', 'B', 'C'].map(letter => ({
+        letter,
+        text: q.options[letter],
+        selected: letter === selected,
+      })),
+    };
   });
 
-  // ── STAGE 3 ──────────────────────────────────────────────────────────────────
-  children.push(h1('Stage 3 — Pairwise Discrimination'));
-  children.push(h2('Summary'));
-  children.push(simpleTable([
-    labelRow('Mode',          s3.mode       || '?',  false),
-    labelRow('Pair Tested',   s3.pair       || '?',  true),
-    labelRow('Result',        s3.q1Result   || '?',  false),
-    labelRow('Leading Type',  `Type ${s3.leading || '?'}`, true),
-    labelRow('Confidence',    s3.confidence || '?',  false),
-    labelRow('CT Answer',     s3.ctAnswer   || 'N/A', true),
-  ]));
-  children.push(spacer());
+  // ── Stage 3 summary + Q1/Q2 blocks
+  // Mode comes from assessment.js as 'COUNTER-TYPE'/'STANDARD' but Claude
+  // returns 'COUNTER_TYPE'/'STANDARD' — normalize so comparisons match either.
+  const rawS3Mode    = scores.s3mode       ?? s3.mode       ?? hyp.stage3_mode;
+  const s3Mode       = rawS3Mode ? String(rawS3Mode).replace(/_/g, '-') : null;
+  const s3Pair       = scores.s3pair       ?? s3.pair;
+  const s3Q1Result   = scores.s3q1Result   ?? s3.q1Result;
+  const s3Leading    = scores.s3leading    ?? s3.leading;
+  const s3Confidence = scores.s3confidence ?? s3.confidence ?? hyp.stage3_confidence;
 
-  // Q1
-  const q1Raw = r3.q1;
-  if (q1Raw) {
-    children.push(h2('Q1: ' + STAGE3_Q1_STEM));
+  const stage3Summary = [
+    { label: 'Mode',         value: s3Mode || '—' },
+    { label: 'Pair Tested',  value: s3Pair || '—' },
+    { label: 'Result',       value: s3Q1Result || '—' },
+    { label: 'Leading Type', value: s3Leading ? `Type ${s3Leading}` : '—' },
+    { label: 'Confidence',   value: s3Confidence || '—' },
+    { label: 'CT Answer',    value: s3.ctAnswer || 'N/A' },
+  ];
 
-    if (s3.mode === 'COUNTER-TYPE') {
+  // Q1 — present whenever a Stage-3 answer was recorded
+  let stage3Q1 = null;
+  if (r3.q1) {
+    const decoded = decodeStage3Answer(r3.q1);
+    if (s3Mode === 'COUNTER-TYPE') {
       const ctKey = s3.pairKey || s1.counterTypeKey;
       const ctPair = STAGE3_CT_PAIRS[ctKey] || {};
-      const decoded = decodeStage3Answer(q1Raw);
-      children.push(boldPara(STAGE3_Q1_STEM));
-      children.push(pairTable([
-        pairRow('Person A', ctPair.personA || '[CT pair not found]', decoded.leanA && !decoded.both),
-        pairRow('Person B', ctPair.personB || '[CT pair not found]', decoded.leanB && !decoded.both),
-      ]));
-      children.push(para(`Selected: ${decoded.label}`, { bold: true }));
+      stage3Q1 = {
+        stem: STAGE3_Q1_STEM,
+        pairs: [
+          { label: 'Person A', text: ctPair.personA || '[CT pair not found]', selected: decoded.leanA && !decoded.both },
+          { label: 'Person B', text: ctPair.personB || '[CT pair not found]', selected: decoded.leanB && !decoded.both },
+        ],
+        selectedLabel: decoded.label,
+      };
     } else {
-      // Standard mode — determine pair
       const pairKey = s3.pairKey;
       let typeA, typeB;
       if (pairKey && pairKey.includes('-')) {
@@ -611,182 +429,160 @@ function buildReport(row) {
         typeA = parseInt(parts[0]);
         typeB = parseInt(parts[1]);
       }
-      const textA = typeA ? (STAGE3_CORE_MOTIVATIONS[typeA] || '') : '';
-      const textB = typeB ? (STAGE3_CORE_MOTIVATIONS[typeB] || '') : '';
-      const decoded = decodeStage3Answer(q1Raw);
-      children.push(boldPara(STAGE3_Q1_STEM));
-      children.push(pairTable([
-        pairRow(`Person A (Type ${typeA || '?'})`, textA, decoded.leanA && !decoded.both),
-        pairRow(`Person B (Type ${typeB || '?'})`, textB, decoded.leanB && !decoded.both),
-      ]));
-      children.push(para(`Selected: ${decoded.label}`, { bold: true }));
+      stage3Q1 = {
+        stem: STAGE3_Q1_STEM,
+        pairs: [
+          { label: `Person A (Type ${typeA || '?'})`, text: typeA ? (STAGE3_CORE_MOTIVATIONS[typeA] || '') : '', selected: decoded.leanA && !decoded.both },
+          { label: `Person B (Type ${typeB || '?'})`, text: typeB ? (STAGE3_CORE_MOTIVATIONS[typeB] || '') : '', selected: decoded.leanB && !decoded.both },
+        ],
+        selectedLabel: decoded.label,
+      };
     }
-    children.push(spacer());
   }
 
-  // Q2 — only if fired (not null)
-  const q2Raw = r3.q2;
-  if (q2Raw) {
-    children.push(h2('Q2: ' + STAGE3_Q2_STEM));
-    const pairKey = s3.pairKey;
-    const avoidance = STAGE3_AVOIDANCE_QUESTIONS[pairKey] || {};
-    const decoded = decodeStage3Answer(q2Raw);
-    children.push(boldPara(STAGE3_Q2_STEM));
-    children.push(pairTable([
-      pairRow('Person A', avoidance.personA || '[avoidance text not found]', decoded.leanA && !decoded.both),
-      pairRow('Person B', avoidance.personB || '[avoidance text not found]', decoded.leanB && !decoded.both),
-    ]));
-    children.push(para(`Selected: ${decoded.label}`, { bold: true }));
-    children.push(spacer());
+  // Q2 — only fires for high-ambiguity standard pairs
+  let stage3Q2 = null;
+  if (r3.q2) {
+    const decoded = decodeStage3Answer(r3.q2);
+    const avoidance = STAGE3_AVOIDANCE_QUESTIONS[s3.pairKey] || {};
+    stage3Q2 = {
+      stem: STAGE3_Q2_STEM,
+      pairs: [
+        { label: 'Person A', text: avoidance.personA || '[avoidance text not found]', selected: decoded.leanA && !decoded.both },
+        { label: 'Person B', text: avoidance.personB || '[avoidance text not found]', selected: decoded.leanB && !decoded.both },
+      ],
+      selectedLabel: decoded.label,
+    };
   }
 
-  // ── STAGE 4 ──────────────────────────────────────────────────────────────────
-  children.push(h1('Stage 4 — Confirmation'));
-  children.push(h2('Summary'));
-  children.push(simpleTable([
-    labelRow('Path Taken',        s4.path    || '?',  false),
-    labelRow('Option',            s4.option  || '?',  true),
-    labelRow('Lead Type',         `Type ${s4.leadType || '?'}`, false),
-    labelRow('Stage 4 Outcome',   s4.outcome || '?',  true),
-    labelRow('Stress Confirmed',  s4.stressConfirmed   != null ? (s4.stressConfirmed   ? 'Yes' : 'No') : 'N/A', false),
-    labelRow('Security Confirmed', s4.securityConfirmed != null ? (s4.securityConfirmed ? 'Yes' : 'No') : 'N/A', true),
-    labelRow('Habit Confirmed',   s4.habitConfirmed    != null ? (s4.habitConfirmed    ? 'Yes' : 'No') : 'N/A (did not fire)', false),
-  ]));
-  children.push(spacer());
+  // ── Stage 4 summary + stress/security/habit blocks
+  const confirmedStr = (v) => v != null ? (v ? 'Yes' : 'No') : 'N/A';
+  const stage4Summary = [
+    { label: 'Path Taken',        value: s4.path    || '—' },
+    { label: 'Option',            value: s4.option  || '—' },
+    { label: 'Lead Type',         value: s4.leadType ? `Type ${s4.leadType}` : '—' },
+    { label: 'Stage 4 Outcome',   value: s4.outcome || '—' },
+    { label: 'Stress Confirmed',  value: confirmedStr(s4.stressConfirmed) },
+    { label: 'Security Confirmed', value: confirmedStr(s4.securityConfirmed) },
+    { label: 'Habit Confirmed',   value: s4.habitConfirmed != null ? confirmedStr(s4.habitConfirmed) : 'N/A (did not fire)' },
+  ];
 
   const leadType = s4.leadType || confirmedType;
   const ctKey = s1.counterTypeKey;
-  const isCTPairwise = s4.path === 'COUNTER_TYPE_AMBIGUOUS';
   const ctComparative = STAGE4_CT_COMPARATIVE[ctKey];
 
-  // Stress
-  const stressAns = r4.stress;
-  if (stressAns != null) {
-    children.push(h2('Stress Point'));
-    children.push(boldPara(STAGE4_STRESS_STEM));
-    const isPairwise = isStage4Pairwise(stressAns);
-    if (isPairwise && ctComparative) {
-      const decoded = decodeStage4Pairwise(stressAns);
-      children.push(pairTable([
-        pairRow('Person A', ctComparative.stress.personA, decoded.leanA && !decoded.both),
-        pairRow('Person B', ctComparative.stress.personB, decoded.leanB && !decoded.both),
-      ]));
-      children.push(para(`Selected: ${decoded.label}`, { bold: true }));
-    } else if (leadType && STAGE4_STRESS[leadType]) {
-      children.push(stage4ThreeOptTable(STAGE4_STRESS[leadType], stressAns));
-    } else {
-      children.push(para(`Answer: ${stressAns}`));
+  // Build a Stage-4 instrument block (stress / security / habit). Returns null
+  // when the user didn't answer the slot.
+  const buildStage4Block = (rawAnswer, threeOptOptions, ctSlot, confirmed) => {
+    if (rawAnswer == null) return null;
+    if (isStage4Pairwise(rawAnswer) && ctComparative && ctSlot) {
+      const decoded = decodeStage4Pairwise(rawAnswer);
+      return {
+        mode: 'pairwise',
+        options: [
+          { label: 'Person A', text: ctSlot.personA, selected: decoded.leanA && !decoded.both },
+          { label: 'Person B', text: ctSlot.personB, selected: decoded.leanB && !decoded.both },
+        ],
+        selectedLabel: decoded.label,
+        confirmedLabel: confirmedStr(confirmed),
+      };
     }
-    children.push(para(`Confirmed: ${s4.stressConfirmed != null ? (s4.stressConfirmed ? 'Yes' : 'No') : 'N/A'}`));
-    children.push(spacer());
-  }
-
-  // Security
-  const securityAns = r4.security;
-  if (securityAns != null) {
-    children.push(h2('Security Point'));
-    children.push(boldPara(STAGE4_SECURITY_STEM));
-    const isPairwise = isStage4Pairwise(securityAns);
-    if (isPairwise && ctComparative) {
-      const decoded = decodeStage4Pairwise(securityAns);
-      children.push(pairTable([
-        pairRow('Person A', ctComparative.security.personA, decoded.leanA && !decoded.both),
-        pairRow('Person B', ctComparative.security.personB, decoded.leanB && !decoded.both),
-      ]));
-      children.push(para(`Selected: ${decoded.label}`, { bold: true }));
-    } else if (leadType && STAGE4_SECURITY[leadType]) {
-      children.push(stage4ThreeOptTable(STAGE4_SECURITY[leadType], securityAns));
-    } else {
-      children.push(para(`Answer: ${securityAns}`));
+    if (leadType && threeOptOptions) {
+      const keyOrder = ['correct', 'alt1', 'alt2'];
+      return {
+        mode: '3opt',
+        options: keyOrder.map((key, i) => ({
+          label: key.toUpperCase(),
+          text: threeOptOptions[i],
+          selected: key === rawAnswer,
+        })),
+        selectedLabel: rawAnswer === 'correct' ? `Correct (Type ${leadType})` : `Alternative (${rawAnswer})`,
+        confirmedLabel: confirmedStr(confirmed),
+      };
     }
-    children.push(para(`Confirmed: ${s4.securityConfirmed != null ? (s4.securityConfirmed ? 'Yes' : 'No') : 'N/A'}`));
-    children.push(spacer());
+    // Unrecognized answer shape — render as a single-line note
+    return {
+      mode: '3opt',
+      options: [{ label: 'ANSWER', text: String(rawAnswer), selected: true }],
+      selectedLabel: String(rawAnswer),
+      confirmedLabel: confirmedStr(confirmed),
+    };
+  };
+
+  const stage4 = {
+    summary: stage4Summary,
+    stressStem: STAGE4_STRESS_STEM,
+    securityStem: STAGE4_SECURITY_STEM,
+    habitStem: STAGE4_HABIT_STEM,
+    stress:   buildStage4Block(r4.stress,   leadType ? STAGE4_STRESS[leadType]   : null, ctComparative && ctComparative.stress,   s4.stressConfirmed),
+    security: buildStage4Block(r4.security, leadType ? STAGE4_SECURITY[leadType] : null, ctComparative && ctComparative.security, s4.securityConfirmed),
+    habit:    buildStage4Block(r4.habit,    leadType ? STAGE4_HABIT[leadType]    : null, ctComparative && ctComparative.habit,    s4.habitConfirmed),
+  };
+
+  return {
+    clientName: `${row.first_name} ${row.last_name}`,
+    email: row.email,
+    coachName: row.coach_name,
+    assessmentDate: assessDate,
+    typeLabel,
+    confidenceLevel: hyp.confidence_level || s1.instinctConfidence || '—',
+    stage4Outcome: s4.outcome || 'N/A',
+    stage4Path:    s4.path    || 'N/A',
+    flags,
+    stage0,
+    stage1: { summary: stage1Summary, questions: stage1Questions },
+    stage2: { summary: stage2Summary, questions: stage2Questions },
+    stage3: { summary: stage3Summary, q1: stage3Q1, q2: stage3Q2 },
+    stage4,
+    finalOpenResponse: finalQ || null,
+  };
+}
+
+// ─── Puppeteer launch + PDF write ─────────────────────────────────────────────
+
+async function launchBrowser() {
+  if (process.env.NODE_ENV === 'production') {
+    const puppeteerFull = require(path.join(APP_MODULES, 'puppeteer'));
+    return await puppeteerFull.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
   }
-
-  // Habit (only if fired)
-  const habitAns = r4.habit;
-  if (habitAns != null) {
-    children.push(h2('Habit of Mind'));
-    children.push(boldPara(STAGE4_HABIT_STEM));
-    const isPairwise = isStage4Pairwise(habitAns);
-    if (isPairwise && ctComparative) {
-      const decoded = decodeStage4Pairwise(habitAns);
-      children.push(pairTable([
-        pairRow('Person A', ctComparative.habit.personA, decoded.leanA && !decoded.both),
-        pairRow('Person B', ctComparative.habit.personB, decoded.leanB && !decoded.both),
-      ]));
-      children.push(para(`Selected: ${decoded.label}`, { bold: true }));
-    } else if (leadType && STAGE4_HABIT[leadType]) {
-      children.push(stage4ThreeOptTable(STAGE4_HABIT[leadType], habitAns));
-    } else {
-      children.push(para(`Answer: ${habitAns}`));
-    }
-    children.push(para(`Confirmed: ${s4.habitConfirmed != null ? (s4.habitConfirmed ? 'Yes' : 'No') : 'N/A'}`));
-    children.push(spacer());
-  }
-
-  // ── FINAL OPEN QUESTION ───────────────────────────────────────────────────────
-  children.push(h1('Final Open Question'));
-  if (finalQ) {
-    children.push(boldPara('Final Open Response'));
-    children.push(para(finalQ));
-  } else {
-    children.push(para('Skipped.'));
-  }
-  children.push(spacer());
-
-  // ── BETA COMPARISON ───────────────────────────────────────────────────────────
-  children.push(h1('Beta Comparison (Manual Entry)'));
-  children.push(simpleTable([
-    labelRow("Coach's self-reported type", '_______________', false),
-    labelRow('Engine match?',              '_______________', true),
-    labelRow('Notes from Google Form',     '',                false),
-  ]));
-  children.push(spacer());
-  children.push(para('[Space for notes]'));
-
-  // ── BUILD DOC ─────────────────────────────────────────────────────────────────
-  const doc = new Document({
-    numbering: {
-      config: [{
-        reference: 'bullet-list',
-        levels: [{
-          level: 0,
-          format: LevelFormat.BULLET,
-          text: '•',
-          alignment: AlignmentType.LEFT,
-        }],
-      }],
-    },
-    sections: [{
-      properties: {
-        page: {
-          size: { width: DXA_PAGE_WIDTH, height: DXA_PAGE_HEIGHT },
-          margin: { top: DXA_MARGIN, right: DXA_MARGIN, bottom: DXA_MARGIN, left: DXA_MARGIN },
-        },
-      },
-      children,
-    }],
+  const puppeteerCore = require(path.join(APP_MODULES, 'puppeteer-core'));
+  return await puppeteerCore.launch({
+    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    headless: 'new',
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
+}
 
-  return doc;
+async function htmlToPdf(html, outPath, pdfOptions) {
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.emulateMediaType('print');
+    await page.pdf({ path: outPath, ...pdfOptions });
+  } finally {
+    await browser.close();
+  }
 }
 
 // ─── Core exported function ───────────────────────────────────────────────────
 
 /**
- * Generate a beta .docx report for a single client.
+ * Generate a beta .pdf report for a single client.
  *
- * opts.queryFn   — async (sql, params) => pg result  [defaults to module pool]
- * opts.reportsDir — output directory                 [defaults to REPORTS_DIR]
- * opts.force     — bypass the already-generated skip check
+ * opts.queryFn     — async (sql, params) => pg result  [defaults to module pool]
+ * opts.reportsDir  — output directory                  [defaults to REPORTS_DIR]
+ * opts.force       — bypass the already-generated skip check
  *
  * Returns { filename, outPath, generated_at } on success, or throws.
  */
 async function generateBetaReport(clientId, opts = {}) {
-  const queryFn   = opts.queryFn   || defaultQuery;
-  const outDir    = opts.reportsDir || REPORTS_DIR;
-  const force     = opts.force     || false;
+  const queryFn  = opts.queryFn    || defaultQuery;
+  const outDir   = opts.reportsDir || REPORTS_DIR;
+  const force    = opts.force      || false;
 
   fs.mkdirSync(outDir, { recursive: true });
 
@@ -807,21 +603,24 @@ async function generateBetaReport(clientId, opts = {}) {
     String(date.getMonth() + 1).padStart(2, '0'),
     String(date.getDate()).padStart(2, '0'),
   ].join('');
-  const filename = `beta_${safeName(row.last_name)}_${safeName(row.first_name)}_${dateStr}.docx`;
+  const filename = `beta_${safeName(row.last_name)}_${safeName(row.first_name)}_${dateStr}.pdf`;
   const outPath  = path.join(outDir, filename);
 
-  const doc    = buildReport(row);
-  const buffer = await Packer.toBuffer(doc);
-  fs.writeFileSync(outPath, buffer);
+  const data    = buildBetaData(row);
+  const html    = buildBetaHTML(data);
+  const pdfOpts = buildPdfOptions({ firstName: row.first_name, lastName: row.last_name });
+  await htmlToPdf(html, outPath, pdfOpts);
 
-  // Stamp the timestamp on the client row
+  // Stamp the timestamp and filename on the client row so the admin UI can
+  // surface a Download link without rescanning the reports dir.
   await queryFn(
-    'UPDATE clients SET beta_report_generated_at = NOW() WHERE id = $1',
-    [clientId]
+    'UPDATE clients SET beta_report_generated_at = NOW(), beta_report_filename = $2 WHERE id = $1',
+    [clientId, filename]
   );
 
+  const stat = fs.statSync(outPath);
   const generated_at = new Date().toISOString();
-  console.log(`[beta-report] Generated: ${filename} (client #${clientId}, ${(buffer.length / 1024).toFixed(1)} KB)`);
+  console.log(`[beta-report] Generated: ${filename} (client #${clientId}, ${(stat.size / 1024).toFixed(1)} KB)`);
   return { filename, outPath, generated_at };
 }
 

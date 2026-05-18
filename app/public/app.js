@@ -180,6 +180,8 @@ async function callAPI() {
   const contextBlock = buildContextBlock(s);
 
   try {
+    const s2 = s.stage2 || {};
+    const s3 = s.stage3 || {};
     const res = await fetch('/api/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -189,6 +191,19 @@ async function callAPI() {
         sp: s.sp, so: s.so, sx: s.sx,
         identifiedInstinct: s.identifiedInstinct,
         sortedInstincts: s.sortedInstincts,
+        // Stage 1 confidence — needed by the beta report generator
+        centerGap: s.centerGap,
+        centerConfidence: s.centerConfidence,
+        // Stage 2 — flattened from state.scores.stage2 so it survives to scores_snapshot
+        xrefPrimary: s2.xrefPrimary,
+        xrefAlternative: s2.xrefAlternative,
+        xrefAmbiguityAxis: s2.xrefAmbiguityAxis,
+        // Stage 3 — flattened from state.scores.stage3 with `s3` prefix
+        s3mode: s3.mode,
+        s3pair: s3.pair,
+        s3q1Result: s3.q1Result,
+        s3leading: s3.leading,
+        s3confidence: s3.confidence,
       }, finalOpenResponse: state.finalOpenResponse || '', client_id: state.intake.client_id || null,
       responses_snapshot: buildResponsesSnapshot() }),
     });

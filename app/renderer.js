@@ -633,6 +633,256 @@ ${body}
 </html>`;
 }
 
+// ---- Beta diagnostic report HTML ----
+// Renders an audit-style report of every input + scoring decision for QA review.
+// Visual structure mirrors the client/coach reports (header bar via buildPdfOptions,
+// section headers, tabular summaries) but uses a purple accent (#7B5EA7) to
+// distinguish it from the cyan client report and orange coach report.
+//
+// `data` is a pre-resolved structure built in beta/generate_report.js — this
+// function does no scores_snapshot/api_result fallback logic of its own.
+function betaReportBodyHtml(data) {
+  const PURPLE = '#7B5EA7';
+  const PURPLE_DARK = '#5C4080';
+  const PURPLE_LIGHT = '#F1ECF7';
+  const PURPLE_TINT = '#FAF7FC';
+
+  const SH = (title) =>
+    `<div class="report-sh" style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${PURPLE};margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid ${PURPLE};">${esc(title)}</div>`;
+  const SUBH = (title) =>
+    `<div style="font-size:11px;font-weight:700;color:${PURPLE};text-transform:uppercase;letter-spacing:0.08em;margin:18px 0 8px;">${esc(title)}</div>`;
+  const SUBH3 = (title) =>
+    `<div style="font-size:10px;font-weight:700;color:${PURPLE_DARK};text-transform:uppercase;letter-spacing:0.06em;margin:12px 0 6px;">${esc(title)}</div>`;
+
+  // Two-column label:value row — alternating shade. Mirrors coachReportBodyHtml's
+  // metaRow but renders inside a table so column widths stay aligned.
+  const summaryTable = (rows) => {
+    if (!rows || rows.length === 0) return '';
+    const html = rows.map((r, i) => {
+      const bg = i % 2 === 0 ? PURPLE_TINT : '#FFFFFF';
+      return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        <td style="padding:7px 12px;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#4A6070;width:38%;vertical-align:top;border-bottom:1px solid #EFEAF6;">${esc(r.label)}</td>
+        <td style="padding:7px 12px;font-size:14px;color:#1A2B33;vertical-align:top;border-bottom:1px solid #EFEAF6;">${esc(r.value == null || r.value === '' ? '—' : r.value)}</td>
+      </tr>`;
+    }).join('');
+    return `<table style="width:100%;border-collapse:collapse;margin:0 0 14px;border:1px solid #E4DEEE;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${html}</table>`;
+  };
+
+  // Stage-0 question + response block
+  const stage0Block = (item) => `
+    ${SUBH(item.title)}
+    <p style="margin:0 0 6px;font-size:13px;color:#4A6070;font-style:italic;">${esc(item.text)}</p>
+    <div style="background:${PURPLE_TINT};border-left:3px solid ${PURPLE};padding:10px 14px;border-radius:4px;margin:0 0 16px;font-size:14px;color:#1A2B33;-webkit-print-color-adjust:exact;print-color-adjust:exact;white-space:pre-wrap;">${esc(item.response || '[no response]')}</div>
+  `;
+
+  // Stage-1 ranking table (3 rows: 1st/2nd/3rd, with dimension label)
+  const stage1QuestionBlock = (q) => {
+    const rowsHtml = q.rows.map((r, i) => {
+      const bg = i % 2 === 0 ? PURPLE_TINT : '#FFFFFF';
+      const weight = r.isTop ? '700' : '400';
+      return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        <td style="padding:6px 10px;font-size:13px;font-weight:700;color:${r.isTop ? PURPLE : '#1A2B33'};width:60px;border-bottom:1px solid #EFEAF6;">${esc(r.rankLabel)}</td>
+        <td style="padding:6px 10px;font-size:12px;color:#4A6070;letter-spacing:0.04em;width:80px;border-bottom:1px solid #EFEAF6;">${esc(r.dim)}</td>
+        <td style="padding:6px 10px;font-size:14px;color:#1A2B33;font-weight:${weight};border-bottom:1px solid #EFEAF6;">${esc(r.text)}</td>
+      </tr>`;
+    }).join('');
+    return `
+      ${SUBH(`Q${q.idx}: ${q.title}`)}
+      <div style="font-size:11px;color:#7A96A6;letter-spacing:0.04em;margin:0 0 6px;text-transform:uppercase;">${esc(q.dimLabel)}</div>
+      <p style="margin:0 0 8px;font-size:13px;color:#4A6070;font-style:italic;">${esc(q.text)}</p>
+      <table style="width:100%;border-collapse:collapse;margin:0 0 14px;border:1px solid #E4DEEE;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        <thead><tr style="background:${PURPLE_LIGHT};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+          <th style="padding:6px 10px;font-size:10px;color:${PURPLE_DARK};text-align:left;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;border-bottom:1px solid #D6CCE8;">Rank</th>
+          <th style="padding:6px 10px;font-size:10px;color:${PURPLE_DARK};text-align:left;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;border-bottom:1px solid #D6CCE8;">Dimension</th>
+          <th style="padding:6px 10px;font-size:10px;color:${PURPLE_DARK};text-align:left;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;border-bottom:1px solid #D6CCE8;">Option Text</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    `;
+  };
+
+  // Stage-2 options table — single-letter A/B/C with selected marker
+  const stage2QuestionBlock = (q) => {
+    const rowsHtml = q.options.map((o, i) => {
+      const bg = o.selected ? PURPLE_LIGHT : (i % 2 === 0 ? PURPLE_TINT : '#FFFFFF');
+      const marker = o.selected
+        ? `<span style="color:${PURPLE};font-weight:700;">▶ ${esc(o.letter)}</span>`
+        : `<span style="color:#7A96A6;">${esc(o.letter)}</span>`;
+      const weight = o.selected ? '700' : '400';
+      return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        <td style="padding:7px 10px;font-size:13px;width:70px;border-bottom:1px solid #EFEAF6;">${marker}</td>
+        <td style="padding:7px 10px;font-size:14px;color:#1A2B33;font-weight:${weight};border-bottom:1px solid #EFEAF6;">${esc(o.text)}</td>
+      </tr>`;
+    }).join('');
+    return `
+      ${SUBH(`Q${q.idx}: ${q.title}`)}
+      <div style="font-size:11px;color:#7A96A6;letter-spacing:0.04em;margin:0 0 6px;text-transform:uppercase;">${esc(q.framework)}</div>
+      <p style="margin:0 0 8px;font-size:13px;color:#4A6070;font-style:italic;">${esc(q.text)}</p>
+      <table style="width:100%;border-collapse:collapse;margin:0 0 14px;border:1px solid #E4DEEE;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${rowsHtml}</table>
+    `;
+  };
+
+  // Person A / Person B pairwise table (Stage 3 + Stage 4 pairwise)
+  const pairwiseTable = (pairs) => {
+    const rowsHtml = pairs.map((p, i) => {
+      const bg = p.selected ? PURPLE_LIGHT : (i % 2 === 0 ? PURPLE_TINT : '#FFFFFF');
+      const marker = p.selected
+        ? `<span style="color:${PURPLE};font-weight:700;">▶ ${esc(p.label)}</span>`
+        : `<span style="color:#7A96A6;">${esc(p.label)}</span>`;
+      const weight = p.selected ? '700' : '400';
+      return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        <td style="padding:7px 10px;font-size:13px;width:140px;border-bottom:1px solid #EFEAF6;">${marker}</td>
+        <td style="padding:7px 10px;font-size:14px;color:#1A2B33;font-weight:${weight};border-bottom:1px solid #EFEAF6;">${esc(p.text)}</td>
+      </tr>`;
+    }).join('');
+    return `<table style="width:100%;border-collapse:collapse;margin:0 0 8px;border:1px solid #E4DEEE;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${rowsHtml}</table>`;
+  };
+
+  const stage3QuestionBlock = (label, q) => q ? `
+    ${SUBH(label + ': ' + q.stem)}
+    ${pairwiseTable(q.pairs)}
+    <p style="margin:0 0 14px;font-size:13px;color:#1A2B33;font-weight:700;">Selected: ${esc(q.selectedLabel)}</p>
+  ` : '';
+
+  // Stage-4 instrument block — pairwise OR 3opt
+  const stage4InstrumentBlock = (label, stem, item) => {
+    if (!item) return '';
+    let body;
+    if (item.mode === 'pairwise') {
+      body = pairwiseTable(item.options);
+    } else {
+      const rowsHtml = item.options.map((o, i) => {
+        const bg = o.selected ? PURPLE_LIGHT : (i % 2 === 0 ? PURPLE_TINT : '#FFFFFF');
+        const marker = o.selected
+          ? `<span style="color:${PURPLE};font-weight:700;">▶ ${esc(o.label)}</span>`
+          : `<span style="color:#7A96A6;">${esc(o.label)}</span>`;
+        const weight = o.selected ? '700' : '400';
+        return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+          <td style="padding:7px 10px;font-size:13px;width:120px;border-bottom:1px solid #EFEAF6;">${marker}</td>
+          <td style="padding:7px 10px;font-size:14px;color:#1A2B33;font-weight:${weight};border-bottom:1px solid #EFEAF6;">${esc(o.text)}</td>
+        </tr>`;
+      }).join('');
+      body = `<table style="width:100%;border-collapse:collapse;margin:0 0 8px;border:1px solid #E4DEEE;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${rowsHtml}</table>`;
+    }
+    return `
+      ${SUBH(label)}
+      <p style="margin:0 0 8px;font-size:13px;color:#4A6070;font-style:italic;">${esc(stem)}</p>
+      ${body}
+      <p style="margin:0 0 4px;font-size:13px;color:#1A2B33;font-weight:700;">Selected: ${esc(item.selectedLabel)}</p>
+      <p style="margin:0 0 16px;font-size:12px;color:#4A6070;">Confirmed: ${esc(item.confirmedLabel)}</p>
+    `;
+  };
+
+  // ── Header (Client / Email / Coach / Date)
+  const headerTable = summaryTable([
+    { label: 'Client Name',     value: data.clientName },
+    { label: 'Email',           value: data.email },
+    { label: 'Coach',           value: data.coachName },
+    { label: 'Assessment Date', value: data.assessmentDate },
+  ]);
+
+  // ── Engine Outcome
+  const engineTable = summaryTable([
+    { label: 'Confirmed Type',   value: data.typeLabel },
+    { label: 'Confidence Level', value: data.confidenceLevel },
+    { label: 'Stage 4 Outcome',  value: data.stage4Outcome },
+    { label: 'Stage 4 Path',     value: data.stage4Path },
+  ]);
+
+  const flagsHtml = (data.flags && data.flags.length > 0)
+    ? `<ul style="margin:0 0 14px;padding-left:20px;">${data.flags.map(f =>
+        `<li style="margin-bottom:6px;font-size:13px;line-height:1.55;"><strong>${esc(f.label)}</strong>${f.description ? ': ' + esc(f.description) : ''}</li>`
+      ).join('')}</ul>`
+    : `<p style="margin:0 0 14px;font-size:14px;color:#4A6070;">None</p>`;
+
+  // ── Stage blocks
+  const stage0Html = (data.stage0 || []).map(stage0Block).join('');
+  const stage1QuestionsHtml = (data.stage1.questions || []).map(stage1QuestionBlock).join('');
+  const stage2QuestionsHtml = (data.stage2.questions || []).map(stage2QuestionBlock).join('');
+
+  return `
+    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:15px;">
+
+      <!-- HEADER -->
+      <div style="text-align:center;padding-bottom:12px;margin-bottom:14px;">
+        <div style="font-size:11px;color:#7A96A6;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Hive Enneagram — Beta Diagnostic Report</div>
+        <div style="font-size:30px;font-weight:700;color:${PURPLE};line-height:1.1;margin-bottom:4px;">Engine Audit</div>
+        <div style="font-size:14px;color:#4A6070;">${esc(data.clientName)}</div>
+      </div>
+
+      ${headerTable}
+
+      <!-- ENGINE OUTCOME -->
+      ${SH('Engine Outcome')}
+      ${engineTable}
+      ${SUBH('Flags Raised')}
+      ${flagsHtml}
+
+      <!-- STAGE 0 -->
+      ${SH('Stage 0 — Warm-Up')}
+      ${stage0Html}
+
+      <!-- STAGE 1 -->
+      ${SH('Stage 1 — Centers & Instincts')}
+      ${SUBH('Score Summary')}
+      ${summaryTable(data.stage1.summary)}
+      ${stage1QuestionsHtml}
+
+      <!-- STAGE 2 -->
+      ${SH('Stage 2 — Cross-Referencing')}
+      ${SUBH('Summary')}
+      ${summaryTable(data.stage2.summary)}
+      ${stage2QuestionsHtml}
+
+      <!-- STAGE 3 -->
+      ${SH('Stage 3 — Pairwise Discrimination')}
+      ${SUBH('Summary')}
+      ${summaryTable(data.stage3.summary)}
+      ${stage3QuestionBlock('Q1', data.stage3.q1)}
+      ${stage3QuestionBlock('Q2', data.stage3.q2)}
+
+      <!-- STAGE 4 -->
+      ${SH('Stage 4 — Confirmation')}
+      ${SUBH('Summary')}
+      ${summaryTable(data.stage4.summary)}
+      ${stage4InstrumentBlock('Stress Point',  data.stage4.stressStem,   data.stage4.stress)}
+      ${stage4InstrumentBlock('Security Point', data.stage4.securityStem, data.stage4.security)}
+      ${stage4InstrumentBlock('Habit of Mind', data.stage4.habitStem,    data.stage4.habit)}
+
+      <!-- FINAL OPEN QUESTION -->
+      ${SH('Final Open Question')}
+      ${data.finalOpenResponse
+        ? `<div style="background:${PURPLE_TINT};border-left:3px solid ${PURPLE};padding:12px 16px;border-radius:4px;font-size:14px;color:#1A2B33;-webkit-print-color-adjust:exact;print-color-adjust:exact;white-space:pre-wrap;">${esc(data.finalOpenResponse)}</div>`
+        : `<p style="margin:0 0 14px;font-size:14px;color:#4A6070;font-style:italic;">Skipped.</p>`}
+
+      <!-- FOOTER -->
+      <div style="margin-top:40px;text-align:center;font-size:11px;color:#7A96A6;">
+        Generated by the Hive Enneagram Type Hypothesizer &nbsp;·&nbsp; Beta Diagnostic &nbsp;·&nbsp; © Copyright 2026, Hive, Inc.
+      </div>
+    </div>
+  `;
+}
+
+function buildBetaHTML(data) {
+  const body = betaReportBodyHtml(data);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Beta Diagnostic Report — ${esc(data.clientName || 'Client')}</title>
+<style>
+  body { background: #fff; margin: 0; padding: 0; font-family: Georgia, serif; }
+  .report-sh { page-break-after: avoid; break-after: avoid; }
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; page-break-after: auto; }
+</style>
+</head>
+<body>
+${body}
+</body>
+</html>`;
+}
+
 
 // ---- Puppeteer PDF options (header/footer templates, margins) ----
 function buildPdfOptions(intake) {
@@ -674,4 +924,4 @@ function buildPdfOptions(intake) {
   };
 }
 
-module.exports = { buildClientHTML, buildCoachHTML, buildPdfOptions };
+module.exports = { buildClientHTML, buildCoachHTML, buildBetaHTML, buildPdfOptions };
