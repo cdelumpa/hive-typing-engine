@@ -350,8 +350,8 @@ function check(label, actual, expected, exact = true) {
   console.log(`  Coach HTML:  ${coachHtml.length.toLocaleString()} chars`);
 
   // Check section headers appear in rendered output
-  const clientHeaders = (clientHtml.match(/font-size:10px;font-weight:700;letter-spacing:0\.12em/g)||[]).length;
-  const coachHeaders  = (coachHtml.match(/font-size:10px;font-weight:700;letter-spacing:0\.12em/g)||[]).length;
+  const clientHeaders = (clientHtml.match(/font-size:14pt;line-height:16pt;font-weight:700;letter-spacing:0\.12em/g)||[]).length;
+  const coachHeaders  = (coachHtml.match(/font-size:14pt;line-height:16pt;font-weight:700;letter-spacing:0\.12em/g)||[]).length;
   check('client HTML section headers ≥10', clientHeaders >= 10, true);
   check('coach HTML section headers ≥6',   coachHeaders  >= 6,  true);
   if (expect1a) check('Section 1A in coach HTML', coachHtml.includes('1A ·'), true);

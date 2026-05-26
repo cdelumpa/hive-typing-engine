@@ -121,12 +121,12 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
   const instinctKey = (h.confirmed_instinct || '').toLowerCase();
 
   const SH = (title) =>
-    `<div class="report-sh" style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#00b1d7;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #00b1d7;">${esc(title)}</div>`;
+    `<div class="report-sh" style="font-size:14pt;line-height:16pt;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#00b1d7;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #00b1d7;">${esc(title)}</div>`;
   const SUB = (title) =>
-    `<div style="font-size:11px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${esc(title)}</div>`;
+    `<div style="font-size:14pt;line-height:16pt;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">${esc(title)}</div>`;
   const EVIDENCE = (text) =>
     text
-      ? `<div style="font-size:14px;color:#4A6070;font-style:italic;margin:0 0 14px;">In your responses: ${renderMultiPara(text, 'display:inline;')}</div>`
+      ? `<div style="font-size:12pt;line-height:15pt;color:#4A6070;font-style:italic;margin:0 0 14px;">In your responses: ${renderMultiPara(text, 'display:inline;')}</div>`
       : '';
 
   const header = ambiguous
@@ -142,15 +142,15 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
   const instinctLabel = instinctLabelMap[instinctKey] || h.confirmed_instinct || '';
 
   const strengthsHtml = (tLib.strengths || []).map((s) =>
-    `<div style="font-size:13px;margin-bottom:5px;"><span style="color:#00b1d7;font-weight:700;">+</span> ${esc(s)}</div>`
+    `<div style="font-size:12pt;line-height:15pt;margin-bottom:5px;"><span style="color:#00b1d7;font-weight:700;">+</span> ${esc(s)}</div>`
   ).join('');
 
   const challengesHtml = (tLib.challenges || []).map((c) =>
-    `<div style="font-size:13px;margin-bottom:5px;"><span style="color:#f58527;font-weight:700;">–</span> ${esc(c)}</div>`
+    `<div style="font-size:12pt;line-height:15pt;margin-bottom:5px;"><span style="color:#f58527;font-weight:700;">–</span> ${esc(c)}</div>`
   ).join('');
 
   const tipsHtml = (tLib.development_tips || []).map((tip, i) =>
-    `<div style="padding:8px 14px;margin-bottom:6px;background:#F5F9FB;border-radius:4px;font-size:13px;display:flex;gap:10px;">
+    `<div style="padding:8px 14px;margin-bottom:6px;background:#F5F9FB;border-radius:4px;font-size:12pt;line-height:15pt;display:flex;gap:10px;">
        <span style="color:#00b1d7;font-weight:700;">${i + 1}.</span>
        <span>${esc(tip)}</span>
      </div>`
@@ -188,7 +188,7 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
     cf.secondary_type_narrative && !ambiguous
       ? `
     ${SH('Secondary Type Hypothesis')}
-    <div style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${renderMultiPara(cf.secondary_type_narrative, 'margin:0 0 10px;')}</div>
+    <div style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:15pt;">${renderMultiPara(cf.secondary_type_narrative, 'margin:0 0 10px;')}</div>
   `
       : '';
 
@@ -197,11 +197,11 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
     exploreQuestions.length > 0
       ? `
     ${SH('What to Explore With Your Enneagram Coach or Practitioner')}
-    <p style="color:#4A6070;margin:0 0 10px;font-size:15px;">These questions are designed to help you get the most out of your work with a coach or practitioner. Take a moment to sit with each one before your session.</p>
+    <p style="color:#4A6070;margin:0 0 10px;font-size:12pt;line-height:15pt;">These questions are designed to help you get the most out of your work with a coach or practitioner. Take a moment to sit with each one before your session.</p>
     ${exploreQuestions
       .map(
         (q, i) => `
-      <div style="padding:8px 14px;margin-bottom:6px;background:#F5F9FB;border-radius:4px;font-size:15px;display:flex;gap:10px;">
+      <div style="padding:8px 14px;margin-bottom:6px;background:#F5F9FB;border-radius:4px;font-size:12pt;line-height:15pt;display:flex;gap:10px;">
         <span style="color:#00b1d7;font-weight:700;">${i + 1}.</span>
         <span>${esc(q)}</span>
       </div>`
@@ -211,7 +211,7 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
       : '';
 
   return `
-    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:15px;">
+    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:15pt;font-size:12pt;">
 
       <!-- HEADER -->
       <div style="text-align:center;padding-bottom:12px;margin-bottom:14px;">
@@ -229,7 +229,7 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
 
       <!-- WHAT WE NOTICED ABOUT YOU -->
       ${SH('What We Noticed About You')}
-      <div style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${renderMultiPara(cf.client_narrative, 'margin:0 0 10px;')}</div>
+      <div style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:15pt;">${renderMultiPara(cf.client_narrative, 'margin:0 0 10px;')}</div>
 
       ${
         !ambiguous
@@ -247,7 +247,7 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
         ${
           tLib.strengths && tLib.strengths.length && tLib.challenges && tLib.challenges.length
             ? `
-          <p style="margin:0 0 10px;font-size:13px;color:#1A2B33;">These patterns give rise to a distinctive set of strengths and challenges. The ones below are characteristic of Type ${h.confirmed_type} — you may recognize some more than others, and that recognition itself is useful information.</p>
+          <p style="margin:0 0 10px;font-size:12pt;line-height:15pt;color:#1A2B33;">These patterns give rise to a distinctive set of strengths and challenges. The ones below are characteristic of Type ${h.confirmed_type} — you may recognize some more than others, and that recognition itself is useful information.</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 14px;">
             <div style="background:#DFF0F7;padding:12px 16px;border-radius:6px;">
               <div style="font-size:10px;font-weight:700;color:#00b1d7;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Strengths</div>
@@ -267,7 +267,7 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
           tipsHtml
             ? `
           ${SH('Development Tips')}
-          <p style="color:#4A6070;margin:0 0 10px;font-size:13px;">These practices can help you leverage your strengths and address the patterns that can hold you back.</p>
+          <p style="color:#4A6070;margin:0 0 10px;font-size:12pt;line-height:15pt;">These practices can help you leverage your strengths and address the patterns that can hold you back.</p>
           ${tipsHtml}
         `
             : ''
@@ -309,7 +309,7 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
       ${(result.final_response && result.final_response.present && result.final_response.contextual_note) ? `
       <!-- YOUR FINAL RESPONSE -->
       ${SH('Your Final Response')}
-      <div style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:1.7;">${esc(result.final_response.contextual_note)}</div>
+      <div style="font-style:italic;background:#DFF0F7;padding:14px 18px;border-radius:6px;border-left:4px solid #00b1d7;color:#1A2B33;margin:0 0 14px;line-height:15pt;">${esc(result.final_response.contextual_note)}</div>
       ` : ''}
 
       <!-- FOOTER -->
@@ -334,16 +334,16 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
 
   const ORANGE = '#f58527';
   const SH = (title) =>
-    `<div class="report-sh" style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${ORANGE};margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid ${ORANGE};">${esc(title)}</div>`;
+    `<div class="report-sh" style="font-size:14pt;line-height:16pt;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${ORANGE};margin:32px 0 12px;padding-bottom:6px;border-bottom:2px solid ${ORANGE};">${esc(title)}</div>`;
   const SUBH = (title) =>
-    `<div style="font-size:11px;font-weight:700;color:${ORANGE};text-transform:uppercase;letter-spacing:0.08em;margin:18px 0 8px;">${esc(title)}</div>`;
+    `<div style="font-size:14pt;line-height:16pt;font-weight:700;color:${ORANGE};text-transform:uppercase;letter-spacing:0.08em;margin:18px 0 8px;">${esc(title)}</div>`;
   const PROBE = (text) =>
     text
       ? `<div style="background:#FAF6F2;padding:10px 14px;border-radius:4px;font-style:italic;color:#1A2B33;margin:6px 0;border-left:3px solid ${ORANGE};">${esc(text)}</div>`
       : '';
   const BULLETS = (arr) =>
     arr && arr.length
-      ? `<ul style="margin:0 0 14px 0;padding-left:20px;">${arr.map((b) => `<li style="margin-bottom:8px;line-height:1.55;">${esc(b)}</li>`).join('')}</ul>`
+      ? `<ul style="margin:0 0 14px 0;padding-left:20px;">${arr.map((b) => `<li style="margin-bottom:8px;line-height:15pt;font-size:12pt;">${esc(b)}</li>`).join('')}</ul>`
       : '';
   const CALLOUT = (content, warning) => {
     const bg = warning ? '#F9E0DC' : '#FDE8D4';
@@ -351,7 +351,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
     return `<div style="background:${bg};padding:14px 18px;border-radius:6px;border-left:4px solid ${border};margin:0 0 16px;">${content}</div>`;
   };
   const CALLOUT_TITLE = (text, warning) =>
-    `<div style="font-size:12px;font-weight:700;color:${warning ? '#C44530' : ORANGE};text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">${esc(text)}</div>`;
+    `<div style="font-size:14pt;line-height:16pt;font-weight:700;color:${warning ? '#C44530' : ORANGE};text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">${esc(text)}</div>`;
 
   const instinctKey = (h.confirmed_instinct || '').toLowerCase();
   const instinctFull =
@@ -444,7 +444,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
     .join('');
 
   return `
-    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:15px;">
+    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:15pt;font-size:12pt;">
 
       <!-- HEADER -->
       <div style="text-align:center;padding-bottom:12px;margin-bottom:14px;">
@@ -455,7 +455,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
       </div>
 
       <!-- HOW TO USE -->
-      <p style="font-size:12px;color:#4A6070;font-style:italic;margin:0 0 20px;background:#FAF6F2;padding:12px 16px;border-radius:6px;">This report is designed as a session prep tool — organized around the debrief conversation you'll have with your client, not around how the assessment engine arrived at its hypothesis. Read Section 1 for the quick read. Use Sections 2 through 5 as a companion during the debrief itself. Section 6 offers contingency guidance depending on how the conversation unfolds.</p>
+      <p style="font-size:12pt;line-height:15pt;color:#4A6070;font-style:italic;margin:0 0 20px;background:#FAF6F2;padding:12px 16px;border-radius:6px;">This report is designed as a session prep tool — organized around the debrief conversation you'll have with your client, not around how the assessment engine arrived at its hypothesis. Read Section 1 for the quick read. Use Sections 2 through 5 as a companion during the debrief itself. Section 6 offers contingency guidance depending on how the conversation unfolds.</p>
 
       <!-- SECTION 1 — YOUR READ -->
       ${SH('1 · Your Read on This Client')}
@@ -489,7 +489,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
 
       <!-- SECTION 2 — CORE MOTIVATION -->
       ${SH('2 · Debriefing Core Motivation and Worldview')}
-      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">How to present the heart of the type and connect it to their own words.</p>
+      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12pt;line-height:15pt;">How to present the heart of the type and connect it to their own words.</p>
       ${SUBH('The Core Pattern')}
       ${BULLETS(s2.core_pattern)}
       ${SUBH('What Their Responses Showed')}
@@ -500,7 +500,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
 
       <!-- SECTION 3 — PATTERNS -->
       ${SH('3 · Debriefing Patterns of Thinking, Feeling, and Behaving')}
-      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">What to expect and what to watch for as you walk through type patterns.</p>
+      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12pt;line-height:15pt;">What to expect and what to watch for as you walk through type patterns.</p>
 
       ${SUBH('Centers of Intelligence')}
       <div style="background:#FAF6F2;padding:14px 18px;border-radius:6px;margin-bottom:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
@@ -521,7 +521,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
         frameworkSignals
           ? `
         ${SUBH('How the Client Appears to Move — The Three Framework Signals')}
-        <p style="margin:0 0 14px;font-size:12px;color:#4A6070;font-style:italic;">These are cross-referenced patterns that showed up consistently in their responses. Each offers a different lens on the type — worth weaving in conversationally rather than introducing as categories.</p>
+        <p style="margin:0 0 14px;font-size:12pt;line-height:15pt;color:#4A6070;font-style:italic;">These are cross-referenced patterns that showed up consistently in their responses. Each offers a different lens on the type — worth weaving in conversationally rather than introducing as categories.</p>
         ${frameworkSignals}
       `
           : ''
@@ -533,7 +533,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
 
       <!-- SECTION 4 — INSTINCT & SUBTYPE -->
       ${SH('4 · Debriefing Instinct and Subtype')}
-      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">Their particular flavor of Type ${h.confirmed_type}, and why it matters.</p>
+      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12pt;line-height:15pt;">Their particular flavor of Type ${h.confirmed_type}, and why it matters.</p>
 
       ${SUBH('Instinct Ranking')}
       <div style="background:#FAF6F2;padding:14px 18px;border-radius:6px;margin-bottom:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
@@ -549,7 +549,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
 
       <!-- SECTION 5 — WINGS, LINES, RESOURCES -->
       ${SH('5 · Debriefing Wings, Lines, and Resources')}
-      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">What they have available, especially under pressure.</p>
+      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12pt;line-height:15pt;">What they have available, especially under pressure.</p>
 
       ${SUBH('Stress Movement — Toward Type ' + (typeLibData.stress_point || ''))}
       ${BULLETS(s5.stress_notes)}
@@ -565,7 +565,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
 
       <!-- SECTION 6 — CONTINGENCIES -->
       ${SH('6 · If the Conversation Goes Sideways')}
-      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">What to do depending on how they receive the hypothesis.</p>
+      <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12pt;line-height:15pt;">What to do depending on how they receive the hypothesis.</p>
 
       ${CALLOUT(`
         ${CALLOUT_TITLE('If They Resonate Strongly')}
@@ -577,8 +577,8 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
         `
         ${CALLOUT_TITLE('If They Push Back or Disagree', true)}
         ${BULLETS((s6.pushes_back || {}).bullets || [])}
-        ${(s6.pushes_back || {}).alt_type_name ? `<p style="margin:8px 0 4px;font-size:12px;"><strong>Most likely alternate type:</strong> ${esc(s6.pushes_back.alt_type_name)}</p>` : ''}
-        ${(s6.pushes_back || {}).key_distinction ? `<p style="margin:0 0 0;font-size:12px;font-style:italic;"><strong>Key distinguishing question:</strong> ${esc(s6.pushes_back.key_distinction)}</p>` : ''}
+        ${(s6.pushes_back || {}).alt_type_name ? `<p style="margin:8px 0 4px;font-size:12pt;line-height:15pt;"><strong>Most likely alternate type:</strong> ${esc(s6.pushes_back.alt_type_name)}</p>` : ''}
+        ${(s6.pushes_back || {}).key_distinction ? `<p style="margin:0 0 0;font-size:12pt;line-height:15pt;font-style:italic;"><strong>Key distinguishing question:</strong> ${esc(s6.pushes_back.key_distinction)}</p>` : ''}
       `,
         true
       )}
@@ -594,7 +594,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
           ? `
         <!-- SECTION 6A — TYPE CONFUSION OBSERVATION -->
         ${SH('6A · Type Confusion Observation Block')}
-        <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12px;">Types in question: ${esc(s6a.types_in_question || '')}. Use only if the client brought in their type confusion observation during the session.</p>
+        <p style="color:#4A6070;font-style:italic;margin:0 0 14px;font-size:12pt;line-height:15pt;">Types in question: ${esc(s6a.types_in_question || '')}. Use only if the client brought in their type confusion observation during the session.</p>
         ${SUBH('What to Do With What They Bring')}
         ${BULLETS(s6a.what_to_do)}
         ${SUBH("If the Observation Didn't Yield Clear Data")}
@@ -609,7 +609,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
       ${SH('Final Open-Ended Response')}
       <div style="background:#FAF6F2;padding:14px 18px;border-radius:6px;border-left:4px solid ${ORANGE};margin:0 0 16px;">
         <div style="font-size:10px;font-weight:700;color:${ORANGE};text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Final Open-Ended Response</div>
-        <div style="font-style:italic;color:#1A2B33;line-height:1.7;">${esc(result.final_response.contextual_note)}</div>
+        <div style="font-style:italic;color:#1A2B33;line-height:15pt;">${esc(result.final_response.contextual_note)}</div>
       </div>
       ` : ''}
 
@@ -830,7 +830,7 @@ function betaReportBodyHtml(data) {
   const stage2QuestionsHtml = (data.stage2.questions || []).map(stage2QuestionBlock).join('');
 
   return `
-    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:1.6;font-size:15px;">
+    <div style="font-family:Georgia,serif;color:#1A2B33;line-height:15pt;font-size:12pt;">
 
       <!-- HEADER -->
       <div style="text-align:center;padding-bottom:12px;margin-bottom:14px;">
