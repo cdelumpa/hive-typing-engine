@@ -25,11 +25,43 @@ function escFt(s) {
 }
 
 // ---- Shared constants (mirrored from app.js) ----
-// TYPE_NAMES is authoritative — always use this, never rely on the AI-returned name string
+// TYPE_NAMES and SUBTYPE_NAMES are authoritative — always use these, never rely
+// on AI-returned name strings. Key format for SUBTYPE_NAMES is
+// `${instinct.toLowerCase()}-${typeNumber}` (e.g. 'so-8').
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver', 3: 'The Performer',
-  4: 'The Idealist', 5: 'The Observer', 6: 'The Questioner',
+  4: 'The Individualist', 5: 'The Observer', 6: 'The Questioner',
   7: 'The Enthusiast', 8: 'The Protector', 9: 'The Peacemaker',
+};
+
+const SUBTYPE_NAMES = {
+  'sp-1': 'The Organizer',
+  'so-1': 'The Social Reformer',
+  'sx-1': 'The Evangelist',
+  'sp-2': 'The Nurturer',
+  'so-2': 'The Ambassador',
+  'sx-2': 'The Healer',
+  'sp-3': 'The Diligent Worker',
+  'so-3': 'The Politician',
+  'sx-3': 'The Movie Star',
+  'sp-4': 'The Creative Individualist',
+  'so-4': 'The Critical Commentator',
+  'sx-4': 'The Dramatic Person',
+  'sp-5': 'The Castle Defender',
+  'so-5': 'The Professor',
+  'sx-5': 'The Secret Agent',
+  'sp-6': 'The Family Loyalist',
+  'so-6': 'The Social Guardian',
+  'sx-6': 'The Warrior',
+  'sp-7': 'The Epicure',
+  'so-7': 'The Social Visionary',
+  'sx-7': 'The Adventurer',
+  'sp-8': 'The Survivalist',
+  'so-8': 'The Group Leader',
+  'sx-8': 'The Commander',
+  'sp-9': 'The Collector',
+  'so-9': 'The Community Benefactor',
+  'sx-9': 'The Seeker',
 };
 
 // ---- Helpers ----
@@ -82,9 +114,7 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
   const ambiguous = h.stage4_outcome === 'AMBIGUOUS';
   const clientFullName = intake ? `${intake.firstName || ''} ${intake.lastName || ''}`.trim() : '';
 
-  const typeName =
-    TYPE_NAMES[h.confirmed_type] ||
-    (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || '';
+  const typeName = TYPE_NAMES[h.confirmed_type] || '';
 
   const tLib = (typeLibrary && typeLibrary.types && typeLibrary.types[String(h.confirmed_type)]) || {};
   const primers = (typeLibrary && typeLibrary.static_primers) || {};
@@ -300,9 +330,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
   const s0 = result.stage0_analysis || {};
   const scoresObj = scores || {};
 
-  const typeName =
-    TYPE_NAMES[h.confirmed_type] ||
-    (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() || '';
+  const typeName = TYPE_NAMES[h.confirmed_type] || '';
 
   const ORANGE = '#f58527';
   const SH = (title) =>
@@ -330,6 +358,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
     { sp: 'Self-Preservation (SP)', sx: 'One-to-One (SX)', so: 'Social (SO)' }[instinctKey] ||
     h.confirmed_instinct ||
     'Unknown';
+  const subtypeName = SUBTYPE_NAMES[`${instinctKey}-${h.confirmed_type}`] || '';
   const confLabel = (h.confidence_level || '').replace(/_/g, '-');
 
   const metaRow = (label, value, style) => `
@@ -421,7 +450,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
       <div style="text-align:center;padding-bottom:12px;margin-bottom:14px;">
         <div style="font-size:11px;color:#7A96A6;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Coach Prep Report</div>
         <div style="font-size:42px;font-weight:700;color:${ORANGE};line-height:1.1;margin-bottom:4px;">Type ${h.confirmed_type} · ${h.confirmed_instinct}</div>
-        <div style="font-size:20px;color:#4A6070;margin-bottom:12px;">${esc(s4.subtype_name || '')}</div>
+        <div style="font-size:20px;color:#4A6070;margin-bottom:12px;">${esc(subtypeName)}</div>
         <span style="display:inline-block;padding:3px 12px;border-radius:20px;background:#FFF9E6;color:#A17E23;font-weight:700;font-size:11px;letter-spacing:0.05em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${esc(confLabel)} CONFIDENCE</span>
       </div>
 

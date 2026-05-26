@@ -210,8 +210,20 @@ const typeLibrary = JSON.parse(fs.readFileSync(TYPE_LIB, 'utf8'));
 
 const TYPE_NAMES = {
   1:'The Improver', 2:'The Giver', 3:'The Performer',
-  4:'The Idealist', 5:'The Observer', 6:'The Questioner',
+  4:'The Individualist', 5:'The Observer', 6:'The Questioner',
   7:'The Enthusiast', 8:'The Protector', 9:'The Peacemaker',
+};
+
+const SUBTYPE_NAMES = {
+  'sp-1': 'The Organizer',     'so-1': 'The Social Reformer',     'sx-1': 'The Evangelist',
+  'sp-2': 'The Nurturer',      'so-2': 'The Ambassador',           'sx-2': 'The Healer',
+  'sp-3': 'The Diligent Worker','so-3': 'The Politician',          'sx-3': 'The Movie Star',
+  'sp-4': 'The Creative Individualist','so-4': 'The Critical Commentator','sx-4': 'The Dramatic Person',
+  'sp-5': 'The Castle Defender','so-5': 'The Professor',           'sx-5': 'The Secret Agent',
+  'sp-6': 'The Family Loyalist','so-6': 'The Social Guardian',     'sx-6': 'The Warrior',
+  'sp-7': 'The Epicure',       'so-7': 'The Social Visionary',     'sx-7': 'The Adventurer',
+  'sp-8': 'The Survivalist',   'so-8': 'The Group Leader',         'sx-8': 'The Commander',
+  'sp-9': 'The Collector',     'so-9': 'The Community Benefactor', 'sx-9': 'The Seeker',
 };
 
 // Extract a named function from app.js source by balanced-brace matching
@@ -235,9 +247,10 @@ const fnNames = ['esc','renderParas','renderMultiPara','typeData',
                  'buildClientHTML','buildCoachHTML'];
 
 const moduleCode = `'use strict';
-const typeLibrary = global.__hiveEnv.typeLibrary;
-const TYPE_NAMES  = global.__hiveEnv.TYPE_NAMES;
-const state       = global.__hiveEnv.state;
+const typeLibrary   = global.__hiveEnv.typeLibrary;
+const TYPE_NAMES    = global.__hiveEnv.TYPE_NAMES;
+const SUBTYPE_NAMES = global.__hiveEnv.SUBTYPE_NAMES;
+const state         = global.__hiveEnv.state;
 ${fnNames.map(extractFn).join('\n\n')}
 module.exports = { buildClientHTML, buildCoachHTML };
 `;
@@ -247,6 +260,7 @@ fs.writeFileSync(tmpMod, moduleCode);
 global.__hiveEnv = {
   typeLibrary,
   TYPE_NAMES,
+  SUBTYPE_NAMES,
   state: { scores: fixture.mockScores },
 };
 // Clear require cache so each run gets a fresh module
