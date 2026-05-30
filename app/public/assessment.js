@@ -313,12 +313,17 @@ validateStage1Statements();
 
 // =================== STAGE 2 DATA ===================
 
-// Three single-select questions covering the Narrative Enneagram's three
-// cross-referencing frameworks. Each answer maps to a bucket of three types.
+// Stage 2 collects three framework answers as evidence for the AI (design §5).
+// Q1 (Hornevian) and Q2 (Harmonic) are single-select. Q3 is the NEW Centers
+// decision-making question (§5.1) — a ranking of Gut / Feelings / Facts that
+// replaces the retired Object Relations question. The engine no longer scores
+// these (intersection scoring is removed in a later step); this session is the
+// content + UI swap only.
 const STAGE2_QUESTIONS = [
   {
     id: 'xref-q1',
     framework: 'Hornevian',
+    format: 'select',
     title: 'SOCIAL STANCE',
     text: 'How do you tend to go about getting what you want or need in life?',
     options: {
@@ -330,6 +335,7 @@ const STAGE2_QUESTIONS = [
   {
     id: 'xref-q2',
     framework: 'Harmonic',
+    format: 'select',
     title: 'CONFLICT RESPONSE',
     text: 'How do you experience not getting what matters most to you?',
     options: {
@@ -340,14 +346,16 @@ const STAGE2_QUESTIONS = [
   },
   {
     id: 'xref-q3',
-    framework: 'ObjectRelations',
-    title: 'LIFE THEME',
-    text: 'Which of the following have you tended to prioritize most over the course of your life?',
+    framework: 'Centers',
+    format: 'ranking',
+    title: 'DECISION MAKING',
+    text: 'When you face an important decision, rank the following by how much each one guides your process.',
     options: {
-      A: 'Having a sense of connection and belonging with others.',
-      B: 'Reaching toward something better, deeper, or more complete.',
-      C: 'Protecting myself from intrusion, overwhelm, and control by others.',
+      a: 'My gut \u2014 my instinct about what feels right.',
+      b: 'My feelings \u2014 how I and the people involved feel about it.',
+      c: 'The facts \u2014 the logic, the data, and a careful weighing of the options.',
     },
+    mapping: { a: 'Gut', b: 'Feelings', c: 'Facts' },
   },
 ];
 
@@ -1754,30 +1762,69 @@ function renderStage1() {
 // ---- Stage 2: Cross-Referencing ----
 function renderStage2() {
   const q = STAGE2_QUESTIONS[state.stage2Idx];
-  const sel = state.stage2Answers[state.stage2Idx] || null;
-  const isLast = state.stage2Idx === STAGE2_QUESTIONS.length - 1;
-
-  const optHtml = (key) => `
-    <div class="person-option ${sel === key ? 'selected' : ''}" data-choice="${key}">
-      <div class="person-text">${esc(q.options[key])}</div>
-    </div>`;
-
   const pct2 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
+
+  let bodyHtml, answered;
+
+  if (q.format === 'ranking') {
+    // Centers decision-making question — rank Gut / Feelings / Facts (1st–3rd).
+    // Reuses the Stage 1 rank-button markup and CSS. The answer is stored as a
+    // { a, b, c } ranks object (ranks 1/2/3), not a single 'A'|'B'|'C' string.
+    const stored = state.stage2Answers[state.stage2Idx];
+    const r = (stored && typeof stored === 'object') ? stored : { a: null, b: null, c: null };
+    answered = r.a !== null && r.b !== null && r.c !== null;
+
+    const rankBtns = (letter) => [1, 2, 3].map((rank) =>
+      `<button class="rank-btn ${r[letter] === rank ? 'active' : ''}" data-rank="${rank}" data-opt="${letter}">
+        ${rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'}
+      </button>`
+    ).join('');
+    const rankClass = (letter) => r[letter] ? `ranked-${r[letter]}` : '';
+    const badgeClass = (letter) => r[letter] ? `r${r[letter]}` : '';
+    const badgeText = (letter) => r[letter]
+      ? (r[letter] === 1 ? '1st — Most important' : r[letter] === 2 ? '2nd' : '3rd — Least important')
+      : 'Not yet ranked';
+    const optHtml = (letter) => `
+      <div class="rank-option ${rankClass(letter)}">
+        <div class="rank-option-header">
+          <span class="rank-badge ${badgeClass(letter)}">${badgeText(letter)}</span>
+        </div>
+        <div class="rank-option-text">${esc(q.options[letter])}</div>
+        <div class="rank-btn-group">${rankBtns(letter)}</div>
+      </div>`;
+    bodyHtml = `
+      <p style="font-size:13px;color:var(--ink-lt);margin-bottom:16px;">Rank each from most important <strong>(1st)</strong> to least important <strong>(3rd)</strong>.</p>
+      <div class="rank-options">
+        ${optHtml('a')}
+        ${optHtml('b')}
+        ${optHtml('c')}
+      </div>`;
+  } else {
+    const sel = state.stage2Answers[state.stage2Idx] || null;
+    answered = !!sel;
+    const optHtml = (key) => `
+      <div class="person-option ${sel === key ? 'selected' : ''}" data-choice="${key}">
+        <div class="person-text">${esc(q.options[key])}</div>
+      </div>`;
+    bodyHtml = `
+      <div class="person-options">
+        ${optHtml('A')}
+        ${optHtml('B')}
+        ${optHtml('C')}
+      </div>`;
+  }
+
   return `<div class="screen">
     <div class="progress-section">
       <div class="progress-label">Completed</div>
       <div class="progress-track"><div class="progress-fill" style="width:${pct2}%"></div></div>
     </div>
     <div class="q-text">${esc(q.text)}</div>
-    <div class="person-options">
-      ${optHtml('A')}
-      ${optHtml('B')}
-      ${optHtml('C')}
-    </div>
+    ${bodyHtml}
     <div class="nav-row">
       <button class="btn btn-ghost" id="btn-back">Back</button>
       <div class="spacer"></div>
-      <button class="btn btn-primary" id="btn-next" ${sel ? '' : 'disabled'}>${isLast ? 'Continue' : 'Continue'}</button>
+      <button class="btn btn-primary" id="btn-next" ${answered ? '' : 'disabled'}>Continue</button>
     </div>
   </div>`;
 }
@@ -3032,12 +3079,31 @@ function attachHandlers() {
 
   // ---- Stage 2: Cross-Referencing ----
   if (state.phase === 'stage2') {
-    document.querySelectorAll('.person-option').forEach((el) => {
-      el.addEventListener('click', () => {
-        state.stage2Answers[state.stage2Idx] = el.dataset.choice;
-        render();
+    const q2 = STAGE2_QUESTIONS[state.stage2Idx];
+    if (q2.format === 'ranking') {
+      // Centers decision-making — rank Gut / Feelings / Facts. Mirrors the
+      // Stage 1 rank handler: assigning a rank clears it from any other option,
+      // and re-tapping the active rank toggles it off.
+      document.querySelectorAll('.rank-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const opt = btn.dataset.opt;            // 'a' | 'b' | 'c'
+          const rank = parseInt(btn.dataset.rank); // 1 | 2 | 3
+          let r = state.stage2Answers[state.stage2Idx];
+          if (!r || typeof r !== 'object') r = { a: null, b: null, c: null };
+          ['a', 'b', 'c'].forEach((l) => { if (l !== opt && r[l] === rank) r[l] = null; });
+          r[opt] = r[opt] === rank ? null : rank;
+          state.stage2Answers[state.stage2Idx] = r;
+          render();
+        });
       });
-    });
+    } else {
+      document.querySelectorAll('.person-option').forEach((el) => {
+        el.addEventListener('click', () => {
+          state.stage2Answers[state.stage2Idx] = el.dataset.choice;
+          render();
+        });
+      });
+    }
 
     const btnBackS2 = document.getElementById('btn-back');
     if (btnBackS2) btnBackS2.addEventListener('click', () => {
