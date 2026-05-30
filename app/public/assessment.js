@@ -266,7 +266,7 @@ const STAGE1_INSTINCT_STATEMENTS = {
     { id: 'I1-SP-5', dimension: 'Energy direction',     text: 'I recharge by being on my own, in my own space, with no demands on me.' },
   ],
   SO: [
-    { id: 'I1-SO-1', dimension: 'Place in the group',   text: 'I’m pay attention to where I stand in a group and how I’m coming across to the people in it.' },
+    { id: 'I1-SO-1', dimension: 'Place in the group',   text: 'I pay attention to where I stand in a group and how I’m coming across to the people in it.' },
     { id: 'I1-SO-2', dimension: 'Trust / reciprocity',  text: 'I pay attention to who in a group is reliable and can be counted on, and who can’t.' },
     { id: 'I1-SO-3', dimension: 'Social landscape',     text: 'I notice the social landscape — who’s connected to whom, who’s in, who’s on the outside.' },
     { id: 'I1-SO-4', dimension: 'Larger belonging',     text: 'I am pulled toward something larger than myself: a cause, a community, a group I want to be part of.' },
@@ -310,6 +310,59 @@ function validateStage1Statements() {
   }
 }
 validateStage1Statements();
+
+// Stage 1 v2 slider screen model. Type screens pair the narrative order two
+// types at a time ([3,6][9,1][4,2][8,5][7]); then an optional type open-response;
+// then one instinct screen per instinct (SP/SO/SX); then an optional instinct
+// open-response. 10 screens total (indices 0-9).
+const STAGE1_SCREENS = (() => {
+  const screens = [];
+  for (let i = 0; i < STAGE1_TYPE_SCREEN_ORDER.length; i += 2) {
+    screens.push({ kind: 'type-sliders', types: STAGE1_TYPE_SCREEN_ORDER.slice(i, i + 2) });
+  }
+  screens.push({ kind: 'type-open' });
+  STAGE1_INSTINCT_ORDER.forEach((inst) => screens.push({ kind: 'instinct-sliders', instinct: inst }));
+  screens.push({ kind: 'instinct-open' });
+  return screens;
+})();
+
+// Flatten a slider screen into ordered slots. Each slot ties a rendered slider
+// (index i on the screen) back to its state location: type/instinct group + the
+// statement index 0-4. Render order == storage order, so the i-th slider always
+// writes the i-th statement of its group. Scoring (scoreStage1Profile) takes the
+// mean of the five, so intra-group order is score-neutral, but we keep it aligned
+// to the statement bank to stay self-describing in the responses snapshot.
+function stage1ScreenSlots(screen) {
+  const slots = [];
+  if (screen.kind === 'type-sliders') {
+    screen.types.forEach((t) => {
+      STAGE1_TYPE_STATEMENTS[t].forEach((statement, stmtIdx) => {
+        slots.push({ groupKind: 'type', groupKey: t, stmtIdx, statement });
+      });
+    });
+  } else if (screen.kind === 'instinct-sliders') {
+    STAGE1_INSTINCT_STATEMENTS[screen.instinct].forEach((statement, stmtIdx) => {
+      slots.push({ groupKind: 'instinct', groupKey: screen.instinct, stmtIdx, statement });
+    });
+  }
+  return slots;
+}
+
+function stage1SlotValue(slot) {
+  return slot.groupKind === 'type'
+    ? state.stage1TypeSliders[slot.groupKey][slot.stmtIdx]
+    : state.stage1InstinctSliders[slot.groupKey][slot.stmtIdx];
+}
+
+function stage1SetSlotValue(slot, v) {
+  if (slot.groupKind === 'type') state.stage1TypeSliders[slot.groupKey][slot.stmtIdx] = v;
+  else state.stage1InstinctSliders[slot.groupKey][slot.stmtIdx] = v;
+}
+
+// The slider component attaches a window resize listener to reposition thumbs.
+// We hold the active handler here so each render can detach the previous one,
+// preventing listener buildup and stale-DOM repositioning after navigation.
+let _stage1ResizeHandler = null;
 
 // =================== STAGE 2 DATA ===================
 
@@ -1709,52 +1762,89 @@ function renderCtAnalyzing() {
   </div>`;
 }
 
-// ---- Stage 1 ----
+// ---- Stage 1 (v2 sliders) ----
 function renderStage1() {
-  const q = STAGE1_QUESTIONS[state.stage1Idx];
-  const r = state.stage1Rankings[state.stage1Idx];
-  const allRanked = r.a !== null && r.b !== null && r.c !== null;
-  const trackLabel = q.type === 'centers' ? 'Centers' : 'Instincts';
-
-  const rankBtns = (letter) => [1, 2, 3].map((rank) =>
-    `<button class="rank-btn ${r[letter] === rank ? 'active' : ''}"
-      data-rank="${rank}" data-opt="${letter}">
-      ${rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'}
-    </button>`
-  ).join('');
-
-  const rankClass = (letter) => r[letter] ? `ranked-${r[letter]}` : '';
-  const badgeClass = (letter) => r[letter] ? `r${r[letter]}` : '';
-  const badgeText = (letter) => r[letter]
-    ? (r[letter] === 1 ? '1st — Most like me' : r[letter] === 2 ? '2nd' : '3rd — Least like me')
-    : 'Not yet ranked';
-
-  const optHtml = (letter) => `
-    <div class="rank-option ${rankClass(letter)}">
-      <div class="rank-option-header">
-        <span class="rank-badge ${badgeClass(letter)}">${badgeText(letter)}</span>
-      </div>
-      <div class="rank-option-text">${esc(q.options[letter])}</div>
-      <div class="rank-btn-group">${rankBtns(letter)}</div>
-    </div>`;
-
+  const screen = STAGE1_SCREENS[state.stage1Idx];
   const pct1 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
-  return `<div class="screen">
+  const staleNotice = state._stage1StaleNotice
+    ? `<div class="stale-notice">We’ve updated the assessment — please restart from the beginning.</div>`
+    : '';
+  const header = `
     <div class="progress-section">
       <div class="progress-label">Completed</div>
       <div class="progress-track"><div class="progress-fill" style="width:${pct1}%"></div></div>
     </div>
-    <div class="q-text">${q.text}</div>
-    <p style="font-size:13px;color:var(--ink-lt);margin-bottom:16px;">Rank each from most like you <strong>(1st)</strong> to least like you <strong>(3rd)</strong>.</p>
-    <div class="rank-options">
-      ${optHtml('a')}
-      ${optHtml('b')}
-      ${optHtml('c')}
+    ${staleNotice}`;
+
+  // Optional open-response screens — never gate Continue.
+  if (screen.kind === 'type-open' || screen.kind === 'instinct-open') {
+    const isType = screen.kind === 'type-open';
+    const val = isType ? state.stage1TypeOpen : state.stage1InstinctOpen;
+    const prompt = isType
+      ? 'Is there anything about what drives you that those statements didn’t capture? (Optional)'
+      : 'Is there anything about where your attention and energy naturally go that you’d like to add? (Optional)';
+    return `<div class="screen">
+      ${header}
+      <div class="q-text">${prompt}</div>
+      <textarea class="text-input" id="stage1-open" placeholder="Type your response here… (optional)">${esc(val || '')}</textarea>
+      <div class="nav-row">
+        <button class="btn btn-ghost" id="btn-back">Back</button>
+        <div class="spacer"></div>
+        <button class="btn btn-primary" id="btn-next">Continue</button>
+      </div>
+    </div>`;
+  }
+
+  // Slider screens.
+  const slots = stage1ScreenSlots(screen);
+  const N = slots.length;
+  const touchedCount = slots.filter((s) => stage1SlotValue(s) !== null).length;
+  const allTouched = touchedCount === N;
+
+  let blocksHtml = '';
+  let lastGroup = null;
+  slots.forEach((slot, i) => {
+    if (slot.groupKey !== lastGroup) {
+      lastGroup = slot.groupKey;
+      // Beta-only group header (hidden in production via CSS). The client sees a
+      // continuous list of statements with no type/instinct labels.
+      const pill = slot.groupKind === 'type' ? slot.groupKey : slot.groupKey;
+      const name = slot.groupKind === 'type'
+        ? `Type ${slot.groupKey} — ${TYPE_NAMES[slot.groupKey]}`
+        : `Instinct — ${slot.groupKey}`;
+      blocksHtml += `<div class="type-hdr"><span class="type-hdr-pill">${pill}</span><span class="type-hdr-name">${esc(name)}</span></div>`;
+    }
+    const v = stage1SlotValue(slot);
+    const touched = v !== null;
+    const pos = touched ? v : 50;
+    blocksHtml += `
+      <div class="stmt-block">
+        <div class="stmt-cat">${esc(slot.statement.dimension)}</div>
+        <div class="stmt-text">${esc(slot.statement.text)}</div>
+        <div class="pole-row">
+          <span class="pole pole-left"><span class="pole-full">Not like me</span><span class="pole-short">Not like me</span></span>
+          <div class="slider-track-wrap" id="tw${i}">
+            <div class="track-bg" id="track${i}"></div>
+            <input type="range" min="0" max="100" value="${pos}" id="s${i}" class="hive-range" aria-label="${esc(slot.statement.text)}" />
+            <div class="thumb-vis ${touched ? 'grabbing' : 'bar'}" id="th${i}"></div>
+          </div>
+          <span class="pole pole-right"><span class="pole-full">Very much like me</span><span class="pole-short">Very much</span></span>
+        </div>
+      </div>`;
+  });
+
+  return `<div class="screen">
+    ${header}
+    <div class="slider-progress">
+      <div class="slider-progress-track"><div class="slider-progress-fill" id="prog" style="width:${Math.round((touchedCount / N) * 100)}%"></div></div>
+      <div class="slider-progress-txt" id="prog-txt">${touchedCount} of ${N} answered</div>
     </div>
+    <p class="slider-instr">Move each slider to show how much each statement is like you.</p>
+    <div class="stmt-list">${blocksHtml}</div>
     <div class="nav-row">
       <button class="btn btn-ghost" id="btn-back">Back</button>
       <div class="spacer"></div>
-      <button class="btn btn-primary" id="btn-next" ${allRanked ? '' : 'disabled'}>Continue</button>
+      <button class="btn btn-primary" id="btn-next" ${allTouched ? '' : 'disabled'}>Continue</button>
     </div>
   </div>`;
 }
@@ -2835,7 +2925,8 @@ function attachHandlers() {
       stage0Idx: 0, stage0Answers: {},
       stage0_signal: null, stage0LastSnapshot: null,
       ctAdjustment: null, ctLastSnapshot: null,
-      stage1Idx: 0, stage1Rankings: [],
+      stage1Idx: 0, stage1TypeSliders: {}, stage1InstinctSliders: {},
+      stage1TypeOpen: '', stage1InstinctOpen: '', _stage1StaleNotice: false,
       stage2Idx: 0, stage2Answers: [],
       stage3Mode: null, stage3Idx: 0, stage3Answers: [],
       stage4Sequence: [], stage4Idx: 0, stage4Answers: [], stage4Shuffles: [],
@@ -2956,69 +3047,149 @@ function attachHandlers() {
     });
   }
 
-  // ---- Stage 1 ranking ----
+  // ---- Stage 1 (v2 sliders) ----
   if (state.phase === 'stage1') {
-    document.querySelectorAll('.rank-btn').forEach((btn) => {
-      if (btn.closest('.rank-options') && state.phase === 'stage1') {
-        btn.addEventListener('click', () => {
-          const opt = btn.dataset.opt;
-          const rank = parseInt(btn.dataset.rank);
-          const r = state.stage1Rankings[state.stage1Idx];
-          // Clear this rank from any other option
-          ['a', 'b', 'c'].forEach((l) => { if (l !== opt && r[l] === rank) r[l] = null; });
-          // Toggle off if already selected, otherwise set
-          r[opt] = r[opt] === rank ? null : rank;
-          render();
-        });
-      }
-    });
+    const screen = STAGE1_SCREENS[state.stage1Idx];
 
+    // Detach the previous render's resize handler before (re)wiring this screen,
+    // so listeners don't accumulate and a stale handler never fires against a
+    // DOM that no longer holds these sliders.
+    if (_stage1ResizeHandler) {
+      window.removeEventListener('resize', _stage1ResizeHandler);
+      _stage1ResizeHandler = null;
+    }
+
+    if (screen.kind === 'type-sliders' || screen.kind === 'instinct-sliders') {
+      const slots = stage1ScreenSlots(screen);
+      const N = slots.length;
+      const THUMB = 11; // half the grabbing-handle diameter, keeps it on-track
+
+      const valToColor = (v) => {
+        const t = v / 100;
+        const r = Math.round(180 + (24 - 180) * t);
+        const g = Math.round(210 + (95 - 210) * t);
+        const b = Math.round(240 + (165 - 240) * t);
+        return `rgb(${r},${g},${b})`;
+      };
+      const trackWidth = (i) => {
+        const tw = document.getElementById('tw' + i);
+        return tw ? tw.getBoundingClientRect().width : 0;
+      };
+      const placeThumb = (i, pct) => {
+        const th = document.getElementById('th' + i);
+        const w = trackWidth(i);
+        if (th && w) th.style.left = (THUMB + (pct / 100) * (w - THUMB * 2)) + 'px';
+      };
+      const renderTrack = (i, v) => {
+        const el = document.getElementById('track' + i);
+        const w = trackWidth(i);
+        if (!el || !w) return;
+        const leftPx = THUMB + (v / 100) * (w - THUMB * 2);
+        const pct = Math.round((leftPx / w) * 100);
+        el.style.background =
+          `linear-gradient(to right, rgba(180,210,240,0.18) 0%, ${valToColor(v)} ${pct}%, var(--border) ${pct}%, var(--border) 100%)`;
+      };
+      const refreshGate = () => {
+        const n = slots.filter((s) => stage1SlotValue(s) !== null).length;
+        const prog = document.getElementById('prog');
+        const txt = document.getElementById('prog-txt');
+        if (prog) prog.style.width = Math.round((n / N) * 100) + '%';
+        if (txt) txt.textContent = n + ' of ' + N + ' answered';
+        const btn = document.getElementById('btn-next');
+        if (btn) btn.disabled = n !== N;
+      };
+
+      // Position every handle once the DOM has laid out (getBoundingClientRect
+      // reads 0 before layout). Re-runs on resize. Bails if these sliders are
+      // no longer mounted (navigation raced the timer / a stale resize fired).
+      const init = () => {
+        if (!document.getElementById('tw0')) return;
+        slots.forEach((slot, i) => {
+          const v = stage1SlotValue(slot);
+          placeThumb(i, v === null ? 50 : v);
+          const el = document.getElementById('track' + i);
+          if (el) {
+            if (v === null) el.style.background = 'var(--border)';
+            else renderTrack(i, v);
+          }
+        });
+      };
+      setTimeout(init, 60);
+      _stage1ResizeHandler = init;
+      window.addEventListener('resize', init);
+
+      slots.forEach((slot, i) => {
+        const input = document.getElementById('s' + i);
+        const thumb = document.getElementById('th' + i);
+        if (!input || !thumb) return;
+
+        // First contact: morph the bar handle into the grab circle and record a
+        // value even if the client never drags (a deliberate touch counts; an
+        // untouched midpoint does not). Fires before any movement, per spec.
+        const grab = () => {
+          if (thumb.classList.contains('bar')) {
+            thumb.classList.remove('bar');
+            thumb.classList.add('grabbing');
+          }
+          const v = parseInt(input.value, 10);
+          thumb.style.background = valToColor(v);
+          if (stage1SlotValue(slot) === null) stage1SetSlotValue(slot, v);
+          renderTrack(i, v);
+          placeThumb(i, v);
+          refreshGate();
+        };
+        input.addEventListener('mousedown', grab);
+        input.addEventListener('touchstart', grab);
+
+        input.addEventListener('input', () => {
+          // Keyboard users reach here without a mousedown — morph on first input.
+          if (thumb.classList.contains('bar')) {
+            thumb.classList.remove('bar');
+            thumb.classList.add('grabbing');
+          }
+          const v = parseInt(input.value, 10);
+          stage1SetSlotValue(slot, v);
+          thumb.style.background = valToColor(v);
+          renderTrack(i, v);
+          placeThumb(i, v);
+          refreshGate();
+        });
+      });
+    } else {
+      // Open-response screen — capture text, never gate Continue.
+      const ta = document.getElementById('stage1-open');
+      if (ta) ta.addEventListener('input', () => {
+        if (screen.kind === 'type-open') state.stage1TypeOpen = ta.value;
+        else state.stage1InstinctOpen = ta.value;
+      });
+    }
+
+    // Shared nav (all Stage 1 screens). Any navigation clears the stale notice.
     const btnBack1 = document.getElementById('btn-back');
     if (btnBack1) btnBack1.addEventListener('click', () => {
+      state._stage1StaleNotice = false;
       if (state.stage1Idx > 0) { state.stage1Idx--; render(); }
       else { state.phase = 'stage0'; state.stage0Idx = 3; render(); }
     });
 
     const btnNext1 = document.getElementById('btn-next');
     if (btnNext1) btnNext1.addEventListener('click', () => {
-      if (state.stage1Idx < STAGE1_QUESTIONS.length - 1) {
+      state._stage1StaleNotice = false;
+      if (state.stage1Idx < STAGE1_SCREENS.length - 1) {
         state.stage1Idx++;
         render();
+        saveSessionState();
       } else {
-        // Done with Stage 1 — compute scores. If a CT flag is active, route
-        // through the 'ct-analyzing' transition screen so the mini-call can
-        // refine the hypothesis list before Stage 2 renders. Otherwise jump
-        // straight to Stage 2 as normal.
-        state.scores = computeStage1Scores();
-        console.log('=== STAGE 1 OUTPUT ===', state.scores);
-        if (state.scores.counterTypeFlag === 'YES') {
-          state.phase = 'ct-analyzing';
-          render();
-          saveSessionState();
-        } else {
-          // Edge case 1: a CT flag was previously active (so ctAdjustment may
-          // exist from an earlier pass), but the user edited answers and the
-          // flag is no longer firing. Clear the adjustment in memory and
-          // persist null to the DB so the main API call doesn't use stale CT
-          // data. Also clear the snapshot so a future re-edit that re-enables
-          // the flag will fire the mini-call afresh.
-          if (state.ctAdjustment || state.ctLastSnapshot !== null) {
-            state.ctAdjustment = null;
-            state.ctLastSnapshot = null;
-            const cid = state.intake && state.intake.client_id;
-            if (cid) {
-              fetch('/api/ct-adjustment-clear', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ client_id: cid }),
-              }).catch(() => {});
-            }
-          }
-          state.phase = 'stage2';
-          state.stage2Idx = 0;
-          render();
-          saveSessionState();
-        }
+        // Stage 1 complete — score the slider profile and advance to Stage 2.
+        // (v2: no center/CT routing — the AI decides downstream. The retired
+        // ct-analyzing path is now unreachable from Stage 1; left as an orphan
+        // for the Steps 4-5 cleanup.)
+        state.scores = scoreStage1Profile(state.stage1TypeSliders, state.stage1InstinctSliders);
+        console.log('=== STAGE 1 v2 PROFILE ===', state.scores);
+        state.phase = 'stage2';
+        state.stage2Idx = 0;
+        render();
+        saveSessionState();
       }
     });
   }

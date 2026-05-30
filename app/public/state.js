@@ -11,7 +11,10 @@ const state = {
   ctAdjustment: null,    // { revised_hypotheses, adjustment_made, rationale } from CT mini-call, or null
   ctLastSnapshot: null,  // ct_key + Stage 1 scores from the last CT mini-call; re-fire only when these change
   stage1Idx: 0,
-  stage1Rankings: [],    // [{a:rank, b:rank, c:rank}, ...] per question (1=most, 3=least)
+  stage1TypeSliders: {},     // { 1:[v×5], …, 9:[v×5] } each 0-100, or null until touched
+  stage1InstinctSliders: {}, // { SP:[v×5], SO:[v×5], SX:[v×5] } each 0-100, or null until touched
+  stage1TypeOpen: '',        // optional open response after the type sliders
+  stage1InstinctOpen: '',    // optional open response after the instinct sliders
   stage2Idx: 0,
   stage2Answers: [],     // ['A'|'B'|'C', ...] one per Stage 2 question
   stage3Mode: null,      // 'STANDARD' | 'COUNTER-TYPE' — set when entering Stage 3
@@ -23,13 +26,19 @@ const state = {
   stage4Shuffles: [],    // for each 3opt question, a permutation of [0,1,2] for display order
   resultsTab: 'client',  // 'client' | 'coach' — which tab is active on the results screen
   // Computed
-  scores: null,          // output of computeStage1Scores; Stage 2/3/4 results tucked on as .stage2/.stage3/.stage4
+  scores: null,          // output of scoreStage1Profile (v2 type/instinct profile); later stages tuck results on
   apiResult: null,
 };
 
-// Initialize stage1 rankings
+// Initialize Stage 1 slider state. Each statement starts null (untouched) so the
+// UI can distinguish "deliberately left at 50" from "never moved" for gating.
 function initStage1() {
-  state.stage1Rankings = STAGE1_QUESTIONS.map(() => ({ a: null, b: null, c: null }));
+  state.stage1TypeSliders = {};
+  [1, 2, 3, 4, 5, 6, 7, 8, 9].forEach((t) => { state.stage1TypeSliders[t] = [null, null, null, null, null]; });
+  state.stage1InstinctSliders = {};
+  ['SP', 'SO', 'SX'].forEach((i) => { state.stage1InstinctSliders[i] = [null, null, null, null, null]; });
+  state.stage1TypeOpen = '';
+  state.stage1InstinctOpen = '';
 }
 
 // =================== PERSISTENCE ===================
@@ -89,6 +98,10 @@ function clearResult() {
 // are derived mid-assessment and are required to render Stages 3 and 4 on resume.
 function getSerializableState() {
   return {
+    // schemaVersion gates resume rehydration. Bumped to 2 for the v2 slider
+    // Stage 1: a saved session without this (or < 2) carries the retired
+    // forced-rank shape and must not be rehydrated into the slider UI.
+    schemaVersion:       2,
     phase:               state.phase,
     stage0Idx:           state.stage0Idx,
     stage0Answers:       state.stage0Answers,
@@ -97,7 +110,10 @@ function getSerializableState() {
     ctAdjustment:        state.ctAdjustment,
     ctLastSnapshot:      state.ctLastSnapshot,
     stage1Idx:           state.stage1Idx,
-    stage1Rankings:      state.stage1Rankings,
+    stage1TypeSliders:     state.stage1TypeSliders,
+    stage1InstinctSliders: state.stage1InstinctSliders,
+    stage1TypeOpen:        state.stage1TypeOpen,
+    stage1InstinctOpen:    state.stage1InstinctOpen,
     stage2Idx:           state.stage2Idx,
     stage2Answers:       state.stage2Answers,
     stage3Mode:          state.stage3Mode,

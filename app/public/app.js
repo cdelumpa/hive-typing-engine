@@ -126,13 +126,40 @@ function buildResponsesSnapshot() {
   const a0 = state.stage0Answers || {};
   const stage0 = { q1: a0.q1 || '', q2: a0.q2 || '', q3: a0.q3 || '', q4: a0.q4 || '' };
 
-  // Stage 1 — preserve the canonical question ids (q1..q12) rather than array
-  // indices so the structure is self-describing and resilient to reordering.
-  const stage1 = {};
-  STAGE1_QUESTIONS.forEach((q, idx) => {
-    const r = state.stage1Rankings[idx] || { a: null, b: null, c: null };
-    stage1[q.id] = { a: r.a, b: r.b, c: r.c };
+  // Stage 1 (v2) — raw slider values keyed by statement id (self-describing),
+  // the two optional open responses, and the scored profile. Keying by statement
+  // id keeps the snapshot resilient to screen reordering and decoupled from the
+  // per-type array indexing used internally.
+  const typeSliders = {};
+  Object.keys(STAGE1_TYPE_STATEMENTS).forEach((t) => {
+    const arr = (state.stage1TypeSliders && state.stage1TypeSliders[t]) || [];
+    STAGE1_TYPE_STATEMENTS[t].forEach((st, idx) => {
+      typeSliders[st.id] = arr[idx] != null ? arr[idx] : null;
+    });
   });
+  const instinctSliders = {};
+  Object.keys(STAGE1_INSTINCT_STATEMENTS).forEach((inst) => {
+    const arr = (state.stage1InstinctSliders && state.stage1InstinctSliders[inst]) || [];
+    STAGE1_INSTINCT_STATEMENTS[inst].forEach((st, idx) => {
+      instinctSliders[st.id] = arr[idx] != null ? arr[idx] : null;
+    });
+  });
+  const sc = state.scores || {};
+  const stage1 = {
+    typeSliders,
+    instinctSliders,
+    typeOpen: state.stage1TypeOpen || '',
+    instinctOpen: state.stage1InstinctOpen || '',
+    profile: sc.typeProfile ? {
+      typeProfile: sc.typeProfile,
+      instinctProfile: sc.instinctProfile,
+      leadingType: sc.leadingType,
+      alternateType: sc.alternateType,
+      gap: sc.gap,
+      highAmbiguity: sc.highAmbiguity,
+      dominantInstinct: sc.dominantInstinct,
+    } : null,
+  };
 
   // Stage 2 — three single-select answers ('A' | 'B' | 'C').
   const s2a = state.stage2Answers || [];
@@ -259,16 +286,30 @@ if (window.__hiveIntake) {
   // normal Stage 0 initialization so the client lands at the correct stage.
   if (window.__hiveSessionState) {
     const ss = window.__hiveSessionState;
-    const rehydratable = [
-      'phase', 'stage0Idx', 'stage0Answers', 'stage0_signal', 'stage0LastSnapshot',
-      'ctAdjustment', 'ctLastSnapshot', 'stage1Idx', 'stage1Rankings',
-      'stage2Idx', 'stage2Answers', 'stage3Mode', 'stage3Idx', 'stage3Answers',
-      'stage4Sequence', 'stage4Idx', 'stage4Answers', 'stage4Shuffles', 'finalOpenResponse',
-      'scores',
-    ];
-    rehydratable.forEach(function(key) {
-      if (ss[key] !== undefined) state[key] = ss[key];
-    });
+    if (!ss.schemaVersion || ss.schemaVersion < 2) {
+      // Stale pre-v2 session: it carries the retired forced-rank Stage 1 shape
+      // (stage1Rankings), which is incompatible with the v2 slider UI. Don't try
+      // to coerce it. Preserve only Stage 0, reset Stage 1, and restart Stage 1
+      // with a notice.
+      if (ss.stage0Answers) state.stage0Answers = ss.stage0Answers;
+      if (ss.stage0Idx !== undefined) state.stage0Idx = ss.stage0Idx;
+      initStage1();
+      state.phase = 'stage1';
+      state.stage1Idx = 0;
+      state._stage1StaleNotice = true;
+    } else {
+      const rehydratable = [
+        'phase', 'stage0Idx', 'stage0Answers', 'stage0_signal', 'stage0LastSnapshot',
+        'ctAdjustment', 'ctLastSnapshot', 'stage1Idx',
+        'stage1TypeSliders', 'stage1InstinctSliders', 'stage1TypeOpen', 'stage1InstinctOpen',
+        'stage2Idx', 'stage2Answers', 'stage3Mode', 'stage3Idx', 'stage3Answers',
+        'stage4Sequence', 'stage4Idx', 'stage4Answers', 'stage4Shuffles', 'finalOpenResponse',
+        'scores',
+      ];
+      rehydratable.forEach(function(key) {
+        if (ss[key] !== undefined) state[key] = ss[key];
+      });
+    }
   } else if (state.phase === 'welcome') {
     state.phase = 'stage0';
   }
