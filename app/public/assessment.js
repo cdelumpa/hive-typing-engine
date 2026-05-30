@@ -434,22 +434,95 @@ const STAGE2_FRAMEWORK_LABELS = {
 
 // =================== STAGE 3 DATA ===================
 
-// Shared stems.
-const STAGE3_Q1_STEM = 'Which of these sounds most like you at your best?';
-const STAGE3_Q2_STEM = 'Which of these is hardest for you to be with?';
+// Shared stems (question-bank v2, hive_stage3_question_bank_v2_052926.docx).
+const STAGE3_Q1_STEM = 'When you\u2019re at your best, how would you describe your internal experience?';
+const STAGE3_Q2_STEM = 'Which of these feels most uncomfortable or intolerable when it shows up in your life?';
 
-// Nine core-motivation descriptions. Pairs are assembled dynamically.
+// Nine core-motivation descriptions (question-bank v2). Q1 pairs are composed
+// dynamically from these \u2014 the nine assemble into any of the 36 pairs.
 const STAGE3_CORE_MOTIVATIONS = {
   1: 'I am doing things the right way. I feel principled, clear, and in integrity with my own standards.',
   2: 'I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected.',
-  3: 'I am achieving my goals and getting things done. I feel capable, successful, and recognized for what I bring.',
-  4: 'I am expressing who I really am \u2014 nothing hidden, nothing performed. I feel a sense of meaning and purpose, alive, and creative.',
-  5: 'I am deeply knowledgeable about things that matter. I feel well-boundaried, self-sufficient, and resourced.',
-  6: 'I am prepared for whatever life throws at me. I feel steady, certain, and loyal to people I trust.',
+  3: 'I am achieving something meaningful. I feel capable, successful, and recognized for what I bring.',
+  4: 'I am fully and authentically myself. I feel deeply seen, creatively alive, and emotionally real.',
+  5: 'I understand what\u2019s happening at a deep level. I feel clear, self-sufficient, and completely capable.',
+  6: 'I am prepared and loyal to what matters. I feel reliable, certain, and securely connected to people I trust.',
   7: 'I am experiencing life to the fullest. I feel free, expansive, and open to everything available to me.',
   8: 'I am fully in control of my world. I feel strong, powerful, and completely unbothered by outside pressure.',
-  9: 'I am experiencing a sense of inner and outer calm. I feel connected to everyone and everything.',
+  9: 'Everything feels settled and at peace. I feel harmonious, easy, and genuinely okay with where things are.',
 };
+
+// Bespoke Q2 (avoidance) items, 26 pairs, keyed 'lower-higher'. Lower-numbered
+// type is Person A. Q2 fires only when AI Call #1 returns gap = 'tight' AND the
+// top-two pair is one of these 26 (the realistic confusion set: original ten +
+// seven wings + nine lines). Top-two outside this set runs Q1 only. Source:
+// hive_stage3_question_bank_v2_052926.docx \u00a7"Stage 3 Q2".
+const STAGE3_Q2_PAIRS = {
+  // Original high-ambiguity ten.
+  '1-6': { label: 'Inner Standards vs. External Certainty', personA: 'Realizing I\u2019ve done something wrong or fallen short of my own standards. The self-criticism that follows is hard to shake.', personB: 'Feeling unprepared or uncertain about what\u2019s coming. Not knowing who or what I can count on genuinely unsettles me.' },
+  '1-9': { label: 'Inner Critic vs. Conflict Avoidance', personA: 'Knowing something is wrong and feeling unable to correct it. The gap between how things are and how they should be creates real internal tension.', personB: 'Feeling tension or conflict with people I care about. Disruption to harmony feels genuinely uncomfortable in my body.' },
+  '2-6': { label: 'Rejection vs. Uncertainty', personA: 'Feeling unwanted, unneeded, or like my care isn\u2019t appreciated. The possibility of being rejected by someone I\u2019ve given myself to is hard to bear.', personB: 'Feeling like I don\u2019t know where things stand or who I can truly trust. Uncertainty about what\u2019s coming, or whether I\u2019m really supported, keeps me on edge.' },
+  '2-9': { label: 'Being Unloved vs. Disrupted Peace', personA: 'Feeling disconnected or unappreciated by people who matter to me, like my presence doesn\u2019t make a difference to them.', personB: 'Feeling pulled into conflict or tension I didn\u2019t create. Having my sense of inner peace disrupted by other people\u2019s agendas is hard to take.' },
+  '3-7': { label: 'Failure vs. Limitation', personA: 'Failing visibly or being seen as incompetent. The idea that people might think I\u2019m not capable or successful is genuinely hard to sit with.', personB: 'Feeling trapped, constrained, or stuck with no good options. When life starts to feel repetitive or limited, I feel a real urgency to find a way out.' },
+  '3-8': { label: 'Image vs. Control', personA: 'Being seen in a way that doesn\u2019t reflect well on me. I\u2019m aware of how I\u2019m coming across, and it matters that the impression is a good one.', personB: 'Being controlled, overruled, or made to feel powerless. When someone tries to limit what I can do, something in me pushes back hard.' },
+  '4-5': { label: 'Trusting the Heart vs. Trusting the Mind', personA: 'Having my emotional reality questioned, or being told that what I feel isn\u2019t accurate. My feelings are how I know what\u2019s true, and having that doubted cuts at something fundamental in me.', personB: 'Being flooded with emotion before I\u2019ve had time to think it through. Feelings that arrive fast and demand an immediate response feel unreliable, and I need to step back and reason before I trust them.' },
+  '4-9': { label: 'Amplified Emotion vs. Muted Emotion', personA: 'Feeling emotionally flat or cut off from what\u2019s real. I\u2019d rather feel something intensely than feel nothing at all.', personB: 'Feeling overwhelmed by emotional intensity or conflict. When things get too charged, I find myself going numb or withdrawing until it passes.' },
+  '5-9': { label: 'Energy Conservation vs. Tension Avoidance', personA: 'Feeling depleted by too much engagement or contact. When people need too much from me, I feel my resources running out and I need to withdraw to recover.', personB: 'Feeling pressured to assert myself or take a strong position. When there\u2019s conflict or expectation, I find it easier to go along or disengage than to push back.' },
+  '6-8': { label: 'Managed Fear vs. Denied Vulnerability', personA: 'Feeling unprepared for something that could go wrong. There\u2019s an undercurrent of worry that I might not have what it takes to handle what\u2019s coming.', personB: 'Feeling weak, dependent, or like someone has gotten the upper hand. Vulnerability isn\u2019t something I show easily, and being in that position feels genuinely wrong.' },
+  // Wing pairs.
+  '1-2': { label: 'Falling Short vs. Being Unwanted', personA: 'Realizing I\u2019ve done something wrong or let my own standards slip. The self-correction that follows is hard to shake, even when others tell me it\u2019s fine.', personB: 'Sensing that I\u2019m not really wanted, or that the care I give isn\u2019t landing. The possibility that someone close to me doesn\u2019t actually need me is genuinely hard to sit with.' },
+  '2-3': { label: 'Being Unneeded vs. Being Unimpressive', personA: 'Feeling that my support goes unnoticed or unreturned. What gets to me is the sense that all my giving hasn\u2019t earned me a real place in someone\u2019s life.', personB: 'Falling short of what I set out to achieve, or being seen as ordinary. The idea that I haven\u2019t measured up to what I\u2019m capable of is genuinely hard to sit with.' },
+  '3-4': { label: 'Being Ordinary vs. Being Inauthentic', personA: 'Stalling out, or being seen as average with nothing to show for it. Slowing down long enough to feel unproductive is genuinely uncomfortable for me.', personB: 'Having to present a version of myself that isn\u2019t real. Being polished but hollow feels worse to me than being a mess that\u2019s at least honest.' },
+  '5-6': { label: 'Withdrawing vs. Preparing', personA: 'Having demands land on me before I\u2019ve had time to think and gather myself. When too much is asked too fast, everything in me wants to pull back and conserve.', personB: 'Being caught without a plan for what might go wrong. When things feel uncertain, my mind runs through scenarios until I\u2019ve worked out every contingency.' },
+  '6-7': { label: 'Trapped by Danger vs. Trapped by Limits', personA: 'Committing to something without knowing whether it\u2019s safe or who I can trust. The uncertainty keeps me scanning for what could go wrong.', personB: 'Feeling boxed in, with no way out and no better options. When life starts to feel limited or repetitive, I feel a real urgency to find a way out.' },
+  '7-8': { label: 'Pain I Can\u2019t Reframe vs. Weakness I Can\u2019t Deny', personA: 'Being stuck with discomfort I can\u2019t move past or turn into something better. When something painful won\u2019t reframe, I feel a strong pull to get away from it.', personB: 'Being put in a position of weakness or dependence. Needing someone else, or being unable to act on my own terms, feels genuinely wrong to me.' },
+  '8-9': { label: 'Being Controlled vs. Being Disrupted', personA: 'Being overruled or made to feel powerless. When someone tries to limit what I can do, something in me pushes back hard and right away.', personB: 'Being pulled into conflict that breaks the calm. When tension rises around me, I\u2019d rather smooth it over or go quiet than get drawn into it.' },
+  // Line pairs (derived from Stage 4 stress/security arrows).
+  '1-4': { label: 'Correcting the Flaw vs. Feeling the Lack', personA: 'Knowing something is wrong and not being able to put it right. The gap between how things are and how they should be creates a tension I can\u2019t ignore.', personB: 'Feeling that something essential is missing from my life or from me. The longing for what I don\u2019t have colors how I experience almost everything.' },
+  '1-7': { label: 'Doing It Right vs. Keeping It Open', personA: 'Cutting corners, or letting something be done the wrong way. Even when no one else would notice, doing it improperly sits badly with me.', personB: 'Being tied down to one rigid way when other options exist. Rules that seem to exist only to constrain feel like something to get around.' },
+  '2-4': { label: 'Others\u2019 Pain vs. My Own Lack', personA: 'Seeing someone I care about in need and being unable to help them. My attention goes straight to their feelings, often before I notice my own.', personB: 'Sitting with the sense that I\u2019m deficient, or that others have what I\u2019m missing. My attention turns inward to what\u2019s lacking, not outward to who needs me.' },
+  '2-8': { label: 'Being Unappreciated vs. Being Overpowered', personA: 'Giving myself to people and feeling like it didn\u2019t matter to them. Being taken for granted by someone I\u2019ve supported is genuinely hard to take.', personB: 'Being put in a position where someone else holds power over me. I\u2019d far rather take charge than risk being dependent or controlled.' },
+  '3-6': { label: 'Results vs. Planning', personA: 'Failing to reach the goal, or being seen as unsuccessful. What matters most is the result, and falling short of it is what I most want to avoid.', personB: 'Being caught unprepared for what could go wrong. I\u2019m most uneasy when I haven\u2019t worked through the contingencies and mapped out what might happen.' },
+  '3-9': { label: 'Stalling vs. Being Pressured', personA: 'Being idle or unproductive, with nothing to point to for my time. Slowing down with no result to show makes me genuinely restless.', personB: 'Being pushed to assert myself or move at someone else\u2019s pace. Pressure to take a hard stance feels more uncomfortable to me than just going along.' },
+  '5-7': { label: 'Depletion vs. Constraint', personA: 'Having too much asked of me before I\u2019m ready, draining my energy and space. When that happens, I pull back to protect what I have left.', personB: 'Being limited to too few options, or stuck in something that\u2019s gone flat. I keep my options open so I never feel cornered.' },
+  '5-8': { label: 'Intrusion vs. Vulnerability', personA: 'Being intruded upon, or having more asked of me than I can give. My instinct is to withdraw and make myself small until I feel ready.', personB: 'Being made to feel weak or dependent on anyone. My instinct is to take up space and make sure I\u2019m not in a position to be controlled.' },
+  '6-9': { label: 'Uncertainty vs. Disruption', personA: 'Not knowing what\u2019s coming, or who I can really count on. The uncertainty keeps me on alert until I feel genuinely prepared.', personB: 'Having my peace disturbed by tension or other people\u2019s demands. When conflict rises, I tend to disengage or go along rather than push back.' },
+};
+
+// Counter-type comparatives, 5 pairs, keyed by the AI Call #1 ct_pair field.
+// Counter-type expression is Person A, lookalike is Person B (authored order;
+// the "lower-numbered = Person A" rule is standard-mode only). One question,
+// same stem as Q1. Source: hive_stage3_question_bank_v2_052926.docx \u00a7"Counter-Type Mode".
+const STAGE3_CT_COMPARATIVES = {
+  'SO-7': { ctId: 'CT-1', label: 'SO 7 vs. Type 2', counterType: 7, lookalike: 2, personA: 'I am sharing what I love with the people around me. I feel engaged, generous, and genuinely happy, and I want others to experience that same aliveness I feel.', personB: 'I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected, and I need to feel that my presence matters to them.' },
+  'SX-6': { ctId: 'CT-2', label: 'SX 6 vs. Type 8', counterType: 6, lookalike: 8, personA: 'I am facing something head-on and not letting fear win. I feel courageous and alive, most myself when I\u2019m pushing toward the thing that scares me.', personB: 'I am fully in control and unbothered. I feel powerful and clear, with no fear underneath, just a certainty that I won\u2019t be controlled or pushed around.' },
+  'SP-3': { ctId: 'CT-3', label: 'SP 3 vs. Type 1', counterType: 3, lookalike: 1, personA: 'I am getting things done and building something solid. I feel capable and self-sufficient, and I don\u2019t need recognition, just to know I\u2019ve made it on my own terms.', personB: 'I am doing things the right way. I feel principled and in integrity, and anything less than my own standard would feel like a betrayal of who I am.' },
+  'SP-4': { ctId: 'CT-4', label: 'SP 4 vs. Type 3', counterType: 4, lookalike: 3, personA: 'I am proving something, to myself more than anyone else. I feel driven and resilient, like I\u2019m refusing to be defeated by a sense of not being enough.', personB: 'I am achieving something meaningful. I feel capable, successful, and recognized, and I want the people who matter to see that I\u2019ve done well.' },
+  'SX-1': { ctId: 'CT-5', label: 'SX 1 vs. Type 8', counterType: 1, lookalike: 8, personA: 'I am fighting for something that genuinely matters. I feel intensely alive when I\u2019m up against something wrong, with a standard at stake I won\u2019t back down from.', personB: 'I am fully in control and unbothered. I feel powerful and clear, and I push hard because I won\u2019t be limited or told what I can\u2019t do.' },
+};
+
+// Load-time guard: fail loudly if the question bank was truncated or mis-keyed.
+function validateStage3Bank() {
+  const motCount = Object.keys(STAGE3_CORE_MOTIVATIONS).length;
+  if (motCount !== 9) throw new Error(`[stage3] STAGE3_CORE_MOTIVATIONS must have 9 entries, found ${motCount}.`);
+  const q2Keys = Object.keys(STAGE3_Q2_PAIRS);
+  if (q2Keys.length !== 26) throw new Error(`[stage3] STAGE3_Q2_PAIRS must have 26 entries, found ${q2Keys.length}.`);
+  q2Keys.forEach((k) => {
+    const m = /^(\d)-(\d)$/.exec(k);
+    if (!m || +m[1] >= +m[2]) throw new Error(`[stage3] STAGE3_Q2_PAIRS key "${k}" must be 'lower-higher' with lower < higher.`);
+    const v = STAGE3_Q2_PAIRS[k];
+    if (!v || !v.label || !v.personA || !v.personB) throw new Error(`[stage3] STAGE3_Q2_PAIRS["${k}"] missing label/personA/personB.`);
+  });
+  const ctKeys = Object.keys(STAGE3_CT_COMPARATIVES);
+  if (ctKeys.length !== 5) throw new Error(`[stage3] STAGE3_CT_COMPARATIVES must have 5 entries, found ${ctKeys.length}.`);
+  ctKeys.forEach((k) => {
+    const v = STAGE3_CT_COMPARATIVES[k];
+    if (!v || !v.ctId || !v.counterType || !v.lookalike || !v.personA || !v.personB) {
+      throw new Error(`[stage3] STAGE3_CT_COMPARATIVES["${k}"] missing required fields.`);
+    }
+  });
+}
+validateStage3Bank();
 
 // =================== STAGE 4 DATA ===================
 
@@ -790,92 +863,93 @@ function scoreStage1Profile(typeSliders, instinctSliders) {
 
 // =================== STAGE 3 HELPERS ===================
 
-// +2 / +1 / -1 / -2 for A / A-slight / B-slight / B. Positive = Person A wins.
-function stage3Score(answer) {
-  return { 'A': 2, 'A-slight': 1, 'B-slight': -1, 'B': -2 }[answer];
-}
+// Build Stage 3 routing from the frozen AI Call #1 contract (§7.1). Returns the
+// shape renderStage3 / computeStage3Scores consume, or { mode: 'NONE' } when the
+// AI declined a pairwise (stage3_mode = 'none' — a freak top-two outside the
+// authored set, flagged "no pairwise" for Call #2). Standard pairs put the
+// lower-numbered type as Person A; Q2 fires only when gap = 'tight' AND the pair
+// is one of the 26 bespoke items. CT comparatives key off ct_pair and keep their
+// authored A/B order (counter-type = Person A).
+function buildStage3Routing(call1) {
+  const mode = call1 && call1.stage3_mode;
 
-// Stage 3 scoring: STANDARD (1 or 2 questions) or COUNTER-TYPE (1 question).
-function computeStage3Scores() {
-  const s = state.scores;
-  const pair = resolveStage3Pair(s);
-  const answers = state.stage3Answers;
-
-  if (pair.mode === 'COUNTER-TYPE') {
-    const ct = STAGE3_CT_PAIRS[pair.ctKey];
-    const q1 = answers[0];
-    const clean = q1 === 'A' || q1 === 'B';
-    const leaningA = q1 === 'A' || q1 === 'A-slight';
-    const leading = leaningA ? ct.counterType : ct.lookalike;
-    const confidence = clean ? 'HIGH' : 'MEDIUM';
-    const ctAnswer = clean ? 'CLEAN' : 'BOTH';
+  if (mode === 'counter_type') {
+    const ct = STAGE3_CT_COMPARATIVES[call1.ct_pair];
+    if (!ct) return { mode: 'NONE' }; // ct_pair absent / Null — no comparative to serve
     return {
       mode: 'COUNTER-TYPE',
-      pair: ct.label,
-      pairKey: pair.ctKey,
-      typeA: ct.counterType,
-      typeB: ct.lookalike,
-      q1Answer: q1,
-      q1Result: describeStage3Answer(q1, ct.counterType, ct.lookalike),
-      q2Answer: null,
-      q2Result: 'N/A',
-      leading,
-      confidence,
-      ctAnswer,
+      ctPair: call1.ct_pair,
+      ctId: ct.ctId,
+      label: ct.label,
+      typeA: ct.counterType, // Person A
+      typeB: ct.lookalike,   // Person B
     };
   }
 
-  // STANDARD mode
-  const q1 = answers[0];
-  const q1Score = stage3Score(q1);
-
-  if (pair.hasAvoidance) {
-    const q2 = answers[1];
-    const q2Score = stage3Score(q2);
-    const total = q1Score + q2Score;
-    let leading;
-    if (total > 0) leading = pair.typeA;
-    else if (total < 0) leading = pair.typeB;
-    else leading = pair.typeA; // exact split — arbitrary tiebreak, LOW confidence signals it
-
-    const abs = Math.abs(total);
-    let confidence;
-    if (abs === 4) confidence = 'HIGH';
-    else if (abs === 3 || abs === 2) confidence = 'MEDIUM';
-    else confidence = 'LOW';
-
+  if (mode === 'standard') {
+    const lead = +call1.leading_candidate;
+    const alt = +call1.alternate_candidate;
+    const lower = Math.min(lead, alt);
+    const higher = Math.max(lead, alt);
+    const pairKey = `${lower}-${higher}`;
     return {
       mode: 'STANDARD',
-      pair: `${pair.typeA} vs. ${pair.typeB}`,
-      pairKey: pair.pairKey,
-      typeA: pair.typeA,
-      typeB: pair.typeB,
-      q1Answer: q1,
-      q1Result: describeStage3Answer(q1, pair.typeA, pair.typeB),
-      q2Answer: q2,
-      q2Result: describeStage3Answer(q2, pair.typeA, pair.typeB),
-      leading,
-      confidence,
-      ctAnswer: 'N/A',
+      pairKey,
+      typeA: lower,
+      typeB: higher,
+      leading: lead,
+      alternate: alt,
+      gap: call1.gap,
+      fireQ2: call1.gap === 'tight' && !!STAGE3_Q2_PAIRS[pairKey],
     };
   }
 
-  // STANDARD mode, Q1 only
-  const leaningA = q1 === 'A' || q1 === 'A-slight';
-  const clean = q1 === 'A' || q1 === 'B';
+  // stage3_mode === 'none' (or missing/unrecognized) — skip the pairwise.
+  return { mode: 'NONE' };
+}
+
+// Record the raw Stage 3 lean as one weighted observation for AI Call #2 (§7.3).
+// No winner crowning and no confidence math — those dissolved into the AI. Reads
+// the routing already stored on state.scores.stage3Pair plus the user's answers.
+function computeStage3Scores() {
+  const pair = state.scores.stage3Pair;
+  const answers = state.stage3Answers;
+
+  if (!pair || pair.mode === 'NONE') {
+    return { mode: 'NONE', administered: false, noPairwise: true };
+  }
+
+  const q1 = answers[0] || null;
+
+  if (pair.mode === 'COUNTER-TYPE') {
+    return {
+      mode: 'COUNTER-TYPE',
+      administered: true,
+      ctPair: pair.ctPair,
+      ctId: pair.ctId,
+      pair: pair.label,
+      typeA: pair.typeA, // counter-type
+      typeB: pair.typeB, // lookalike
+      q1Answer: q1,
+      q1Lean: describeStage3Answer(q1, pair.typeA, pair.typeB),
+      q2Answer: null,
+    };
+  }
+
+  // STANDARD — Q1 always, Q2 only when it fired.
+  const q2 = pair.fireQ2 ? (answers[1] || null) : null;
   return {
     mode: 'STANDARD',
-    pair: `${pair.typeA} vs. ${pair.typeB}`,
+    administered: true,
     pairKey: pair.pairKey,
     typeA: pair.typeA,
     typeB: pair.typeB,
+    leading: pair.leading,
+    alternate: pair.alternate,
     q1Answer: q1,
-    q1Result: describeStage3Answer(q1, pair.typeA, pair.typeB),
-    q2Answer: null,
-    q2Result: 'N/A',
-    leading: leaningA ? pair.typeA : pair.typeB,
-    confidence: clean ? 'HIGH' : 'MEDIUM',
-    ctAnswer: 'N/A',
+    q1Lean: describeStage3Answer(q1, pair.typeA, pair.typeB),
+    q2Answer: q2,
+    q2Lean: q2 ? describeStage3Answer(q2, pair.typeA, pair.typeB) : null,
   };
 }
 
@@ -1435,10 +1509,9 @@ function renderCtAnalyzing() {
 }
 
 // AI Call #1 interstitial — latency cover while the reasoning call runs after
-// Stage 2. While the call is in flight it shows the spinner; once it resolves
-// it holds on a completion message. NOTE: in this build (Step 3C) the flow
-// intentionally stops here — Stage 3 is rewired onto state.call1Result in
-// Step 4, which will replace this hold with an advance into Stage 3.
+// Stage 2. While the call is in flight it shows the spinner; once it resolves it
+// shows a Continue button that advances into Stage 3 off state.call1Result (the
+// routing is built when Continue is clicked, in attachHandlers).
 function renderCall1Analyzing() {
   const pctC1 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   const done = state._call1Done;
@@ -1447,6 +1520,9 @@ function renderCall1Analyzing() {
     ? 'Your next set of questions is being prepared.'
     : 'Thanks for your patience — we’re weighing everything you’ve told us.';
   const spinner = done ? '' : '<div class="spinner"></div>';
+  const continueBtn = done
+    ? `<div class="nav-row"><div class="spacer"></div><button class="btn btn-primary" id="btn-next">Continue</button></div>`
+    : '';
   return `<div class="screen">
     <div class="progress-section">
       <div class="progress-label">Completed</div>
@@ -1457,6 +1533,7 @@ function renderCall1Analyzing() {
       <div class="processing-heading">${heading}</div>
       <div class="processing-sub">${sub}</div>
     </div>
+    ${continueBtn}
   </div>`;
 }
 
@@ -1622,14 +1699,14 @@ function renderStage2() {
 // were resolved when Stage 2 finished (stored on state.scores.stage3Pair).
 function renderStage3() {
   const s = state.scores;
-  const pair = s.stage3Pair; // { mode, pairKey|ctKey, typeA, typeB, hasAvoidance? }
+  const pair = s.stage3Pair; // { mode:'STANDARD'|'COUNTER-TYPE', pairKey|ctPair, typeA, typeB, fireQ2? }
   const idx = state.stage3Idx;
   const sel = state.stage3Answers[idx] || null;
 
   // Resolve Person A / Person B content based on mode and current question.
   let stem, personAText, personBText, subtitle;
   if (pair.mode === 'COUNTER-TYPE') {
-    const ct = STAGE3_CT_PAIRS[pair.ctKey];
+    const ct = STAGE3_CT_COMPARATIVES[pair.ctPair];
     stem = STAGE3_Q1_STEM;
     personAText = ct.personA;
     personBText = ct.personB;
@@ -1642,14 +1719,14 @@ function renderStage3() {
     subtitle = `Type ${pair.typeA} vs. Type ${pair.typeB} \u00b7 Core Motivation`;
   } else {
     // Standard Q2 — avoidance (only on high-ambiguity pairs)
-    const av = STAGE3_AVOIDANCE_QUESTIONS[pair.pairKey];
+    const av = STAGE3_Q2_PAIRS[pair.pairKey];
     stem = STAGE3_Q2_STEM;
     personAText = av.personA;
     personBText = av.personB;
     subtitle = `Type ${pair.typeA} vs. Type ${pair.typeB} \u00b7 ${av.label}`;
   }
 
-  const totalQs = pair.mode === 'COUNTER-TYPE' ? 1 : (pair.hasAvoidance ? 2 : 1);
+  const totalQs = pair.mode === 'COUNTER-TYPE' ? 1 : (pair.fireQ2 ? 2 : 1);
   const isLast = idx === totalQs - 1;
 
   const pct3 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
@@ -2626,7 +2703,7 @@ function attachHandlers() {
       stage1Idx: 0, stage1TypeSliders: {}, stage1InstinctSliders: {},
       stage1TypeOpen: '', stage1InstinctOpen: '', _stage1StaleNotice: false,
       stage2Idx: 0, stage2Answers: [],
-      call1Result: null, call1LastSnapshot: null, _call1Done: false,
+      call1Result: null, call1LastSnapshot: null, _call1Done: false, noPairwise: false,
       stage3Mode: null, stage3Idx: 0, stage3Answers: [],
       stage4Sequence: [], stage4Idx: 0, stage4Answers: [], stage4Shuffles: [],
       resultsTab: 'client',
@@ -2995,9 +3072,8 @@ function attachHandlers() {
         render();
       } else {
         // Done with Stage 2 — hand off to AI Call #1 (the reasoning layer). The
-        // call1-analyzing screen fires the call and stores the §6.3 result. The
-        // retired computeStage2Scores / resolveStage3Pair path is gone; Stage 3
-        // is rewired onto state.call1Result in Step 4.
+        // call1-analyzing screen fires the call, stores the §6.3 result, and (on
+        // Continue) builds the Stage 3 routing off state.call1Result.
         state._call1Done = false;
         state.phase = 'call1-analyzing';
         render();
@@ -3009,8 +3085,8 @@ function attachHandlers() {
   // ---- AI Call #1 interstitial ----
   // Fires the reasoning call once on entry. A 20s timeout caps the wait so the
   // user never sees a stuck spinner; on success or timeout we mark the screen
-  // done and persist the result into session_state. The flow holds here in this
-  // build — Step 4 wires the advance into Stage 3 off state.call1Result.
+  // done and persist the result into session_state. Once done, a Continue button
+  // builds the Stage 3 routing off state.call1Result and advances (§7.1).
   if (state.phase === 'call1-analyzing') {
     const contextBlock = state.scores ? buildContextBlock(state.scores) : '';
     const unchanged = state.call1LastSnapshot !== null
@@ -3045,6 +3121,27 @@ function attachHandlers() {
         }
       });
     }
+
+    // Continue (shown once _call1Done) — build Stage 3 routing and advance.
+    const btnNextC1 = document.getElementById('btn-next');
+    if (btnNextC1) btnNextC1.addEventListener('click', () => {
+      const routing = buildStage3Routing(state.call1Result);
+      state.scores.stage3Pair = routing;
+      state.stage3Idx = 0;
+      state.stage3Answers = [];
+      if (routing.mode === 'NONE') {
+        // AI declined a pairwise (stage3_mode = none) — skip Stage 3, flag it for
+        // Call #2, advance to Stage 4. (Stage 4 sequence build is Step 5.)
+        state.noPairwise = true;
+        state.scores.stage3 = computeStage3Scores();
+        state.phase = 'stage4';
+      } else {
+        state.noPairwise = false;
+        state.phase = 'stage3';
+      }
+      render();
+      saveSessionState();
+    });
   }
 
   // ---- Stage 3: Pairwise Discrimination ----
@@ -3057,7 +3154,7 @@ function attachHandlers() {
     });
 
     const pair = state.scores.stage3Pair;
-    const totalQs = pair.mode === 'COUNTER-TYPE' ? 1 : (pair.hasAvoidance ? 2 : 1);
+    const totalQs = pair.mode === 'COUNTER-TYPE' ? 1 : (pair.fireQ2 ? 2 : 1);
 
     const btnBackS3 = document.getElementById('btn-back');
     if (btnBackS3) btnBackS3.addEventListener('click', () => {
@@ -3111,7 +3208,7 @@ function attachHandlers() {
       } else {
         // Back to last Stage 3 question
         const pair = state.scores.stage3Pair;
-        const s3Total = pair.mode === 'COUNTER-TYPE' ? 1 : (pair.hasAvoidance ? 2 : 1);
+        const s3Total = pair.mode === 'COUNTER-TYPE' ? 1 : (pair.fireQ2 ? 2 : 1);
         state.phase = 'stage3';
         state.stage3Idx = s3Total - 1;
         render();

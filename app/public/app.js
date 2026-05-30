@@ -345,7 +345,7 @@ if (window.__hiveIntake) {
         'phase', 'stage0Idx', 'stage0Answers', 'stage0_signal', 'stage0LastSnapshot',
         'ctAdjustment', 'ctLastSnapshot', 'stage1Idx',
         'stage1TypeSliders', 'stage1InstinctSliders', 'stage1TypeOpen', 'stage1InstinctOpen',
-        'stage2Idx', 'stage2Answers', 'call1Result', 'call1LastSnapshot',
+        'stage2Idx', 'stage2Answers', 'call1Result', 'call1LastSnapshot', 'noPairwise',
         'stage3Mode', 'stage3Idx', 'stage3Answers',
         'stage4Sequence', 'stage4Idx', 'stage4Answers', 'stage4Shuffles', 'finalOpenResponse',
         'scores',
