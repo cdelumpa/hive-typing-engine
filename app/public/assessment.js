@@ -1401,58 +1401,33 @@ The scoring pattern is consistent with a known counter-type combination.\n`;
   return { stage0SignalText, ctAdjustmentText, ctCrossRefText };
 }
 
-// Serializes the full Stage 0/1/2/3/4 state into the v2 context block format
-// the AI expects. Assembles named parts into an array, then joins — this keeps
-// optional injection sites explicit and prevents accidental insertion of
-// content after the final block. The OUTPUT_FORMAT JSON-priming block is
-// appended by the caller (callAPI), never by this function.
+// Serializes the §6.2 AI Call #1 evidence set into the context block the AI
+// receives after Stage 2. This is the v2 evidence set ONLY — raw slider profiles
+// and verbatim answers, with NO engine verdict. The scoring engine no longer
+// decides; AI Call #1 does the ranking/typing from this evidence. The
+// OUTPUT_FORMAT JSON-priming block is appended by the caller (callAPI), never
+// here.
 //
-// Block order (Patch — fixes JSON priming regression caused by mis-ordered
-// optional blocks):
-//   1. Client information + Stage 0 raw responses
-//   2. Stage 0 language analysis (optional, from mid-assessment mini-call)
-//   3. Counter-type hypothesis adjustment (optional, from CT mini-call)
-//   4. Counter-type cross-reference instruction (optional, when CT flag active)
-//   5. Stage 1 — Centers, Instincts, Type Hypotheses (+ CT flag line)
-//   6. Stage 2 — Cross-referencing results (+ optional cross-center divergence)
-//   7. Stage 3 — Pairwise discrimination results
-//   8. Stage 4 — Confirmation results + answer details
-//   9. Final open response (if provided)
-// OUTPUT_FORMAT is then appended last, unconditionally, in callAPI.
+// `s` is the scoreStage1Profile output (state.scores): { typeProfile,
+// instinctProfile, leadingType, alternateType, gap, highAmbiguity,
+// dominantInstinct }. Stage 0 text, Stage 1 opens, and Stage 2 answers are read
+// from `state` directly.
+//
+// Block order:
+//   1. Client information + Stage 0 raw open-text responses
+//   2. Stage 1 — raw nine-type slider profile (+ leading/alternate/gap/ambiguity)
+//   3. Stage 1 — raw three-instinct slider profile (+ dominant instinct)
+//   4. Stage 1 — open responses (verbatim)
+//   5. Stage 2 — three framework answers (evidence only, no scoring)
 function buildContextBlock(s) {
-  const a0 = state.stage0Answers;
-  const s2 = s.stage2;
-  const s3 = s.stage3;
-  const s4 = s.stage4;
-
-  const boolStr = (v) => v === true ? 'YES' : v === false ? 'NO' : 'N/A';
-
-  const ctStage1Line = s.counterTypeFlag === 'YES'
-    ? `Counter-type flag: YES\nCounter-type combination: ${s.counterTypeCombination}`
-    : 'Counter-type flag: NO';
-
-  const secondCenterLine = (s.centerConfidence === 'LOW' && s.secondCenter)
-    ? `Second candidate Center: ${s.secondCenter}\n`
-    : '';
-
-  const crossCenterBlock = s2.crossCenterDivergence
-    ? `\n\n⚠ CROSS-CENTER DIVERGENCE (engine-surfaced signal): ${s2.crossCenterNote}`
-    : '';
-
-  const secondCandidateLine = s4.secondType
-    ? `Second candidate tested: Type ${s4.secondType}\n`
-    : '';
-
-  const { stage0SignalText, ctAdjustmentText, ctCrossRefText } =
-    buildStage0SignalParts(s, state.stage0_signal);
+  const a0 = state.stage0Answers || {};
+  const TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const INSTINCTS = ['SP', 'SO', 'SX'];
 
   const intake = state.intake || {};
   const clientName = [intake.firstName, intake.lastName].filter(Boolean).join(' ') || 'Not provided';
   const clientOrg = intake.organization || 'Not provided';
   const clientCoach = intake.coach || 'Not provided';
-  const finalOpen = state.finalOpenResponse && state.finalOpenResponse.trim()
-    ? `"${state.finalOpenResponse.trim()}"`
-    : '[none provided]';
 
   const header = `CLIENT INFORMATION
 ==================
@@ -1469,75 +1444,86 @@ How others describe them: "${a0.q2 || 'not provided'}"
 Greatest strength: "${a0.q3 || 'not provided'}"
 Most problematic quality: "${a0.q4 || 'not provided'}"`;
 
-  const stage1Block = `Stage 1 — Centers Scoring
-Scoring: Rank 1 = 3pts, Rank 2 = 2pts, Rank 3 = 1pt. Maximum per Center: 18. Confidence: HIGH = gap 5+, MEDIUM = gap 3-4, LOW = gap 0-2.
-Head Center total: ${s.head} / 18
-Heart Center total: ${s.heart} / 18
-Body Center total: ${s.body} / 18
-Identified Center: ${s.identifiedCenter}
-Gap to next Center: ${s.centerGap} points
-Center confidence: ${s.centerConfidence}
-${secondCenterLine}
-Stage 1 — Instinct Scoring
-Maximum per Instinct: 18. Confidence: HIGH = gap 4+, MEDIUM = gap 2-3, LOW = gap 0-1.
-SP total: ${s.sp} / 18
-SO total: ${s.so} / 18
-SX total: ${s.sx} / 18
-Identified Instinct: ${s.identifiedInstinct}
-Gap to next Instinct: ${s.instinctGap} points
-Instinct confidence: ${s.instinctConfidence}
+  // Stage 1 — raw nine-type slider profile, rank-ordered high to low. Labeled as
+  // raw evidence, not a verdict: the AI does the typing in Call #1.
+  const rankedTypes = TYPES.slice().sort((x, y) =>
+    (s.typeProfile[y] - s.typeProfile[x]) || (x - y)
+  );
+  const typeRows = rankedTypes
+    .map((t) => `Type ${t} (${TYPE_NAMES[t]}): ${s.typeProfile[t].toFixed(1)} / 100`)
+    .join('\n');
 
-Stage 1 — Type Hypotheses
-Three type hypotheses from Stage 1: Type ${s.typeHypotheses[0]}, Type ${s.typeHypotheses[1]}, Type ${s.typeHypotheses[2]}
-${ctStage1Line}`;
+  const stage1TypeBlock = `Stage 1 — Nine-Type Profile (raw slider scores 0-100; each score is the mean of five self-report statements)
+This is raw self-report evidence, NOT a verdict. Rank-ordered high to low:
+${typeRows}
+Leading slider type: Type ${s.leadingType} (${TYPE_NAMES[s.leadingType]})
+Closest alternate: Type ${s.alternateType} (${TYPE_NAMES[s.alternateType]})
+Gap (leading minus alternate): ${s.gap.toFixed(1)} points
+High-ambiguity flag (top two within ${HIGH_AMBIGUITY_MARGIN} points): ${s.highAmbiguity ? 'YES' : 'NO'}`;
 
-  const stage2Block = `Stage 2 — Cross-Referencing Results
-Q1 Hornevian answer: ${s2.answers[0]} (${STAGE2_BUCKET_LABELS.Hornevian[s2.answers[0]]})
-Q2 Harmonic answer: ${s2.answers[1]} (${STAGE2_BUCKET_LABELS.Harmonic[s2.answers[1]]})
-Q3 Object Relations answer: ${s2.answers[2]} (${STAGE2_BUCKET_LABELS.ObjectRelations[s2.answers[2]]})
+  // Stage 1 — raw three-instinct slider profile. No mechanical identified-instinct
+  // or confidence label; the AI characterizes dominance from the full profile.
+  const rankedInst = INSTINCTS.slice().sort((x, y) =>
+    (s.instinctProfile[y] - s.instinctProfile[x]) || (INSTINCTS.indexOf(x) - INSTINCTS.indexOf(y))
+  );
+  const instRows = rankedInst
+    .map((i) => `${i}: ${s.instinctProfile[i].toFixed(1)} / 100`)
+    .join('\n');
 
-Cross-referencing primary hypothesis: Type ${s2.xrefPrimary}
-Cross-referencing live alternative: Type ${s2.xrefAlternative}
-Ambiguity axis: ${s2.xrefAmbiguityAxis}
-Counter-type mode triggered: ${s2.xrefCounterType}${crossCenterBlock}`;
+  const stage1InstinctBlock = `Stage 1 — Three-Instinct Profile (raw slider scores 0-100; each score is the mean of five self-report statements)
+Raw self-report evidence, NOT a verdict. Rank-ordered high to low:
+${instRows}
+Dominant slider instinct: ${s.dominantInstinct}`;
 
-  const stage3Block = `Stage 3 — Pairwise Discrimination Results
-Mode: ${s3.mode}
-Pair tested: ${s3.pair}
-Q1 Core Motivation result: ${s3.q1Result}
-Q2 Avoidance result: ${s3.q2Result}
-Stage 3 leading hypothesis: Type ${s3.leading}
-Stage 3 confidence: ${s3.confidence}
-Counter-type mode answer: ${s3.ctAnswer}`;
+  // Stage 1 — open responses, verbatim.
+  const typeOpen = state.stage1TypeOpen && state.stage1TypeOpen.trim()
+    ? `"${state.stage1TypeOpen.trim()}"` : '[none provided]';
+  const instinctOpen = state.stage1InstinctOpen && state.stage1InstinctOpen.trim()
+    ? `"${state.stage1InstinctOpen.trim()}"` : '[none provided]';
+  const stage1OpenBlock = `Stage 1 — Open Responses (client's own words)
+After the type sliders: ${typeOpen}
+After the instinct sliders: ${instinctOpen}`;
 
-  const stage4Block = `Stage 4 — Confirmation Results
-Path: ${s4.path}
-Option: ${s4.option}
-Lead type tested: Type ${s4.leadType}
-${secondCandidateLine}Stress confirmed: ${boolStr(s4.stressConfirmed)}
-Security confirmed: ${boolStr(s4.securityConfirmed)}
-Habit of Mind confirmed: ${boolStr(s4.habitConfirmed)}
-Stage 4 outcome: ${s4.outcome}
+  // Stage 2 — three framework answers as evidence (no intersection scoring).
+  // Q1/Q2 are single-select uppercase letters; Q3 is the Centers ranking.
+  const s2a = state.stage2Answers || [];
+  const q1 = s2a[0];
+  const q2 = s2a[1];
+  const q1Line = q1
+    ? `Q1 Hornevian (social stance): ${q1} (${STAGE2_BUCKET_LABELS.Hornevian[q1]})`
+    : 'Q1 Hornevian (social stance): [not answered]';
+  const q2Line = q2
+    ? `Q2 Harmonic (conflict response): ${q2} (${STAGE2_BUCKET_LABELS.Harmonic[q2]})`
+    : 'Q2 Harmonic (conflict response): [not answered]';
 
-Stage 4 — Answer Details (use for stress_point_description / security_point_description / habit_of_mind_description)
-Stress: ${s4.stressDescription || 'not provided'}
-Security: ${s4.securityDescription || 'not provided'}
-Habit of Mind: ${s4.habitDescription || 'N/A — did not fire'}`;
+  // Q3 Centers decision-making: stored as { a, b, c } ranks 1-3 (1 = most
+  // relied on). Order the triple by ascending rank — index 0 is the client's
+  // most-relied-on center, index 2 the least. The AI receives the full ordered
+  // triple, not just the top pick.
+  const Q3_LABELS = { a: 'Gut', b: 'Feelings', c: 'Facts' };
+  const q3 = s2a[2] || {};
+  const q3Ordered = ['a', 'b', 'c']
+    .filter((k) => q3[k] != null)
+    .sort((x, y) => q3[x] - q3[y])
+    .map((k) => Q3_LABELS[k]);
+  const q3Line = q3Ordered.length === 3
+    ? `Q3 Centers (decision-making), ranked most to least relied on:
+  1st (most relied on): ${q3Ordered[0]}
+  2nd: ${q3Ordered[1]}
+  3rd (least relied on): ${q3Ordered[2]}`
+    : 'Q3 Centers (decision-making): [not answered]';
 
-  const finalOpenBlock = `Final open response (optional): ${finalOpen}`;
+  const stage2Block = `Stage 2 — Framework Answers (evidence only; the engine does not score these)
+${q1Line}
+${q2Line}
+${q3Line}`;
 
-  // Assemble in strict order. Optional blocks are filtered out when empty so
-  // they leave no trailing whitespace artifacts.
   const parts = [
     header,
-    stage0SignalText,
-    ctAdjustmentText,
-    ctCrossRefText,
-    stage1Block,
+    stage1TypeBlock,
+    stage1InstinctBlock,
+    stage1OpenBlock,
     stage2Block,
-    stage3Block,
-    stage4Block,
-    finalOpenBlock,
   ].filter(p => p && p.trim().length > 0);
 
   return parts.join('\n\n');
