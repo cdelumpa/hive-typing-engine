@@ -1,5 +1,6 @@
 {
   "_meta": {
+    "_quarantined": "quarantined during v2 migration; re-enable and rewrite expected values against the v2 schema after Step 6. Asserts on removed fields (center scoring, CT_COMBOS, mechanical confidence labels). Encodes a hand-validated ground-truth case — do not delete.",
     "name": "SP4 Self-Preservation Four — Counter-Type Clean Confirmation",
     "description": "Self-Preservation Four. HIGH confidence. Stage 1 canonical rankings: Heart center dominant (18/9/9), SP instinct dominant (18/12/6). Stage 1 flags SP-4 Tenacity counter-type. Stage 2 cross-reference lands cleanly on Type 4 (Withdrawn/Intensity/Frustration), confirming the counter-type and routing Stage 3 to CT mode (SP 4 vs Type 3). Stage 3 clean A — confirms Type 4. Stage 4 Option A confirms cleanly. Section 1A (counter-type) should appear in coach report. Section 6A should NOT appear.",
     "expected_type": 4,

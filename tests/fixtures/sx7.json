@@ -1,5 +1,6 @@
 {
   "_meta": {
+    "_quarantined": "quarantined during v2 migration; re-enable and rewrite expected values against the v2 schema after Step 6. Asserts on removed fields (center scoring, CT_COMBOS, mechanical confidence labels). Encodes a hand-validated ground-truth case — do not delete.",
     "name": "SX7 Sexual Seven — Clean Confirmation",
     "description": "Sexual Seven. HIGH confidence. Stage 1 canonical rankings: Head center dominant (18/12/6), SX instinct dominant (18/12/6). No counter-type flag. Stage 2 cross-reference cleanly confirms Type 7 (Assertive/Positive/Frustration). Stage 3 Standard mode resolves to Type 7. Stage 4 Option A confirms cleanly. No counter-type, no type confusion. Section 1A and Section 6A should NOT appear.",
     "expected_type": 7,

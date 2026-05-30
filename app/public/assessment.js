@@ -178,24 +178,138 @@ const STAGE1_QUESTIONS = [
   },
 ];
 
-// =================== COUNTER-TYPE CONFIG ===================
+// =================== STAGE 1 (v2) — TYPE & INSTINCT SLIDER STATEMENTS ===================
 
-// Known counter-type combinations. Flag triggers YES when confirmed instinct
-// plus any of the three Stage 1 hypotheses matches one of these pairs.
-const CT_COMBOS = {
-  'SP-3': 'SP 3 Anti-Vanity',
-  'SX-6': 'SX 6 Counterphobic',
-  'SP-4': 'SP 4 Tenacity',
-  'SX-1': 'SX 1 Zeal',
-  'SO-7': 'SO 7 Sacrifice',
+// Source of record:
+//   hive_stage1_type_statements_final_052926.docx   — 45 type statements (9 types x 5)
+//   hive_stage1_instinct_statements_v1_052926.docx   — 15 instinct statements (3 x 5)
+// Each statement is a continuous 0-100 slider ("Not like me / Very much like me").
+// Flat scoring: every statement carries equal weight (see scoreStage1Profile).
+//
+// NOTE on IDs: the type-statement IDs are NOT a clean -1..-5 run. The middle
+// dimension splits into a 2a/2b pair, so Type 3 reads S3-1, S3-2a, S3-2b, S3-3,
+// S3-4. Summing must key on the actual row count per group, never on ID-suffix
+// arithmetic. validateStage1Statements() enforces exactly 5 rows per group at load.
+
+const STAGE1_TYPE_STATEMENTS = {
+  3: [
+    { id: 'S3-1',  dimension: 'Core motivation',        text: 'I prioritize achieving my goals and being recognized for what I accomplish.' },
+    { id: 'S3-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to what needs to be accomplished and how I’m coming across.' },
+    { id: 'S3-2b', dimension: 'Resulting preoccupation', text: 'I find myself adjusting how I present myself and tracking how I’m landing.' },
+    { id: 'S3-3',  dimension: 'Energy',                  text: 'I put a lot of energy into staying productive, performing well, and projecting a capable, successful image.' },
+    { id: 'S3-4',  dimension: 'Avoidance',               text: 'I tend to avoid failing, slowing down, or being seen as unsuccessful or incapable.' },
+  ],
+  6: [
+    { id: 'S6-1',  dimension: 'Core motivation',        text: 'I prioritize feeling safe, secure, and prepared for whatever might happen.' },
+    { id: 'S6-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to what could go wrong, potential danger, and whether people and situations can really be trusted.' },
+    { id: 'S6-2b', dimension: 'Resulting preoccupation', text: 'I find myself running through worst-case scenarios figuring out how to be prepared for what might happen.' },
+    { id: 'S6-3',  dimension: 'Energy',                  text: 'I put a lot of energy into questioning, seeking reassurance, and making sure I’m ready for what could go wrong.' },
+    { id: 'S6-4',  dimension: 'Avoidance',               text: 'I tend to avoid uncertainty, blindly trusting others, and being caught unprepared.' },
+  ],
+  9: [
+    { id: 'S9-1',  dimension: 'Core motivation',        text: 'I prioritize keeping the peace and maintaining harmony, inside myself and with others.' },
+    { id: 'S9-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes outward to other people’s agendas, potential sources of conflict, and to what’s right in front of me.' },
+    { id: 'S9-2b', dimension: 'Resulting preoccupation', text: 'I find myself going along with what others want, keeping things comfortable, and losing track of what matters most to me.' },
+    { id: 'S9-3',  dimension: 'Energy',                  text: 'I put a lot of energy into accommodating others, staying comfortable, and avoiding friction.' },
+    { id: 'S9-4',  dimension: 'Avoidance',               text: 'I tend to avoid conflict, asserting my own position, and anything that disturbs my sense of peace.' },
+  ],
+  1: [
+    { id: 'S1-1',  dimension: 'Core motivation',        text: 'I prioritize doing things right and being a good, responsible person.' },
+    { id: 'S1-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to what’s wrong, imprecise, or not meeting the standard in situations, in others, and in myself.' },
+    { id: 'S1-2b', dimension: 'Resulting preoccupation', text: 'I find myself monitoring, correcting, and comparing, driven by a relentless internal critic.' },
+    { id: 'S1-3',  dimension: 'Energy',                  text: 'I put a lot of energy into improving things, maintaining standards, and keeping myself and my work above reproach.' },
+    { id: 'S1-4',  dimension: 'Avoidance',               text: 'I tend to avoid making mistakes, being wrong, and letting my own anger or impulses show.' },
+  ],
+  4: [
+    { id: 'S4-1',  dimension: 'Core motivation',        text: 'I prioritize being authentic and true to myself, and feeling a deep connection to what’s real and meaningful.' },
+    { id: 'S4-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to what is missing or unavailable to me, and my internal emotional landscape.' },
+    { id: 'S4-2b', dimension: 'Resulting preoccupation', text: 'I find myself drawn toward what would make me feel unique or special and away from the ordinary or mundane.' },
+    { id: 'S4-3',  dimension: 'Energy',                  text: 'I put a lot of energy into processing my emotions, seeking depth, and being seen as unique and authentic.' },
+    { id: 'S4-4',  dimension: 'Avoidance',               text: 'I tend to avoid being ordinary, feeling cut off from my feelings, and settling for the superficial.' },
+  ],
+  2: [
+    { id: 'S2-1',  dimension: 'Core motivation',        text: 'I prioritize being needed and appreciated for how I care for and support others.' },
+    { id: 'S2-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to other people’s feelings and needs, picking up on what they need usually before they even know.' },
+    { id: 'S2-2b', dimension: 'Resulting preoccupation', text: 'I find myself setting aside what I need in order to focus on others, telling myself my needs can wait.' },
+    { id: 'S2-3',  dimension: 'Energy',                  text: 'I put a lot of energy into helping, supporting, and tending to relationships and others’ needs.' },
+    { id: 'S2-4',  dimension: 'Avoidance',               text: 'I tend to avoid acknowledging my own needs, asking for help, and feeling that I’m not needed or appreciated.' },
+  ],
+  8: [
+    { id: 'S8-1',  dimension: 'Core motivation',        text: 'I prioritize being strong and in control so I can protect myself and the people I care about.' },
+    { id: 'S8-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to power dynamics, fairness, and any move to control, take advantage, or show weakness.' },
+    { id: 'S8-2b', dimension: 'Resulting preoccupation', text: 'I find myself moving toward action, confronting what’s wrong head-on, and protecting against any sign of vulnerability.' },
+    { id: 'S8-3',  dimension: 'Energy',                  text: 'My energy goes to taking action, asserting my will, and taking a stand against what’s unjust or unfair.' },
+    { id: 'S8-4',  dimension: 'Avoidance',               text: 'I tend to avoid feeling vulnerable, being controlled, and being dependent on others.' },
+  ],
+  5: [
+    { id: 'S5-1',  dimension: 'Core motivation',        text: 'I prioritize understanding the world and having enough knowledge and resources to be self-sufficient.' },
+    { id: 'S5-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to demands on my time and energy, and to potential intrusions on my privacy.' },
+    { id: 'S5-2b', dimension: 'Resulting preoccupation', text: 'I find myself building my knowledge, maintaining my boundaries, and conserving my energy and resources.' },
+    { id: 'S5-3',  dimension: 'Energy',                  text: 'I put a lot of energy into gathering knowledge, figuring things out, and protecting my privacy and resources.' },
+    { id: 'S5-4',  dimension: 'Avoidance',               text: 'I tend to avoid emotional demands, intrusion on my space, and being caught without enough understanding or resources.' },
+  ],
+  7: [
+    { id: 'S7-1',  dimension: 'Core motivation',        text: 'I prioritize living a life free from pain and constraints.' },
+    { id: 'S7-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to anything that could potentially limit my options or cause me pain and suffering.' },
+    { id: 'S7-2b', dimension: 'Resulting preoccupation', text: 'I find myself planning for pleasurable possibilities, generating new options, and reframing whatever feels limiting or painful.' },
+    { id: 'S7-3',  dimension: 'Energy',                  text: 'I put a lot of energy into staying up and positive, planning for pleasurable possibilities, and keeping my options open.' },
+    { id: 'S7-4',  dimension: 'Avoidance',               text: 'I tend to avoid people and situations that limit my options or require me to sit with pain or difficulty.' },
+  ],
 };
 
-// Three types in each Center, fixed order. Used to build Stage 1 hypotheses.
-const CENTER_TYPES = {
-  Body: [8, 9, 1],
-  Heart: [2, 3, 4],
-  Head: [5, 6, 7],
+const STAGE1_INSTINCT_STATEMENTS = {
+  SP: [
+    { id: 'I1-SP-1', dimension: 'Body & comfort',       text: 'I pay close attention to my physical comfort — things like temperature, hunger, rest, and whether my body feels okay.' },
+    { id: 'I1-SP-2', dimension: 'Enough / resources',   text: 'I keep track of whether I have enough resources (money, supplies, energy, time, etc) to ensure comfort and survival.' },
+    { id: 'I1-SP-3', dimension: 'Security (protective)', text: 'I keep the people and things I depend on safe.' },
+    { id: 'I1-SP-4', dimension: 'Self-reliance',        text: 'I prefer to handle things myself rather than counting on others.' },
+    { id: 'I1-SP-5', dimension: 'Energy direction',     text: 'I recharge by being on my own, in my own space, with no demands on me.' },
+  ],
+  SO: [
+    { id: 'I1-SO-1', dimension: 'Place in the group',   text: 'I’m pay attention to where I stand in a group and how I’m coming across to the people in it.' },
+    { id: 'I1-SO-2', dimension: 'Trust / reciprocity',  text: 'I pay attention to who in a group is reliable and can be counted on, and who can’t.' },
+    { id: 'I1-SO-3', dimension: 'Social landscape',     text: 'I notice the social landscape — who’s connected to whom, who’s in, who’s on the outside.' },
+    { id: 'I1-SO-4', dimension: 'Larger belonging',     text: 'I am pulled toward something larger than myself: a cause, a community, a group I want to be part of.' },
+    { id: 'I1-SO-5', dimension: 'Energy direction',     text: 'I get my energy by being part of a community.' },
+  ],
+  SX: [
+    { id: 'I1-SX-1', dimension: 'Magnetized attention', text: 'My attention gets pulled strongly toward specific people or things, sometimes to the point of crowding out everything else.' },
+    { id: 'I1-SX-2', dimension: 'Energy direction',     text: 'I find intense one-on-one conversations energizing.' },
+    { id: 'I1-SX-3', dimension: 'Override',             text: 'When I’m captivated by someone or something, the pull can override my better judgment about what I should be doing.' },
+    { id: 'I1-SX-4', dimension: 'Asserting',            text: 'When I want something, I go after it directly and don’t hold back.' },
+    { id: 'I1-SX-5', dimension: 'Impressing',           text: 'I want to have a real impact on the people and things that matter to me, even if I don’t make it obvious.' },
+  ],
 };
+
+// Narrative training screen order (design §4.1). Scoring is order-independent;
+// this is carried for the deferred Stage 1 slider UI.
+const STAGE1_TYPE_SCREEN_ORDER = [3, 6, 9, 1, 4, 2, 8, 5, 7];
+const STAGE1_INSTINCT_ORDER = ['SP', 'SO', 'SX'];
+
+// High-ambiguity near-tie margin on the normalized 0-100 scale. Carries the
+// v1 "~25-pt-on-300" intent forward (≈8 pts here). TUNABLE — the concrete
+// value is reserved for Step-1 tuning against real profiles; do not treat as
+// settled. The unit test asserts the flag logic against THIS constant, not 8.
+const HIGH_AMBIGUITY_MARGIN = 8;
+
+// Fail loudly at load if a content edit drops or adds a statement row, so a
+// miscount surfaces immediately instead of silently mis-normalizing. Keys on the
+// actual row count per group (not ID arithmetic), per the 2a/2b ID note above.
+function validateStage1Statements() {
+  for (const t of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+    const rows = STAGE1_TYPE_STATEMENTS[t];
+    if (!Array.isArray(rows) || rows.length !== 5) {
+      throw new Error(`[stage1] Type ${t} must have exactly 5 statements, found ${rows ? rows.length : 'none'}.`);
+    }
+  }
+  for (const inst of ['SP', 'SO', 'SX']) {
+    const rows = STAGE1_INSTINCT_STATEMENTS[inst];
+    if (!Array.isArray(rows) || rows.length !== 5) {
+      throw new Error(`[stage1] Instinct ${inst} must have exactly 5 statements, found ${rows ? rows.length : 'none'}.`);
+    }
+  }
+}
+validateStage1Statements();
 
 // =================== STAGE 2 DATA ===================
 
@@ -661,71 +775,65 @@ const SUBTYPE_NAMES = {
 
 // =================== SCORING ENGINE ===================
 
-function computeStage1Scores() {
-  // Rank 1 = 3pts, Rank 2 = 2pts, Rank 3 = 1pt (inverted)
-  const totals = { head: 0, heart: 0, body: 0, sp: 0, so: 0, sx: 0 };
+// Stage 1 (v2) scoring — pure and deterministic: slider inputs in, raw profiles
+// + high-ambiguity flag out. No center scoring, no Type->Center lookup, no
+// HIGH/MEDIUM/LOW confidence labels, no counter-type flag — those mechanics are
+// retired (design §4.3). The AI reasons over the raw profiles (§4.2, §6).
+//
+//   typeSliders:     { 1: [v,v,v,v,v], 2: [...], ..., 9: [...] }   each v in 0-100
+//   instinctSliders: { SP: [v,v,v,v,v], SO: [...], SX: [...] }
+//
+// Each type/instinct score is the MEAN of its five sliders (sum / 5), landing on
+// a 0-100 scale. The nine type scores form the raw type profile; the three
+// instinct scores form the {SP, SO, SX} profile.
+function scoreStage1Profile(typeSliders, instinctSliders) {
+  const TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const INSTINCTS = ['SP', 'SO', 'SX'];
 
-  STAGE1_QUESTIONS.forEach((q, idx) => {
-    const r = state.stage1Rankings[idx];
-    ['a', 'b', 'c'].forEach((letter) => {
-      const pts = 4 - r[letter]; // rank 1→3, rank 2→2, rank 3→1
-      const dim = q.mapping[letter]; // e.g. 'head', 'sp'
-      totals[dim] = (totals[dim] || 0) + pts;
-    });
-  });
-
-  // Centers
-  const centerScores = { Head: totals.head, Heart: totals.heart, Body: totals.body };
-  const sortedCenters = Object.entries(centerScores).sort((a, b) => b[1] - a[1]);
-  const identifiedCenter = sortedCenters[0][0];
-  const centerGap = sortedCenters[0][1] - sortedCenters[1][1];
-  const centerConfidence = centerGap >= 5 ? 'HIGH' : centerGap >= 3 ? 'MEDIUM' : 'LOW';
-  const secondCenter = centerConfidence === 'LOW' ? sortedCenters[1][0] : null;
-
-  // Instincts
-  const instinctScores = { SP: totals.sp, SO: totals.so, SX: totals.sx };
-  const sortedInstincts = Object.entries(instinctScores).sort((a, b) => b[1] - a[1]);
-  const identifiedInstinct = sortedInstincts[0][0];
-  const instinctGap = sortedInstincts[0][1] - sortedInstincts[1][1];
-  const instinctConfidence = instinctGap >= 4 ? 'HIGH' : instinctGap >= 2 ? 'MEDIUM' : 'LOW';
-
-  // Three type hypotheses (fixed Center order: Body 8,9,1 / Heart 2,3,4 / Head 5,6,7).
-  // On LOW Center confidence: primary[0], secondary[0], primary[1] — top of each
-  // candidate Center plus second slot from the primary Center.
-  let typeHypotheses;
-  if (centerConfidence === 'LOW') {
-    const primary = CENTER_TYPES[identifiedCenter];
-    const secondary = CENTER_TYPES[secondCenter];
-    typeHypotheses = [primary[0], secondary[0], primary[1]];
-  } else {
-    typeHypotheses = [...CENTER_TYPES[identifiedCenter]];
-  }
-
-  // Counter-type flag — YES if any hypothesis + confirmed instinct matches a
-  // known CT combo. First match (in hypothesis order) is stored.
-  let counterTypeFlag = 'NO';
-  let counterTypeCombination = null;
-  let counterTypeKey = null;
-  for (const t of typeHypotheses) {
-    const key = `${identifiedInstinct}-${t}`;
-    if (CT_COMBOS[key]) {
-      counterTypeFlag = 'YES';
-      counterTypeCombination = CT_COMBOS[key];
-      counterTypeKey = key;
-      break;
+  // Mean of exactly five sliders. Throws loudly on a wrong-length input so a
+  // future content/wiring change can't silently mis-normalize (e.g. divide a
+  // four-slider group by five, or drop a slider).
+  const mean5 = (arr, label) => {
+    if (!Array.isArray(arr) || arr.length !== 5) {
+      throw new Error(`[stage1] ${label} must have exactly 5 slider values, found ${arr ? arr.length : 'none'}.`);
     }
-  }
+    return (arr[0] + arr[1] + arr[2] + arr[3] + arr[4]) / 5;
+  };
+
+  const typeProfile = {};
+  TYPES.forEach((t) => { typeProfile[t] = mean5(typeSliders[t], `Type ${t}`); });
+
+  const instinctProfile = {};
+  INSTINCTS.forEach((i) => { instinctProfile[i] = mean5(instinctSliders[i], `Instinct ${i}`); });
+
+  // Rank types by score descending; tie-break by type number ascending so the
+  // ordering is fully deterministic.
+  const rankedTypes = TYPES.slice().sort((a, b) =>
+    (typeProfile[b] - typeProfile[a]) || (a - b)
+  );
+  const leadingType = rankedTypes[0];
+  const alternateType = rankedTypes[1];
+  const gap = typeProfile[leadingType] - typeProfile[alternateType];
+
+  // High-ambiguity flag: top two type scores fall within HIGH_AMBIGUITY_MARGIN
+  // (inclusive). A signal for the AI, not a routing directive.
+  const highAmbiguity = gap <= HIGH_AMBIGUITY_MARGIN;
+
+  // Raw dominant instinct (argmax) — NOT a mechanical confidence label. The AI
+  // characterizes instinct dominance/confidence from the full profile; near-ties
+  // are preserved by construction.
+  const dominantInstinct = INSTINCTS.slice().sort((a, b) =>
+    (instinctProfile[b] - instinctProfile[a]) || (INSTINCTS.indexOf(a) - INSTINCTS.indexOf(b))
+  )[0];
 
   return {
-    head: totals.head, heart: totals.heart, body: totals.body,
-    sp: totals.sp, so: totals.so, sx: totals.sx,
-    identifiedCenter, centerGap, centerConfidence, secondCenter,
-    identifiedInstinct, instinctGap, instinctConfidence,
-    sortedInstincts,
-    typeHypotheses,
-    counterTypeFlag,
-    counterTypeCombination,
-    counterTypeKey,
+    typeProfile,
+    instinctProfile,
+    leadingType,
+    alternateType,
+    gap,
+    highAmbiguity,
+    dominantInstinct,
   };
 }
 
