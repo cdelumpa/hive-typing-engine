@@ -1,7 +1,7 @@
 // =================== STATE ===================
 
 const state = {
-  phase: 'welcome', // welcome | intake | stage0 | mid-assessment-reminders | stage1 | ct-analyzing | stage2 | stage3 | stage4 | finalopen | stage1complete | processing | confirmation | results | error
+  phase: 'welcome', // welcome | intake | stage0 | mid-assessment-reminders | stage1 | ct-analyzing | stage2 | call1-analyzing | stage3 | stage4 | finalopen | stage1complete | processing | confirmation | results | error
   intake: { firstName: '', lastName: '', email: '', organization: '', coach: 'Cai Delumpa', client_id: null },
   finalOpenResponse: '',
   stage0Idx: 0,
@@ -17,6 +17,8 @@ const state = {
   stage1InstinctOpen: '',    // optional open response after the instinct sliders
   stage2Idx: 0,
   stage2Answers: [],     // ['A'|'B'|'C', ...] one per Stage 2 question
+  call1Result: null,     // frozen §6.3 output contract from AI Call #1, or null on failure
+  call1LastSnapshot: null, // context block from the last Call #1 fire; re-fire only when it changes
   stage3Mode: null,      // 'STANDARD' | 'COUNTER-TYPE' — set when entering Stage 3
   stage3Idx: 0,          // 0 or 1 (only ★ pairs reach 1)
   stage3Answers: [],     // ['A'|'A-slight'|'B-slight'|'B', ...] Q1 then optional Q2
@@ -116,6 +118,8 @@ function getSerializableState() {
     stage1InstinctOpen:    state.stage1InstinctOpen,
     stage2Idx:           state.stage2Idx,
     stage2Answers:       state.stage2Answers,
+    call1Result:         state.call1Result,
+    call1LastSnapshot:   state.call1LastSnapshot,
     stage3Mode:          state.stage3Mode,
     stage3Idx:           state.stage3Idx,
     stage3Answers:       state.stage3Answers,

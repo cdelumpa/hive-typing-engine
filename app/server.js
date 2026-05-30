@@ -1227,6 +1227,175 @@ app.post('/api/ct-adjustment-clear', async (req, res) => {
   return res.json({ ok: true });
 });
 
+// =================== AI CALL #1 — CANDIDATE REASONING (KEYSTONE) ===================
+
+// Fires after Stage 2 from the 'call1-analyzing' transition screen. This is the
+// v2 reasoning layer that replaces the retired mechanical Stage 1/2 logic: it
+// re-scores all nine types on its own coherence scale (it can override the
+// slider ranking when orthogonal evidence supports a promotion), and emits the
+// frozen §6.3 output contract that Stage 3, Stage 4, and AI Call #2 all read
+// from. The parsed result is persisted to clients.call1_result (authoritative)
+// and mirrored into the client's session_state for resume rehydration.
+
+const CALL1_SYSTEM = `You are an expert Enneagram practitioner serving as the reasoning layer of a typing engine. You receive a client's Stage 1 self-report slider profiles (nine types and three instincts), both of their Stage 1 open responses, their Stage 0 self-description, and three Stage 2 framework answers. Your job is to produce a coherence-weighted ranking of all nine Enneagram types plus the routing decisions that the later stages depend on.
+
+You are NOT a ratifier of the slider ranking. The sliders are raw self-report and are distorted in known ways:
+- Counter-types under-endorse the statements of their own type, because their dominant instinct drives them to live the type against its usual grain (an SP-3 disclaims image-focus; an SX-6 disclaims fear; an SP-4 disclaims emotional self-indulgence).
+- Some types undershoot their home center in self-report — a Type 9 often does not recognize anger as anger, a Type 5 reads fear as a preference for privacy, a Type 3 suppresses heart-center feeling in service of performance.
+Read across ALL the evidence — the open responses, the framework answers, and the instinct profile — and PROMOTE a type the sliders understated when the orthogonal evidence coheres around it. Using your judgment to reorder is the entire reason you exist: a call that merely echoes the slider order has failed.
+
+SCORING — assign each of the nine types a 0-100 coherence score expressing how well the WHOLE picture fits that type. This is a judgment of fit, not a recomputation of the sliders. Use the full range: a type that clearly fits scores high (80-100); a type with little support scores low (10-30). The spread between your top type and your weakest type must be wide. If your scores cluster in a narrow band you have not committed to a reading.
+
+GAP — judge the closeness of your top two scores:
+gap = "tight" when the difference between the top two coherence scores is 10 points or fewer (inclusive); gap = "wide" when the difference is greater than 25 points; gap = "medium" otherwise.
+The gap label must agree with the arithmetic of the two scores you assigned.
+
+INSTINCT — name the single dominant instinct (SP, SO, or SX). Anchor this primarily on the three-instinct slider profile and the instinct open response; the thematic content of the type responses is secondary and must not override a clear instinct signal (e.g. "I look after my own resources and comfort first" is SP even when the person also talks about helping the group).
+
+COUNTER-TYPE ROUTING — these dominant-instinct + type combinations are the known counter-types:
+  SO + 7 -> key "SO-7"
+  SX + 6 -> key "SX-6"
+  SP + 3 -> key "SP-3"
+  SP + 4 -> key "SP-4"
+  SX + 1 -> key "SX-1"
+If your dominant_instinct combined with your leading_candidate forms one of these combinations, set stage3_mode to "counter_type" and ct_pair to that key. The instinct is also a pre-flag: when it points at one of these combinations, treat the corresponding type as potentially understated in the sliders and weigh promoting it.
+
+COUNTER-TYPE LOOKALIKE TRAP —
+Two counter-types present a specific lookalike trap that requires explicit attention. SO-7 (Sacrifice) resembles Type 2 on the surface — warm, other-focused, giving language — and will often rank below Type 2 on sliders. When the instinct profile shows SO as dominant or strong, and Type 7 appears anywhere in the top four of the slider ranking, evaluate whether the Type 2 surface presentation is better explained by an SO-7 counter-type. SX-6 (Counterphobic) resembles Type 8 — confrontational, intensity-seeking, fear-forward language — and will often rank below Type 8 on sliders. When SX is dominant or strong, and Type 6 appears anywhere in the top four, evaluate whether the Type 8 presentation is better explained by SX-6. In both cases, if the counter-type hypothesis is plausible, set stage3_mode to counter_type with the correct ct_pair and promote the counter-type candidate in your ranking accordingly.
+
+STAGE 3 MODE —
+- "counter_type" when the counter-type condition above fires; ct_pair = the matching key.
+- "standard" in the normal case: leading and alternate form a discriminable pair. Q1 composes any of the 36 pairs, and 26 pairs additionally carry a bespoke avoidance question (listed in the user message).
+- "none" only when leading and alternate form a pairing so rarely confused that no meaningful discrimination question applies. This is a rare freak-pair fallback, never a default.
+When stage3_mode is "standard" or "none", ct_pair is the literal string "Null".
+
+SUPPORTING LANGUAGE — if any of the client's open-response text aligns with your third-ranked candidate, quote or paraphrase the aligning fragment in supporting_language. If nothing aligns, use the literal string "Null".
+
+CONSISTENCY RULE (applied last, before returning output): ct_pair is only valid when leading_candidate is the counter-type's base type. The valid pairings are:
+
+  ct_pair SP-3  requires  leading_candidate = 3
+  ct_pair SX-6  requires  leading_candidate = 6
+  ct_pair SP-4  requires  leading_candidate = 4
+  ct_pair SX-1  requires  leading_candidate = 1
+  ct_pair SO-7  requires  leading_candidate = 7
+
+If ct_pair is set but leading_candidate is not the base type for that pair, set stage3_mode = "standard" and ct_pair = "Null". A genuine Type 8 with SX instinct is not SX-6 — it is a Type 8 who leads with intensity. The counter-type flag describes the leading candidate's subtype, not the instinct alone.
+
+Respond only with valid JSON. No preamble, no markdown, no code fences, no text outside the JSON object.`;
+
+const CALL1_LEGAL_PAIRS_BLOCK = `STAGE 3 BESPOKE-AVOIDANCE PAIR LIST (the 26 realistic-confusion pairs; lower number first):
+1-2, 1-4, 1-6, 1-7, 1-9, 2-3, 2-4, 2-6, 2-8, 2-9, 3-4, 3-6, 3-7, 3-8, 3-9, 4-5, 4-9, 5-6, 5-7, 5-8, 5-9, 6-7, 6-8, 6-9, 7-8, 8-9
+
+KNOWN COUNTER-TYPE COMBINATIONS (dominant instinct + leading type): SO-7, SX-6, SP-3, SP-4, SX-1`;
+
+const CALL1_OUTPUT_FORMAT = `Return your analysis as a single JSON object in exactly this shape:
+{
+  "ranking": [
+    { "type": <type number 1-9>, "score": <0-100> }
+    // exactly nine entries, one per type, ordered highest score first
+  ],
+  "leading_candidate": <type number, equal to ranking[0].type>,
+  "alternate_candidate": <type number, equal to ranking[1].type>,
+  "third_candidate": <type number, equal to ranking[2].type>,
+  "gap": "tight" | "medium" | "wide",
+  "supporting_language": "<aligning open-response text>" | "Null",
+  "stage3_mode": "standard" | "counter_type" | "none",
+  "ct_pair": "SP-3" | "SX-6" | "SP-4" | "SX-1" | "SO-7" | "Null",
+  "dominant_instinct": "SP" | "SO" | "SX"
+}
+
+All nine types (1 through 9) must appear exactly once in "ranking". Use the literal string "Null" (capital N) for supporting_language and ct_pair when not applicable — never null, never an empty string, never an omitted field.`;
+
+// Extract the first balanced JSON object from model output. On hard cases the
+// model occasionally appends commentary after the object — and that prose can
+// itself contain braces — so a naive first-{ to last-} slice breaks. This scan
+// is string-aware (ignores braces inside string values) and stops at the first
+// object's matching close brace.
+function extractFirstJsonObject(s) {
+  const start = s.indexOf('{');
+  if (start === -1) return s;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+    } else if (c === '"') {
+      inStr = true;
+    } else if (c === '{') {
+      depth++;
+    } else if (c === '}') {
+      depth--;
+      if (depth === 0) return s.slice(start, i + 1);
+    }
+  }
+  return s.slice(start);
+}
+
+app.post('/api/call1', async (req, res) => {
+  const { client_id, contextBlock } = req.body || {};
+  if (!contextBlock || typeof contextBlock !== 'string') {
+    return res.status(400).json({ ok: false, error: 'Missing contextBlock.' });
+  }
+
+  const userMessage = `${contextBlock}\n\n${CALL1_LEGAL_PAIRS_BLOCK}\n\n${CALL1_OUTPUT_FORMAT}`;
+
+  let result = null;
+  try {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      system: [{ type: 'text', text: CALL1_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: userMessage }],
+    });
+    console.log(`[call1] usage — ${JSON.stringify(response.usage)}`);
+    const text = response.content[0].text;
+    const stripped = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+    const clean = extractFirstJsonObject(stripped);
+    const parsed = JSON.parse(clean);
+    if (parsed && Array.isArray(parsed.ranking) && parsed.ranking.length === 9) {
+      // Gap coherence: derive the label from the top two scores so it can never
+      // disagree with the arithmetic. The model mislabels gaps even mid-range
+      // (e.g. a 16-point gap returned as "wide"), so the route is the source of truth.
+      const sorted = parsed.ranking.map((e) => e && e.score).filter((s) => typeof s === 'number').sort((a, b) => b - a);
+      if (sorted.length >= 2) {
+        const d = sorted[0] - sorted[1];
+        parsed.gap = d <= 10 ? 'tight' : d > 25 ? 'wide' : 'medium';
+      }
+      // Counter-type coherence: a counter_type route is only valid when ct_pair
+      // is a known key whose instinct prefix matches dominant_instinct AND whose
+      // base type matches leading_candidate (a CT key like SO-7 *means* SO + 7).
+      // Anything else — ct_pair "Null", a base/instinct mismatch — coerces to standard.
+      const CT_SPEC = { 'SO-7': { inst: 'SO', base: 7 }, 'SX-6': { inst: 'SX', base: 6 }, 'SP-3': { inst: 'SP', base: 3 }, 'SP-4': { inst: 'SP', base: 4 }, 'SX-1': { inst: 'SX', base: 1 } };
+      if (parsed.stage3_mode === 'counter_type') {
+        const spec = CT_SPEC[parsed.ct_pair];
+        if (!spec || spec.base !== parsed.leading_candidate || spec.inst !== parsed.dominant_instinct) {
+          parsed.stage3_mode = 'standard';
+          parsed.ct_pair = 'Null';
+        }
+      }
+      result = parsed;
+      console.log(`[call1] success — client #${client_id} leading=${parsed.leading_candidate} alt=${parsed.alternate_candidate} gap=${parsed.gap} mode=${parsed.stage3_mode} ct=${parsed.ct_pair} inst=${parsed.dominant_instinct}`);
+    } else {
+      console.warn('[call1] parsed payload missing 9-entry ranking array');
+    }
+  } catch (err) {
+    console.error('[call1] failed:', err.message);
+  }
+
+  if (client_id) {
+    try {
+      await db.saveCall1Result(client_id, result);
+    } catch (e) {
+      console.error('[call1] DB write failed:', e.message);
+    }
+  }
+
+  if (!result) return res.json({ ok: false, result: null });
+  return res.json({ ok: true, result });
+});
+
 // Original endpoint — kept unchanged for the test runner
 app.post('/api/analyze', async (req, res) => {
   const { contextBlock } = req.body;

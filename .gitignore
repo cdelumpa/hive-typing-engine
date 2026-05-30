@@ -3,3 +3,5 @@
 app/.env
 app/node_modules/
 app/reports/
+.DS_Store
+**/.DS_Store

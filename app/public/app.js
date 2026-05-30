@@ -116,6 +116,49 @@ async function fireCtMiniCall() {
   }
 }
 
+// =================== AI CALL #1 (KEYSTONE) ===================
+
+// Fires from the 'call1-analyzing' transition screen after Stage 2. Sends the
+// §6.2 evidence context block to the server, which runs the reasoning call and
+// returns the frozen §6.3 contract. The parsed result is stored on
+// state.call1Result (mirrored into session_state by getSerializableState) and
+// persisted server-side to clients.call1_result. Snapshot-guarded on the
+// context block so an edit-and-return from Stage 2 re-fires, but a plain
+// re-entry with unchanged answers reuses the cached result.
+async function fireCall1() {
+  const s = state.scores;
+  if (!s) return;
+
+  const contextBlock = buildContextBlock(s);
+  if (state.call1LastSnapshot !== null && contextBlock === state.call1LastSnapshot && state.call1Result) {
+    console.log('[call1] inputs unchanged — skipping re-fire');
+    return;
+  }
+
+  // Record the snapshot up-front so a re-entry mid-flight doesn't double-fire.
+  state.call1LastSnapshot = contextBlock;
+  const clientId = (state.intake && state.intake.client_id) || null;
+
+  try {
+    const res = await fetch('/api/call1', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, contextBlock }),
+    });
+    const data = await res.json();
+    if (data && data.ok && data.result) {
+      state.call1Result = data.result;
+      console.log('[call1] received', data.result);
+    } else {
+      state.call1Result = null;
+      console.warn('[call1] no result returned');
+    }
+  } catch (err) {
+    state.call1Result = null;
+    console.error('[call1] request failed:', err && err.message);
+  }
+}
+
 // =================== RESPONSES SNAPSHOT ===================
 
 // Serializes the complete raw client response data across every stage so the
@@ -302,7 +345,8 @@ if (window.__hiveIntake) {
         'phase', 'stage0Idx', 'stage0Answers', 'stage0_signal', 'stage0LastSnapshot',
         'ctAdjustment', 'ctLastSnapshot', 'stage1Idx',
         'stage1TypeSliders', 'stage1InstinctSliders', 'stage1TypeOpen', 'stage1InstinctOpen',
-        'stage2Idx', 'stage2Answers', 'stage3Mode', 'stage3Idx', 'stage3Answers',
+        'stage2Idx', 'stage2Answers', 'call1Result', 'call1LastSnapshot',
+        'stage3Mode', 'stage3Idx', 'stage3Answers',
         'stage4Sequence', 'stage4Idx', 'stage4Answers', 'stage4Shuffles', 'finalOpenResponse',
         'scores',
       ];

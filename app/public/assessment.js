@@ -1532,7 +1532,7 @@ ${q3Line}`;
 
 const SAVE_LATER_PHASES = new Set([
   'stage0', 'mid-assessment-reminders', 'stage1', 'ct-analyzing',
-  'stage2', 'stage3', 'stage4', 'finalopen',
+  'stage2', 'call1-analyzing', 'stage3', 'stage4', 'finalopen',
 ]);
 
 function render() {
@@ -1547,6 +1547,7 @@ function render() {
     case 'stage1':         app.innerHTML = renderStage1(); break;
     case 'ct-analyzing':   app.innerHTML = renderCtAnalyzing(); break;
     case 'stage2':         app.innerHTML = renderStage2(); break;
+    case 'call1-analyzing': app.innerHTML = renderCall1Analyzing(); break;
     case 'stage3':         app.innerHTML = renderStage3(); break;
     case 'stage4':         app.innerHTML = renderStage4(); break;
     case 'finalopen':      app.innerHTML = renderFinalOpen(); break;
@@ -1744,6 +1745,32 @@ function renderCtAnalyzing() {
       <div class="spinner"></div>
       <div class="processing-heading">Analyzing your responses…</div>
       <div class="processing-sub">Thanks for your patience — we’re preparing your next set of questions.</div>
+    </div>
+  </div>`;
+}
+
+// AI Call #1 interstitial — latency cover while the reasoning call runs after
+// Stage 2. While the call is in flight it shows the spinner; once it resolves
+// it holds on a completion message. NOTE: in this build (Step 3C) the flow
+// intentionally stops here — Stage 3 is rewired onto state.call1Result in
+// Step 4, which will replace this hold with an advance into Stage 3.
+function renderCall1Analyzing() {
+  const pctC1 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
+  const done = state._call1Done;
+  const heading = done ? 'Analysis complete' : 'Analyzing your responses…';
+  const sub = done
+    ? 'Your next set of questions is being prepared.'
+    : 'Thanks for your patience — we’re weighing everything you’ve told us.';
+  const spinner = done ? '' : '<div class="spinner"></div>';
+  return `<div class="screen">
+    <div class="progress-section">
+      <div class="progress-label">Completed</div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pctC1}%"></div></div>
+    </div>
+    <div class="processing-wrap">
+      ${spinner}
+      <div class="processing-heading">${heading}</div>
+      <div class="processing-sub">${sub}</div>
     </div>
   </div>`;
 }
@@ -2914,6 +2941,7 @@ function attachHandlers() {
       stage1Idx: 0, stage1TypeSliders: {}, stage1InstinctSliders: {},
       stage1TypeOpen: '', stage1InstinctOpen: '', _stage1StaleNotice: false,
       stage2Idx: 0, stage2Answers: [],
+      call1Result: null, call1LastSnapshot: null, _call1Done: false,
       stage3Mode: null, stage3Idx: 0, stage3Answers: [],
       stage4Sequence: [], stage4Idx: 0, stage4Answers: [], stage4Shuffles: [],
       resultsTab: 'client',
@@ -3281,18 +3309,57 @@ function attachHandlers() {
         state.stage2Idx++;
         render();
       } else {
-        // Done with Stage 2 — compute scores, resolve Stage 3 pair, advance.
-        state.scores.stage2 = computeStage2Scores();
-        console.log('=== STAGE 2 OUTPUT ===', state.scores.stage2);
-        state.scores.stage3Pair = resolveStage3Pair(state.scores);
-        state.stage3Mode = state.scores.stage3Pair.mode;
-        state.stage3Idx = 0;
-        state.stage3Answers = [];
-        state.phase = 'stage3';
+        // Done with Stage 2 — hand off to AI Call #1 (the reasoning layer). The
+        // call1-analyzing screen fires the call and stores the §6.3 result. The
+        // retired computeStage2Scores / resolveStage3Pair path is gone; Stage 3
+        // is rewired onto state.call1Result in Step 4.
+        state._call1Done = false;
+        state.phase = 'call1-analyzing';
         render();
         saveSessionState();
       }
     });
+  }
+
+  // ---- AI Call #1 interstitial ----
+  // Fires the reasoning call once on entry. A 20s timeout caps the wait so the
+  // user never sees a stuck spinner; on success or timeout we mark the screen
+  // done and persist the result into session_state. The flow holds here in this
+  // build — Step 4 wires the advance into Stage 3 off state.call1Result.
+  if (state.phase === 'call1-analyzing') {
+    const contextBlock = state.scores ? buildContextBlock(state.scores) : '';
+    const unchanged = state.call1LastSnapshot !== null
+      && contextBlock === state.call1LastSnapshot
+      && !!state.call1Result;
+
+    const finish = () => {
+      if (state.phase === 'call1-analyzing' && !state._call1Done) {
+        state._call1Done = true;
+        render();
+        saveSessionState();
+      }
+    };
+
+    if (unchanged) {
+      setTimeout(finish, 200);
+    } else {
+      let finished = false;
+      const timer = setTimeout(() => {
+        if (!finished) {
+          finished = true;
+          console.warn('[call1] 20s timeout — proceeding without a result');
+          finish();
+        }
+      }, 20000);
+
+      fireCall1().finally(() => {
+        if (!finished) {
+          finished = true;
+          clearTimeout(timer);
+          finish();
+        }
+      });
+    }
   }
 
   // ---- Stage 3: Pairwise Discrimination ----

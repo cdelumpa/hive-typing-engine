@@ -83,6 +83,7 @@ ALTER TABLE assessments ADD COLUMN IF NOT EXISTS email_sent_at    TIMESTAMPTZ;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage0_signal JSONB;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS ct_adjustment JSONB;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS responses_snapshot JSONB;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS call1_result JSONB;
 
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS updated_by TEXT;
@@ -462,6 +463,18 @@ async function getClientCtAdjustment(clientId) {
   return r && r.rows.length > 0 ? r.rows[0].ct_adjustment : null;
 }
 
+async function saveCall1Result(clientId, result) {
+  await query(
+    `UPDATE clients SET call1_result = $1 WHERE id = $2`,
+    [result === null ? null : JSON.stringify(result), clientId]
+  );
+}
+
+async function getCall1Result(clientId) {
+  const r = await query('SELECT call1_result FROM clients WHERE id = $1 LIMIT 1', [clientId]);
+  return r && r.rows.length > 0 ? r.rows[0].call1_result : null;
+}
+
 async function updateClientResponsesSnapshot(clientId, snapshot) {
   await query(
     `UPDATE clients SET responses_snapshot = $1 WHERE id = $2`,
@@ -666,6 +679,8 @@ module.exports = {
   getClientStage0Signal,
   updateClientCtAdjustment,
   getClientCtAdjustment,
+  saveCall1Result,
+  getCall1Result,
   updateClientResponsesSnapshot,
   getBetaModeEnabled,
   setBetaModeEnabled,
