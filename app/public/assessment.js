@@ -965,66 +965,51 @@ function describeStage3Answer(answer, typeA, typeB) {
 
 // =================== STAGE 4 HELPERS ===================
 
-// How many of the three Stage 2 framework answers include the given type.
-function countFrameworkMatches(stage2, type) {
-  const frameworks = ['Hornevian', 'Harmonic', 'ObjectRelations'];
-  let count = 0;
-  frameworks.forEach((f, i) => {
-    const bucket = STAGE2_FRAMEWORK_TYPES[f][stage2.answers[i]];
-    if (bucket.includes(type)) count++;
-  });
-  return count;
-}
-
-// Decide which Stage 4 path to run based on Stage 2 + Stage 3 results.
-// Returns: { option: 'A'|'B'|'MODIFIED_B', path: 'STANDARD'|'COUNTER_TYPE_CONFIRMED'|'COUNTER_TYPE_AMBIGUOUS',
-//           leadType, secondType?, ctKey? }
-function resolveStage4Path(scores) {
-  const s3 = scores.stage3;
-  const s2 = scores.stage2;
-
-  // CT mode with 'BOTH' answer → Modified Option B
-  if (s3.mode === 'COUNTER-TYPE' && s3.ctAnswer === 'BOTH') {
-    const ctKey = s3.pairKey;
-    const ct = STAGE3_CT_PAIRS[ctKey];
+// Decide which Stage 4 path to run from the AI Call #1 candidate read (call1)
+// and the raw Stage 3 lean (s3). v2 §8.1: routing re-keys on leading_candidate /
+// alternate_candidate / stage3_mode / the Stage 3 lean, replacing the deleted
+// center confidence + CT flag. Returns:
+//   { option: 'A'|'B'|'MODIFIED_B',
+//     path: 'STANDARD'|'COUNTER_TYPE_CONFIRMED'|'COUNTER_TYPE_AMBIGUOUS',
+//     leadType, secondType?, ctKey? }
+function resolveStage4Path(call1, s3) {
+  // ---- counter_type: Person A = counter-type, Person B = lookalike ----
+  if (s3.mode === 'COUNTER-TYPE') {
+    // Only a clean lean toward the counter-type confirms it (Option A).
+    if (s3.q1Answer === 'A') {
+      return { option: 'A', path: 'COUNTER_TYPE_CONFIRMED', leadType: s3.typeA };
+    }
+    // Slight either way, or a clean lean toward the lookalike → re-test the CT
+    // comparative in Stage 4 rather than crowning a mid-flow flip.
     return {
       option: 'MODIFIED_B',
       path: 'COUNTER_TYPE_AMBIGUOUS',
-      ctKey,
-      leadType: ct.counterType,
-      secondType: ct.lookalike,
+      ctKey: s3.ctPair,
+      leadType: s3.typeA,   // counter-type
+      secondType: s3.typeB, // lookalike
     };
   }
 
-  // CT mode with CLEAN answer → Option A for the confirmed leading type
-  if (s3.mode === 'COUNTER-TYPE' && s3.ctAnswer === 'CLEAN') {
-    return {
-      option: 'A',
-      path: 'COUNTER_TYPE_CONFIRMED',
-      leadType: s3.leading,
-    };
+  const leadType = +call1.leading_candidate;
+  const secondType = +call1.alternate_candidate;
+
+  // ---- none: no pairwise lean exists → head-to-head of the AI's top two ----
+  if (s3.mode === 'NONE') {
+    return { option: 'B', path: 'STANDARD', leadType, secondType };
   }
 
-  // STANDARD mode — decide A vs B based on Stage 3 confidence + Stage 2 alignment.
-  const alignmentCount = countFrameworkMatches(s2, s3.leading);
-  if (s3.confidence === 'HIGH' && alignmentCount >= 2) {
-    return {
-      option: 'A',
-      path: 'STANDARD',
-      leadType: s3.leading,
-    };
-  }
+  // ---- standard: q1Answer's A/B is keyed to lower/higher type #, not lead ----
+  const leadingIsPersonA = s3.leading === s3.typeA;
+  const cleanTowardLeading =
+    (leadingIsPersonA && s3.q1Answer === 'A') ||
+    (!leadingIsPersonA && s3.q1Answer === 'B');
 
-  // Option B — second candidate is whichever of Stage 2's primary/alternative
-  // isn't the Stage 3 leading type. Falls back to Stage 2 alternative.
-  const leadType = s3.leading;
-  const secondType = (leadType === s2.xrefPrimary) ? s2.xrefAlternative : s2.xrefPrimary;
-  return {
-    option: 'B',
-    path: 'STANDARD',
-    leadType,
-    secondType,
-  };
+  // Option A (3opt on the lead) only when the pairwise cleanly confirms the lead
+  // AND the top two are not near-tied. Otherwise a lead-vs-alternate head-to-head.
+  if (cleanTowardLeading && call1.gap !== 'tight') {
+    return { option: 'A', path: 'STANDARD', leadType };
+  }
+  return { option: 'B', path: 'STANDARD', leadType, secondType };
 }
 
 // Build the sequence of question slots the user will fill in Stage 4.
@@ -3131,9 +3116,15 @@ function attachHandlers() {
       state.stage3Answers = [];
       if (routing.mode === 'NONE') {
         // AI declined a pairwise (stage3_mode = none) — skip Stage 3, flag it for
-        // Call #2, advance to Stage 4. (Stage 4 sequence build is Step 5.)
+        // Call #2, build the Stage 4 path off the AI top two, advance to Stage 4.
         state.noPairwise = true;
-        state.scores.stage3 = computeStage3Scores();
+        state.scores.stage3 = computeStage3Scores(); // { mode:'NONE', noPairwise:true }
+        const pr = resolveStage4Path(state.call1Result, state.scores.stage3);
+        state.scores.stage4PathResolve = pr;
+        state.stage4Sequence = initialStage4Sequence(pr);
+        state.stage4Idx = 0;
+        state.stage4Answers = [];
+        state.stage4Shuffles = [];
         state.phase = 'stage4';
       } else {
         state.noPairwise = false;
@@ -3178,7 +3169,7 @@ function attachHandlers() {
         // Done with Stage 3 — compute scores, resolve Stage 4 path, advance.
         state.scores.stage3 = computeStage3Scores();
         console.log('=== STAGE 3 OUTPUT ===', state.scores.stage3);
-        const pr = resolveStage4Path(state.scores);
+        const pr = resolveStage4Path(state.call1Result, state.scores.stage3);
         state.scores.stage4PathResolve = pr;
         state.stage4Sequence = initialStage4Sequence(pr);
         state.stage4Idx = 0;
