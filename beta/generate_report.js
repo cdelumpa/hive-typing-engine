@@ -1,3 +1,7 @@
+// WARNING: v1-shaped — reads confirmed_instinct, instinct_confidence, and center
+// fields that no longer exist in the v2 api_result schema. Do not run against
+// assessments completed after commit 11241d4. Rewrite for v2 is tracked on the
+// Step 7 punch list.
 'use strict';
 
 // Resolve app dependencies from the app's own node_modules so this CLI works

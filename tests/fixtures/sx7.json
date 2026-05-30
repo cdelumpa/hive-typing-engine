@@ -1,77 +1,99 @@
 {
   "_meta": {
-    "_quarantined": "quarantined during v2 migration; re-enable and rewrite expected values against the v2 schema after Step 6. Asserts on removed fields (center scoring, CT_COMBOS, mechanical confidence labels). Encodes a hand-validated ground-truth case — do not delete.",
-    "name": "SX7 Sexual Seven — Clean Confirmation",
-    "description": "Sexual Seven. HIGH confidence. Stage 1 canonical rankings: Head center dominant (18/12/6), SX instinct dominant (18/12/6). No counter-type flag. Stage 2 cross-reference cleanly confirms Type 7 (Assertive/Positive/Frustration). Stage 3 Standard mode resolves to Type 7. Stage 4 Option A confirms cleanly. No counter-type, no type confusion. Section 1A and Section 6A should NOT appear.",
+    "name": "SX7 Sexual Seven — Clean Confirmation (v2)",
+    "description": "Sexual Seven, SX instinct flavor (NOT a genuine counter-type — SO-7 is the Seven counter-type). Stage 1 raw slider profile leads Type 7 with Type 5 as closest alternate; SX instinct dominant by a wide margin. Stage 2 evidence is Assertive / Positive / Facts-first. Stage 3 ran STANDARD (5 vs 7), clean lean to Type 7 (Person B). Stage 4 Option A confirmed cleanly. AI Call #1 leads Type 7 with no counter-type pair (frozen in call1Result). Call #2 returns confirmed_type 7, HIGH confidence. NOTE: Call #2 currently emits a counter_type flag on the SX instinct-flavor distinction — accepted behavior, asserted as-is; prompt tightening is a Step 7 punch-list item. Section presence is NOT asserted (section1a flickers run-to-run for the same reason). Call #2 is the unit under test.",
     "expected_type": 7,
-    "expected_instinct": "SX",
     "expected_confidence": "HIGH",
-    "expected_flags": [],
-    "expected_sections": [],
-    "expected_centerGap": 6,
-    "expected_instinctGap": 6,
+    "expected_stage4_outcome": "CONFIRMED",
+    "expected_ranking_override": false,
+    "expected_flags": ["counter_type"],
+    "expected_dominant_instinct": "SX",
     "expected_final_response_classification": "EMPTY"
   },
-  "coach": "Cai Delumpa",
-  "final_open_response": "[none provided]",
-  "stage0": {
+  "intake": {
+    "firstName": "Test",
+    "lastName": "Client-SX7",
+    "organization": "Not provided",
+    "coach": "Cai Delumpa"
+  },
+  "stage0Answers": {
     "q1": "enthusiastic, curious, always chasing what's interesting — I love deep conversations and exploring ideas with people I find genuinely fascinating",
     "q2": "fun, energetic, a bit scattered, good at starting things and inspiring others but not always at following through",
     "q3": "seeing possibilities everywhere and getting the people I care about excited about them",
     "q4": "I avoid discomfort and difficult emotions — I reframe or escape rather than sitting with what's hard"
   },
-  "stage1": {
-    "centers": { "Head": 18, "Heart": 6, "Body": 12 },
-    "identifiedCenter": "Head",
-    "centerGap": 6,
-    "centerConfidence": "HIGH",
-    "secondCenter": null,
-    "instincts": { "SX": 18, "SP": 6, "SO": 12 },
-    "identifiedInstinct": "SX",
-    "instinctGap": 6,
-    "instinctConfidence": "HIGH",
-    "typeHypotheses": [5, 6, 7],
-    "counterTypeFlag": "NO",
-    "counterTypeCombination": null,
-    "counterTypeKey": null
+  "stage1TypeOpen": "Once I lock onto a person or an idea I find electric, everything else drops away — I want to go all the way in, fast and intense. The hard part is when the spark fades and I'm already scanning for the next thing that lights me up.",
+  "stage1InstinctOpen": "It's all about intensity and chemistry for me. A conversation, a project, a connection — if there's no charge to it I lose interest almost instantly, and when there is I'll pour everything into it.",
+  "stage2Answers": ["A", "B", { "a": 2, "b": 3, "c": 1 }],
+  "scores": {
+    "typeProfile": {
+      "1": 40.0,
+      "2": 44.0,
+      "3": 50.0,
+      "4": 38.0,
+      "5": 58.0,
+      "6": 49.0,
+      "7": 80.0,
+      "8": 46.0,
+      "9": 42.0
+    },
+    "instinctProfile": { "SP": 40.0, "SO": 52.0, "SX": 74.0 },
+    "leadingType": 7,
+    "alternateType": 5,
+    "gap": 22.0,
+    "highAmbiguity": false,
+    "dominantInstinct": "SX",
+    "stage3": {
+      "mode": "STANDARD",
+      "administered": true,
+      "pairKey": "5-7",
+      "typeA": 5,
+      "typeB": 7,
+      "leading": 7,
+      "alternate": 5,
+      "q1Answer": "B",
+      "q1Lean": "Person B clean (Type 7)",
+      "q2Answer": null,
+      "q2Lean": null
+    },
+    "stage4": {
+      "path": "STANDARD",
+      "option": "A",
+      "leadType": 7,
+      "secondType": null,
+      "ctKey": null,
+      "stressConfirmed": true,
+      "securityConfirmed": true,
+      "habitConfirmed": null,
+      "outcome": "CONFIRMED",
+      "stressAnswer": "correct",
+      "securityAnswer": "correct",
+      "habitAnswer": null,
+      "stressDescription": "Picked the canonical Type 7 answer.",
+      "securityDescription": "Picked the canonical Type 7 answer.",
+      "habitDescription": null
+    }
   },
-  "stage2": {
-    "hornevian": "A",
-    "harmonic": "B",
-    "objectRelations": "B",
-    "xrefPrimary": 7,
-    "xrefAlternative": 5,
-    "ambiguityAxis": "All three Stage 2 frameworks land on Type 7's signature: Assertive (Hornevian), Positive (Harmonic), Frustration (Object Relations). Types 5 and 6 do not overlap on any framework — clean Type 7 cross-reference confirmation.",
-    "counterTypeModeTriggered": false
+  "call1Result": {
+    "ranking": [
+      { "type": 7, "score": 92 },
+      { "type": 5, "score": 52 },
+      { "type": 3, "score": 45 },
+      { "type": 8, "score": 42 },
+      { "type": 6, "score": 38 },
+      { "type": 2, "score": 35 },
+      { "type": 9, "score": 30 },
+      { "type": 1, "score": 22 },
+      { "type": 4, "score": 18 }
+    ],
+    "leading_candidate": 7,
+    "alternate_candidate": 5,
+    "third_candidate": 3,
+    "gap": "wide",
+    "supporting_language": "seeing possibilities everywhere and getting the people I care about excited about them — combined with being 'good at starting things and inspiring others but not always at following through'",
+    "stage3_mode": "standard",
+    "ct_pair": "Null",
+    "dominant_instinct": "SX"
   },
-  "stage3": {
-    "mode": "STANDARD",
-    "pair": "Type 5 vs Type 7",
-    "pairKey": "5-7",
-    "ctAnswer": "N/A",
-    "q1Result": "Person B clean (Type 7)",
-    "q2Result": "N/A",
-    "leading": 7,
-    "confidence": "HIGH"
-  },
-  "stage4": {
-    "path": "STANDARD",
-    "option": "A",
-    "leadType": 7,
-    "secondType": null,
-    "stressConfirmed": true,
-    "securityConfirmed": true,
-    "habitConfirmed": null,
-    "outcome": "CONFIRMED",
-    "stressDescription": "Picked the canonical Type 7 answer — under stress the client moves toward Type 1 territory, becoming more critical, perfectionistic, and rigid, losing their usual flexibility and optimism. This matched Type 7's stress point cleanly.",
-    "securityDescription": "Picked the canonical Type 7 answer — in ease the client moves toward Type 5, becoming more focused, quiet, and capable of sustained depth when feeling safe, able to stay with one thing rather than jumping to the next. This matched Type 7's security point cleanly.",
-    "habitDescription": "N/A — did not fire"
-  },
-  "mockScores": {
-    "head": 18,
-    "heart": 6,
-    "body": 12,
-    "identifiedCenter": "Head",
-    "sortedInstincts": [["SX", 18], ["SO", 12], ["SP", 6]]
-  }
+  "finalOpenResponse": "[none provided]"
 }

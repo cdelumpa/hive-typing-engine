@@ -1,5 +1,6 @@
 {
   "_meta": {
+    "_quarantined": "v1-shaped; not yet rewritten for the v2 schema. Quarantined alongside the 6d sp4/sx7 rewrite — v2 rewrite is a Step 7 punch-list follow-up. Encodes a hand-validated ground-truth case — do not delete.",
     "name": "SP9 Self-Typing Mismatch — Claimed Type 2",
     "description": "Self-Preservation Nine with a final open response claiming Type 2. Tests SELF_TYPING classification, mismatch detection (claimed 2, engine confirms 9), and self-typing comparison paragraph in client narrative.",
     "expected_type": 9,

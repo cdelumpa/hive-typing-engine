@@ -1,5 +1,6 @@
 {
   "_meta": {
+    "_quarantined": "v1-shaped; not yet rewritten for the v2 schema. Quarantined alongside the 6d sp4/sx7 rewrite — v2 rewrite is a Step 7 punch-list follow-up. Encodes a hand-validated ground-truth case — do not delete.",
     "name": "SO7 Social Seven — Counter-Type Clean Confirmation",
     "description": "Social Seven. HIGH confidence. Stage 1 canonical rankings: Head center dominant (18/10/8), SO instinct dominant (18/10/8). Stage 1 flags SO-7 Sacrifice counter-type. Stage 2 cross-reference (Assertive/Positive/Frustration) lands cleanly on Type 7, triggering counter-type Stage 3 mode (SO 7 vs. Type 2). Stage 3 CLEAN — client chose Person A (standard Type 7), confirming Type 7 over the counter-type mask. Stage 4 Option A confirms cleanly. Section 1A (counter-type) should appear in coach report. Section 6A should NOT appear.",
     "expected_type": 7,

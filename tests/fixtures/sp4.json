@@ -1,77 +1,98 @@
 {
   "_meta": {
-    "_quarantined": "quarantined during v2 migration; re-enable and rewrite expected values against the v2 schema after Step 6. Asserts on removed fields (center scoring, CT_COMBOS, mechanical confidence labels). Encodes a hand-validated ground-truth case — do not delete.",
-    "name": "SP4 Self-Preservation Four — Counter-Type Clean Confirmation",
-    "description": "Self-Preservation Four. HIGH confidence. Stage 1 canonical rankings: Heart center dominant (18/9/9), SP instinct dominant (18/12/6). Stage 1 flags SP-4 Tenacity counter-type. Stage 2 cross-reference lands cleanly on Type 4 (Withdrawn/Intensity/Frustration), confirming the counter-type and routing Stage 3 to CT mode (SP 4 vs Type 3). Stage 3 clean A — confirms Type 4. Stage 4 Option A confirms cleanly. Section 1A (counter-type) should appear in coach report. Section 6A should NOT appear.",
+    "name": "SP4 Self-Preservation Four — Counter-Type Clean Confirmation (v2)",
+    "description": "Self-Preservation Four, Tenacity counter-type. Stage 1 raw slider profile leads Type 4 with Type 3 (the SP-4 lookalike) as closest alternate; SP instinct dominant by a wide margin. Stage 2 evidence is Withdrawn / Intensity / Feelings-first. Stage 3 ran in COUNTER-TYPE mode (SP-4 vs Type 3) and the client leaned cleanly to the counter-type (Person A). Stage 4 Option A confirmed cleanly. AI Call #1 flags the SP-4 counter-type (ct_pair) and leads Type 4 (frozen in call1Result); Call #2 returns confirmed_type 4, HIGH confidence, counter_type flag. Call #2 is the unit under test (Call #2 isolation).",
     "expected_type": 4,
-    "expected_instinct": "SP",
     "expected_confidence": "HIGH",
+    "expected_stage4_outcome": "CONFIRMED",
+    "expected_ranking_override": false,
     "expected_flags": ["counter_type"],
-    "expected_sections": ["section1a"],
-    "expected_centerGap": 9,
-    "expected_instinctGap": 6,
+    "expected_dominant_instinct": "SP",
     "expected_final_response_classification": "EMPTY"
   },
-  "coach": "Cai Delumpa",
-  "final_open_response": "[none provided]",
-  "stage0": {
+  "intake": {
+    "firstName": "Test",
+    "lastName": "Client-SP4",
+    "organization": "Not provided",
+    "coach": "Cai Delumpa"
+  },
+  "stage0Answers": {
     "q1": "I feel things very deeply, I'm drawn to authenticity and beauty, and I struggle with feeling misunderstood or like something essential is missing in me",
     "q2": "creative, intense, self-absorbed at times, but very genuine and committed",
     "q3": "emotional depth and the ability to connect authentically with what is real and meaningful",
     "q4": "envy — a persistent sense that others have something I lack, which can pull me away from what I actually have"
   },
-  "stage1": {
-    "centers": { "Head": 9, "Heart": 18, "Body": 9 },
-    "identifiedCenter": "Heart",
-    "centerGap": 9,
-    "centerConfidence": "HIGH",
-    "secondCenter": null,
-    "instincts": { "SP": 18, "SX": 12, "SO": 6 },
-    "identifiedInstinct": "SP",
-    "instinctGap": 6,
-    "instinctConfidence": "HIGH",
-    "typeHypotheses": [2, 3, 4],
-    "counterTypeFlag": "YES",
-    "counterTypeCombination": "SP 4 Tenacity",
-    "counterTypeKey": "SP-4"
+  "stage1TypeOpen": "I don't fall apart when things get hard — I just put my head down and push through, even though underneath there's this ache that I'm somehow not enough. I'd rather prove I can endure than let anyone see me struggle.",
+  "stage1InstinctOpen": "I'm very focused on managing my own resources and not depending on anyone. I keep a tight handle on my routines, my space, and my energy so I don't get caught off guard.",
+  "stage2Answers": ["C", "A", { "a": 3, "b": 1, "c": 2 }],
+  "scores": {
+    "typeProfile": {
+      "1": 57.0,
+      "2": 55.0,
+      "3": 61.0,
+      "4": 79.0,
+      "5": 42.0,
+      "6": 48.0,
+      "7": 40.0,
+      "8": 38.0,
+      "9": 45.0
+    },
+    "instinctProfile": { "SP": 73.0, "SO": 40.0, "SX": 51.0 },
+    "leadingType": 4,
+    "alternateType": 3,
+    "gap": 18.0,
+    "highAmbiguity": false,
+    "dominantInstinct": "SP",
+    "stage3": {
+      "mode": "COUNTER-TYPE",
+      "administered": true,
+      "ctPair": "SP-4",
+      "ctId": "CT-4",
+      "pair": "SP 4 vs. Type 3",
+      "typeA": 4,
+      "typeB": 3,
+      "q1Answer": "A",
+      "q1Lean": "Person A clean (Type 4)",
+      "q2Answer": null
+    },
+    "stage4": {
+      "path": "COUNTER_TYPE_CONFIRMED",
+      "option": "A",
+      "leadType": 4,
+      "secondType": null,
+      "ctKey": "SP-4",
+      "stressConfirmed": true,
+      "securityConfirmed": true,
+      "habitConfirmed": null,
+      "outcome": "CONFIRMED",
+      "stressAnswer": "correct",
+      "securityAnswer": "correct",
+      "habitAnswer": null,
+      "stressDescription": "Picked the canonical Type 4 answer.",
+      "securityDescription": "Picked the canonical Type 4 answer.",
+      "habitDescription": null
+    }
   },
-  "stage2": {
-    "hornevian": "C",
-    "harmonic": "A",
-    "objectRelations": "B",
-    "xrefPrimary": 4,
-    "xrefAlternative": 2,
-    "ambiguityAxis": "All three Stage 2 frameworks land on Type 4's signature: Withdrawn (Hornevian), Intensity (Harmonic), Frustration (Object Relations). No competing type signal — Stage 2 cleanly confirms the SP-4 counter-type combination flagged in Stage 1.",
-    "counterTypeModeTriggered": true
+  "call1Result": {
+    "ranking": [
+      { "type": 4, "score": 92 },
+      { "type": 1, "score": 52 },
+      { "type": 3, "score": 48 },
+      { "type": 2, "score": 38 },
+      { "type": 9, "score": 35 },
+      { "type": 6, "score": 30 },
+      { "type": 5, "score": 27 },
+      { "type": 7, "score": 20 },
+      { "type": 8, "score": 18 }
+    ],
+    "leading_candidate": 4,
+    "alternate_candidate": 1,
+    "third_candidate": 3,
+    "gap": "wide",
+    "supporting_language": "I don't fall apart when things get hard — I just put my head down and push through, even though underneath there's this ache that I'm somehow not enough. I'd rather prove I can endure than let anyone see me struggle.",
+    "stage3_mode": "counter_type",
+    "ct_pair": "SP-4",
+    "dominant_instinct": "SP"
   },
-  "stage3": {
-    "mode": "COUNTER-TYPE",
-    "pair": "SP 4 vs. Type 3",
-    "pairKey": "SP-4",
-    "ctAnswer": "CLEAN",
-    "q1Result": "Person A clean (Type 4)",
-    "q2Result": "N/A",
-    "leading": 4,
-    "confidence": "HIGH"
-  },
-  "stage4": {
-    "path": "COUNTER_TYPE_CONFIRMED",
-    "option": "A",
-    "leadType": 4,
-    "secondType": null,
-    "stressConfirmed": true,
-    "securityConfirmed": true,
-    "habitConfirmed": null,
-    "outcome": "CONFIRMED",
-    "stressDescription": "Picked the canonical Type 4 answer — under stress the client moves toward Type 2 territory, becoming overly attentive to others' needs and setting aside their own, seeking appreciation in the process. This matched Type 4's stress point cleanly.",
-    "securityDescription": "Picked the canonical Type 4 answer — in ease the client moves toward Type 1, becoming more grounded, disciplined, and action-oriented, stopping the dwell on what's missing and starting to do with a clearer sense of what's right. This matched Type 4's security point cleanly.",
-    "habitDescription": "N/A — did not fire"
-  },
-  "mockScores": {
-    "head": 9,
-    "heart": 18,
-    "body": 9,
-    "identifiedCenter": "Heart",
-    "sortedInstincts": [["SP", 18], ["SX", 12], ["SO", 6]]
-  }
+  "finalOpenResponse": "[none provided]"
 }
