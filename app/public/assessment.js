@@ -1163,17 +1163,20 @@ function shuffleIndices(n) {
 //   3. Stage 1 — raw three-instinct slider profile (+ dominant instinct)
 //   4. Stage 1 — open responses (verbatim)
 //   5. Stage 2 — three framework answers (evidence only, no scoring)
-function buildContextBlock(s) {
-  const a0 = state.stage0Answers || {};
-  const TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  const INSTINCTS = ['SP', 'SO', 'SX'];
+// ---- Shared evidence-block builders (blocks 1-5) ----
+// Both buildContextBlock (Call #1) and buildCall2Context (Call #2) must present
+// the Stage 0/1/2 evidence identically. These helpers are the single source of
+// truth so the two context blocks cannot drift. `s` is the scoreStage1Profile
+// output (state.scores); Stage 0 text, Stage 1 opens, and Stage 2 answers are
+// read from `state` directly.
 
+function _evidenceHeaderBlock() {
+  const a0 = state.stage0Answers || {};
   const intake = state.intake || {};
   const clientName = [intake.firstName, intake.lastName].filter(Boolean).join(' ') || 'Not provided';
   const clientOrg = intake.organization || 'Not provided';
   const clientCoach = intake.coach || 'Not provided';
-
-  const header = `CLIENT INFORMATION
+  return `CLIENT INFORMATION
 ==================
 Name: ${clientName}
 Organization: ${clientOrg}
@@ -1187,47 +1190,55 @@ Self-description (client's own words): "${a0.q1 || 'not provided'}"
 How others describe them: "${a0.q2 || 'not provided'}"
 Greatest strength: "${a0.q3 || 'not provided'}"
 Most problematic quality: "${a0.q4 || 'not provided'}"`;
+}
 
+function _stage1TypeBlock(s) {
   // Stage 1 — raw nine-type slider profile, rank-ordered high to low. Labeled as
   // raw evidence, not a verdict: the AI does the typing in Call #1.
+  const TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   const rankedTypes = TYPES.slice().sort((x, y) =>
     (s.typeProfile[y] - s.typeProfile[x]) || (x - y)
   );
   const typeRows = rankedTypes
     .map((t) => `Type ${t} (${TYPE_NAMES[t]}): ${s.typeProfile[t].toFixed(1)} / 100`)
     .join('\n');
-
-  const stage1TypeBlock = `Stage 1 — Nine-Type Profile (raw slider scores 0-100; each score is the mean of five self-report statements)
+  return `Stage 1 — Nine-Type Profile (raw slider scores 0-100; each score is the mean of five self-report statements)
 This is raw self-report evidence, NOT a verdict. Rank-ordered high to low:
 ${typeRows}
 Leading slider type: Type ${s.leadingType} (${TYPE_NAMES[s.leadingType]})
 Closest alternate: Type ${s.alternateType} (${TYPE_NAMES[s.alternateType]})
 Gap (leading minus alternate): ${s.gap.toFixed(1)} points
 High-ambiguity flag (top two within ${HIGH_AMBIGUITY_MARGIN} points): ${s.highAmbiguity ? 'YES' : 'NO'}`;
+}
 
+function _stage1InstinctBlock(s) {
   // Stage 1 — raw three-instinct slider profile. No mechanical identified-instinct
   // or confidence label; the AI characterizes dominance from the full profile.
+  const INSTINCTS = ['SP', 'SO', 'SX'];
   const rankedInst = INSTINCTS.slice().sort((x, y) =>
     (s.instinctProfile[y] - s.instinctProfile[x]) || (INSTINCTS.indexOf(x) - INSTINCTS.indexOf(y))
   );
   const instRows = rankedInst
     .map((i) => `${i}: ${s.instinctProfile[i].toFixed(1)} / 100`)
     .join('\n');
-
-  const stage1InstinctBlock = `Stage 1 — Three-Instinct Profile (raw slider scores 0-100; each score is the mean of five self-report statements)
+  return `Stage 1 — Three-Instinct Profile (raw slider scores 0-100; each score is the mean of five self-report statements)
 Raw self-report evidence, NOT a verdict. Rank-ordered high to low:
 ${instRows}
 Dominant slider instinct: ${s.dominantInstinct}`;
+}
 
+function _stage1OpenBlock() {
   // Stage 1 — open responses, verbatim.
   const typeOpen = state.stage1TypeOpen && state.stage1TypeOpen.trim()
     ? `"${state.stage1TypeOpen.trim()}"` : '[none provided]';
   const instinctOpen = state.stage1InstinctOpen && state.stage1InstinctOpen.trim()
     ? `"${state.stage1InstinctOpen.trim()}"` : '[none provided]';
-  const stage1OpenBlock = `Stage 1 — Open Responses (client's own words)
+  return `Stage 1 — Open Responses (client's own words)
 After the type sliders: ${typeOpen}
 After the instinct sliders: ${instinctOpen}`;
+}
 
+function _stage2EvidenceBlock() {
   // Stage 2 — three framework answers as evidence (no intersection scoring).
   // Q1/Q2 are single-select uppercase letters; Q3 is the Centers ranking.
   const s2a = state.stage2Answers || [];
@@ -1257,17 +1268,141 @@ After the instinct sliders: ${instinctOpen}`;
   3rd (least relied on): ${q3Ordered[2]}`
     : 'Q3 Centers (decision-making): [not answered]';
 
-  const stage2Block = `Stage 2 — Framework Answers (evidence only; the engine does not score these)
+  return `Stage 2 — Framework Answers (evidence only; the engine does not score these)
 ${q1Line}
 ${q2Line}
 ${q3Line}`;
+}
+
+function buildContextBlock(s) {
+  const parts = [
+    _evidenceHeaderBlock(),
+    _stage1TypeBlock(s),
+    _stage1InstinctBlock(s),
+    _stage1OpenBlock(),
+    _stage2EvidenceBlock(),
+  ].filter(p => p && p.trim().length > 0);
+
+  return parts.join('\n\n');
+}
+
+// ---- AI Call #2 case-file blocks (6-8) ----
+
+// Deterministic ranking_override (§10.3): true when AI Call #1 promoted a type
+// that was NOT the raw slider leader. The slider leader is s.leadingType — the
+// canonical, tie-broken argmax of the type profile (lower type number wins a
+// tie) — NOT a fresh argmax, so the tie-break matches the rest of the engine.
+// This is ground truth; the AI never recomputes it. Used by both buildCall2Context
+// (renders the pre-resolved sentence) and callAPI (sets the payload field) so the
+// two cannot drift.
+function rankingOverrideInfo(s) {
+  const sliderLeader = s.leadingType;
+  const call1Leader = state.call1Result.leading_candidate;
+  return { override: call1Leader !== sliderLeader, sliderLeader, call1Leader };
+}
+
+// Block 6 — the frozen AI Call #1 §6.3 contract, presented as the AI's own
+// coherence judgment (not slider math). supporting_language is the literal
+// string "Null" when no aligning fragment was found; we render an explicit
+// "[none found]" line in that case so Call #2 cannot mistake the sentinel for a
+// quotable fragment. The ranking_override line is pre-resolved ground truth (see
+// rankingOverrideInfo) — the AI reads it, it does not decide it.
+function _call1ResultBlock(s) {
+  const c1 = state.call1Result;
+  const rankRows = (c1.ranking || [])
+    .map((r) => `Type ${r.type} (${TYPE_NAMES[r.type]}): ${r.score} / 100`)
+    .join('\n');
+  const support = (c1.supporting_language && c1.supporting_language !== 'Null')
+    ? `"${c1.supporting_language}"`
+    : '[none — no aligning open-response fragment was found]';
+  const ctPair = (c1.ct_pair && c1.ct_pair !== 'Null') ? c1.ct_pair : '[not applicable]';
+  const ro = rankingOverrideInfo(s);
+  const roLine = ro.override
+    ? `Ranking override: YES — AI Call #1 promoted Type ${ro.call1Leader} (${TYPE_NAMES[ro.call1Leader]}) over the raw slider leader Type ${ro.sliderLeader} (${TYPE_NAMES[ro.sliderLeader]}).`
+    : `Ranking override: NO — the AI Call #1 leader matches the raw slider leader (Type ${ro.sliderLeader}, ${TYPE_NAMES[ro.sliderLeader]}).`;
+  return `AI CALL #1 RESULT — coherence-weighted ranking. This is the AI's own judgment of fit, not a recomputation of slider math.
+Coherence ranking (0-100), rank-ordered high to low:
+${rankRows}
+Leading candidate: Type ${c1.leading_candidate} (${TYPE_NAMES[c1.leading_candidate]})
+Alternate candidate: Type ${c1.alternate_candidate} (${TYPE_NAMES[c1.alternate_candidate]})
+Third candidate (reasoning context only — NOT shown in either report): Type ${c1.third_candidate} (${TYPE_NAMES[c1.third_candidate]})
+Gap between leading and alternate: ${c1.gap}
+Supporting open-response language: ${support}
+Stage 3 routing mode (Call #1): ${c1.stage3_mode}
+Counter-type pair (Call #1): ${ctPair}
+Dominant instinct (Call #1): ${c1.dominant_instinct}
+${roLine}`;
+}
+
+// Block 7 — Stage 3 lean. A legitimately-absent Stage 3 is valid data
+// (noPairwise: the top-two pair fell outside the authored question set); render
+// the explicit "not administered" line rather than guarding it as breakage.
+function _stage3LeanBlock(s) {
+  const s3 = s.stage3 || {};
+  if (!s3.administered || s3.noPairwise) {
+    return `Stage 3 — Discriminating Pair
+Stage 3: not administered — top-two pair outside the authored question set.`;
+  }
+  const lines = ['Stage 3 — Discriminating Pair', `Mode: ${s3.mode}`];
+  if (s3.mode === 'COUNTER-TYPE') {
+    lines.push(`Counter-type pair: ${s3.ctPair} (${s3.pair})`);
+    lines.push(`Q1 lean: ${s3.q1Lean}`);
+  } else {
+    lines.push(`Pair: ${s3.pairKey} (Type ${s3.typeA} vs Type ${s3.typeB})`);
+    lines.push(`Q1 lean: ${s3.q1Lean}`);
+    if (s3.q2Answer) lines.push(`Q2 lean: ${s3.q2Lean}`);
+  }
+  return lines.join('\n');
+}
+
+// Block 8 — Stage 4 movement verification: evidence + the deterministic outcome.
+function _stage4EvidenceBlock(s) {
+  const s4 = s.stage4 || {};
+  const fmt = (v) => (v === true ? 'YES' : v === false ? 'NO' : 'N/A');
+  const lines = [
+    'Stage 4 — Movement Verification',
+    `Path: ${s4.path}   Option: ${s4.option}`,
+    `Outcome: ${s4.outcome}`,
+    `Stress point — ${s4.stressDescription || '[no answer]'} (matched leading type: ${fmt(s4.stressConfirmed)})`,
+    `Security point — ${s4.securityDescription || '[no answer]'} (matched leading type: ${fmt(s4.securityConfirmed)})`,
+  ];
+  if (s4.habitAnswer != null) {
+    lines.push(`Habit of Mind — ${s4.habitDescription || '[no answer]'} (matched leading type: ${fmt(s4.habitConfirmed)})`);
+  } else {
+    lines.push('Habit of Mind — not administered.');
+  }
+  return lines.join('\n');
+}
+
+// Assembles the full AI Call #2 case file (§9.1): the Stage 0/1/2 evidence
+// (shared with Call #1), the frozen AI Call #1 result, the Stage 3 lean, and the
+// Stage 4 evidence + outcome. OUTPUT_FORMAT is NOT appended here — /api/submit
+// appends it server-side so the schema stays absolute-last.
+//
+// Loud guards, same discipline as validateStage1Statements(): Call #2 must never
+// fire on a broken case file. A missing call1Result / scores / stage4 is a
+// broken-flow signal, not a degrade-gracefully case — fail explicitly rather
+// than emitting an empty or fabricated block.
+function buildCall2Context(s) {
+  if (!s || typeof s !== 'object') {
+    throw new Error('[call2] state.scores is missing — Call #2 cannot build a case file without the Stage 1 profile.');
+  }
+  if (!state.call1Result || typeof state.call1Result !== 'object') {
+    throw new Error('[call2] state.call1Result is missing — Call #2 cannot fire without the AI Call #1 result. This indicates Call #1 failed or was skipped; refusing to build a context block with absent case-file evidence.');
+  }
+  if (!s.stage4 || typeof s.stage4 !== 'object') {
+    throw new Error('[call2] state.scores.stage4 is missing — Call #2 runs after Stage 4; a missing Stage 4 outcome means the flow is broken.');
+  }
 
   const parts = [
-    header,
-    stage1TypeBlock,
-    stage1InstinctBlock,
-    stage1OpenBlock,
-    stage2Block,
+    _evidenceHeaderBlock(),
+    _stage1TypeBlock(s),
+    _stage1InstinctBlock(s),
+    _stage1OpenBlock(),
+    _stage2EvidenceBlock(),
+    _call1ResultBlock(s),
+    _stage3LeanBlock(s),
+    _stage4EvidenceBlock(s),
   ].filter(p => p && p.trim().length > 0);
 
   return parts.join('\n\n');

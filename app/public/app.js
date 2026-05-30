@@ -247,33 +247,37 @@ async function callAPI() {
   await loadTypeLibrary();
 
   const s = state.scores;
-  const contextBlock = buildContextBlock(s);
+  // AI Call #2 case file (§9.1). buildCall2Context throws loudly if call1Result /
+  // scores / stage4 are missing — a broken-flow signal, not a degrade case.
+  const contextBlock = buildCall2Context(s);
 
   try {
-    const s2 = s.stage2 || {};
-    const s3 = s.stage3 || {};
+    // ranking_override is deterministic ground truth (§10.3). Computed here from
+    // the canonical slider leader (s.leadingType) vs the Call #1 leader; sent as a
+    // payload field and server-stamped onto hypothesis.ranking_override so the
+    // stored value is never the AI's restatement.
+    const ro = rankingOverrideInfo(s);
     const res = await fetch('/api/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contextBlock, intake: state.intake, scores: {
-        head: s.head, heart: s.heart, body: s.body,
-        identifiedCenter: s.identifiedCenter,
-        sp: s.sp, so: s.so, sx: s.sx,
-        identifiedInstinct: s.identifiedInstinct,
-        sortedInstincts: s.sortedInstincts,
-        // Stage 1 confidence — needed by the beta report generator
-        centerGap: s.centerGap,
-        centerConfidence: s.centerConfidence,
-        // Stage 2 — flattened from state.scores.stage2 so it survives to scores_snapshot
-        xrefPrimary: s2.xrefPrimary,
-        xrefAlternative: s2.xrefAlternative,
-        xrefAmbiguityAxis: s2.xrefAmbiguityAxis,
-        // Stage 3 — flattened from state.scores.stage3 with `s3` prefix
-        s3mode: s3.mode,
-        s3pair: s3.pair,
-        s3q1Result: s3.q1Result,
-        s3leading: s3.leading,
-        s3confidence: s3.confidence,
+        // Stage 1 — v2 raw profile
+        typeProfile: s.typeProfile,
+        instinctProfile: s.instinctProfile,
+        leadingType: s.leadingType,
+        alternateType: s.alternateType,
+        gap: s.gap,
+        highAmbiguity: s.highAmbiguity,
+        dominantInstinct: s.dominantInstinct,
+        // AI Call #1 frozen §6.3 contract
+        call1Result: state.call1Result,
+        // Stage 3 lean + Stage 4 evidence/outcome (v2 shapes)
+        stage3: s.stage3,
+        stage4: s.stage4,
+        // Deterministic ranking_override (+ leaders for logging)
+        ranking_override: ro.override,
+        sliderLeader: ro.sliderLeader,
+        call1Leader: ro.call1Leader,
       }, finalOpenResponse: state.finalOpenResponse || '', client_id: state.intake.client_id || null,
       responses_snapshot: buildResponsesSnapshot() }),
     });

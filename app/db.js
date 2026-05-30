@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS reports (
 
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS confirmed_instinct VARCHAR(20);
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS instinct_confidence VARCHAR(20);
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS dominant_instinct_hypothesis VARCHAR(20);
 
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'not_started';
 
@@ -197,6 +198,10 @@ async function createAssessment(clientId, responses) {
 async function completeAssessment(assessmentId, result) {
   const h = result.hypothesis || {};
   const fr = result.final_response || {};
+  // v2: dominant_instinct_hypothesis replaces confirmed_instinct. We write it into both
+  // the new column and the legacy confirmed_instinct column so the admin profile views
+  // (which still read confirmed_instinct) keep working until the Step 7 read-side rename.
+  const dominantInstinct = h.dominant_instinct_hypothesis || null;
   await query(
     `UPDATE assessments SET
        status = 'complete',
@@ -206,7 +211,7 @@ async function completeAssessment(assessmentId, result) {
        flags = $4,
        final_response_classification = $5,
        confirmed_instinct = $6,
-       instinct_confidence = $7,
+       dominant_instinct_hypothesis = $7,
        completed_at = NOW()
      WHERE id = $8`,
     [
@@ -215,8 +220,8 @@ async function completeAssessment(assessmentId, result) {
       h.stage4_outcome || null,
       JSON.stringify(result.flags || []),
       fr.classification || null,
-      h.confirmed_instinct || null,
-      h.instinct_confidence || null,
+      dominantInstinct,
+      dominantInstinct,
       assessmentId,
     ]
   );
