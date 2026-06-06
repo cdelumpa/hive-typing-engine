@@ -110,6 +110,10 @@ function renderMultiPara(str, style) {
 // ---- Client report body HTML ----
 function clientReportBodyHtml(result, typeLibrary, intake) {
   const h = result.hypothesis;
+  // Call #2 instinct verdict. The rendered object carries dominant_instinct_hypothesis;
+  // confirmed_instinct is a legacy DB-only mirror that never re-enters this object
+  // (Step 7 Phase 0). Read the hypothesis field; fall back to the legacy name for safety.
+  const dominantInstinct = h.dominant_instinct_hypothesis || h.confirmed_instinct || '';
   const cf = result.client_facing || {};
   const ambiguous = h.stage4_outcome === 'AMBIGUOUS';
   const clientFullName = intake ? `${intake.firstName || ''} ${intake.lastName || ''}`.trim() : '';
@@ -118,7 +122,7 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
 
   const tLib = (typeLibrary && typeLibrary.types && typeLibrary.types[String(h.confirmed_type)]) || {};
   const primers = (typeLibrary && typeLibrary.static_primers) || {};
-  const instinctKey = (h.confirmed_instinct || '').toLowerCase();
+  const instinctKey = (dominantInstinct || '').toLowerCase();
 
   const SH = (title) =>
     `<div class="report-sh" style="font-size:14pt;line-height:16pt;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#00b1d7;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #00b1d7;">${esc(title)}</div>`;
@@ -139,7 +143,7 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
     : `Based on your responses, the pattern that appears most consistent with your experience is <strong>Type ${h.confirmed_type} — ${esc(typeName)}</strong>. We encourage you to hold this as a hypothesis or theory that you get to test 'in the wild'. That's the fun part. If it resonates, wonderful. If it doesn't fully fit, that's important information too. Debriefing this report with a trained Enneagram coach or practitioner like Cai or Monique is a great place to explore what fits, what doesn't, and why.`;
 
   const instinctLabelMap = { sp: 'Self-Preservation', sx: 'One-to-One', so: 'Social' };
-  const instinctLabel = instinctLabelMap[instinctKey] || h.confirmed_instinct || '';
+  const instinctLabel = instinctLabelMap[instinctKey] || dominantInstinct || '';
 
   const strengthsHtml = (tLib.strengths || []).map((s) =>
     `<div style="font-size:12pt;line-height:15pt;margin-bottom:5px;"><span style="color:#00b1d7;font-weight:700;">+</span> ${esc(s)}</div>`
@@ -323,6 +327,9 @@ function clientReportBodyHtml(result, typeLibrary, intake) {
 // ---- Coach report body HTML ----
 function coachReportBodyHtml(result, typeLibrary, scores, intake) {
   const h = result.hypothesis;
+  // Call #2 instinct verdict — read dominant_instinct_hypothesis; confirmed_instinct is a
+  // legacy DB-only mirror absent from the rendered object (Step 7 Phase 0). Fallback for safety.
+  const dominantInstinct = h.dominant_instinct_hypothesis || h.confirmed_instinct || '';
   const cr = result.coach_report || {};
   const flags = result.flags || [];
   const s2a = result.stage2_analysis || {};
@@ -353,10 +360,10 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
   const CALLOUT_TITLE = (text, warning) =>
     `<div style="font-size:14pt;line-height:16pt;font-weight:700;color:${warning ? '#C44530' : ORANGE};text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">${esc(text)}</div>`;
 
-  const instinctKey = (h.confirmed_instinct || '').toLowerCase();
+  const instinctKey = (dominantInstinct || '').toLowerCase();
   const instinctFull =
     { sp: 'Self-Preservation (SP)', sx: 'One-to-One (SX)', so: 'Social (SO)' }[instinctKey] ||
-    h.confirmed_instinct ||
+    dominantInstinct ||
     'Unknown';
   const subtypeName = SUBTYPE_NAMES[`${instinctKey}-${h.confirmed_type}`] || '';
   const confLabel = (h.confidence_level || '').replace(/_/g, '-');
@@ -404,7 +411,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
   const instinctTotal = 12;
   const instinctBar = (name, score) => {
     const pct = Math.round((score / instinctTotal) * 100);
-    const isId = name === (h.confirmed_instinct || '');
+    const isId = name === (dominantInstinct || '');
     const fillStyle = isId
       ? 'background:#f58527;'
       : pct >= 50
@@ -449,7 +456,7 @@ function coachReportBodyHtml(result, typeLibrary, scores, intake) {
       <!-- HEADER -->
       <div style="text-align:center;padding-bottom:12px;margin-bottom:14px;">
         <div style="font-size:11px;color:#7A96A6;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Coach Prep Report</div>
-        <div style="font-size:42px;font-weight:700;color:${ORANGE};line-height:1.1;margin-bottom:4px;">Type ${h.confirmed_type} · ${h.confirmed_instinct}</div>
+        <div style="font-size:42px;font-weight:700;color:${ORANGE};line-height:1.1;margin-bottom:4px;">Type ${h.confirmed_type} · ${dominantInstinct}</div>
         <div style="font-size:20px;color:#4A6070;margin-bottom:12px;">${esc(subtypeName)}</div>
         <span style="display:inline-block;padding:3px 12px;border-radius:20px;background:#FFF9E6;color:#A17E23;font-weight:700;font-size:11px;letter-spacing:0.05em;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${esc(confLabel)} CONFIDENCE</span>
       </div>
@@ -644,8 +651,11 @@ ${body}
 function buildCoachHTML(result, typeLibrary, scores, intake) {
   const body = coachReportBodyHtml(result, typeLibrary, scores, intake);
   const h = result.hypothesis;
+  // Call #2 instinct verdict (Step 7 Phase 0) — dominant_instinct_hypothesis is the live
+  // field; confirmed_instinct is a legacy DB-only mirror kept as a fallback.
+  const dominantInstinct = h.dominant_instinct_hypothesis || h.confirmed_instinct || '';
   const instinct =
-    h.confirmed_instinct && h.confirmed_instinct !== 'UNCERTAIN' ? ' ' + h.confirmed_instinct : '';
+    dominantInstinct && dominantInstinct !== 'UNCERTAIN' ? ' ' + dominantInstinct : '';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
