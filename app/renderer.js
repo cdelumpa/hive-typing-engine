@@ -1345,16 +1345,20 @@ function coachReportStyles() {
   .dbf-section { break-inside: avoid; margin-bottom: 12px; }
   .dbf-q { font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-bottom: 6px; }
   .bc-placeholder { font-size: 10pt; color: #888; font-style: italic; padding-top: 40px; text-align: center; }
+  .tighten-1 .bc-body, .tighten-1 .bc-bullet, .tighten-1 table.cmp td, .tighten-1 .dbf-q, .tighten-1 .bc-q { font-size: 9pt; line-height: 12.5pt; }
+  .tighten-2 .bc-body, .tighten-2 .bc-bullet, .tighten-2 table.cmp td, .tighten-2 .dbf-q, .tighten-2 .bc-q { font-size: 8.5pt; line-height: 11.5pt; }
+  .tighten-3 .bc-body, .tighten-3 .bc-bullet, .tighten-3 table.cmp td, .tighten-3 .dbf-q, .tighten-3 .bc-q { font-size: 8pt; line-height: 11pt; }
+  .tighten-2 .bc-bullet, .tighten-3 .bc-bullet { margin-bottom: 3px; }
   </style>`;
 }
 
 // Build the full 3-page (+placeholder) coach report HTML from the coach view-model.
-function buildCoachReportHTML(model) {
+function buildCoachReportHTML(model, opts = {}) {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>Coach Report — Type ${model.hero.number}</title>
 ${partAStyles()}
 ${coachReportStyles()}
-</head><body>
+</head><body class="tighten-${opts.tighten || 0}">
 ${_coachPage1(model)}
 ${_coachPage2(model)}
 ${_coachPage3(model)}
@@ -1619,15 +1623,19 @@ function clientReportStyles() {
   .cl-dense .cl-quote { padding: 6px 10px; margin: 6px 0; }
   .cl-dense .cl-side-b, .cl-dense .cl-def { font-size: 8.5pt; line-height: 11.5pt; }
   .app-cols { columns: 3; column-gap: 18px; } .app-sec { break-inside: avoid; margin-bottom: 10px; } .app-subhead { font-size: 9pt; font-weight: bold; color: var(--body); } .app-fw { font-size: 8pt; font-style: italic; color: var(--section-title); margin-bottom: 4px; } .app-sub-t { font-size: 8pt; font-weight: bold; color: var(--hive-blue); text-transform: uppercase; margin: 5px 0 3px; }
+  .tighten-1 .cl-body, .tighten-1 .cl-bullet, .tighten-1 .cl-side-b, .tighten-1 .cl-def, .tighten-1 table.cmp td { font-size: 9pt; line-height: 12pt; }
+  .tighten-2 .cl-body, .tighten-2 .cl-bullet, .tighten-2 .cl-side-b, .tighten-2 .cl-def, .tighten-2 table.cmp td { font-size: 8.5pt; line-height: 11.5pt; }
+  .tighten-3 .cl-body, .tighten-3 .cl-bullet, .tighten-3 .cl-side-b, .tighten-3 .cl-def, .tighten-3 table.cmp td { font-size: 8pt; line-height: 11pt; }
+  .tighten-2 .cl-bullet, .tighten-3 .cl-bullet { margin-bottom: 3px; } .tighten-2 .cl-label, .tighten-3 .cl-label { margin: 6px 0 3px; }
   </style>`;
 }
 
-function buildClientReportHTML(model) {
+function buildClientReportHTML(model, opts = {}) {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>Your Enneagram Report — Type ${model.hero.number}</title>
 ${partAStyles()}
 ${clientReportStyles()}
-</head><body>
+</head><body class="tighten-${opts.tighten || 0}">
 ${_clTitle(model)}
 ${_clTOC(model)}
 ${_clP1Welcome(model)}

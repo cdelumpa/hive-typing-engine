@@ -88,8 +88,9 @@ function assertName(flags, label, derivedName, aiString, typeNum) {
 }
 
 // ---------- coach view-model ----------
-function buildCoachModel({ apiResult, client, coach }) {
+function buildCoachModel({ apiResult, client, coach, tighten = 0 }) {
   const flags = [], warnings = [];
+  const capW = [80, 62, 48, 40][Math.min(tighten, 3)];   // self-heal: debrief word budget tightens by level
   const h = apiResult.hypothesis;
   const cr = apiResult.coach_report || {};
   const cw = apiResult.client_words || {};
@@ -131,9 +132,9 @@ function buildCoachModel({ apiResult, client, coach }) {
       client_words: { quotes: cw.leading_quotes || [], absence_note: cw.alternate_absence_note ?? null },
     },
     debrief: {
-      subtype: { question: stripProbe(s4.probe), bullets: capByLines([...(s4.how_instinct_shapes || []), ...(s4.easy_to_miss || []), ...(s4.coaching_notes || [])]) },
-      lines: { question: stripProbe(s5.stress_probe), bullets: capByLines([...(s5.stress_notes || []), ...(s5.security_notes || [])]) },
-      wings: { question: stripProbe(s5.probe), bullets: capByLines(s5.wings_notes) },
+      subtype: { question: stripProbe(s4.probe), bullets: capByLines([...(s4.how_instinct_shapes || []), ...(s4.easy_to_miss || []), ...(s4.coaching_notes || [])], capW) },
+      lines: { question: stripProbe(s5.stress_probe), bullets: capByLines([...(s5.stress_notes || []), ...(s5.security_notes || [])], capW) },
+      wings: { question: stripProbe(s5.probe), bullets: capByLines(s5.wings_notes, capW) },
     },
   };
 
@@ -146,8 +147,9 @@ function buildCoachModel({ apiResult, client, coach }) {
 }
 
 // ---------- client view-model ----------
-function buildClientModel({ apiResult, client, coach }) {
+function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  // tighten: renderer-side compaction (self-heal)
   const flags = [], warnings = [];
+  void tighten;
   const h = apiResult.hypothesis;
   const cf = apiResult.client_facing || {};
   const cw = apiResult.client_words || {};
