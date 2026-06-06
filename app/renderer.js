@@ -963,4 +963,203 @@ function buildPdfOptions(intake) {
   };
 }
 
-module.exports = { buildClientHTML, buildCoachHTML, buildBetaHTML, buildPdfOptions };
+// ============================================================================
+// PART A — Shared design system (Step 7 Phase 3). Pure, deterministic, AI-free.
+// Inline SVG Enneagram (A6), bar charts (A5), palette/CSS tokens (A2/A3).
+// New + exported; the V1 renderer above is untouched (Phase 5/6 replaces it).
+// A6 SVG colors are self-contained and authoritative for the diagram (some
+// differ from the A2 brand palette by design, e.g. base nodes #F7941D).
+// ============================================================================
+
+const PALETTE = {
+  hiveBlue: '#00B2D9', hiveOrange: '#F68625',
+  body: '#404040', sectionTitle: '#595959', altPillText: '#333333',
+  gut: '#5271B7', heart: '#D38481', headFill: '#BED6A8', headText: '#4F845C',
+  track: '#D6D7D8',
+  leadingPillBg: '#D9E4E9', leadingPillText: '#495A78',
+  confidenceBg: '#DFEAD8', confidenceText: '#4F845C',
+  alternatePillBg: '#E6E7E8', calloutBg: '#F5F5EE', tealBox: '#E8F6FA', footer: '#999999',
+};
+
+// A2 Center-color mapping — single source of truth. Only Head splits fill/text.
+const CENTER_COLORS = {
+  Gut:   { fill: '#5271B7', text: '#5271B7' },
+  Heart: { fill: '#D38481', text: '#D38481' },
+  Head:  { fill: '#BED6A8', text: '#4F845C' },
+};
+
+// A6 per-type metadata (mirrors engine TYPE_META; Phase 4 centralizes into type_meta.js).
+const SVG_TYPE_META = {
+  1: { stress: 4, security: 7, wings: [9, 2], center: 'Gut' },
+  2: { stress: 8, security: 4, wings: [1, 3], center: 'Heart' },
+  3: { stress: 9, security: 6, wings: [2, 4], center: 'Heart' },
+  4: { stress: 2, security: 1, wings: [3, 5], center: 'Heart' },
+  5: { stress: 7, security: 8, wings: [4, 6], center: 'Head' },
+  6: { stress: 3, security: 9, wings: [5, 7], center: 'Head' },
+  7: { stress: 1, security: 5, wings: [6, 8], center: 'Head' },
+  8: { stress: 5, security: 2, wings: [7, 9], center: 'Gut' },
+  9: { stress: 6, security: 3, wings: [8, 1], center: 'Gut' },
+};
+
+// A6 node coordinates: center (250,250), r=210, clockwise from top at 40°.
+const SVG_NODES = {
+  9: [250.0, 40.0], 1: [385.0, 89.1], 2: [456.8, 213.5], 3: [431.9, 355.0],
+  4: [321.8, 447.3], 5: [178.2, 447.3], 6: [68.1, 355.0], 7: [43.2, 213.5], 8: [115.0, 89.1],
+};
+// Arrow flow = canonical disintegration direction (Cai-confirmed). Hexad per A6;
+// triangle is 9→6→3→9 — the REVERSE of A6's "3→6→9→3" text (an error in the doc),
+// so the triangle arrows flow consistently with the hexad in the base diagram.
+const SVG_HEXAD = [[1, 4], [4, 2], [2, 8], [8, 5], [5, 7], [7, 1]];
+const SVG_TRIANGLE = [[9, 6], [6, 3], [3, 9]];
+// Canonical directed flow = the base-diagram arrow directions. Type-variant
+// stress/security arrows are oriented by this so they match the base EXACTLY
+// (Cai-confirmed): stress stays home→stress; security follows the flow into home.
+const SVG_FLOW = new Set([...SVG_HEXAD, ...SVG_TRIANGLE].map(([a, b]) => `${a}-${b}`));
+const _flowDir = (x, y) => (SVG_FLOW.has(`${x}-${y}`) ? [x, y] : [y, x]);
+
+function _trim(p1, p2, t) {
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+  const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+  return [[p1[0] + ux * t, p1[1] + uy * t], [p2[0] - ux * t, p2[1] - uy * t]];
+}
+function _svgLine(a, b, attrs) {
+  return `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" ${attrs}/>`;
+}
+function _svgNode(i, r, fill) { const [x, y] = SVG_NODES[i]; return `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`; }
+function _svgLabel(i, fontSize, bold) {
+  const [x, y] = SVG_NODES[i];
+  return `<text x="${x}" y="${y}" font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="${bold ? 'bold' : 'normal'}" fill="white" text-anchor="middle" dominant-baseline="central">${i}</text>`;
+}
+function _arrowMarker(id, color) {
+  return `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${color}"/></marker>`;
+}
+
+// A6 — single source for all Enneagram diagrams. variant: 'base'|'type'|'wings-lines'.
+function buildEnneagramSVG({ type, variant }) {
+  const open = `<svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">`;
+  const uid = `${variant}-${type || 'base'}`;
+
+  if (variant === 'base') {
+    const m = `arr-${uid}`;
+    const lines = [...SVG_HEXAD, ...SVG_TRIANGLE].map(([a, b]) => {
+      const [p1, p2] = _trim(SVG_NODES[a], SVG_NODES[b], 30);
+      return _svgLine(p1, p2, `stroke="#F7941D" stroke-width="2" marker-end="url(#${m})"`);
+    }).join('');
+    const nodes = Object.keys(SVG_NODES).map(i => _svgNode(+i, 22, '#F7941D') + _svgLabel(+i, 20, true)).join('');
+    return open + `<defs>${_arrowMarker(m, '#F7941D')}</defs>`
+      + `<circle cx="250" cy="250" r="210" fill="none" stroke="#00B2D9" stroke-width="8"/>` + lines + nodes + `</svg>`;
+  }
+
+  const meta = SVG_TYPE_META[type];
+  if (!meta) throw new Error(`buildEnneagramSVG: type ${type} required for variant "${variant}"`);
+  const { stress, security, wings } = meta, home = type;
+
+  if (variant === 'type') {
+    const mS = `str-${uid}`, mG = `sec-${uid}`;
+    const wedges =
+        `<path d="M 250,250 L 68.1,145.0 A 210,210 0 0,1 431.9,145.0 Z" fill="#5271B7" opacity="0.15"/>`
+      + `<path d="M 250,250 L 431.9,145.0 A 210,210 0 0,1 250.0,460.0 Z" fill="#D38481" opacity="0.15"/>`
+      + `<path d="M 250,250 L 250.0,460.0 A 210,210 0 0,1 68.1,145.0 Z" fill="#BED6A8" opacity="0.50"/>`;
+    const dividers = [[68.1, 145.0], [431.9, 145.0], [250.0, 460.0]]
+      .map(p => _svgLine([250, 250], p, `stroke="white" stroke-width="1.5"`)).join('');
+    const inactive = [...SVG_HEXAD, ...SVG_TRIANGLE].map(([a, b]) => {
+      const [p1, p2] = _trim(SVG_NODES[a], SVG_NODES[b], 30);
+      return _svgLine(p1, p2, `stroke="#C8C8C8" stroke-width="1.5"`);
+    }).join('');
+    const [sa, sb] = _flowDir(home, stress);     // arrow direction matches the base diagram
+    const [ga, gb] = _flowDir(home, security);   // (e.g. Type 1 security → 7→1, into home)
+    const [s1, s2] = _trim(SVG_NODES[sa], SVG_NODES[sb], 30);
+    const [g1, g2] = _trim(SVG_NODES[ga], SVG_NODES[gb], 30);
+    const stressLine = _svgLine(s1, s2, `stroke="#D38481" stroke-width="2.5" stroke-dasharray="6,4" marker-end="url(#${mS})"`);
+    const secLine = _svgLine(g1, g2, `stroke="#4F845C" stroke-width="2.5" marker-end="url(#${mG})"`);
+    let nodes = '';
+    for (const k of Object.keys(SVG_NODES)) {
+      const i = +k; let r, fill, fs, bold;
+      if (i === home) { r = 26; fill = '#00B2D9'; fs = 19; bold = true; }
+      else if (i === stress) { r = 22; fill = '#D38481'; fs = 17; bold = true; }
+      else if (i === security) { r = 22; fill = '#4F845C'; fs = 17; bold = true; }
+      else if (wings.includes(i)) { r = 20; fill = '#A0A0A0'; fs = 17; bold = false; }
+      else { r = 20; fill = '#C8C8C8'; fs = 17; bold = false; }
+      nodes += _svgNode(i, r, fill) + _svgLabel(i, fs, bold);
+    }
+    return open + `<defs>${_arrowMarker(mS, '#D38481')}${_arrowMarker(mG, '#4F845C')}</defs>`
+      + wedges + dividers + `<circle cx="250" cy="250" r="210" fill="none" stroke="#00B2D9" stroke-width="8"/>`
+      + inactive + stressLine + secLine + nodes + `</svg>`;
+  }
+
+  if (variant === 'wings-lines') {
+    const wingConn = wings.map(w => {
+      const [p1, p2] = _trim(SVG_NODES[home], SVG_NODES[w], 30);
+      return _svgLine(p1, p2, `stroke="#C8C8C8" stroke-width="2"`);
+    }).join('');
+    const [s1, s2] = _trim(SVG_NODES[home], SVG_NODES[stress], 30);
+    const [g1, g2] = _trim(SVG_NODES[home], SVG_NODES[security], 30);
+    const stressLine = _svgLine(s1, s2, `stroke="#D0312D" stroke-width="2.5" stroke-dasharray="10,6"`);
+    const secLine = _svgLine(g1, g2, `stroke="#4F845C" stroke-width="2.5"`);
+    let nodes = '';
+    for (const k of Object.keys(SVG_NODES)) {
+      const i = +k; let r, fill, fs, bold;
+      if (i === home) { r = 26; fill = '#2E3F6F'; fs = 19; bold = true; }
+      else if (i === stress) { r = 22; fill = '#D0312D'; fs = 17; bold = true; }
+      else if (i === security) { r = 22; fill = '#4F845C'; fs = 17; bold = true; }
+      else { r = 20; fill = '#C8C8C8'; fs = 17; bold = false; }
+      nodes += _svgNode(i, r, fill) + _svgLabel(i, fs, bold);
+    }
+    return open + `<circle cx="250" cy="250" r="210" fill="none" stroke="#C8C8C8" stroke-width="8"/>`
+      + wingConn + stressLine + secLine + nodes + `</svg>`;
+  }
+
+  throw new Error(`buildEnneagramSVG: unknown variant "${variant}"`);
+}
+
+// A5 — deterministic bar charts. Fixed 0-100 scale (no auto-scale). Inline SVG.
+const SVG_TYPE_BAR_ORDER = [8, 9, 1, 2, 3, 4, 5, 6, 7];
+function _barChartSVG(rows) {
+  const rowH = 30, labelW = 36, trackW = 280, scoreW = 34, barH = 14;
+  const W = labelW + trackW + scoreW, H = rows.length * rowH;
+  const body = rows.map((r, i) => {
+    const cy = i * rowH + rowH / 2, by = cy - barH / 2;
+    const fillW = Math.max(0, Math.min(100, r.score)) / 100 * trackW;
+    return `<text x="0" y="${cy}" font-family="Arial,sans-serif" font-size="11" font-weight="bold" fill="${r.labelColor}" dominant-baseline="central">${esc(String(r.label))}</text>`
+      + `<rect x="${labelW}" y="${by}" width="${trackW}" height="${barH}" rx="3" fill="#D6D7D8"/>`
+      + `<rect x="${labelW}" y="${by}" width="${fillW.toFixed(1)}" height="${barH}" rx="3" fill="${r.color}"/>`
+      + `<text x="${labelW + trackW + 6}" y="${cy}" font-family="Arial,sans-serif" font-size="11" fill="#404040" dominant-baseline="central">${Math.round(r.score)}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" width="100%">${body}</svg>`;
+}
+// bars: [{type, score, color?}] — Relative Type Pattern Strength (9 bars, Center-color fills).
+function renderTypeStrengthChart(bars) {
+  const byType = {}; bars.forEach(b => { byType[b.type] = b; });
+  const rows = SVG_TYPE_BAR_ORDER.filter(t => byType[t]).map(t => {
+    const center = SVG_TYPE_META[t].center;
+    return { label: t, score: byType[t].score, color: byType[t].color || CENTER_COLORS[center].fill, labelColor: CENTER_COLORS[center].text };
+  });
+  return _barChartSVG(rows);
+}
+// bars: [{code, score}] — Relative Instincts Strength (3 bars, all Hive Orange).
+function renderInstinctChart(bars) {
+  const byCode = {}; bars.forEach(b => { byCode[b.code] = b; });
+  const rows = ['SP', 'SO', 'SX'].filter(c => byCode[c]).map(c => ({ label: c, score: byCode[c].score, color: PALETTE.hiveOrange, labelColor: PALETTE.hiveOrange }));
+  return _barChartSVG(rows);
+}
+
+// A2/A3 — palette + type scale as :root CSS variables for Phase 5/6 templates.
+function partAStyles() {
+  return `<style>
+:root{
+  --hive-blue:${PALETTE.hiveBlue};--hive-orange:${PALETTE.hiveOrange};
+  --body:${PALETTE.body};--section-title:${PALETTE.sectionTitle};--alt-pill-text:${PALETTE.altPillText};
+  --gut:${PALETTE.gut};--heart:${PALETTE.heart};--head-fill:${PALETTE.headFill};--head-text:${PALETTE.headText};
+  --track:${PALETTE.track};--leading-pill-bg:${PALETTE.leadingPillBg};--leading-pill-text:${PALETTE.leadingPillText};
+  --confidence-bg:${PALETTE.confidenceBg};--confidence-text:${PALETTE.confidenceText};
+  --alternate-pill-bg:${PALETTE.alternatePillBg};--callout-bg:${PALETTE.calloutBg};--teal-box:${PALETTE.tealBox};--footer:${PALETTE.footer};
+  --fs-title:13pt;--fs-name:24pt;--fs-section-label:9pt;--fs-body:10pt;--lh-body:15pt;
+}
+body{font-family:Arial,Helvetica,sans-serif;color:var(--body);}
+</style>`;
+}
+
+module.exports = {
+  buildClientHTML, buildCoachHTML, buildBetaHTML, buildPdfOptions,
+  buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
+};
