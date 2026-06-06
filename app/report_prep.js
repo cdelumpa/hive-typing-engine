@@ -22,6 +22,20 @@ const { TYPE_NAMES, TYPE_META, INSTINCT_NAME } = require('./type_meta');
 // Bar-fill per Center (A5/A2): Gut/Heart use one value; Head fill is lighter than its text.
 const CENTER_FILL = { Gut: '#5271B7', Heart: '#D38481', Head: '#BED6A8' };
 
+// Spelled type numbers for display.* (spec §5): display.type_word, e.g. 8 -> "Eight".
+const TYPE_WORD = { 1: 'One', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine' };
+// Split a wing body on its "At their best:" marker (audited: all 18 carry exactly one,
+// preceded by a paragraph break). Returns { body, best } — body before the marker,
+// best the descriptor after the colon (the "At their best:" label is supplied by the
+// template at render time). No marker -> best is ''.
+function splitWingBest(text) {
+  const s = String(text || '');
+  const m = s.match(/\n+\s*At their best:\s*/i);
+  if (!m) return { body: s.trim(), best: '' };
+  const idx = m.index;
+  return { body: s.slice(0, idx).trim(), best: s.slice(idx + m[0].length).trim() };
+}
+
 // ---------- shared helpers ----------
 function lib(key) {
   if (!(key in library)) throw new Error(`content_library missing key: ${key}`);
@@ -170,8 +184,18 @@ function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  // tight
   assertName(flags, 'hero', meta.name, h.confirmed_type_name, heroN);
 
   const t = lib(`type_${heroN}`);
+  const alt = lib(`type_${altN}`);                 // P3: alternate candidate's EXISTING comparison rows
   const st = lib(subtypeKey(instinct, heroN));
   const stat = lib('static');
+
+  // P5 remap (store untouched): wings keyed by NUMBER -> wing_low/wing_high; lines -> line_stress/line_security.
+  const wingPair = [t.wings.wing_a, t.wings.wing_b].slice().sort((a, b) => a.target_type - b.target_type);
+  const remapWing = (w) => { const s = splitWingBest(w.body); return { number: w.target_type, name: TYPE_NAMES[w.target_type], body: s.body, best: s.best }; };
+  const remapLine = (l) => ({ name: TYPE_NAMES[l.target_type], body: l.narrative, resource: l.resource_card, toward: l.target_type });
+  const wingLow = remapWing(wingPair[0]);
+  const wingHigh = remapWing(wingPair[1]);
+  const lineStress = remapLine(t.lines.stress);
+  const lineSecurity = remapLine(t.lines.security);
 
   const model = {
     client: {
@@ -179,6 +203,14 @@ function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  // tight
       full_name: `${client.first_name || ''} ${client.last_name || ''}`.trim(), date: client.date || '',
     },
     hero: { number: heroN, name: meta.name, subtype_name: instinctName(instinct), center: meta.center, centerColor: meta.centerColor },
+    // display.* (spec §5): grammar-ready strings composed once here so templates never assemble per-type grammar.
+    display: {
+      type_word: TYPE_WORD[heroN],                            // spelled number, e.g. "Eight"
+      instinct_label: instinctName(instinct),                 // SX -> "One-to-One" (INSTINCT_NAME authority; never "Sexual")
+      instinct_code: String(instinct).toUpperCase(),          // "SP" / "SO" / "SX"
+      subtype_label: `${instinctName(instinct)} ${TYPE_WORD[heroN]}`, // e.g. "Social Eight"
+      confirmed_type_name: meta.name,                         // "The Protector" (TYPE_NAMES authority)
+    },
     alternate: nameNode(altN),
     confidence: { label: confidenceLabel(h.confidence_level), near_tie: nearTie(h.call1_ranking) },
     svg: { type: { variant: 'type', type: heroN }, base: { variant: 'base' }, wings: { variant: 'wings-lines', type: heroN } },
@@ -192,11 +224,13 @@ function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  // tight
         core_motivation: t.description.core_motivation,
         alternate_note: cf.secondary_type_narrative ?? null,
         quote: cw.leading_quotes || [],
-        comparison_rows: t.comparison,
+        comparison_rows: t.comparison,                                                           // leading column (unchanged)
+        alternate: { number: altN, name: TYPE_NAMES[altN], comparison: alt.comparison },         // P3: alternate column (EXISTING content)
         discriminator: (apiResult.coach_report && apiResult.coach_report.section6 && apiResult.coach_report.section6.pushes_back && apiResult.coach_report.section6.pushes_back.key_distinction) || '',
       },
       patterns: { thinking: t.patterns.thinking, feeling: t.patterns.feeling, behaving: t.patterns.behaving, inquiry_lines: t.inquiry_lines }, // P4
-      wings_lines: { wings: t.wings, lines: t.lines, wings_primer: stat.wings_primer, lines_primer: stat.lines_primer }, // P5 (primers PENDING)
+      wings_lines: { wings: t.wings, lines: t.lines, wings_primer: stat.wings_primer, lines_primer: stat.lines_primer, // P5 (wings/lines unchanged; primers PENDING)
+        wing_low: wingLow, wing_high: wingHigh, line_stress: lineStress, line_security: lineSecurity }, // P5 remap (template-shaped)
       instinct_subtype: {                                                                       // P6
         subtype: { name: st.name, tagline: st.tagline, narrative: st.narrative, patterns: st.patterns },
         instinct_evidence: cf.instinct_evidence ?? null,
@@ -258,9 +292,15 @@ const CLIENT_SPEC = {
   required: [
     'client.first_name', 'client.full_name', 'hero.number', 'hero.name', 'hero.subtype_name',
     'confidence.label', 'alternate.number', 'alternate.name', 'svg.type', 'svg.base', 'svg.wings',
+    // display.* (spec §5) — grammar-ready strings the page port will consume
+    'display.type_word', 'display.instinct_label', 'display.instinct_code',
+    'display.subtype_label', 'display.confirmed_type_name',
     'pages.type_hypotheses.core_motivation', 'pages.type_hypotheses.comparison_rows',
+    'pages.type_hypotheses.alternate.comparison',                                  // P3 alternate column
     'pages.patterns.thinking', 'pages.patterns.feeling', 'pages.patterns.behaving',
     'pages.wings_lines.wings', 'pages.wings_lines.lines',
+    'pages.wings_lines.wing_low.name', 'pages.wings_lines.wing_high.name',          // P5 remap (leaf coverage)
+    'pages.wings_lines.line_stress.body', 'pages.wings_lines.line_security.body',
     'pages.instinct_subtype.subtype', 'pages.strengths_challenges.strengths',
     'pages.strengths_challenges.challenges', 'pages.application.communication',
     'pages.application.conflict', 'pages.application.center',
