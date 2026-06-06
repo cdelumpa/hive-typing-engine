@@ -1,0 +1,276 @@
+{
+  "hypothesis": {
+    "confirmed_type": 7,
+    "confirmed_type_name": "The Enthusiast",
+    "confidence_level": "HIGH",
+    "leading_candidate": 7,
+    "alternate_candidate": 5,
+    "third_candidate": 3,
+    "call1_ranking": [
+      {
+        "type": 7,
+        "score": 92
+      },
+      {
+        "type": 5,
+        "score": 52
+      },
+      {
+        "type": 3,
+        "score": 45
+      },
+      {
+        "type": 8,
+        "score": 42
+      },
+      {
+        "type": 6,
+        "score": 38
+      },
+      {
+        "type": 2,
+        "score": 35
+      },
+      {
+        "type": 9,
+        "score": 30
+      },
+      {
+        "type": 1,
+        "score": 22
+      },
+      {
+        "type": 4,
+        "score": 18
+      }
+    ],
+    "type_score_profile": {
+      "1": 40,
+      "2": 44,
+      "3": 50,
+      "4": 38,
+      "5": 58,
+      "6": 49,
+      "7": 80,
+      "8": 46,
+      "9": 42
+    },
+    "instinct_score_profile": {
+      "SP": 40,
+      "SO": 52,
+      "SX": 74
+    },
+    "dominant_instinct_hypothesis": "SX",
+    "ranking_override": false,
+    "stage4_outcome": "CONFIRMED",
+    "redirect_from_type": null,
+    "hypothesis_validated": true,
+    "gap": 22
+  },
+  "flags": [
+    {
+      "flag_type": "counter_type",
+      "description": "SX + Type 7 produces the SX 7 — The Adventurer subtype, which is not a classic counter-type in the way SP 3 or SX 6 are. No counter-type flag applies here; this combination presents as the intensified, chemistry-driven version of the standard Seven description, fully consistent with the open-text language ('intensity and chemistry,' 'all the way in, fast and intense')."
+    }
+  ],
+  "stage0_analysis": {
+    "idealization_match": true,
+    "shadow_match": true,
+    "notable_language": "The client's self-description — 'enthusiastic, curious, always chasing what's interesting' and 'seeing possibilities everywhere' — maps precisely onto the Type 7 idealized self-image of being free, full of possibility, and perpetually okay. The shadow is named with striking self-awareness: 'I avoid discomfort and difficult emotions — I reframe or escape rather than sitting with what's hard,' which is the canonical Type 7 avoidance of pain through reframing and forward motion."
+  },
+  "stage2_analysis": {
+    "hornevian_result": "Assertive — consistent with Type 7 (moves toward what it wants, takes up space, acts on desire)",
+    "harmonic_result": "Positive — consistent with Type 7 (manages conflict by reframing, staying upbeat, avoiding the painful dimension)",
+    "object_relations_result": "Frustration — Type 7's life theme is the recurring sense that what's available is never quite enough, driving the constant forward scan for the next stimulating thing",
+    "framework_alignment": "ALIGNED"
+  },
+  "stage4_analysis": {
+    "stress_point_description": "Client selected the canonical Type 7 stress-point answer, indicating movement toward Type 1 territory under pressure — the scattered, possibility-seeking Seven tightens into criticism, perfectionism, and rigidity when resources feel threatened. This is structurally consistent.",
+    "security_point_description": "Client selected the canonical Type 7 security-point answer, indicating movement toward Type 5 qualities when at ease — the ability to slow down, go deep, and stay present with one thing rather than scanning for the next. This aligns with the client's high Type 5 slider score and their expressed love of 'deep conversations,' suggesting they have meaningful access to this resource.",
+    "habit_of_mind_description": null
+  },
+  "holistic_analysis": {
+    "stage0_coherence": "The Stage 0 language is a near-textbook Seven self-portrait. 'Always chasing what's interesting,' 'seeing possibilities everywhere,' 'good at starting things and inspiring others but not always at following through,' and the explicit naming of emotional avoidance through reframing — all of these are core Seven expressions, stated with the self-awareness that often characterizes a Seven who has done some reflection.",
+    "cross_stage_consistency": "Consistency is strong across every stage. The slider profile shows a dominant Type 7 score (80) with a 22-point gap to the next type. The Stage 1 open responses amplify the SX instinct specifically: 'intensity and chemistry,' 'pour everything into it,' 'no charge to it I lose interest almost instantly.' Stage 2 framework answers (Assertive / Positive / Facts-led) all fit the Seven signature. Stage 3 leaned cleanly to Type 7 over Type 5. Stage 4 confirmed both stress and security movements.",
+    "instinct_coherence": "The SX instinct is clearly dominant across all channels. The slider gap (SX 74, SO 52, SP 40) is substantial. The open-text language is saturated with SX themes: the electric charge of connection, intensity as the criterion for engagement, the immediate drop in interest when chemistry is absent. The client's description of locking onto a person or idea and going 'all the way in, fast and intense' is quintessential SX Seven language.",
+    "alternative_type_signal": "Type 5 emerges as a meaningful secondary signal — the client scores it second highest on the slider (58), it is the security point for Type 7, and the love of 'deep conversations' and 'exploring ideas' resonates with Five-ish curiosity. However, the Five's withdrawal, conservation of energy, and discomfort with emotional intensity are absent from the client's language; the curiosity here is expansive and relational rather than hoarding or protective. This is best read as healthy Seven accessing their security point rather than a genuine Five pattern.",
+    "confidence_adjustment": "No downward adjustment warranted. Stage 4 CONFIRMED outcome, wide coherence gap, full framework alignment, and vivid Stage 0 language all support HIGH confidence. The only complexity worth noting is the high Type 5 secondary score, which is well-explained by the Seven's security line and the SX instinct's pull toward depth."
+  },
+  "client_facing": {
+    "client_narrative": "You described yourself as 'enthusiastic, curious, always chasing what's interesting' — and what stood out immediately was how vividly that energy comes through in everything you wrote. The way you named your greatest strength as 'seeing possibilities everywhere and getting the people I care about excited about them' captures something essential about how you move through the world.\n\nWhat felt equally striking was your honesty about the harder side: 'I avoid discomfort and difficult emotions — I reframe or escape rather than sitting with what's hard.' That kind of clear-eyed self-awareness is itself a significant asset.\n\nThe pattern that emerged across your responses points toward Type 7 — The Enthusiast. This hypothesis is offered as a starting point for exploration, not a conclusion to accept. Your Enneagram coach or practitioner is the right person to help you test whether it truly fits.",
+    "core_motivation_evidence": "At the heart of the Type 7 pattern is a deep drive to stay in contact with what feels alive, exciting, and full of possibility — and to keep moving away from anything that feels painful, limiting, or stuck. Your description of 'always chasing what's interesting' and 'seeing possibilities everywhere' is consistent with this orientation.\n\nThe detail that others see you as 'good at starting things and inspiring others but not always at following through' points toward the way the Seven's forward momentum can outpace completion — the next exciting thing draws attention before the current one is finished.\n\nMost tellingly, your own naming of emotional avoidance — 'I reframe or escape rather than sitting with what's hard' — aligns with the core Seven strategy of keeping the inner world oriented toward the positive and away from pain. This appears to be something you can already see in yourself, which is a meaningful place to begin.",
+    "instinct_personal_overlay": "Your responses suggest that the sexual (SX) instinct is the most active driver in how this Seven pattern shows up for you. The language you used is charged with themes of intensity and chemistry: 'once I lock onto a person or an idea I find electric, everything else drops away' and 'if there's no charge to it I lose interest almost instantly.'\n\nThis points toward an SX Seven who experiences life through the quality of connection and stimulation — not just quantity of experiences, but the electric aliveness of the right ones. The SX 7 is sometimes called The Adventurer: someone who pursues depth and intensity in relationship and ideas, often with great magnetism and focus when the spark is present.",
+    "secondary_type_narrative": "A secondary pattern worth noticing is the Type 5 — The Observer — thread that runs through your responses. Your love of 'deep conversations and exploring ideas with people I find genuinely fascinating' carries a Five-like quality of intellectual depth and curiosity.\n\nIn the Enneagram, Type 5 is actually the security point for Type 7 — the place a Seven moves when they feel genuinely safe and at ease. The relatively high Five score in your self-rating may reflect that you have meaningful access to Five's gifts: the ability to slow down, go deep, and stay with one thing.\n\nThis is worth exploring with your Enneagram coach or practitioner — whether that depth-seeking quality feels like a resource you can draw on, or whether it sometimes functions as another way to stay in the head and away from feeling.",
+    "stress_point_narrative": "When Sevens are under significant stress, they can move toward Type 1 territory — becoming uncharacteristically critical, rigid, and perfectionistic. The normally expansive, forward-moving energy tightens into judgment: of others, of situations, and often of themselves for not doing things right.\n\nRecognizing this shift — when your usual optimism cools into irritability or exacting standards — can be an early signal that something needs attention rather than reframing.",
+    "security_point_narrative": "When you feel genuinely safe and supported, you may find yourself accessing some of Type 5's best qualities: the ability to slow down, go deep, and stay fully present with one thing without immediately scanning for the next.\n\nFor a Seven, this can feel like a kind of rest — the relief of not needing to keep moving. Noticing when that ease is available, and what conditions make it possible, is one of the richest areas for your growth.",
+    "what_to_explore": [
+      "The Type 7 pattern is rooted in a drive to stay connected to what feels alive and possible — and to keep moving away from what feels painful or limiting. Where do you notice this most in your life right now? And what's one thing you most want to explore with your Enneagram coach or practitioner about how this shows up for you?",
+      "Think of a challenge or opportunity you're currently facing. Notice how your tendency to scan for possibilities, reframe discomfort, or move quickly toward what's exciting shows up there. Is that pattern helping you, getting in your way, or both?",
+      "Some of the key strengths that often show up in this pattern include: contagious enthusiasm, visionary thinking, the ability to make connections between ideas, and the gift of inspiring others. Some of the challenges include: difficulty following through, avoiding difficult emotions, and scattered focus. Which of these would you most like to bring more of — or work on — and why?"
+    ],
+    "instinct_evidence": [
+      "You described locking onto people or ideas that feel 'electric' and wanting to go 'all the way in, fast and intense.'",
+      "You said that without a 'charge' to a conversation or connection, you lose interest almost instantly.",
+      "Your greatest strength centers on getting 'the people I care about' excited — a relational, SX-flavored form of generativity."
+    ]
+  },
+  "coach_report": {
+    "bottom_line": "This is a clean, high-confidence Type 7 — The Enthusiast read, with SX as the dominant instinct. The single most important thing to hold going into the debrief is that this client can already name their avoidance pattern with unusual clarity ('I reframe or escape rather than sitting with what's hard') — meet that self-awareness with curiosity rather than confirmation, and use it as the entry point into the real work.",
+    "section1": {
+      "the_read": "This client presents as a vivid, self-aware Seven with a strong SX instinct driving the pattern. The Stage 0 language is saturated with Seven themes: 'always chasing what's interesting,' 'seeing possibilities everywhere,' 'good at starting things and inspiring others but not always at following through.' What is unusual here is the directness with which they name the avoidance strategy — 'I reframe or escape rather than sitting with what's hard' — suggesting a Seven who has some reflective distance on their own pattern. The SX instinct shows up clearly in the emphasis on intensity, chemistry, and the electric quality of connection; this is not a Seven who is primarily about breadth of experience, but about depth of charge. Stage 4 confirmed both stress and security movements cleanly, and the framework signature (Assertive / Positive / Frustration type) is fully aligned.",
+      "going_in": [
+        "Confidence is HIGH — Stage 4 CONFIRMED, wide coherence gap (92 vs. 52), full framework alignment, and vivid Stage 0 corroboration. Present this as a strong hypothesis rather than a certainty, but you have solid ground.",
+        "The client may recognize the Seven description quickly and enthusiastically — which is itself a Seven move. Invite them to slow down and check whether the recognition lands in the body, not just the mind.",
+        "The Type 5 secondary signal is meaningful and worth naming: their love of deep conversation and the high Five slider score (58) are likely explained by healthy access to their security line. Watch whether the client uses intellectual depth as genuine nourishment or as another form of avoidance.",
+        "No ranking override, no counter-type, no lookalike ambiguity. The one complexity to hold lightly is whether the SX instinct reads as 'Adventurer' fully, or whether the SO score (52) suggests a secondary SO stack worth exploring in conversation.",
+        "No final open response was provided — nothing to flag from that channel."
+      ]
+    },
+    "section1a": null,
+    "section2": {
+      "core_pattern": [
+        "The Seven's core motivation is the avoidance of pain, limitation, and deprivation — not primarily the pursuit of pleasure, though that's how it looks from the outside. The forward movement toward possibility is a defense against staying with what hurts.",
+        "The idealized self-image is: I am okay, I am free, I am full of possibility. The threat is anything that pins the Seven down, forces them to feel something difficult, or signals that something is missing or lost.",
+        "The Frustration object-relations pattern means Sevens chronically experience what's available as not quite enough — driving the constant scan for the next thing that might finally satisfy. The spark fades; the search continues.",
+        "The Seven's characteristic avoidance is pain — and the primary mechanism is reframing: converting negative experience into a positive frame, a learning opportunity, or a reason to keep moving. This client named this explicitly."
+      ],
+      "what_responses_showed": [
+        "'Seeing possibilities everywhere and getting the people I care about excited about them' — this is the Seven idealization stated plainly: I am the one who opens possibility for others.",
+        "'Not always at following through' (others' description) — the classic Seven completion gap, where the next exciting thing pulls attention before the current commitment is finished.",
+        "'I avoid discomfort and difficult emotions — I reframe or escape rather than sitting with what's hard' — this is the most diagnostically precise self-report in the assessment. The client knows the mechanism and can name it. This is a significant coaching asset.",
+        "'Once I lock onto a person or an idea I find electric, everything else drops away' — the SX inflection of the Seven's pattern: it's not scattered ADHD-style breadth, it's intense focus on whatever currently carries the charge, followed by a scan when the charge fades."
+      ],
+      "coaching_notes": [
+        "Lead with the possibility-and-avoidance polarity rather than the fun/scattered descriptor — this client is more self-aware than the standard Seven caricature and will engage more deeply with the underlying structure.",
+        "When presenting the core motivation, watch for the client to reframe it positively ('oh, that's actually a strength'). Gently name the reframe when it happens — it is itself a live demonstration of the pattern.",
+        "The explicit self-naming of avoidance is unusual and valuable. Don't rush past it. It may be the most useful foothold in the entire debrief."
+      ],
+      "probe": "Try asking: 'When you said you reframe or escape rather than sitting with what's hard — can you think of a recent moment when that happened? What were you actually moving away from?'"
+    },
+    "section3": {
+      "hardest_to_see": [
+        "The hardest thing for this client to see is likely that the reframing they do so fluently is not neutral coping — it is a way of protecting themselves from grief, loss, and the experience of not-enough. The reframe feels like resilience; it functions partly as avoidance.",
+        "The connection between the spark-fading and the forward scan is probably experienced as natural curiosity or authentic loss of interest, rather than as a patterned flight from the moment when something stops being easy or exciting.",
+        "The client's high Five secondary score and love of 'deep conversations' may create a blind spot: they may experience themselves as someone who goes deep, when in some contexts the intellectual depth is itself a way of staying in the head and out of the emotional body."
+      ],
+      "framework_signals": [
+        {
+          "label": "Social Style — Assertive",
+          "bullets": [
+            "This client moves toward what they want — they don't wait, withdraw, or comply. The description of locking onto something electric and going 'all the way in, fast and intense' is a pure Assertive move.",
+            "The Assertive stance means they are less likely to notice when they're pushing their energy onto others; the enthusiasm that 'gets people excited' can also override others' pace or readiness.",
+            "In coaching, the Assertive pattern means they may move quickly toward insight and action — watch for whether that momentum allows integration or becomes another form of forward flight."
+          ],
+          "probe": "Weave in: 'When you lock onto something and go all the way in — do you ever notice the people around you struggling to keep up? What happens inside you when they can't match your pace?'"
+        },
+        {
+          "label": "Emotional Style — Positive",
+          "bullets": [
+            "The Positive Outlook harmonic means this client's first response to difficulty is to find the silver lining, the opportunity, or the reason to keep moving. This is not denial — it is a genuine cognitive style that happens to also serve the avoidance function.",
+            "The client named this directly: 'I reframe or escape rather than sitting with what's hard.' They know the pattern. The coaching question is not whether they can see it but whether they can choose differently in the moment.",
+            "The Positive Outlook can make it hard for others to know when this client is genuinely struggling — and can make it hard for the client to know it themselves."
+          ],
+          "probe": "Weave in: 'What happens in your body when you notice yourself starting to reframe something? Is there a moment you can catch before the reframe kicks in?'"
+        },
+        {
+          "label": "Attachment Style — Frustration",
+          "bullets": [
+            "The Frustration life-theme means there is a chronic underlying experience that what's available is never quite enough — that the current thing, person, or experience doesn't fully satisfy the longing.",
+            "This is most visible in the client's own description: 'when the spark fades and I'm already scanning for the next thing that lights me up.' The scan is not just curiosity — it is a response to a felt lack.",
+            "In relationship and work, this pattern can create a cycle of intense engagement followed by gradual disillusionment as the new thing becomes ordinary — and the search begins again."
+          ],
+          "probe": "Weave in: 'When the spark fades — what is that experience like for you? Is there sadness in it, or does it mostly just feel like time to move on?'"
+        }
+      ],
+      "coaching_notes": [
+        "Walk the Positive Outlook pattern carefully — this client is reflective enough to engage with it, but there is a real risk they will intellectualize the insight rather than feel it. Keep inviting them back to the body and to specific moments.",
+        "The Frustration pattern is where the real depth lives for this client. The spark-fades-and-I-scan description is an opening — stay with it longer than might feel comfortable.",
+        "Pacing matters: the client's SX energy may want to move fast through the frameworks. Let them lead on pace, but hold the thread back to specific experience."
+      ],
+      "probe": "Try asking: 'If you couldn't reframe something difficult — if you just had to stay with it exactly as it is — what do you think you'd actually feel?'"
+    },
+    "section4": {
+      "subtype_name": "SX 7 — The Adventurer",
+      "how_instinct_shapes": [
+        "The SX instinct narrows the Seven's characteristic breadth into a focused beam — this is a Seven who is less about accumulating experiences and more about finding the ones that carry real charge, real aliveness. When it's electric, full commitment; when it's not, immediate disinterest.",
+        "The SX 7 is often deeply relational — their pursuit of stimulation is tied to connection, not just sensation. 'Deep conversations and exploring ideas with people I find genuinely fascinating' reflects this: the intellectual content matters less than the quality of contact.",
+        "This subtype can be mistaken for a Four (intensity, depth, the search for something real) or an Eight (the all-in commitment, the directness) — but the underlying driver is the Seven's forward-moving avoidance of pain, not the Four's dwelling in longing or the Eight's lust for power.",
+        "The SX 7's challenge is that intensity itself becomes a comfort strategy: as long as there is charge, there is no need to face the underlying anxiety. The fade of the spark is the moment when the real work becomes available."
+      ],
+      "easy_to_miss": [
+        "This subtype doesn't look like the classic scattered, ADHD-flavored Seven. The SX 7's focus can look like depth, commitment, and genuine connection — which it is, until the spark fades.",
+        "The high Five secondary score and the emphasis on 'deep conversations' can make this client look like a Five or a Four to a less experienced eye — the intellectual and relational depth feels authentic and is authentic, but the underlying engine is Seven.",
+        "The counter-type flag was assessed and not raised — this is a standard SX 7 presentation, not a counter-type. The intensity is the expected expression of SX, not a masking of the Seven pattern."
+      ],
+      "coaching_notes": [
+        "Introduce the SX framing by reflecting their own language back: 'You said it's all about intensity and chemistry — tell me more about what happens inside you when the charge is there versus when it isn't.'",
+        "The instinct conversation is a natural bridge to the Frustration pattern — the spark-fades experience is the SX 7's most direct encounter with the underlying not-enough.",
+        "Watch for whether the client identifies more with the SX label (intensity, connection) or whether they connect more deeply with the Seven's forward-motion pattern. Both are entry points; the client will tell you which resonates."
+      ],
+      "probe": "Try asking: 'When you said that without a charge you lose interest almost instantly — can you think of a relationship or project where that happened? What did you do with the feeling when the charge faded?'"
+    },
+    "section5": {
+      "stress_notes": [
+        "Under stress, Type 7 moves to Type 1 — the expansive, possibility-seeking energy contracts into criticism, rigidity, and a harsh inner perfectionist. For an SX 7, this can show up as intense dissatisfaction with a person or situation that has stopped being exciting, expressed as judgment rather than grief.",
+        "The client's Stage 4 stress answer confirmed this canonical movement. In coaching, it's worth exploring whether they recognize this shift in themselves — the moment when enthusiasm cools and they become unusually critical or exacting.",
+        "The growth invitation here is to see the stress-move as information: the tightening into Type 1 territory is a signal that something painful is being avoided, not that the situation or person is actually deficient."
+      ],
+      "stress_probe": "Try asking: 'Can you think of a time when you became unexpectedly critical or rigid — when your usual optimism just wasn't there? What was happening underneath that?'",
+      "security_notes": [
+        "In security, Type 7 moves to Type 5 — slowing down, going deep, staying present with one thing rather than scanning. For this client, the Stage 4 security answer confirmed this movement, and the high Five slider score suggests meaningful access to this resource.",
+        "The love of 'deep conversations and exploring ideas' may already be a manifestation of this security movement — the SX 7 at ease, able to be fully present with one person and one idea.",
+        "The coaching angle is to help the client recognize what conditions make this ease available — and whether they can create those conditions more intentionally rather than waiting for them to arise."
+      ],
+      "security_probe": "Try asking: 'You described loving deep conversations with people you find genuinely fascinating — what does it feel like when you're actually in one of those? What's different about your inner state then?'",
+      "wings_notes": [
+        "Type 7 has wings at Type 6 and Type 8. The 6-wing brings a more relational, loyal, and anxiety-aware quality — Sevens with a 6-wing are often warmer and more committed to their people, but also more prone to second-guessing.",
+        "The 8-wing brings intensity, directness, and a more confrontational edge — Sevens with an 8-wing tend to be more decisive, less deferential, and more willing to push toward what they want. Given the client's SX instinct and the assertive, all-in quality of their language, a significant 8-wing is worth exploring.",
+        "The client's Stage 1 Type 8 score (46) is moderate, and the Type 6 score (49) is similar — no dominant wing is strongly indicated by the data, but the SX instinct and the intensity language lean toward an 8-wing flavor.",
+        "Let the client lead on this: ask them to read both wing descriptions and notice which qualities feel familiar. The wing conversation often surfaces important nuance about how the type expresses in practice."
+      ],
+      "probe": "Try asking: 'If you look at the qualities associated with a Six — loyalty, warmth, anxiety about what could go wrong — and the qualities associated with an Eight — directness, intensity, taking charge — which feels more like a part of how you show up?'"
+    },
+    "section6": {
+      "resonates_strongly": {
+        "bullets": [
+          "When the client strongly agrees, affirm the recognition warmly and then immediately move toward the harder edge: 'It's easy to love the possibility-seeking part of this — I'm curious about the reframing-and-escaping part you named. What does it cost you?'",
+          "Strong recognition in a Seven can itself be a reframe — 'I love this, this is so me' is a way of staying positive and not going into the shadow. Gently slow it down: 'Before we move on — is there anything here that doesn't feel like you, or that stings a little?'"
+        ],
+        "probe": "What part of this resonates the most — and what part, if any, are you least comfortable sitting with?"
+      },
+      "pushes_back": {
+        "bullets": [
+          "If the client pushes back, do not defend the hypothesis. Acknowledge what doesn't fit and get curious about it: 'What feels wrong about it? Can you tell me what it misses about you?'",
+          "The most likely pushback from an SX 7 is around the avoidance framing: 'I don't avoid — I actually go deep.' Honor this: depth and avoidance can coexist. The question is what they're staying away from even in the deep conversations.",
+          "If the pushback is sustained, introduce the alternate candidate: Type 5 — The Observer. The key distinguishing question is whether the depth-seeking is about conserving and protecting inner resources (Five) or about the charge and aliveness of the connection (Seven).",
+          "Hold the hypothesis lightly and let the client's own experience be the test: 'Which description, when you read it, creates a little discomfort or recognition that you didn't expect?'"
+        ],
+        "alt_type_name": "Type 5 — The Observer",
+        "key_distinction": "The key question is whether the drive for depth and knowledge feels like protecting a limited inner resource from depletion (Type 5), or like seeking the aliveness and charge of the connection itself (Type 7)."
+      },
+      "confused": {
+        "bullets": [
+          "If the client is confused, find the foothold in their own language: 'You used the word electric twice in your responses — what does that tell you about how you know when something is worth your energy?'",
+          "Treat what doesn't fit as equally useful: 'The parts that don't resonate are just as important as the parts that do. What specifically feels off — and what type, if any, feels closer in that moment?'"
+        ],
+        "probe": "If you had to name the one quality about yourself that drives most of your decisions — the thing underneath the enthusiasm — what would it be?"
+      }
+    },
+    "section6a": null
+  },
+  "client_words": {
+    "leading_quotes": [
+      "seeing possibilities everywhere and getting the people I care about excited about them",
+      "I avoid discomfort and difficult emotions — I reframe or escape rather than sitting with what's hard"
+    ],
+    "alternate_absence_note": "The client's language shows almost no signal for Type 5 — The Observer: there is no withdrawal, conservation of energy, or protective self-sufficiency. The curiosity and depth they express are expansive and relational rather than guarded."
+  },
+  "final_response": {
+    "present": false,
+    "classification": "EMPTY",
+    "client_self_typed": false,
+    "client_self_typed_type": null,
+    "client_self_typed_match": null,
+    "contextual_note": null
+  }
+}

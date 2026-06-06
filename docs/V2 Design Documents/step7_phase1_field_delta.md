@@ -72,11 +72,13 @@ in the reshaped `comparison` / `debrief` blocks. Source = `TYPE_NAMES` + subtype
 
 ## Carry-over verifications (confirm during Phase 1 / Phase 4 — not new fields)
 
-1. **`gap` → `near_tie`.** `gap` (tight/medium/wide) is **NOT** in the Call #2 `hypothesis`
-   schema; it rides in the `scores` payload from `app.js`. `near_tie = (gap === "tight")`
-   is derived in prep (Phase 4). Confirm `gap` reaches the stored result — either prep reads
-   it from the scores record, or the server stamps it onto `hypothesis` the way
-   `ranking_override` is stamped. Fixtures currently emit `"wide"`.
+1. **`near_tie` derives from `call1_ranking`, NOT `hypothesis.gap`.** Resolved in Phase 4:
+   `scores.gap` is the Stage-1 **slider** top-two margin (e.g. sp4 = 18 = type4 79 − type3 61),
+   not a coherence gap, and the engine emits no tight/medium/wide label. A7 defines near-tie off
+   the **`call1_ranking` coherence** scores: `near_tie = (top1.score − top2.score) ≤ 10`. Prep
+   computes this directly from `hypothesis.call1_ranking` (already in `api_result`; sp4/sx7
+   coherence spread = 40 → `near_tie = false`). The Phase 1 `hypothesis.gap` stamp (slider gap)
+   stays as **harmless deterministic metadata** but is NOT the near-tie source.
 2. **`responses_snapshot` reaches prep.** Confirmed present in the `/api/submit` payload
    (`buildResponsesSnapshot()` in `app/public/app.js`) and written by `db.js`. Prep reads
    the DB column. New fields #2/#3 depend on it.
