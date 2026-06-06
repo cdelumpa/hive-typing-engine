@@ -1243,7 +1243,7 @@ function _coachPage2(m) {
   <div class="report-page">
     <div class="page-header"><div class="ph-title">Type Hypothesis Comparison</div></div>
     <div class="page-body" data-page="2" data-zone="page2-body">
-      <div class="bc-callout" data-zone="p2-callout">${esc(c.note || '')}</div>
+      ${c.note ? `<div class="bc-callout" data-zone="p2-callout">${esc(c.note)}</div>` : ''}
       <table class="cmp" data-zone="p2-table">
         <thead><tr><th></th>
           <th class="cmp-lead-h">Type ${c.leading.number} — ${esc(c.leading.name)}</th>
@@ -1313,7 +1313,7 @@ function coachReportStyles() {
   .bc-body { font-size: 10pt; line-height: 15pt; margin: 0 0 8px; }
   .bc-bullet { font-size: 10pt; line-height: 15pt; margin: 0 0 6px; padding-left: 12px; position: relative; }
   .bc-bullet::before { content: "•"; color: var(--hive-orange); position: absolute; left: 0; }
-  .bc-grid { display: grid; grid-template-columns: 58% 42%; gap: 22px; height: 100%; }
+  .bc-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; height: 100%; }
   .bc-pill { background: var(--leading-pill-bg); border-radius: 8px; padding: 12px 16px; }
   .bc-pill-num { font-size: 27pt; font-weight: bold; color: var(--leading-pill-text); line-height: 1; }
   .bc-pill-name { font-size: 14pt; font-weight: bold; color: var(--leading-pill-text); }
@@ -1598,7 +1598,7 @@ function clientReportStyles() {
   .prm-card-d { font-size: 8pt; line-height: 11pt; color: var(--body); margin: 2px 0; }
   .prm-card-g { font-size: 8pt; color: var(--section-title); }
   .prm-footer { font-size: 9pt; font-style: italic; color: var(--section-title); margin-top: 8px; text-align: center; }
-  .cl-2col { display: grid; grid-template-columns: 60% 40%; gap: 20px; }
+  .cl-2col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
   .cl-svg { width: 250px; height: 250px; margin: 0 auto; }
   .cl-pill-num { font-size: 22pt; font-weight: bold; color: var(--leading-pill-text); } .cl-pill-name { font-size: 14pt; font-weight: bold; color: var(--leading-pill-text); } .cl-pill-sub { font-size: 10pt; color: var(--leading-pill-text); }
   .cl-quote { background: var(--teal-box); border-left: 3px solid var(--hive-blue); padding: 8px 12px; border-radius: 4px; font-style: italic; font-size: 10pt; margin: 8px 0; }

@@ -58,9 +58,9 @@ for (const fx of ['sp4', 'sx7']) {
   check('client P7 strengths = 3 {title,body}', clientModel.pages.strengths_challenges.strengths.length === 3 && !!clientModel.pages.strengths_challenges.strengths[0].title);
   check('client P8 application.center has bullets', (clientModel.pages.application.center.bullets || []).length >= 1);
 
-  // PENDING static.* are null (not a failure — expected)
-  const pend = clientModel.pages.welcome.body === null && clientModel.pages.primer === null && clientModel.pages.instinct_subtype.instinct_primer === null;
-  check('PENDING static.* are null (welcome/primer/instinct_primer)', pend);
+  // static.* now populated from the docx GLOBAL STATIC CONTENT section (post static-globals commit)
+  const staticOk = !!clientModel.pages.welcome.body && !!clientModel.pages.primer && !!clientModel.pages.instinct_subtype.instinct_primer;
+  check('static.* populated (welcome/primer/instinct_primer)', staticOk);
 
   const warns = (coachModel._warnings || []).concat(clientModel._warnings || []);
   if (warns.length) console.log('    (warnings: ' + warns.join('; ') + ')');

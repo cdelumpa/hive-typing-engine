@@ -73,6 +73,15 @@ function capByLines(bullets, maxWords = 80, maxBullets = 6) {
   return out;
 }
 const stripProbe = (s) => (s || '').replace(/^\s*(Try asking|Weave in)\s*:\s*/i, '').trim();
+// Clamp a long narrative to ~maxWords, backing off to the last sentence end (B2 callout ≈ 3 lines).
+function clampText(str, maxWords) {
+  const words = String(str || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) return (str || '').trim();
+  let cut = words.slice(0, maxWords).join(' ');
+  const end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+  if (end > 0) cut = cut.slice(0, end + 1);
+  return cut.trim();
+}
 // section2 bullet → {bold_lead, body}: split on first em/en-dash or colon; else lead empty.
 function splitLead(str) {
   const m = (str || '').match(/^(.{3,60}?)\s*[—–:]\s+(.+)$/s);
@@ -94,6 +103,7 @@ function buildCoachModel({ apiResult, client, coach, tighten = 0 }) {
   const h = apiResult.hypothesis;
   const cr = apiResult.coach_report || {};
   const cw = apiResult.client_words || {};
+  const cf = apiResult.client_facing || {};
   const heroN = h.confirmed_type;
   const altN = h.alternate_candidate;
   const instinct = h.dominant_instinct_hypothesis || h.confirmed_instinct || '';
@@ -128,7 +138,7 @@ function buildCoachModel({ apiResult, client, coach, tighten = 0 }) {
       leading: { number: heroN, name: meta.name, rows: t.comparison },
       alternate: { number: altN, name: TYPE_NAMES[altN], rows: alt.comparison },
       discriminator: pb.key_distinction || '',
-      note: pb.key_distinction || '',
+      note: clampText(cf.secondary_type_narrative, 40) || null,   // callout = why the alternate surfaced (~3 lines, NOT the discriminator)
       client_words: { quotes: cw.leading_quotes || [], absence_note: cw.alternate_absence_note ?? null },
     },
     debrief: {
