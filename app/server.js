@@ -457,6 +457,9 @@ framework_signals: Array of exactly 3 objects, one per cross-referencing framewo
 coaching_notes: 2-3 bullets on pacing, tone, and what to watch for when walking through patterns
 probe: One body-based probe. Format as "Try asking: [question]"
 
+PAGE-3 DEBRIEF BULLET LENGTH — CRITICAL FORMAT CONSTRAINT for sections 4 and 5:
+The coach report's Page 3 merges section 4's bullets (how_instinct_shapes + easy_to_miss + coaching_notes) into one "Subtype" debrief block and section 5's stress_notes + security_notes into one "Lines" block, each in a fixed two-column zone. The renderer keeps up to 6 bullets per block but DROPS anything beyond ~80 words total — so long bullets are silently lost. Write every bullet in how_instinct_shapes, easy_to_miss, coaching_notes (section 4) and stress_notes, security_notes, wings_notes (section 5) as ONE crisp coaching point: ≤ 13 words, ≤ 2 lines, front-loading the key idea. Prefer more short bullets over fewer long ones. (A7 bullet-sizing: ≤ 3 lines/bullet, ≤ 9 lines/section.)
+
 SECTION 4 — Debriefing Instinct and Subtype
 subtype_name: Full subtype name (e.g. "SP Nine — The Self-Preservation Peacemaker")
 how_instinct_shapes: 3-4 bullets on how the dominant instinct shapes this type's presentation for THIS client — coaching-perspective bullets drawn from subtype knowledge
