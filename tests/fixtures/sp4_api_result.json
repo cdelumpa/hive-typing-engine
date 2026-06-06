@@ -1,7 +1,7 @@
 {
   "hypothesis": {
     "confirmed_type": 4,
-    "confirmed_type_name": "The Individualist",
+    "confirmed_type_name": "Type 4 — The Individualist",
     "confidence_level": "HIGH",
     "leading_candidate": 4,
     "alternate_candidate": 1,
@@ -70,13 +70,13 @@
   "flags": [
     {
       "flag_type": "counter_type",
-      "description": "SP 4 (The Creative Individualist) is a known counter-type that presents with driven resilience and outward competence rather than visible emotional expressiveness — the client's own words confirm this: 'I just put my head down and push through' and 'I'd rather prove I can endure than let anyone see me struggle.' This can easily be mistaken for a Type 3 or Type 1 presentation."
+      "description": "The SP + Type 4 combination produces the counter-type SP 4 — The Creative Individualist — whose hallmark is tenacity, forward drive, and refusal to show inner defeat rather than the more outwardly expressive melancholy of the standard Four. The client's own words confirm this: 'I just put my head down and push through… I'd rather prove I can endure than let anyone see me struggle' alongside a high Type 3 slider (61) and a tight grip on personal resources and routines."
     }
   ],
   "stage0_analysis": {
     "idealization_match": true,
     "shadow_match": true,
-    "notable_language": "The client directly names 'authenticity and beauty,' 'emotional depth,' and 'what is real and meaningful' — classic Type 4 idealization language around being unique and genuinely connected to what matters. The named shadow is equally precise: 'envy — a persistent sense that others have something I lack' is the textbook Type 4 shadow, explicitly acknowledged."
+    "notable_language": "The idealization pattern is fully present: 'drawn to authenticity and beauty,' 'emotional depth and the ability to connect authentically with what is real and meaningful,' and 'very genuine and committed' (others' view) all map to the Four's 'I am unique, authentic, deep' self-image. The shadow is named with unusual directness: 'envy — a persistent sense that others have something I lack' is the Four's characteristic shadow stated plainly."
   },
   "stage2_analysis": {
     "hornevian_result": "Withdrawn",
@@ -85,207 +85,206 @@
     "framework_alignment": "ALIGNED"
   },
   "stage4_analysis": {
-    "stress_point_description": "The client selected the canonical Type 4 stress answer, consistent with movement toward Type 2 under pressure — clinging to connection, becoming more emotionally reactive and dependent when the sense of deficiency intensifies.",
-    "security_point_description": "The client selected the canonical Type 4 security answer, consistent with movement toward Type 1 when grounded — becoming more principled, disciplined, and purposefully active rather than lost in longing.",
+    "stress_point_description": "The client picked the canonical Type 4 stress answer, pointing toward Type 2 territory under pressure — consistent with the Four's movement toward over-involvement, people-pleasing, or emotional entanglement when resources are depleted.",
+    "security_point_description": "The client picked the canonical Type 4 security answer, pointing toward Type 1 territory when grounded — consistent with the Four accessing discipline, principled action, and constructive productivity when feeling safe.",
     "habit_of_mind_description": null
   },
   "holistic_analysis": {
-    "stage0_coherence": "The Stage 0 language is among the most coherent Type 4 self-descriptions possible: 'I feel things very deeply,' 'drawn to authenticity and beauty,' 'something essential is missing in me,' and the explicit naming of envy as the most problematic quality. The gap between self-image (deep, authentic) and others' description (self-absorbed at times) mirrors the classic Type 4 blind spot precisely.",
-    "cross_stage_consistency": "Every stage points in the same direction. The slider profile leads clearly with Type 4. The Stage 1 open response ('I don't fall apart — I just put my head down and push through... there's this ache that I'm somehow not enough') is the SP 4 counter-type voice almost verbatim. The Stage 2 Withdrawn + Intensity + Feelings signature is the canonical 4 framework. Stage 3 discriminated cleanly toward Type 4. Stage 4 confirmed both stress and security movement.",
-    "instinct_coherence": "SP dominates at 73, with SX at 51 and SO at 40. The SP instinct confirms the counter-type pattern: self-management, resource conservation, 'I keep a tight handle on my routines, my space, and my energy' — all SP 4 hallmarks. The SX score at 51 is a meaningful secondary, consistent with the depth of feeling, but SP is clearly primary and not in doubt.",
-    "alternative_type_signal": "Type 3 (The Performer) registered as the raw slider runner-up at 61 and is the natural SP 4 lookalike — the counter-type's driven, enduring, 'prove I can handle it' presentation resembles Three's achievement orientation. However, the client's own articulation of envy, the 'ache that I'm somehow not enough,' and the value placed on authenticity over recognition all point firmly to Four rather than Three. Type 1 (The Improver) is the AI Call #1 alternate, likely because of the disciplined, push-through quality; but the motivation is deficiency-repair rather than correctness-seeking.",
-    "confidence_adjustment": "Starting from CONFIRMED (HIGH), no adjustment warranted. The case is exceptionally coherent: Stage 0 language, framework signature, Stage 3 discrimination, and Stage 4 stress/security both confirmed. The only complexity is the counter-type presentation, which is a feature of this hypothesis, not a threat to it."
+    "stage0_coherence": "The Stage 0 language is exceptionally clean for Type 4: 'feel things very deeply,' 'drawn to authenticity and beauty,' 'feeling misunderstood or like something essential is missing in me,' and the explicit naming of envy all track the Four's core motivation and shadow with high fidelity. No language in Stage 0 points meaningfully toward another type.",
+    "cross_stage_consistency": "The SP instinct score (73) is the clear dominant, and the Stage 1 open response after the instinct sliders — 'managing my own resources… tight handle on my routines, my space, and my energy so I don't get caught off guard' — matches the SP 4 counter-type presentation precisely. The Stage 3 routing to counter-type mode was appropriate, and the Stage 3 lean resolved cleanly to Person A (Type 4). Stage 4 confirmed both stress and security points canonically. Every stage points the same direction.",
+    "instinct_coherence": "SP dominates at 73 with a 22-point gap over SX (51) and a 33-point gap over SO (40). The instinct open response is a textbook SP anchor: resource management, self-reliance, routine, and not being caught off guard. Instinct confidence is high.",
+    "alternative_type_signal": "Type 3 (the Performer) registered 61 on the slider and 48 in Call #1 coherence — elevated enough to note as the third candidate but not as a genuine alternate. The 'push through' and 'prove I can endure' language from the Stage 1 open text is better explained by the SP 4 counter-type pattern (tenacity, refusal to show weakness) than by a genuine Three motivation. The Stage 3 counter-type discriminating pair resolved cleanly to Four, ruling out a Three primary. The Type 1 alternate (Call #1 coherence 52) is structurally adjacent because Type 4's security point is Type 1 — but no 'I must be right/correct' worldview appears in Stage 0 language.",
+    "confidence_adjustment": "Starting point is HIGH (CONFIRMED outcome). All five checks reinforce the hypothesis without qualification. The counter-type flag is a presentation nuance, not a confidence reducer — it actually clarifies why surface behaviors (push-through drive, high Type 3 slider) exist without displacing the Four core. Confidence remains HIGH."
   },
   "client_facing": {
-    "client_narrative": "What stood out immediately was how precisely you named your own inner world. 'Envy — a persistent sense that others have something I lack' is a rare and honest piece of self-knowledge, and the fact that you named it so directly says something about your commitment to seeing yourself clearly.\n\nYou also described a quality that might surprise some people who know you: the way you push through difficulty without letting it show. 'I'd rather prove I can endure than let anyone see me struggle' — that capacity for quiet resilience lives alongside the deep feeling and the ache of 'something essential is missing in me.' Both things are real in you.\n\nThe pattern that emerges across everything you shared points toward Type 4, The Individualist — specifically in a form that doesn't always look the way people expect. Your version of this type is more inward and self-sufficient than outwardly expressive, driven by a deep need to prove your own worth to yourself rather than to display it to others.",
-    "core_motivation_evidence": "At the center of the Type 4 pattern is a felt sense that something essential is missing — and you named it almost exactly in those words. The longing for what others seem to have, the pull toward authenticity and what is 'real and meaningful,' and the identification with depth over ease all point toward this core motivation.\n\nThe ache of 'I'm somehow not enough' that you described isn't a passing insecurity — it appears to be a persistent interior companion, one that drives both the searching quality others see in you and the fierce push-through energy you bring when things get hard. The drive to endure rather than be seen struggling is consistent with a Four who has learned to manage deficiency by proving they can survive it.",
-    "instinct_personal_overlay": "Your self-preservation instinct shapes your Four-ness in a specific way: rather than expressing emotion outwardly, you manage inward. 'I keep a tight handle on my routines, my space, and my energy so I don't get caught off guard' is a clear SP signature — protection through self-sufficiency and control of environment.\n\nThis means your emotional depth largely runs beneath the surface, channeled into a kind of fierce private endurance rather than dramatic expression. Others may see your creativity, your intensity, your commitment — but the full weight of what you carry stays mostly yours.",
-    "secondary_type_narrative": "The alternate hypothesis worth holding lightly is Type 1, The Improver. The disciplined push-through quality, the sense of needing to do things right, and the high scores on both Type 1 and Type 3 sliders suggest there may be some One energy in how you operate — particularly around standards and self-correction.\n\nThe key distinction is motivation: Ones push through because something needs to be done correctly; Fours push through to prove they are not lacking. If you notice that your inner critic sounds more like 'this isn't good enough' than 'I am not enough,' that distinction is worth exploring with your coach.",
-    "stress_point_narrative": "Under significant stress, Type 4s can move toward Type 2 territory — becoming more emotionally reactive, seeking connection and reassurance, or feeling urgently that they need others to see and affirm them. The drive for independence can quietly flip into a hunger for someone to reach back.\n\nRecognizing this shift — when the self-sufficient push-through posture gives way to a sudden need to be understood or held — can be an important moment of self-compassion rather than self-criticism.",
-    "security_point_narrative": "When you feel genuinely grounded and supported, you can access Type 1's positive qualities — becoming more principled, disciplined, and outwardly purposeful. The emotional searching settles, and you find yourself able to act with clarity and conviction rather than from longing.\n\nThis movement toward One at your best is worth noticing: it's a signal that the ache has quieted enough for you to simply do good work in the world.",
+    "client_narrative": "What stood out immediately in your responses was the precision with which you named your inner life. 'I feel things very deeply,' 'drawn to authenticity and beauty,' and 'something essential is missing in me' — these are not approximations. They point toward a core orientation that is genuinely concerned with depth, meaning, and what is real.\n\nAnd then there is this: 'envy — a persistent sense that others have something I lack.' The willingness to name that, clearly and without softening it, is itself a signature of the pattern we noticed.\n\nThe pattern that appears most consistent with what you described is Type 4 — The Individualist. This is the type whose deepest longing is for authenticity and a sense of completeness, and whose most persistent challenge is the feeling that something essential is always just out of reach.",
+    "core_motivation_evidence": "The Four's core motivation is a longing for authentic selfhood — a search for identity and meaning that never fully settles, accompanied by a background sense of deficiency or incompleteness. Your description of 'something essential is missing in me' is one of the clearest expressions of this in the assessment data.\n\nThe way you named your greatest strength — 'emotional depth and the ability to connect authentically with what is real and meaningful' — aligns with the Four's orientation toward depth and genuine connection over surface presentation.\n\nThe explicit naming of envy as your most problematic quality is consistent with what the Enneagram tradition identifies as the Four's characteristic emotional habit: comparing inward and finding yourself wanting, while sensing others have what you lack.",
+    "instinct_personal_overlay": "Your responses point toward the self-preservation instinct as the dominant lens through which your Four pattern operates. Where the Four's longing for something missing might manifest as intense emotional expression in other configurations, yours appears to turn inward toward endurance and self-management.\n\nYour own words after the instinct questions describe it precisely: 'managing my own resources… a tight handle on my routines, my space, and my energy so I don't get caught off guard.' The ache of inadequacy is present — but the response is to hold the line, not to display the wound.\n\nThis combination is sometimes called the Creative Individualist, and it can look from the outside more like quiet determination than like the more expressive Four most people picture.",
+    "secondary_type_narrative": "The alternate hypothesis worth holding lightly is Type 1 — The Improver. Fours in their security movement access One energy — discipline, principled action, and an internalized standard of correctness — and for some Fours, especially in the SP configuration, this can read as a genuine One presentation. Your Stage 4 responses confirmed that you access One-like qualities when grounded and safe. Worth exploring with your Enneagram coach or practitioner: does the drive toward correctness and improvement feel like a resource you can access, or does it feel like your actual baseline?",
+    "stress_point_narrative": "Under significant stress, Fours can move toward Type 2 territory — becoming over-involved in others' needs, seeking connection or approval in ways that feel slightly unlike their usual self-reliant stance. You may notice yourself working harder to be needed, or finding it difficult to maintain your usual emotional boundaries when things are most difficult. Recognizing this movement for what it is — a stress response rather than a new problem — can help you find your footing again more quickly.",
+    "security_point_narrative": "When you feel genuinely grounded and supported, you have access to Type 1's positive qualities: focus, principled action, and the ability to translate what you feel into something disciplined and constructive. This is one of the Four's underappreciated resources. The path toward it often involves less looking inward for what's missing and more turning outward toward what actually needs to be done.",
     "what_to_explore": [
-      "At the heart of what we noticed in your responses is a deep sense that something essential might be missing — a feeling that others have something you lack. Where do you notice that feeling most powerfully in your life right now? What would you most want to explore with your coach about how it shapes your choices?",
-      "Think of a specific challenge you're currently navigating — something that's asking something hard of you. As you imagine yourself inside that situation, do you notice the 'put my head down and push through' posture showing up? Is it serving you there, getting in the way, or both?",
-      "Your greatest strength is emotional depth and the ability to connect with what is real and meaningful. Your most challenging quality, by your own account, is envy. Which of these would you most want to bring more of — or work on — right now, and what makes you choose that one?",
-      "Something worth observing this week: notice the moments when you feel that pull of envy or the sense of lacking. In those moments, ask yourself whether what you're feeling is closer to 'I want what they have' or 'I want to be as good as them.' The first is a longing for something external; the second is a standard you're holding yourself to. Which feels more true?"
+      "At the center of the Four pattern is a longing for authenticity and completeness — a felt sense that something essential is missing, paired with a deep capacity for genuine connection and depth. Where do you notice this longing most vividly in your life right now? And what would you most like to explore with your Enneagram coach or practitioner about what it would mean to feel complete?",
+      "Think of a specific challenge you're currently navigating — something that is asking something real of you. How do your patterns of feeling deeply, comparing inward, and pushing through show up there? Are those patterns helping you, getting in the way, or doing both at once?",
+      "Some of the key strengths consistent with your pattern include emotional depth, authenticity, creative vision, and the capacity to stay committed under pressure. Some of the key challenges include envy, a sense of deficiency, and the difficulty of letting others see where you struggle. Which of these would you most like to bring more of — or work on — and what makes that one feel most alive right now?"
     ],
     "instinct_evidence": [
-      "You described keeping 'a tight handle on routines, space, and energy' so you're not caught off guard — a clear self-preservation focus.",
-      "You named not depending on anyone and managing your own resources as central to how you navigate the world.",
-      "Your push-through quality — 'I'd rather prove I can endure' — reflects SP energy channeling emotion inward rather than outward."
+      "You described keeping 'a tight handle on routines, space, and energy so I don't get caught off guard' — a self-preservation anchor.",
+      "You said you focus on 'not depending on anyone' and managing your own resources — consistent with SP self-reliance.",
+      "You described pushing through difficulty without letting anyone see you struggle — protecting your inner reserves."
     ]
   },
   "coach_report": {
-    "bottom_line": "This is a high-confidence SP 4 — the counter-type presentation is confirmed across every stage of the assessment. The single most important thing to hold going into the debrief is that this client's Four-ness looks like stoic endurance on the outside and lives as 'I'm somehow not enough' on the inside — standard Four descriptions of emotionality and expressiveness may not land immediately.",
+    "bottom_line": "This is a high-confidence SP 4 — The Creative Individualist. The counter-type presentation is the single most important thing to hold going in: the client's push-through tenacity and resource-management focus can read as Three or One energy on the surface, but the Stage 0 language and Stage 4 confirmation leave no structural ambiguity about the Four core.",
     "section1": {
-      "the_read": "This client is a clear SP 4, and they know their inner world well enough to name it precisely. The Stage 0 language is a near-perfect Four idealization ('authenticity and beauty,' 'what is real and meaningful,' 'emotional depth') paired with an unusually direct naming of the Four shadow: 'envy — a persistent sense that others have something I lack.' The Stage 1 open response then gives you the SP counter-type presentation in the client's own voice: 'I just put my head down and push through... I'd rather prove I can endure than let anyone see me struggle.' What you're sitting across from is a Four who has built a self-sufficient, managing, quietly tenacious outer structure — and carries a persistent ache of deficiency underneath it. The emotional world is real and active; it's just not on display.",
+      "the_read": "This client is a clear SP 4. The Stage 0 language is unusually clean — 'something essential is missing in me,' 'envy — a persistent sense that others have something I lack,' 'drawn to authenticity and beauty' — these are not paraphrases of Four concepts; they are the concepts, stated in the client's own words. What complicates the surface read is the counter-type presentation: 'I just put my head down and push through… I'd rather prove I can endure than let anyone see me struggle' is textbook SP 4 tenacity, the hallmark of the Creative Individualist. The instinct open response — tight management of resources, routines, space, and self-reliance — further confirms the SP anchor. Stage 3 and Stage 4 both confirmed the Four hypothesis cleanly, with no ambiguity in the discriminating lean or the movement verification.",
       "going_in": [
-        "Confidence is HIGH — every stage confirmed, including both stress and security movement. You have unusually clean data here.",
-        "The counter-type presentation is the main coaching navigation challenge: the client's outer presence is composed and enduring, not emotionally demonstrative. Lead with the push-through quality and the 'ache of not enough' before reaching for the standard Four vocabulary of longing and expressiveness.",
-        "The client may strongly recognize the deficiency narrative ('something essential is missing in me') and the envy acknowledgment — these are accessible. The part they may initially resist is being called a Four if they associate Type 4 with dramatic or openly emotional expression.",
-        "No self-typing was indicated — the client did not claim a type.",
-        "Type 3 (The Performer) is the third-candidate lookalike for SP 4 — if the client pushes back, the counter-type's driven competence can feel more like Three. Hold that option ready but don't surface it first."
+        "Confidence is HIGH — every stage of the assessment cohered; present the hypothesis with appropriate warmth and directness.",
+        "The counter-type framing is essential here: this client may not immediately recognize themselves in the more expressive or melancholic Four description. Lead with the SP 4 pattern — endurance, self-reliance, a private ache — not the dramatic or romantic archetype.",
+        "The client named envy explicitly and without softening. That's unusually self-aware. Honor that. Don't over-explain it — they know it.",
+        "Type 3 showed elevated on the slider (61) and the client's language includes performance-adjacent patterns ('prove I can endure'). The Stage 3 counter-type discrimination resolved this cleanly — but be ready for the client to recognize Three energy in themselves. That's the counter-type doing its work.",
+        "No self-typing was offered by the client. No contextual flags. The final open response field is absent."
       ]
     },
     "section1a": {
       "why_this_matters": [
-        "SP 4 (The Creative Individualist) is the counter-type of the Four triad — they present with self-sufficiency, quiet resilience, and a drive to endure rather than the emotional expressiveness associated with the standard Four description. The client will likely not see themselves in descriptions of Type 4 that emphasize moodiness, withdrawal, or dramatic feeling.",
-        "The counter-type presentation here is confirmed by the client's own language: 'I'd rather prove I can endure than let anyone see me struggle' is SP 4 almost verbatim. The self-management, resource-conserving instinct discourse ('tight handle on routines, space, and energy') is equally diagnostic.",
-        "Without the counter-type frame, this client's pattern could easily be misread as Type 1 (driven by standards and self-correction) or Type 3 (driven by proving competence). Both are lookalikes for SP 4 at the behavioral level.",
-        "Introducing the counter-type frame early in the debrief will help the client make sense of why Type 4 fits even if they don't see themselves as 'the emotional type.'"
+        "SP 4 is the counter-type: the Four pattern folds inward rather than outward.",
+        "Standard Four descriptions (expressive, romantic, melancholic) may not land — client may push back.",
+        "The counter-type's hallmark is tenacity and not-showing-weakness, not emotional display.",
+        "Mistyping risk: client may identify with 3 or 1 on the surface without counter-type framing."
       ],
       "standard_vs_counter": [
-        "Standard Four presentation: emotionally demonstrative, openly longing, visibly withdrawn, drawn to melancholy, may externalize the deficiency feeling. SP 4 counter-type: emotionally contained, quietly tenacious, self-sufficient, channels the deficiency feeling into a private drive to prove they can handle it.",
-        "What they share: the core deficiency narrative ('something essential is missing in me'), the envy structure, the deep identification with authenticity and meaning, the Withdrawn social stance, and the Intensity harmonic response. The motivation is identical; only the expression differs.",
-        "The distinguishing motivation between SP 4 and Type 3 (the primary lookalike): Three's push-through is about being seen as successful; SP 4's push-through is about proving they are not lacking — it's directed inward, not at an audience. The client's 'underneath there's this ache that I'm somehow not enough' points clearly toward Four.",
-        "The distinguishing motivation between SP 4 and Type 1: One pushes through because something needs to be correct or improved; SP 4 pushes through because giving up would confirm the deficiency. The client's framing is about endurance and self-proof, not about rightness or standards."
+        "Standard Four: externalizes longing, drawn to intensity, comfortable displaying depth.",
+        "SP 4: internalizes longing, converts it into endurance, hides the wound behind capability.",
+        "Both share: the ache of deficiency, envy, hunger for authenticity, and depth of feeling.",
+        "The distinction is in the display — SP 4 'proves' rather than 'expresses.'"
       ],
       "coaching_notes": [
-        "Lead with the client's own language: 'You said you put your head down and push through, even though underneath there's this ache. That's a very specific kind of inner experience. Tell me more about that.' This enters the SP 4 pattern through the door the client has already opened.",
-        "When introducing the counter-type frame, name it as a feature, not a caveat: 'There's a version of Type 4 that looks very different from the way the type is often described — more driven and self-sufficient on the outside, while carrying a very specific inner ache. Does that land differently?'",
-        "If the client says 'I'm not that emotional' or 'I don't think I'm a Four,' resist defending the hypothesis. Instead ask: 'What does the ache of not being enough feel like for you?' That question typically provides the confirming data."
+        "Introduce SP 4 before the general Four description — don't make them work backward.",
+        "Anchor the counter-type in their own words: 'prove I can endure' is the key phrase.",
+        "Normalize the counter-type: this is still fully Four — the instinct just shapes the expression."
       ]
     },
     "section2": {
       "core_pattern": [
-        "Type 4's core motivation is the search for identity and completeness — a felt sense that something essential is missing that others seem to have. The interior world is organized around this deficiency: everything is filtered through the question 'What do I lack that they have?'",
-        "The idealization for Four is being authentic, unique, and deeply connected to what is real and meaningful. Fours protect their sense of self fiercely — inauthenticity, ordinariness, and emotional shallowness are experienced as existential threats.",
-        "The Frustration object relations pattern means this type characteristically experiences what they desire as always slightly out of reach — close enough to long for, not close enough to keep. This generates the characteristic Four mood of longing rather than arrival.",
-        "SP 4's particular version of this: the deficiency is managed through private endurance rather than expressed as longing. The ache is real; it just doesn't go outward. Instead it becomes fuel for proving that they can survive it."
+        "Type 4's core motivation: a longing for authentic selfhood, a felt sense of inner deficiency, and a search for what is missing — paired with a hunger for depth, meaning, and genuine connection.",
+        "The Four's worldview: 'I am fundamentally different, and something essential in me is lacking or lost — if I can find it, I will be whole.'",
+        "The core emotional habit is envy: the inward comparison that finds others complete and oneself perpetually incomplete.",
+        "Fours idealize what is absent and may devalue what is present — this is structural, not a character flaw."
       ],
       "what_responses_showed": [
-        "The client named 'authenticity and beauty' and 'what is real and meaningful' as their greatest strength orientation — the Four idealization expressed with unusual clarity.",
-        "'Something essential is missing in me' is the Four deficiency narrative stated almost as a definition. The client appears to have direct access to this felt sense.",
-        "The explicit naming of envy as the most problematic quality — 'a persistent sense that others have something I lack, which can pull me away from what I actually have' — demonstrates both the core motivation and a developing capacity to observe it from some distance.",
-        "'Even though underneath there's this ache that I'm somehow not enough' — this is the deficiency structure restated in the SP 4 counter-type context. The ache is present and named, even as the outer behavior (push-through) manages it."
+        "'Something essential is missing in me' — the deficiency belief stated with unusual directness.",
+        "'Envy — a persistent sense that others have something I lack' — the core emotional habit named plainly and without defensiveness.",
+        "'Drawn to authenticity and beauty' and 'emotional depth and the ability to connect authentically with what is real and meaningful' — the Four's idealization of depth and genuine contact.",
+        "'Creative, intense, self-absorbed at times, but very genuine and committed' (others' description) — the Four shadow (self-absorption) acknowledged alongside the Four strength (genuine commitment)."
       ],
       "coaching_notes": [
-        "The client has a high level of self-awareness about the envy and deficiency structure. Move quickly past explanation and toward embodied exploration — they don't need the concept, they need to feel it differently.",
-        "Watch for the client to intellectualize the envy observation — they may describe it analytically ('I know I do this') without being in it. Slow down and get specific: 'When did you last feel that pull? What was the situation?'",
-        "The gap between the client's self-description (deep, authentic) and others' description (self-absorbed at times) is a productive entry point for the shadow conversation — introduce it gently once the core motivation has landed."
+        "This client already has significant self-awareness about the envy pattern — don't over-teach it. Move toward what it costs them.",
+        "The gap between what they feel inside and what they show outside is the SP 4 territory worth slowing down in.",
+        "Ask about the longing concretely — not 'do you feel something is missing' but 'what specifically feels missing right now?'"
       ],
-      "probe": "Try asking: 'When you say something essential is missing in you — can you feel that right now, even a little? Where does it live in you?'"
+      "probe": "Try asking: When you say something essential feels missing — do you have a sense of what that something is, or does it stay just out of reach?"
     },
     "section3": {
       "hardest_to_see": [
-        "The push-through endurance posture may be partially invisible to the client as a defense. They named it accurately, but may experience it as strength rather than as a way of managing the deficiency feeling. The coaching edge is helping them see that 'I'd rather prove I can endure than let anyone see me struggle' keeps the ache private at a cost.",
-        "The self-absorption signal from others ('self-absorbed at times') is likely to be the hardest piece to hold. For SP 4, the inward focus on managing the deficiency can produce a kind of tunnel vision — others register this as self-absorption even when it doesn't feel that way from the inside.",
-        "The Frustration pattern — that what is desired is always slightly out of reach — may not be consciously accessible. The client describes pulling away from what they actually have. Exploring what happens at the moment of arrival (when something good is present) may reveal the frustration pattern in action."
+        "The SP 4 counter-type pattern means the client may not see their own emotional suffering — they convert it into endurance and forward drive, which can read (to them) as strength rather than as a defense.",
+        "'I'd rather prove I can endure than let anyone see me struggle' — this is both the strength and the shadow. The not-showing is where the Four isolation lives.",
+        "Envy is named but may be intellectualized. The felt-sense version — the moment it actually lands in the body when someone else gets the thing — may be harder to access in session."
       ],
       "framework_signals": [
         {
           "label": "Social Style — Withdrawing",
           "bullets": [
-            "The Withdrawn stance means this client moves away from others (and sometimes from themselves) when under pressure — not in avoidance, but in a kind of inward retreat to process and self-contain.",
-            "The SP instinct intensifies this: the withdrawal is not dramatic or visible; it's a quiet turning inward, a management of resources and space. 'I keep a tight handle on my routines, my space, and my energy' describes the Withdrawn-SP combination precisely.",
-            "The coaching implication: this client is unlikely to reach out when struggling. The self-sufficiency posture ('not depending on anyone') may prevent them from accessing support at exactly the moments they need it most."
+            "Withdrawing types manage discomfort by moving away from contact — inward or into their own world.",
+            "For this client, withdrawal looks like self-containment: tight control of routines, not depending on anyone, not letting others see the struggle.",
+            "The withdrawal is not passivity — it is active self-protection. The client moves inward to manage, not to disengage from life."
           ],
-          "probe": "Weave in: 'When you're really struggling, what's your first instinct — to reach toward someone or to go inward and manage it yourself? What happens to the need to be understood in those moments?'"
+          "probe": "Weave in: When something really stings — when the envy or the sense of not-enough hits — where do you go? Do you move toward people or away?"
         },
         {
           "label": "Emotional Style — Intensity",
           "bullets": [
-            "The Intensity harmonic means this client processes conflict and difficulty by going deeper into feeling rather than reframing or resolving. They lean into the weight of experience rather than lightening it.",
-            "For SP 4, the Intensity pattern is internal — the emotional charge is real and present, but contained. The push-through behavior is Intensity expressed through endurance rather than outward emotional expression.",
-            "The coaching implication: this client may resist comfort or easy resolution. When things are hard, they want acknowledgment of the difficulty's reality, not a reframe. Meet them in the weight before offering perspective."
+            "Intensity types want to stay with what is real — they resist premature resolution and will hold the feeling rather than reframe it away.",
+            "For this client, intensity is internalized: the depth is real, but the SP instinct keeps it private rather than broadcast.",
+            "Watch for the client needing to feel that the pain has been fully honored before they can move. Don't rush to the reframe."
           ],
-          "probe": "Weave in: 'When you're in a hard stretch, what do you most need from the people around you — to help you feel better, or to simply acknowledge how hard it is?'"
+          "probe": "Weave in: When someone tries to cheer you up or reframe a hard feeling — what happens inside? Does it land, or does it feel like something is being skipped?"
         },
         {
           "label": "Attachment Style — Frustration",
           "bullets": [
-            "The Frustration pattern means the client characteristically experiences desire as thwarted — what they want is real, close, but somehow not fully available. This generates the chronic longing quality of the Four experience.",
-            "The client named this directly: envy 'can pull me away from what I actually have.' There's an awareness that the Frustration pattern operates — they see themselves moving away from the present toward what is absent.",
-            "The coaching edge here is helping the client notice the moment the present becomes insufficient — when a good thing is happening and the Frustration pattern activates to introduce 'but...'. That is the Frustration structure in real time."
+            "Frustration types feel an ongoing sense that what they have is never quite what they need — the present is perpetually insufficient.",
+            "For this client, this shows up as the persistent ache that something essential is missing — a structural dissatisfaction, not a situational one.",
+            "The growth move for Frustration types is equanimity with the present — being in what is, not in the gap between what is and what should be."
           ],
-          "probe": "Weave in: 'Can you think of a time when something good was happening — something you had wanted — and you noticed yourself already looking past it toward what was still missing? What did that feel like?'"
+          "probe": "Weave in: Is there a version of your life that would feel complete — or does the sense of something missing seem to travel with you?"
         }
       ],
       "coaching_notes": [
-        "This client has strong conceptual access to their patterns. The risk is that the debrief becomes an intellectual exercise. Use body-based and present-moment probes to move from concept to lived experience.",
-        "The shadow observation (self-absorbed at times) should be introduced after the client feels genuinely seen in their strengths. The Four shadow is tender — lead with the depth and authenticity before naming the cost.",
-        "Pacing note: the client may move quickly through the deficiency material because they've visited it before. Slow down rather than matching their pace — there is likely more available in the pauses than in the analysis."
+        "This client works with frameworks well — they're self-reflective and articulate. Don't under-pitch the sophistication of the framing.",
+        "The shadow to name gently is the cost of the not-showing: what happens in relationships when nobody sees where they struggle?",
+        "The Intensity Harmonic means they need to feel met before they can move — don't try to coach them out of the feeling before naming it."
       ],
-      "probe": "Try asking: 'As we're talking about the sense of something missing — where do you feel that in your body right now? Is it anywhere specific?'"
+      "probe": "Try asking: Where do you actually feel the 'something missing' in your body — is it more like an ache, a tightness, an emptiness? Can you locate it right now?"
     },
     "section4": {
       "subtype_name": "SP 4 — The Creative Individualist",
       "how_instinct_shapes": [
-        "SP 4's self-preservation drive redirects the Four's deficiency feeling into a private endurance challenge: 'I will survive this feeling by managing myself well enough that it doesn't show and doesn't stop me.' The emotional depth is real but channeled inward.",
-        "Resource management — time, energy, space, money, attention — becomes a domain of self-proof. The client's explicit description ('tight handle on routines, space, and energy') shows this pattern operating clearly.",
-        "SP 4 often develops unusual resilience and a kind of stoic creative productivity. The work becomes the place where the depth lives — the SP instinct makes the interior world inhabitable through structured output rather than expressed feeling.",
-        "The competitive dimension of SP 4 is worth noting: 'I'd rather prove I can endure' has a quietly competitive quality — not outward performance for others, but internal proof against an imagined standard of sufficiency."
+        "SP 4 turns the Four's longing inward — not 'show the world my depth' but 'prove I can survive my depth.'",
+        "Self-reliance is the armor: managing resources, routines, and energy keeps the inner ache from being seen.",
+        "Envy goes underground — felt privately, rarely performed, sometimes converted into competitive drive.",
+        "This client's 'push through' pattern is the SP 4 hallmark: endurance as both strength and defense."
       ],
       "easy_to_miss": [
-        "SP 4 looks like a Type 1 or Type 3 at first glance because of the disciplined, driven, self-managing exterior. The envy and deficiency feeling are private; the presentation is composed.",
-        "The lack of visible emotional expressiveness can lead coaches and clients alike to dismiss Type 4 as a candidate. The standard 'do you feel things deeply' question may not surface this immediately, because SP 4 has learned to internalize.",
-        "The client's slider score for Type 3 at 61 (second highest) reflects this lookalike quality. The question that differentiates: is the drive about being seen as successful (Three) or about proving to yourself that you're not lacking (Four)? The client's own language answers this clearly.",
-        "The self-sufficient, 'not depending on anyone' posture can also lead SP 4 to test as a Five. The key distinction is the emotional richness underneath — Fives withdraw from feeling as well as from people; SP 4s withdraw from people but carry rich, active emotional lives inward."
+        "SP 4 looks like 3 on the surface — driven, capable, competent under pressure.",
+        "The Four depth is real but private; it won't announce itself the way SO or SX 4 does.",
+        "High Type 1 resonance is common: security point is One, and SP 4 can look principled and disciplined.",
+        "Counter-type: low resonance with standard Four description is expected, not a disconfirming signal."
       ],
       "coaching_notes": [
-        "When introducing the SP 4 subtype, name the counter-type explicitly: 'This is actually a version of Type 4 that looks very different from how the type is usually described. It's quieter on the outside and more driven. Does that fit?'",
-        "Let the client lead with recognition. If they resist the Four framing because they don't see themselves as emotional, redirect toward the deficiency experience: 'Whatever we call it — that ache of something missing, the envy, the push to prove you're enough. Is that familiar?' That material is primary.",
-        "The instinct conversation may open new territory: ask about what they spend the most private energy managing. SP 4s often have more to say about the management of inner resources than they initially surface."
+        "Name the counter-type early — it's disorienting to be told 'you're the dramatic one' when you're the one who never shows the struggle.",
+        "Anchor SP 4 in the client's words: 'prove I can endure' is the key phrase to return to.",
+        "Ask about what it costs to not be seen struggling — that's the growth edge."
       ],
-      "probe": "Try asking: 'What would it mean to you to stop having to prove you can endure? What do you imagine would happen if you let someone see you struggling?'"
+      "probe": "Try asking: What would it mean — or cost — to let someone see you in the middle of the struggle, before you'd pushed through it?"
     },
     "section5": {
       "stress_notes": [
-        "Under stress, Type 4 moves toward Type 2 — the self-sufficient, inward-managing posture can break down into a sudden need for connection, reassurance, and being seen. For SP 4, this can be disorienting because it contradicts the 'not depending on anyone' identity.",
-        "The client confirmed the canonical stress direction in Stage 4. The coaching angle is helping them recognize when the shift from self-sufficiency to urgent need for connection is happening — this is often when the deficiency feeling has become too loud to manage alone.",
-        "Watch for this movement to show up as a sudden shift in communication style — becoming more needy, seeking affirmation, or feeling hurt by perceived inattention. For a client who presents as composed and self-sufficient, this can feel shameful when it happens."
+        "Under stress, Type 4 moves to Two: seeking connection, becoming over-involved, losing self-reliance.",
+        "For SP 4, this is notable — the client who prides themselves on not depending on anyone may find themselves suddenly needing others.",
+        "Coach angle: normalize this as a stress signal, not a character change — it's the system asking for something."
       ],
-      "stress_probe": "Try asking: 'When you're in a really hard stretch, do you ever notice a moment when the self-sufficient posture breaks — when you suddenly really need someone to reach back? What happens in you around that need?'",
+      "stress_probe": "Try asking: When things get really hard — when the push-through isn't working — do you find yourself reaching for people more than usual? What does that feel like?",
       "security_notes": [
-        "In security, Type 4 moves toward Type 1's positive qualities — becoming more principled, purposeful, and outwardly effective. The longing quiets and is replaced by a clear sense of what matters and what to do about it.",
-        "The client confirmed the canonical security direction. For SP 4, this movement is particularly productive: the discipline and structure that the SP instinct already values becomes aligned with meaning and conviction rather than with survival management.",
-        "The coaching angle is helping the client notice when they're in this space and what conditions brought them there — not to manufacture it, but to recognize it as available to them."
+        "In security, Type 4 moves to One: disciplined, principled, productive, engaged with what needs to be done.",
+        "For this client, this may feel like 'finally being able to act' — the feelings move into form.",
+        "Coach angle: One energy in security is a resource, not a new type — help them claim it."
       ],
-      "security_probe": "Try asking: 'Can you think of a time when the ache quieted and you felt clear — not driven, but purposeful? What was present in your life in that season?'",
+      "security_probe": "Try asking: When you feel most grounded and supported, what becomes possible that isn't available when you're under pressure?",
       "wings_notes": [
-        "The Two wing (4w3 vs. 4w5): SP 4 can carry either. The Three wing brings more drive, image-consciousness (even if private), and a competitive quality — consistent with this client's Type 3 slider score at 61. The Five wing brings more intellectual depth, withdrawal, and self-containment.",
-        "This client's data suggests some Three-wing energy: the push-through, prove-I-can-endure posture, combined with the high Type 3 slider, points toward 4w3 as worth exploring.",
-        "The Five wing possibility shouldn't be dismissed — the 'not depending on anyone' and 'tight handle on resources' language has a Five-like quality. It's possible both wings contribute at different times.",
-        "Let the client lead the wings conversation by asking which description of the two adjacent types (Three and Five) feels more like a part of them — their instincts about their own wing are usually reliable."
+        "Three-wing (4w3): adds drive, performance energy, and ambition — amplifies the SP 4 tenacity and 'prove' dynamic.",
+        "Five-wing (4w5): adds withdrawal, intellectual depth, and a more reclusive quality — deepens the self-containment.",
+        "This client's elevated Type 3 slider (61) suggests a likely 3-wing, but let the client lead on which feels more natural.",
+        "Watch for the 3-wing intensifying the counter-type pattern — more achievement-oriented, more image-aware than a 5-wing Four."
       ],
-      "probe": "Try asking: 'When you think about Type 3 energy — driven, competent, wanting to be seen as capable — and Type 5 energy — self-contained, analytical, conserving — which one feels more like a familiar part of you?'"
+      "probe": "Try asking: Do you find yourself more drawn toward achieving and being seen for what you accomplish, or more drawn toward understanding and being left alone to go deep?"
     },
     "section6": {
       "resonates_strongly": {
         "bullets": [
-          "When the client strongly recognizes the pattern, affirm the recognition briefly and then move quickly to application: 'That resonance is useful — now I'm curious what this understanding changes for you. Where does it land in terms of something you actually want to work on?'",
-          "Watch for the client to use the recognition to explain rather than to explore. SP 4s in particular can become skilled at narrating their pattern. If the debrief becomes a kind of storytelling, gently interrupt: 'Rather than describing it — can you feel it right now, even a little?'",
-          "Move from recognition to commitment: 'Given everything we've named today, what's the one thing you'd most want to bring into your next session? What edge do you want to work on?'"
+          "When the client strongly recognizes the pattern, move quickly from recognition to specificity: which part resonates most, and when did they first notice it?",
+          "Use the envy acknowledgment as an anchor — they already named it. Ask what it would mean to relate to it differently.",
+          "Don't linger in the description — recognition is the beginning, not the destination. Ask what they want to do with it."
         ],
-        "probe": "What does it mean for you that this is your pattern — not as an explanation, but as something to work with?"
+        "probe": "What's one situation in your life right now where you can see this pattern most clearly — and what would you want to be different there?"
       },
       "pushes_back": {
         "bullets": [
-          "Do not defend the hypothesis. If the client says 'I don't think I'm a Four — I'm not that emotional,' receive that: 'That's really worth naming. The version of Type 4 we're pointing to here looks very different from what's commonly described — less visibly emotional, more quietly driven. But I'd be curious: does the envy and the ache of not enough still fit, even if the outer presentation doesn't?'",
-          "If they push back on the envy framing, explore what they would call it: 'What word would you use for the persistent sense that others have something you lack? Even if envy isn't quite right, is there a version of that experience that's familiar?'",
-          "The most natural redirect on significant pushback is Type 1 (The Improver). One and SP 4 share the disciplined, push-through quality — the distinguishing question is whether the inner critic sounds like 'this isn't right' (One) or 'I'm not enough' (Four).",
-          "If the pushback persists, offer the honest frame: 'Type is always a hypothesis to test in your own life — you're the final authority. Let's hold both Type 4 and Type 1 and see which one opens more for you over the next few weeks.'"
+          "Don't defend the hypothesis. Name the pushback as useful: 'What doesn't fit is as interesting as what does.'",
+          "If they identify more with Three: the drive and capability are real — ask whether the sense of something missing is also real, underneath the performance.",
+          "If they identify more with One: ask whether the standards and discipline feel like who they are, or like how they manage the ache.",
+          "Hold the counter-type frame gently: 'SP Fours often don't recognize themselves in the standard description — that's part of the pattern itself.'"
         ],
         "alt_type_name": "Type 1 — The Improver",
-        "key_distinction": "The key distinguishing question is: does your inner critic tell you that something you're doing is wrong or imperfect (Type 1), or does it tell you that you yourself are somehow lacking or not enough (Type 4)?"
+        "key_distinction": "The key question is: does the drive toward improvement come from an internalized standard of correctness (One) or from a persistent sense that something is missing in yourself that you're trying to overcome (Four)?"
       },
       "confused": {
         "bullets": [
-          "If the client is confused, find the foothold in what they named directly: 'You said something essential feels missing. You named envy specifically. Whatever type we call it — does that inner experience feel accurate?' Start with what they know before reaching for the framework.",
-          "Treat what doesn't fit as useful data: 'The parts that don't resonate are just as interesting as the parts that do. What specifically doesn't fit? Let's look at that.' Often the resistance is pointing at the counter-type gap.",
-          "If they're confused between Four and Three (the most common SP 4 confusion), use the audience question: 'When you push through — are you mostly trying to prove something to others, or to yourself?'"
+          "If the client is confused, find the foothold in what they named most clearly: the envy, the sense of something missing, the push-through.",
+          "Treat what doesn't fit as equally useful: 'The places where this doesn't land are worth exploring — what would be closer?'",
+          "Don't rush to resolve the confusion — sometimes sitting in the not-yet-knowing is itself a Four experience worth naming."
         ],
-        "probe": "What part of what we described today felt most like someone was describing you from the inside — even if the rest didn't land?"
+        "probe": "Which part of what we've talked about feels most like you — even if the rest doesn't fully land?"
       }
     },
     "section6a": null
   },
   "client_words": {
     "leading_quotes": [
-      "I don't fall apart when things get hard — I just put my head down and push through, even though underneath there's this ache that I'm somehow not enough.",
+      "I feel things very deeply, I'm drawn to authenticity and beauty, and I struggle with feeling misunderstood or like something essential is missing in me",
       "envy — a persistent sense that others have something I lack"
     ],
-    "alternate_absence_note": "The client's language shows no meaningful signal toward Type 1: there is no orientation toward correctness, rightness, or principled standards as a primary motivation — only toward authenticity, emotional depth, and the deficiency narrative."
+    "alternate_absence_note": "The client's language shows no meaningful signal for Type 1 — The Improver: there is no orientation toward correctness, standards, or resentment about what is wrong, only the Four's characteristic longing and deficiency pattern."
   },
   "final_response": {
     "present": false,

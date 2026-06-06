@@ -1269,7 +1269,7 @@ function _coachPage2(m) {
 
 function _coachPage3(m) {
   const section = (title, blk, zone) => `
-    <div class="dbf-section" data-zone="${zone}" data-budget="270">
+    <div class="dbf-section" data-zone="${zone}" data-budget="330">
       <div class="bc-label">${esc(title)}</div>
       <div class="dbf-q">${esc(blk.question || '')}</div>
       ${_bcBullets(blk.bullets)}
