@@ -320,9 +320,6 @@ async function saveSessionState() {
 initStage1();
 // Load type library eagerly so it's ready when reports need to render.
 loadTypeLibrary();
-// If a previous result is still in localStorage (e.g. user refreshed), jump
-// straight back to the results screen with their report intact.
-loadResult();
 
 // Token-based entry: server injects window.__hiveIntake when a valid token session is active.
 if (window.__hiveIntake) {

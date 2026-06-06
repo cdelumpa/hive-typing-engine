@@ -46,50 +46,11 @@ function initStage1() {
 
 // =================== PERSISTENCE ===================
 
-// Save the final result to localStorage so an accidental refresh on the
-// results screen doesn't lose the report. We persist scores + apiResult +
-// resultsTab (everything renderResults needs to rehydrate). Storage is
-// cleared on restart / "New Analysis" / starting a fresh assessment.
+// clearResult() removes any legacy persisted-result key from localStorage. The
+// synchronous in-browser results flow (save/load/render) was removed in Step 7 6b.
+
 
 const RESULT_STORAGE_KEY = 'hive_typing_result_v1';
-const RESULT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-function saveResult() {
-  if (!state.apiResult) return;
-  try {
-    const payload = {
-      version: 1,
-      savedAt: Date.now(),
-      scores: state.scores,
-      apiResult: state.apiResult,
-      resultsTab: state.resultsTab || 'client',
-    };
-    localStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(payload));
-  } catch (e) {
-    console.warn('[persistence] could not save result:', e && e.message);
-  }
-}
-
-function loadResult() {
-  try {
-    const raw = localStorage.getItem(RESULT_STORAGE_KEY);
-    if (!raw) return false;
-    const payload = JSON.parse(raw);
-    if (!payload || payload.version !== 1) { clearResult(); return false; }
-    if (!payload.apiResult || !payload.scores) { clearResult(); return false; }
-    if (Date.now() - (payload.savedAt || 0) > RESULT_MAX_AGE_MS) { clearResult(); return false; }
-    state.scores = payload.scores;
-    state.apiResult = payload.apiResult;
-    state.resultsTab = payload.resultsTab || 'client';
-    state.phase = 'results';
-    console.log('[persistence] restored saved result from', new Date(payload.savedAt).toLocaleString());
-    return true;
-  } catch (e) {
-    console.warn('[persistence] could not restore result:', e && e.message);
-    clearResult();
-    return false;
-  }
-}
 
 function clearResult() {
   try { localStorage.removeItem(RESULT_STORAGE_KEY); } catch (_) {}
