@@ -58,6 +58,20 @@ const confidenceLabel = (level) =>
   ({ HIGH: 'High', MEDIUM_HIGH: 'Medium-High', MEDIUM: 'Medium', LOW: 'Low' }[level] || level || '');
 
 const cap = (arr, n) => (Array.isArray(arr) ? arr.slice(0, n) : []);
+// A7 bullet-sizing: ≤6 bullets AND ≤~80 words (~9 lines) per section. Greedily keep
+// bullets until the word budget is hit (always keep at least one). Drops overflow so
+// the section fits its fixed zone. (Phase-1 prompt tightening to make the AI author
+// shorter coach bullets is a logged follow-up.)
+function capByLines(bullets, maxWords = 80, maxBullets = 6) {
+  const out = []; let words = 0;
+  for (const b of (bullets || [])) {
+    if (out.length >= maxBullets) break;
+    const w = countWords(b);
+    if (out.length > 0 && words + w > maxWords) break;
+    out.push(b); words += w;
+  }
+  return out;
+}
 const stripProbe = (s) => (s || '').replace(/^\s*(Try asking|Weave in)\s*:\s*/i, '').trim();
 // section2 bullet → {bold_lead, body}: split on first em/en-dash or colon; else lead empty.
 function splitLead(str) {
@@ -117,9 +131,9 @@ function buildCoachModel({ apiResult, client, coach }) {
       client_words: { quotes: cw.leading_quotes || [], absence_note: cw.alternate_absence_note ?? null },
     },
     debrief: {
-      subtype: { question: stripProbe(s4.probe), bullets: cap([...(s4.how_instinct_shapes || []), ...(s4.easy_to_miss || []), ...(s4.coaching_notes || [])], 6) },
-      lines: { question: stripProbe(s5.stress_probe), bullets: cap([...(s5.stress_notes || []), ...(s5.security_notes || [])], 6) },
-      wings: { question: stripProbe(s5.probe), bullets: cap(s5.wings_notes, 6) },
+      subtype: { question: stripProbe(s4.probe), bullets: capByLines([...(s4.how_instinct_shapes || []), ...(s4.easy_to_miss || []), ...(s4.coaching_notes || [])]) },
+      lines: { question: stripProbe(s5.stress_probe), bullets: capByLines([...(s5.stress_notes || []), ...(s5.security_notes || [])]) },
+      wings: { question: stripProbe(s5.probe), bullets: capByLines(s5.wings_notes) },
     },
   };
 

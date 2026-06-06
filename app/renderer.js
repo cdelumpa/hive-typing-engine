@@ -1159,7 +1159,223 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--body);}
 </style>`;
 }
 
+// ============================================================================
+// PART B — Coach Report (Step 7 Phase 5). Pure templating off the coach view-model
+// (report_prep.buildCoachModel). US Letter 816×1056 (A1); zones carry data-budget
+// for the Puppeteer measurement gate (app/measure.js). V1 buildCoachHTML untouched.
+// ============================================================================
+
+// B2: 6 static clarification questions, identical on every report (placeholder wording
+// pending Mo review — flagged in the Phase 5 notes).
+const COACH_CLARIFICATION_QUESTIONS = [
+  'When you walk into a room, where does your attention go first?',
+  'What are you usually moving toward — or away from — without noticing?',
+  'When something matters deeply to you, what do you do?',
+  'What feeling is closest to the surface for you, and which takes longest to reach?',
+  'When you are at your best, what is true? When you are stretched thin, what changes?',
+  'What do people consistently misread about you?',
+];
+
+const _bcBullets = (arr) => (arr || []).map(b =>
+  `<div class="bc-bullet">${esc(b)}</div>`).join('');
+const _bcRevealed = (arr) => (arr || []).map(r =>
+  `<div class="bc-bullet">${r.bold_lead ? `<strong>${esc(r.bold_lead)}</strong> ` : ''}${esc(r.body)}</div>`).join('');
+const _agRow = (label, value, color) =>
+  `<div class="ag-row"><span class="ag-label">${esc(label)}</span><span class="ag-val" style="color:${color || '#404040'}">${value}</span></div>`;
+
+function _coachPage1(m) {
+  const wings = m.ataglance.wings.map(w => `Type ${w.number} — ${esc(w.name)}`).join('<br>');
+  const pill = `
+    <div class="bc-pill">
+      <div class="bc-pill-num">Type ${m.hero.number}</div>
+      <div class="bc-pill-name">${esc(m.hero.name)}</div>
+      <div class="bc-pill-sub">${esc(m.hero.subtype_name)} Subtype</div>
+    </div>
+    <div class="bc-badges">
+      <span class="bc-conf">${esc(m.confidence.label)} confidence</span>
+      ${m.confidence.near_tie ? '<span class="bc-tie">Near-Tie (see notes)</span>' : ''}
+      <span class="bc-alt">Alternate: Type ${m.alternate.number} — ${esc(m.alternate.name)}</span>
+    </div>`;
+  const redirect = m.redirect
+    ? `<div class="bc-redirect">REDIRECT — confirmed type differs from the leading coherence bar (originally Type ${m.redirect.from_type}). The chart shows the coherence ranking; the hero reflects the Stage 4 evidence.</div>`
+    : '';
+  return `
+  <div class="report-page">
+    <div class="page-header"><div class="ph-title">Coach Prep Report · Type ${m.hero.number} — ${esc(m.hero.name)}</div></div>
+    <div class="page-body" data-page="1" data-zone="page1-body">
+      <div class="bc-grid">
+        <div class="bc-left" data-budget="880" data-zone="p1-left">
+          <div class="bc-label">Leading Type Hypothesis</div>
+          ${pill}${redirect}
+          <div class="bc-label">The Bottom Line</div>
+          <p class="bc-body">${esc(m.bottom_line)}</p>
+          <div class="bc-label">What ${esc(m.client.first_name || 'the client')} Revealed</div>
+          ${_bcRevealed(m.responses_revealed)}
+        </div>
+        <div class="bc-right">
+          <div class="bc-svg">${buildEnneagramSVG(m.svg)}</div>
+          <div class="bc-ataglance">
+            ${_agRow('Wings', wings, m.ataglance.centerColor)}
+            ${_agRow('Stress', `Type ${m.ataglance.stress.number} — ${esc(m.ataglance.stress.name)}`, '#D0312D')}
+            ${_agRow('Release', `Type ${m.ataglance.release.number} — ${esc(m.ataglance.release.name)}`, '#4F845C')}
+            ${_agRow('Center of Intelligence', esc(m.ataglance.center), m.ataglance.centerColor)}
+          </div>
+          <div class="bc-chart-title">Relative Type Pattern Strength</div>
+          ${renderTypeStrengthChart(m.charts.types)}
+          <div class="bc-chart-title">Relative Instincts Strength</div>
+          ${renderInstinctChart(m.charts.instincts)}
+          <div class="bc-reminder">These are hypotheses to inform the debrief — not labels to assign.</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-footer">© Hive · Confidential · Page 1</div>
+  </div>`;
+}
+
+function _coachPage2(m) {
+  const c = m.comparison;
+  const row = (label, lead, alt) => `
+    <tr><td class="cmp-label">${esc(label)}</td>
+      <td class="cmp-lead">${esc(lead || '')}</td>
+      <td class="cmp-alt">${esc(alt || '')}</td></tr>`;
+  const quotes = (c.client_words.quotes || []).map(q => `“${esc(q)}”`).join('<br>');
+  return `
+  <div class="report-page">
+    <div class="page-header"><div class="ph-title">Type Hypothesis Comparison</div></div>
+    <div class="page-body" data-page="2" data-zone="page2-body">
+      <div class="bc-callout" data-zone="p2-callout">${esc(c.note || '')}</div>
+      <table class="cmp" data-zone="p2-table">
+        <thead><tr><th></th>
+          <th class="cmp-lead-h">Type ${c.leading.number} — ${esc(c.leading.name)}</th>
+          <th class="cmp-alt-h">Type ${c.alternate.number} — ${esc(c.alternate.name)}</th></tr></thead>
+        <tbody>
+          ${row('Core Motivation', c.leading.rows.core_motivation, c.alternate.rows.core_motivation)}
+          ${row('Focus of Attention', c.leading.rows.focus, c.alternate.rows.focus)}
+          ${row('Energy Goes To', c.leading.rows.energy, c.alternate.rows.energy)}
+          ${row('Gifts', c.leading.rows.gifts, c.alternate.rows.gifts)}
+          ${row('Challenges', c.leading.rows.challenges, c.alternate.rows.challenges)}
+          <tr><td class="cmp-label">Key Discriminator</td><td class="cmp-disc" colspan="2">${esc(c.discriminator || '')}</td></tr>
+          <tr><td class="cmp-label">In ${esc(m.client.first_name || 'Client')}'s Words</td>
+            <td class="cmp-lead">${quotes}</td>
+            <td class="cmp-alt">${esc(c.client_words.absence_note || '')}</td></tr>
+        </tbody>
+      </table>
+      <div class="bc-label">Clarification Questions</div>
+      <div class="bc-qlist">${COACH_CLARIFICATION_QUESTIONS.map(q => `<div class="bc-q">${esc(q)}</div>`).join('')}</div>
+    </div>
+    <div class="page-footer">© Hive · Confidential · Page 2</div>
+  </div>`;
+}
+
+function _coachPage3(m) {
+  const section = (title, blk, zone) => `
+    <div class="dbf-section" data-zone="${zone}" data-budget="270">
+      <div class="bc-label">${esc(title)}</div>
+      <div class="dbf-q">${esc(blk.question || '')}</div>
+      ${_bcBullets(blk.bullets)}
+    </div>`;
+  return `
+  <div class="report-page">
+    <div class="page-header"><div class="ph-title">Debriefing Tips</div></div>
+    <div class="page-body bc-9pt" data-page="3" data-zone="page3-body">
+      <div class="dbf-cols">
+        ${section('Debriefing the ' + esc(m.hero.subtype_name) + ' Subtype', m.debrief.subtype, 'p3-subtype')}
+        ${section('Debriefing the Stress & Release Points', m.debrief.lines, 'p3-lines')}
+        ${section('Debriefing the Wings', m.debrief.wings, 'p3-wings')}
+      </div>
+    </div>
+    <div class="page-footer">© Hive · Confidential · Page 3</div>
+  </div>`;
+}
+
+function _coachPage4() {
+  return `
+  <div class="report-page">
+    <div class="page-header"><div class="ph-title">Coach-Type Preparation</div></div>
+    <div class="page-body" data-page="4" data-zone="page4-body">
+      <div class="bc-placeholder">Reserved — coach-type preparation (type-on-type) is being designed offline and will inherit this layout.</div>
+    </div>
+    <div class="page-footer">© Hive · Confidential · Page 4</div>
+  </div>`;
+}
+
+function coachReportStyles() {
+  return `<style>
+  @page { size: 8.5in 11in; margin: 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: var(--body); }
+  .report-page { width: 816px; height: 1056px; padding: 40px 48px; overflow: hidden; position: relative; page-break-after: always; background: #fff; }
+  .page-header { height: 56px; border-bottom: 1px solid #ddd; margin-bottom: 16px; }
+  .ph-title { font-size: 9pt; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; color: var(--hive-blue); padding-top: 8px; }
+  .page-body { height: 880px; overflow: hidden; }
+  .page-footer { position: absolute; left: 48px; right: 48px; bottom: 22px; font-size: 7pt; color: var(--footer); text-align: center; }
+  .bc-label { font-size: 9pt; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; color: var(--hive-blue); margin: 14px 0 6px; }
+  .bc-body { font-size: 10pt; line-height: 15pt; margin: 0 0 8px; }
+  .bc-bullet { font-size: 10pt; line-height: 15pt; margin: 0 0 6px; padding-left: 12px; position: relative; }
+  .bc-bullet::before { content: "•"; color: var(--hive-orange); position: absolute; left: 0; }
+  .bc-grid { display: grid; grid-template-columns: 58% 42%; gap: 22px; height: 100%; }
+  .bc-pill { background: var(--leading-pill-bg); border-radius: 8px; padding: 12px 16px; }
+  .bc-pill-num { font-size: 27pt; font-weight: bold; color: var(--leading-pill-text); line-height: 1; }
+  .bc-pill-name { font-size: 14pt; font-weight: bold; color: var(--leading-pill-text); }
+  .bc-pill-sub { font-size: 10pt; color: var(--leading-pill-text); }
+  .bc-badges { margin: 8px 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .bc-conf { font-size: 9pt; font-weight: bold; color: var(--confidence-text); background: var(--confidence-bg); border-radius: 10px; padding: 3px 10px; }
+  .bc-tie { font-size: 9pt; font-weight: bold; color: #B25A00; background: #FBE8D6; border-radius: 10px; padding: 3px 10px; }
+  .bc-alt { font-size: 9pt; font-style: italic; color: var(--alt-pill-text); background: var(--alternate-pill-bg); border-radius: 10px; padding: 3px 10px; }
+  .bc-redirect { font-size: 9pt; color: #B25A00; background: #FBE8D6; border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
+  .bc-svg { width: 280px; height: 280px; margin: 0 auto 6px; }
+  .ag-row { display: flex; justify-content: space-between; gap: 8px; font-size: 10pt; padding: 3px 0; border-bottom: 1px solid #eee; }
+  .ag-label { font-weight: bold; color: var(--body); }
+  .ag-val { text-align: right; font-weight: 600; }
+  .bc-chart-title { font-size: 9pt; font-weight: bold; color: var(--section-title); margin: 10px 0 4px; }
+  .bc-reminder { font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-top: 10px; }
+  .bc-callout { background: var(--callout-bg); border-left: 4px solid var(--hive-orange); border-radius: 4px; padding: 10px 14px; font-size: 10pt; line-height: 15pt; margin-bottom: 12px; }
+  table.cmp { width: 100%; border-collapse: collapse; }
+  table.cmp th, table.cmp td { text-align: left; vertical-align: top; padding: 4px 8px; font-size: 10pt; line-height: 13pt; border-bottom: 1px solid #eee; }
+  .cmp-label { font-size: 9pt; font-weight: bold; color: var(--section-title); width: 18%; }
+  .cmp-lead-h, .cmp-alt-h { font-size: 12pt; font-weight: bold; color: var(--leading-pill-text); }
+  .cmp-lead { background: var(--leading-pill-bg); }
+  .cmp-alt { background: var(--callout-bg); }
+  .cmp-disc { font-style: italic; color: var(--body); }
+  .bc-qlist { columns: 2; column-gap: 22px; }
+  .bc-q { font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-bottom: 6px; break-inside: avoid; }
+  .bc-9pt .bc-label { margin-top: 8px; }
+  .bc-9pt .bc-bullet { font-size: 9pt; line-height: 13.5pt; }
+  .dbf-cols { columns: 2; column-gap: 24px; }
+  .dbf-section { break-inside: avoid; margin-bottom: 12px; }
+  .dbf-q { font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-bottom: 6px; }
+  .bc-placeholder { font-size: 10pt; color: #888; font-style: italic; padding-top: 40px; text-align: center; }
+  </style>`;
+}
+
+// Build the full 3-page (+placeholder) coach report HTML from the coach view-model.
+function buildCoachReportHTML(model) {
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Coach Report — Type ${model.hero.number}</title>
+${partAStyles()}
+${coachReportStyles()}
+</head><body>
+${_coachPage1(model)}
+${_coachPage2(model)}
+${_coachPage3(model)}
+${_coachPage4()}
+</body></html>`;
+}
+
+// US Letter PDF options (A1). Margins are 0 — the template owns its padding so the
+// measurement gate and the PDF agree on geometry. V1 buildPdfOptions (A4) untouched.
+function buildCoachPdfOptions() {
+  return {
+    width: '8.5in', height: '11in',
+    printBackground: true,
+    displayHeaderFooter: false,
+    margin: { top: '0', bottom: '0', left: '0', right: '0' },
+    preferCSSPageSize: true,
+  };
+}
+
 module.exports = {
   buildClientHTML, buildCoachHTML, buildBetaHTML, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
+  buildCoachReportHTML, buildCoachPdfOptions, COACH_CLARIFICATION_QUESTIONS,
 };

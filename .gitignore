@@ -7,3 +7,4 @@ app/reports/
 **/.DS_Store
 .phase1_captures/
 .phase3_gallery/
+.phase5_out/
