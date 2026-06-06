@@ -1,16 +1,115 @@
 {
   "_meta": {
     "source": "InsightOut_Static_Content_Library_v1_060526.docx",
-    "built_at": "2026-06-06T02:23:16.526Z",
+    "built_at": "2026-06-06T03:39:31.597Z",
     "version": "v1_060526"
   },
   "static": {
-    "primer": null,
-    "welcome_body": null,
-    "instinct_primer": null,
-    "instinct_definitions": null,
-    "wings_primer": null,
-    "lines_primer": null
+    "welcome_body": "You just did something most people never do. You took the time to look inward. That’s not a small thing. Whether you’re here because a coach recommended this, a colleague forwarded it, or you simply got curious and we’re glad you showed up!\n\nWhat you’re holding is a hypothesis about your personality — specifically, a map of what drives you, how you see the world, and why you do the things you do. It’s built from how you responded to the InsightOut Assessment, and it’s designed to be a starting point, not a final word.\n\nThis report is organized as a journey: first, a brief introduction to the Enneagram system itself, then a deep dive into the pattern your responses point to most strongly. Along the way we’ll also introduce a secondary hypothesis — another pattern worth exploring with a coach.\n\nThere’s no perfect outcome here. The goal isn’t to be “typed correctly” — it’s to see yourself a little more clearly, and to have a richer conversation with whoever helps you go deeper.\n\nWe hope it lands!\n\nYou are the final authority on your own type. If something in here resonates deeply, wonderful — that’s the recognition we’re going for. If something doesn’t quite fit, that’s useful information too. Hold all of it lightly, and stay curious.",
+    "primer": {
+      "intro": "The Enneagram is a dynamic system that describes nine distinct ways of being in the world — nine strategies, shaped early in life, for how to get what we need, stay safe, and belong. Each type is anchored by a core worldview and a deep motivational drive that shapes everything: how we think, what we feel, and how we act.\n\nUnderstanding your type isn’t about putting yourself in a box. It’s about seeing the pattern clearly enough that you have a choice about it.",
+      "scan_line": "As you read, notice which descriptions pull at you — even slightly. That’s the Enneagram beginning to work.",
+      "pillars": [
+        {
+          "title": "Dynamic",
+          "body": "A map of how you move, not just where you sit."
+        },
+        {
+          "title": "Motivational",
+          "body": "Driven by your deeper “why”, not just what you do."
+        },
+        {
+          "title": "Relational",
+          "body": "A lens to see yourself and everyone around you."
+        }
+      ],
+      "nine_types": [
+        {
+          "number": 8,
+          "center": "Body",
+          "name": "The Protector",
+          "description": "Sees a world where only the strong protect the weak. Motivated to assert strength and guard against injustice. Attention goes to power dynamics and who needs protecting.",
+          "gifts": "Strength, advocacy, courage"
+        },
+        {
+          "number": 2,
+          "center": "Heart",
+          "name": "The Giver",
+          "description": "Sees a world where love is earned through service. Motivated to be needed and seen as caring. Attention goes to others’ needs and relationship dynamics.",
+          "gifts": "Warmth, attunement, deep care"
+        },
+        {
+          "number": 5,
+          "center": "Head",
+          "name": "The Observer",
+          "description": "Sees a world that is overwhelming and intrusive. Motivated to be competent and self-sufficient. Attention goes to ideas, concepts, and conserving energy.",
+          "gifts": "Clarity, insight, objectivity"
+        },
+        {
+          "number": 1,
+          "center": "Body",
+          "name": "The Improver",
+          "description": "Sees a world that falls short of what it could be. Motivated to be good, principled, and beyond criticism. Attention goes to what’s wrong or is broken.",
+          "gifts": "Integrity, discernment, high standards"
+        },
+        {
+          "number": 4,
+          "center": "Heart",
+          "name": "The Individualist",
+          "description": "Sees a world with infinite depth but always something missing. Motivated to be authentic and deeply known. Attention goes to what’s absent or lacking.",
+          "gifts": "Depth, originality, emotional honesty"
+        },
+        {
+          "number": 7,
+          "center": "Head",
+          "name": "The Enthusiast",
+          "description": "Sees a world full of possibility, threatened by limitation and pain. Motivated to stay free and experience life fully. Attention goes to options and what’s next.",
+          "gifts": "Possibility, joy, generative energy"
+        },
+        {
+          "number": 9,
+          "center": "Body",
+          "name": "The Peacemaker",
+          "description": "Sees a world with underlying unity that conflict threatens. Motivated to maintain harmony and avoid disconnection. Attention goes to others’ perspectives and seeking common ground.",
+          "gifts": "Inclusion, steadiness, presence"
+        },
+        {
+          "number": 3,
+          "center": "Heart",
+          "name": "The Performer",
+          "description": "Sees a world that rewards results. Motivated to achieve and be recognized as valuable. Attention goes to goals, image, and how others perceive them.",
+          "gifts": "Drive, adaptability, inspiring"
+        },
+        {
+          "number": 6,
+          "center": "Head",
+          "name": "The Questioner",
+          "description": "Sees a world that is unpredictable and unsafe. Motivated by security, trust, and preparedness. Attention goes to potential threats and who can be counted on.",
+          "gifts": "Loyalty, foresight, fierce commitment"
+        }
+      ],
+      "footer": "We each have access to all Enneagram types AND one of these nine patterns is your home base. Keep reading to find out which type your responses pointed to most clearly."
+    },
+    "wings_primer": "Wings are the two types adjacent to your core type. They flavor how your core pattern shows up — not changing who you are, but adding texture. Most people lean toward one wing; some experience both equally.",
+    "lines_primer": "Each type has two resource points connected by lines on the diagram. Your stress point is the type your energy moves toward under pressure — often showing up as uncharacteristic behavior. Your security point is where you go when you feel safe and in flow. Awareness of these movements gives you choice about how to work with them.",
+    "instinct_primer": "Alongside your core type, you have a dominant instinct — one of three innate drives that shape where your survival energy goes first. All three instincts are present in everyone, but one tends to run the show. Understanding your dominant instinct helps explain why two people of the same type can look quite different in practice.",
+    "instinct_definitions": [
+      {
+        "code": "SP",
+        "name": "Self-Preservation",
+        "body": "Focused on safety, comfort, health, and the practical resources of daily life. SP energy goes toward securing what you need — physically, materially, and in terms of personal wellbeing."
+      },
+      {
+        "code": "SO",
+        "name": "Social",
+        "body": "Focused on belonging, group dynamics, and your place within a community. SO energy goes toward alliances, fairness, collective causes, and knowing where you stand in relation to others."
+      },
+      {
+        "code": "SX",
+        "name": "One-to-One",
+        "body": "Focused on deep, intense connection with specific people or experiences. SX energy goes toward chemistry, magnetism, and the quality of individual bonds — what makes a person or experience come alive."
+      }
+    ]
   },
   "type_8": {
     "number": 8,

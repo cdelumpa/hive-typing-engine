@@ -195,7 +195,34 @@ function assembleSubtypes(n, toks) {
   return out;
 }
 
-// ── Validation (hard gate for type/subtype; static.* is PENDING) ──────────────
+// ── Parse the GLOBAL STATIC CONTENT section → static.* (Phase 6 prerequisite) ──
+function parseStatics(toks) {
+  const blocks = toBlocks(toks);
+  const linesOf = (label) => normParas(findBlock(blocks, label));
+  const text = (label) => linesOf(label).join('\n\n');
+  const pipeRows = (label, keys) => linesOf(label).map(line => {
+    const parts = line.split('|').map(s => s.trim());
+    const o = {}; keys.forEach((k, i) => { o[k] = parts[i] || ''; }); return o;
+  });
+  const primer = {
+    intro: text('ENNEAGRAM PRIMER INTRO'),
+    scan_line: linesOf('ENNEAGRAM PRIMER SCAN LINE')[0] || '',
+    pillars: pipeRows('ENNEAGRAM PRIMER PILLARS', ['title', 'body']),
+    nine_types: pipeRows('ENNEAGRAM PRIMER NINE TYPES', ['number', 'center', 'name', 'description', 'gifts'])
+      .map(r => ({ ...r, number: +r.number })),
+    footer: linesOf('ENNEAGRAM PRIMER FOOTER')[0] || '',
+  };
+  return {
+    welcome_body: text('WELCOME BODY'),
+    primer,
+    wings_primer: text('WINGS PRIMER'),
+    lines_primer: text('LINES PRIMER'),
+    instinct_primer: text('INSTINCT PRIMER'),
+    instinct_definitions: pipeRows('INSTINCT DEFINITIONS', ['code', 'name', 'body']),
+  };
+}
+
+// ── Validation (hard gate for type/subtype AND the static globals) ────────────
 function validateType(n, t) {
   const P = `type_${n}`;
   need(t.name === TYPE_NAMES[n], `${P}: name "${t.name}" != engine "${TYPE_NAMES[n]}"`);
@@ -248,6 +275,10 @@ function validateSubtype(key, st) {
   for (let k = 0; k < h1idx.length; k++) {
     const start = h1idx[k].i;
     const end = k + 1 < h1idx.length ? h1idx[k + 1].i : toks.length;
+    if (toks[start].text === 'GLOBAL STATIC CONTENT') {
+      lib.static = parseStatics(toks.slice(start + 1, end));
+      continue;
+    }
     const m = toks[start].text.match(/^Type (\d)\s*[—–-]\s*(.+)$/);
     if (!m) { errs.push(`Unparseable H1: "${toks[start].text}"`); continue; }
     const n = +m[1];
@@ -278,12 +309,22 @@ function validateSubtype(key, st) {
     subCount++; validateSubtype(key, lib[`subtype_${key}`]);
   }
 
+  // static.* coverage — now sourced from the docx GLOBAL STATIC CONTENT section (hard gate)
+  const S = lib.static || {};
+  for (const k of ['welcome_body', 'wings_primer', 'lines_primer', 'instinct_primer']) need(S[k], `static.${k} empty`);
+  need(S.primer && S.primer.intro, 'static.primer.intro empty');
+  need(S.primer && Array.isArray(S.primer.pillars) && S.primer.pillars.length === 3, `static.primer.pillars != 3 (${S.primer && S.primer.pillars && S.primer.pillars.length})`);
+  need(S.primer && Array.isArray(S.primer.nine_types) && S.primer.nine_types.length === 9, `static.primer.nine_types != 9 (${S.primer && S.primer.nine_types && S.primer.nine_types.length})`);
+  need(S.primer && S.primer.nine_types && S.primer.nine_types.every(t => t.number >= 1 && t.number <= 9 && t.name && t.description && t.gifts), 'static.primer.nine_types rows incomplete');
+  need(Array.isArray(S.instinct_definitions) && S.instinct_definitions.length === 3, `static.instinct_definitions != 3 (${S.instinct_definitions && S.instinct_definitions.length})`);
+
   // Report
   console.log('=== Content library build ===');
   console.log(`Types parsed:    ${seenTypes.sort((a, b) => a - b).join(', ')} (${seenTypes.length}/9)`);
   console.log(`Subtypes parsed: ${subCount}/27`);
-  const pending = Object.entries(lib.static).filter(([, v]) => v == null).map(([k]) => k);
-  console.log(`PENDING static.* (null — not in docx, author before Phase 6): ${pending.join(', ')}`);
+  const staticKeys = ['welcome_body', 'primer', 'wings_primer', 'lines_primer', 'instinct_primer', 'instinct_definitions'];
+  const pending = staticKeys.filter(k => lib.static[k] == null);
+  console.log(`Static globals:  ${staticKeys.length - pending.length}/${staticKeys.length} populated` + (pending.length ? ` — PENDING: ${pending.join(', ')}` : ' (zero PENDING)'));
 
   if (errs.length) {
     console.error(`\n*** COVERAGE FAILURES (${errs.length}):`);
