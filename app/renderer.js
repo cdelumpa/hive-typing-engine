@@ -1161,8 +1161,8 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--body);}
 
 // ============================================================================
 // PART B — Coach Report (Step 7 Phase 5). Pure templating off the coach view-model
-// (report_prep.buildCoachModel). US Letter 816×1056 (A1); zones carry data-budget
-// for the Puppeteer measurement gate (app/measure.js). V1 buildCoachHTML untouched.
+// (report_prep.buildCoachModel). US Letter; flowing layout (min-height, no clip).
+// data-budget/data-zone attributes are now inert (measurement gate removed). V1 buildCoachHTML untouched.
 // ============================================================================
 
 // B2: 6 static clarification questions, identical on every report (placeholder wording
@@ -1304,11 +1304,11 @@ function coachReportStyles() {
   @page { size: 8.5in 11in; margin: 0; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: var(--body); }
-  .report-page { width: 816px; height: 1056px; padding: 40px 48px; overflow: hidden; position: relative; page-break-after: always; background: #fff; }
+  .report-page { width: 816px; min-height: 1056px; padding: 40px 48px; position: relative; page-break-after: always; background: #fff; display: flex; flex-direction: column; }
   .page-header { height: 56px; border-bottom: 1px solid #ddd; margin-bottom: 16px; }
   .ph-title { font-size: 9pt; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; color: var(--hive-blue); padding-top: 8px; }
-  .page-body { height: 880px; overflow: hidden; }
-  .page-footer { position: absolute; left: 48px; right: 48px; bottom: 22px; font-size: 7pt; color: var(--footer); text-align: center; }
+  .page-body { flex: 1 1 auto; }
+  .page-footer { margin-top: auto; font-size: 7pt; color: var(--footer); text-align: center; }
   .bc-label { font-size: 9pt; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; color: var(--hive-blue); margin: 14px 0 6px; }
   .bc-body { font-size: 10pt; line-height: 15pt; margin: 0 0 8px; }
   .bc-bullet { font-size: 10pt; line-height: 15pt; margin: 0 0 6px; padding-left: 12px; position: relative; }
@@ -1345,10 +1345,6 @@ function coachReportStyles() {
   .dbf-section { break-inside: avoid; margin-bottom: 12px; }
   .dbf-q { font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-bottom: 6px; }
   .bc-placeholder { font-size: 10pt; color: #888; font-style: italic; padding-top: 40px; text-align: center; }
-  .tighten-1 .bc-body, .tighten-1 .bc-bullet, .tighten-1 table.cmp td, .tighten-1 .dbf-q, .tighten-1 .bc-q { font-size: 9pt; line-height: 12.5pt; }
-  .tighten-2 .bc-body, .tighten-2 .bc-bullet, .tighten-2 table.cmp td, .tighten-2 .dbf-q, .tighten-2 .bc-q { font-size: 8.5pt; line-height: 11.5pt; }
-  .tighten-3 .bc-body, .tighten-3 .bc-bullet, .tighten-3 table.cmp td, .tighten-3 .dbf-q, .tighten-3 .bc-q { font-size: 8pt; line-height: 11pt; }
-  .tighten-2 .bc-bullet, .tighten-3 .bc-bullet { margin-bottom: 3px; }
   </style>`;
 }
 
@@ -1358,7 +1354,7 @@ function buildCoachReportHTML(model, opts = {}) {
 <html lang="en"><head><meta charset="utf-8"><title>Coach Report — Type ${model.hero.number}</title>
 ${partAStyles()}
 ${coachReportStyles()}
-</head><body class="tighten-${opts.tighten || 0}">
+</head><body>
 ${_coachPage1(model)}
 ${_coachPage2(model)}
 ${_coachPage3(model)}
@@ -1380,8 +1376,8 @@ function buildCoachPdfOptions() {
 
 // ============================================================================
 // PART C — Client Report (Step 7 Phase 6a). 10 pages (Title + TOC + 8 body) off
-// the client view-model (report_prep.buildClientModel). US Letter; data-page zones
-// for the measurement gate. V1 buildClientHTML untouched (retired in 6b).
+// the client view-model (report_prep.buildClientModel). US Letter; flowing layout
+// (min-height, no clip; data-page/data-zone attributes now inert). V1 buildClientHTML untouched (retired in 6b).
 // ============================================================================
 
 const CLIENT_TOC = [
@@ -1563,12 +1559,12 @@ function clientReportStyles() {
   @page { size: 8.5in 11in; margin: 0; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: var(--body); }
-  .report-page { width: 816px; height: 1056px; padding: 40px 48px; overflow: hidden; position: relative; page-break-after: always; background: #fff; }
+  .report-page { width: 816px; min-height: 1056px; padding: 40px 48px; position: relative; page-break-after: always; background: #fff; display: flex; flex-direction: column; }
   .page-header { height: 50px; border-bottom: 1px solid #ddd; margin-bottom: 14px; }
   .ph-title { font-size: 9pt; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; color: var(--hive-blue); padding-top: 8px; }
   .ph-supertitle { font-size: 8pt; font-weight: bold; letter-spacing: .12em; color: var(--hive-blue); padding-top: 8px; }
-  .page-body { height: 888px; overflow: hidden; }
-  .page-footer { position: absolute; left: 48px; right: 48px; bottom: 22px; font-size: 7pt; color: var(--footer); text-align: center; }
+  .page-body { flex: 1 1 auto; }
+  .page-footer { margin-top: auto; font-size: 7pt; color: var(--footer); text-align: center; }
   .cl-label { font-size: 9pt; font-weight: bold; letter-spacing: .05em; text-transform: uppercase; color: var(--hive-blue); margin: 12px 0 5px; }
   .cl-body { font-size: 10pt; line-height: 15pt; margin: 0 0 8px; }
   .cl-bullet { font-size: 10pt; line-height: 14pt; margin: 0 0 5px; padding-left: 12px; position: relative; }
@@ -1623,10 +1619,6 @@ function clientReportStyles() {
   .cl-dense .cl-quote { padding: 6px 10px; margin: 6px 0; }
   .cl-dense .cl-side-b, .cl-dense .cl-def { font-size: 8.5pt; line-height: 11.5pt; }
   .app-cols { columns: 3; column-gap: 18px; } .app-sec { break-inside: avoid; margin-bottom: 10px; } .app-subhead { font-size: 9pt; font-weight: bold; color: var(--body); } .app-fw { font-size: 8pt; font-style: italic; color: var(--section-title); margin-bottom: 4px; } .app-sub-t { font-size: 8pt; font-weight: bold; color: var(--hive-blue); text-transform: uppercase; margin: 5px 0 3px; }
-  .tighten-1 .cl-body, .tighten-1 .cl-bullet, .tighten-1 .cl-side-b, .tighten-1 .cl-def, .tighten-1 table.cmp td { font-size: 9pt; line-height: 12pt; }
-  .tighten-2 .cl-body, .tighten-2 .cl-bullet, .tighten-2 .cl-side-b, .tighten-2 .cl-def, .tighten-2 table.cmp td { font-size: 8.5pt; line-height: 11.5pt; }
-  .tighten-3 .cl-body, .tighten-3 .cl-bullet, .tighten-3 .cl-side-b, .tighten-3 .cl-def, .tighten-3 table.cmp td { font-size: 8pt; line-height: 11pt; }
-  .tighten-2 .cl-bullet, .tighten-3 .cl-bullet { margin-bottom: 3px; } .tighten-2 .cl-label, .tighten-3 .cl-label { margin: 6px 0 3px; }
   </style>`;
 }
 
@@ -1635,7 +1627,7 @@ function buildClientReportHTML(model, opts = {}) {
 <html lang="en"><head><meta charset="utf-8"><title>Your Enneagram Report — Type ${model.hero.number}</title>
 ${partAStyles()}
 ${clientReportStyles()}
-</head><body class="tighten-${opts.tighten || 0}">
+</head><body>
 ${_clTitle(model)}
 ${_clTOC(model)}
 ${_clP1Welcome(model)}

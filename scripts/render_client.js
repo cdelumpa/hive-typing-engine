@@ -1,11 +1,12 @@
 'use strict';
 
 /**
- * render_client.js — Step 7 Phase 6a verification (offline, no API key).
+ * render_client.js — client report verification (offline, no API key).
  *
  * For sp4/sx7: api_result fixture + synthetic client/coach → buildClientModel →
- * buildClientReportHTML → measureReport (HARD GATE across all 10 pages) → PDF.
- * Halts (no PDF) on any zone overflow. Writes HTML + PDF to .phase6_out/ (gitignored).
+ * buildClientReportHTML → PDF. Flowing layout (no measurement gate): renders straight,
+ * then measures each .report-page's rendered height to flag any page that spills past
+ * one physical sheet (1056px @96dpi). Writes HTML + PDF to .phase6_out/ (gitignored).
  */
 
 const fs = require('fs');
@@ -13,53 +14,62 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const prep = require(path.join(ROOT, 'app/report_prep.js'));
 const R = require(path.join(ROOT, 'app/renderer.js'));
-const { measureReport } = require(path.join(ROOT, 'app/measure.js'));
 
+const PAGE_PX = 1056; // US Letter 11in @96dpi
 const OUT = path.join(ROOT, '.phase6_out');
 if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
 
 const client = { first_name: 'Test', last_name: 'Client', organization: 'Acme Co', date: 'June 2026' };
 const coach = { full_name: 'Cai Delumpa', type: 5, instinct: 'SP' };
 
-async function generatePDF(html, file) {
+async function launch() {
   const puppeteerCore = require(path.join(ROOT, 'app/node_modules/puppeteer-core'));
-  const browser = await puppeteerCore.launch({
+  return puppeteerCore.launch({
     executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
-  try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    await page.emulateMediaType('print');
-    await page.pdf({ path: file, ...R.buildCoachPdfOptions() }); // shared US Letter options
-  } finally { await browser.close(); }
+}
+
+// Measure each .report-page's rendered height + physical-sheet count under flowing layout.
+async function measureLayout(page) {
+  await page.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
+  await new Promise(r => setTimeout(r, 150));
+  return page.evaluate((PAGE_PX) => {
+    return [...document.querySelectorAll('.report-page')].map((el, i) => {
+      const h = el.getBoundingClientRect().height;
+      return { index: i, height: Math.round(h), sheets: Math.max(1, Math.ceil(h / (PAGE_PX + 1))) };
+    });
+  }, PAGE_PX);
 }
 
 (async () => {
-  let failures = 0;
-  for (const fx of ['sp4', 'sx7']) {
-    console.log(`\n=== ${fx} ===`);
-    const apiResult = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
-    const model = prep.buildClientModel({ apiResult, client, coach });
-    if (model._flags && model._flags.length) console.log('  prep flags:', model._flags.join('; '));
+  const browser = await launch();
+  try {
+    for (const fx of ['sp4', 'sx7']) {
+      console.log(`\n=== ${fx} ===`);
+      const apiResult = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
+      const model = prep.buildClientModel({ apiResult, client, coach });
+      if (model._flags && model._flags.length) console.log('  prep flags:', model._flags.join('; '));
 
-    const html = R.buildClientReportHTML(model);
-    fs.writeFileSync(path.join(OUT, `client_${fx}.html`), html);
+      const html = R.buildClientReportHTML(model);
+      fs.writeFileSync(path.join(OUT, `client_${fx}.html`), html);
 
-    const gate = await measureReport(html);
-    console.log('  page measurements:');
-    for (const z of gate.zones.filter(z => z.kind === 'overflow')) {
-      console.log(`    ${z.overflow ? '*** OVER' : 'ok '}  page ${z.page}: ${z.measured}px / ${Math.round(z.budget)}px`);
+      const page = await browser.newPage();
+      await page.setViewport({ width: 816, height: PAGE_PX, deviceScaleFactor: 1 });
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      await page.emulateMediaType('print');
+      const pages = await measureLayout(page);
+      const labels = ['Title', 'TOC', 'P1 Welcome', 'P2 Primer', 'P3 Hypotheses', 'P4 Patterns',
+        'P5 Wings/Lines', 'P6 Instinct', 'P7 Strengths', 'P8 Application'];
+      let sheets = 0;
+      for (const p of pages) {
+        sheets += p.sheets;
+        const spill = p.height > PAGE_PX + 1 ? `  *** SPILL → ${p.sheets} sheets` : '';
+        console.log(`  ${(labels[p.index] || 'page ' + p.index).padEnd(16)} ${p.height}px${spill}`);
+      }
+      await page.pdf({ path: path.join(OUT, `client_${fx}.pdf`), ...R.buildCoachPdfOptions() });
+      await page.close();
+      console.log(`  logical pages: ${pages.length} · estimated physical sheets: ${sheets} · wrote .phase6_out/client_${fx}.pdf`);
     }
-    if (!gate.pass) {
-      failures++;
-      console.log(`  HARD GATE FAILED — ${gate.violations.length} zone(s) over budget. PDF NOT generated.`);
-      continue;
-    }
-    await generatePDF(html, path.join(OUT, `client_${fx}.pdf`));
-    console.log(`  HARD GATE PASSED — wrote .phase6_out/client_${fx}.pdf`);
-  }
-  console.log('');
-  if (failures) { console.log(`RESULT: ${failures} fixture(s) failed the measurement gate.`); process.exit(1); }
-  console.log('RESULT: ALL CLIENT REPORTS PASSED THE MEASUREMENT GATE.');
+  } finally { await browser.close(); }
 })().catch(e => { console.error('RENDER FAILED:', e.stack || e.message); process.exit(1); });

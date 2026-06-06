@@ -27,7 +27,7 @@ if (process.env.SENDGRID_API_KEY) {
 
 // Load renderer and type library
 const { buildCoachPdfOptions } = require('./renderer');
-const { renderClientReport, renderCoachReport, GateExhaustedError } = require('./render_report');
+const { renderClientReport, renderCoachReport } = require('./render_report');
 const { generateBetaReport } = require('./generate_report');
 const db = require('./db');
 
@@ -834,17 +834,12 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath, opts = {}
   }
   if (coachAttachments.length > 0) coachMsg.attachments = coachAttachments;
 
-  // Send both emails. Client email is suppressed when the client report failed the
-  // measurement gate (decision: halt + alert, no client email sent).
-  if (opts.suppressClient) {
-    console.warn('[email] client email SUPPRESSED — client report failed the measurement gate (coach alerted).');
-  } else {
-    try {
-      await sgMail.send(clientMsg);
-      console.log(`[email] client email sent to ${intake.email}`);
-    } catch (e) {
-      console.error('[email] failed to send client email:', e.message, e.response && e.response.body);
-    }
+  // Send both emails.
+  try {
+    await sgMail.send(clientMsg);
+    console.log(`[email] client email sent to ${intake.email}`);
+  } catch (e) {
+    console.error('[email] failed to send client email:', e.message, e.response && e.response.body);
   }
 
   try {
@@ -866,51 +861,26 @@ async function generateReportPDFs(result, scores, intake, assessmentId) {
   const coach = { full_name: intake.coach || 'Cai Delumpa', type: null, instinct: null };  // type/instinct: B4 placeholder
   let clientPdfPath = null;
   let coachPdfPath  = null;
-  const gateFailures = [];
 
   try {
-    const { html, tighten } = await renderClientReport({ apiResult: result, client, coach });
+    const { html } = renderClientReport({ apiResult: result, client, coach });
     clientPdfPath = await generatePDF(html, `client_${intake.firstName}_${intake.lastName}`, pdfOpts);
-    console.log(`[pdf] client PDF generated (tighten=${tighten}): ${clientPdfPath}`);
+    console.log(`[pdf] client PDF generated: ${clientPdfPath}`);
     if (assessmentId) await db.createReport(assessmentId, 'client', clientPdfPath);
   } catch (e) {
-    if (e instanceof GateExhaustedError) { gateFailures.push('client'); console.error(`[pdf] client report HALTED — measurement gate exhausted: ${e.message}`); }
-    else console.error('[pdf] client PDF generation failed:', e.message);
+    console.error('[pdf] client PDF generation failed:', e.message);
   }
 
   try {
-    const { html, tighten } = await renderCoachReport({ apiResult: result, client, coach });
+    const { html } = renderCoachReport({ apiResult: result, client, coach });
     coachPdfPath = await generatePDF(html, `coach_${intake.firstName}_${intake.lastName}`, pdfOpts);
-    console.log(`[pdf] coach PDF generated (tighten=${tighten}): ${coachPdfPath}`);
+    console.log(`[pdf] coach PDF generated: ${coachPdfPath}`);
     if (assessmentId) await db.createReport(assessmentId, 'coach', coachPdfPath);
   } catch (e) {
-    if (e instanceof GateExhaustedError) { gateFailures.push('coach'); console.error(`[pdf] coach report HALTED — measurement gate exhausted: ${e.message}`); }
-    else console.error('[pdf] coach PDF generation failed:', e.message);
+    console.error('[pdf] coach PDF generation failed:', e.message);
   }
 
-  // Unrecoverable overflow (self-heal exhausted): halt + alert; do NOT ship a broken report.
-  if (gateFailures.length) await sendGateAlert(intake, gateFailures).catch(err => console.error('[pdf] gate-alert failed:', err.message));
-  return { clientPdfPath, coachPdfPath, gateFailures };
-}
-
-async function sendGateAlert(intake, kinds) {
-  if (!process.env.SENDGRID_API_KEY) return;
-  const coachEmail = process.env.COACH_EMAIL_CAI || process.env.COACH_EMAIL;
-  if (!coachEmail) return;
-  await sgMail.send({
-    to:      coachEmail,
-    from:    { name: 'InsightOut by Hive', email: process.env.SENDGRID_FROM_EMAIL },
-    subject: `[Hive] Report did not fit — manual review (${intake.firstName} ${intake.lastName})`,
-    text: [
-      `The ${kinds.join(' and ')} report(s) could not be fit to the page after the deterministic self-heal`,
-      `(measurement gate exhausted). ${kinds.includes('client') ? 'No client email was sent.' : ''}`,
-      ``,
-      `Client: ${intake.firstName} ${intake.lastName} <${intake.email}>`,
-      `Organization: ${intake.organization || 'Not provided'}`,
-      `Action: review content lengths / regenerate.`,
-    ].join('\n'),
-  });
-  console.log(`[pdf] gate-alert sent to ${coachEmail} for: ${kinds.join(', ')}`);
+  return { clientPdfPath, coachPdfPath };
 }
 
 // =================== BACKGROUND JOB ===================
@@ -1014,7 +984,7 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
   }
 
   // 5. Generate PDFs via shared helper
-  const { clientPdfPath, coachPdfPath, gateFailures } = await generateReportPDFs(result, scores, intake, assessmentId);
+  const { clientPdfPath, coachPdfPath } = await generateReportPDFs(result, scores, intake, assessmentId);
 
   // 6. Mark PDF generation timestamp
   if (assessmentId) {
@@ -1024,9 +994,9 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     );
   }
 
-  // 7. Send emails (suppress the client email if the client report failed the gate — decision: halt + alert, no client email)
+  // 7. Send emails
   try {
-    await sendEmails(intake, result, clientPdfPath, coachPdfPath, { suppressClient: gateFailures.includes('client') });
+    await sendEmails(intake, result, clientPdfPath, coachPdfPath);
     if (assessmentId) {
       await db.query(
         `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
@@ -3672,13 +3642,13 @@ app.post('/admin/retry/:client_id', requireAdmin, async (req, res) => {
     await db.updateClientStatus(clientId, 'complete');
 
     await db.deleteReportsByAssessmentId(payload.assessment_id);
-    const { clientPdfPath, coachPdfPath, gateFailures } = await generateReportPDFs(result, scores, intake, payload.assessment_id);
+    const { clientPdfPath, coachPdfPath } = await generateReportPDFs(result, scores, intake, payload.assessment_id);
     await db.query(
       `UPDATE assessments SET pdf_generated_at = NOW() WHERE id = $1`,
       [payload.assessment_id]
     );
 
-    await sendEmails(intake, result, clientPdfPath, coachPdfPath, { suppressClient: gateFailures.includes('client') });
+    await sendEmails(intake, result, clientPdfPath, coachPdfPath);
     await db.query(
       `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
       [payload.assessment_id]

@@ -280,17 +280,18 @@ async function runAssert() {
     softCheck('dominant_instinct_hypothesis', h.dominant_instinct_hypothesis, meta.expected_dominant_instinct);
   }
 
-  // Render half: build both reports through report_prep -> renderer -> measurement gate.
-  console.log('\n=== RENDER + MEASURE ===');
+  // Render half: build both reports through report_prep -> renderer (flowing layout, no gate).
+  console.log('\n=== RENDER ===');
   const intake = state.intake || {};
   const client = { first_name: intake.firstName || 'Test', last_name: intake.lastName || 'Client', organization: intake.organization, date: 'June 2026' };
   const coach = { full_name: intake.coach || 'Cai Delumpa', type: null, instinct: null };
   for (const [kind, fn] of [['coach', renderReport.renderCoachReport], ['client', renderReport.renderClientReport]]) {
     try {
-      const r = await fn({ apiResult: result, client, coach });
-      checkTrue(`${kind} report fits the measurement gate (tighten=${r.tighten})`, r.gate.pass);
+      const r = fn({ apiResult: result, client, coach });
+      const pageCount = (r.html.match(/class="report-page/g) || []).length;
+      checkTrue(`${kind} report renders (${pageCount} pages)`, typeof r.html === 'string' && r.html.length > 0);
     } catch (e) {
-      checkTrue(`${kind} report fits the measurement gate`, false);
+      checkTrue(`${kind} report renders`, false);
       console.log(`      ${e.message}`);
     }
   }
