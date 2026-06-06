@@ -278,8 +278,8 @@ function buildBetaData(row) {
   const r4 = responses.stage4 || {};
   const finalQ = responses.finalQuestion;
 
-  const confirmedType    = s4.leadType || hyp.confirmed_type || s1.typeHypotheses?.[0];
-  const confirmedInstinct = hyp.confirmed_instinct || s1.identifiedInstinct || '?';
+  const confirmedType    = hyp.confirmed_type || s4.leadType || scores.leadingType;
+  const confirmedInstinct = hyp.dominant_instinct_hypothesis || scores.dominantInstinct || '?';
   const typeName         = TYPE_NAMES[confirmedType] || '';
 
   const assessDate = row.assessment_date
@@ -307,28 +307,22 @@ function buildBetaData(row) {
     response: r0[q.id] || '',
   }));
 
-  // ── Stage 1 summary + questions
-  // Pull confidence / gap from the flattened keys first; fall back to s1 (old snapshots).
-  const centerGap        = scores.centerGap ?? s1.centerGap ?? '—';
-  const centerConfidence = scores.centerConfidence || s1.centerConfidence || '—';
-  const instinctGap        = s1.instinctGap ?? '—';
-  const instinctConfidence = hyp.instinct_confidence || s1.instinctConfidence || '—';
+  // ── Stage 1 summary + questions (v2: typeProfile/instinctProfile + Call #1 ranking;
+  //    center scoring was removed in v2, so the Head/Heart/Body center rows are dropped).
+  const instProf = scores.instinctProfile || {};
+  const ranked   = [...(hyp.call1_ranking || [])].sort((a, b) => b.score - a.score).map(r => r.type);
+  const counterFlag = flags.some(f => f.label === 'counter_type');
 
   const stage1Summary = [
-    { label: 'Head / Heart / Body',     value: `${s1.head ?? '?'} / ${s1.heart ?? '?'} / ${s1.body ?? '?'}  (gap: ${centerGap})` },
-    { label: 'Confirmed Center',         value: s1.identifiedCenter || '—' },
-    { label: 'Center Confidence',        value: centerConfidence },
-    { label: 'SP / SO / SX',             value: `${s1.sp ?? '?'} / ${s1.so ?? '?'} / ${s1.sx ?? '?'}  (gap: ${instinctGap})` },
-    { label: 'Confirmed Instinct',       value: confirmedInstinct },
-    { label: 'Instinct Confidence',      value: instinctConfidence },
-    { label: 'Type Hypotheses',          value: (s1.typeHypotheses || []).map(t => `Type ${t}`).join(', ') || '—' },
-    { label: 'Counter-Type Flag',        value: s1.counterTypeFlag || (hyp.counter_type_confirmed ? 'YES' : 'NO') },
+    { label: 'SP / SO / SX',          value: `${instProf.SP ?? '?'} / ${instProf.SO ?? '?'} / ${instProf.SX ?? '?'}` },
+    { label: 'Dominant Instinct',     value: confirmedInstinct },
+    { label: 'Leading / Alternate',   value: `Type ${scores.leadingType ?? '?'} / Type ${scores.alternateType ?? '?'}` },
+    { label: 'Coherence Ranking',     value: ranked.length ? ranked.map(t => `Type ${t}`).join(' › ') : '—' },
+    { label: 'Counter-Type Flag',     value: counterFlag ? 'YES' : 'NO' },
   ];
-  if (s1.counterTypeCombination || hyp.counter_type_combination) {
-    stage1Summary.push({
-      label: 'Counter-Type Combination',
-      value: s1.counterTypeCombination || hyp.counter_type_combination || '',
-    });
+  if (counterFlag) {
+    const ctf = flags.find(f => f.label === 'counter_type');
+    stage1Summary.push({ label: 'Counter-Type Note', value: (ctf && ctf.description) || hyp.counter_type_combination || '' });
   }
 
   const stage1Questions = STAGE1_QUESTIONS.map((q, idx) => {
@@ -360,15 +354,13 @@ function buildBetaData(row) {
   });
 
   // ── Stage 2 summary + questions
-  const xrefPrimary     = scores.xrefPrimary     ?? s2.xrefPrimary     ?? hyp.stage2_primary;
-  const xrefAlternative = scores.xrefAlternative ?? s2.xrefAlternative;
-  const xrefAmbiguity   = scores.xrefAmbiguityAxis || s2.xrefAmbiguityAxis;
-
+  // v2: the framework cross-reference now lives in api_result.stage2_analysis.
+  const s2a = apiResult.stage2_analysis || {};
   const stage2Summary = [
-    { label: 'Primary Hypothesis',      value: xrefPrimary     ? `Type ${xrefPrimary}`     : '—' },
-    { label: 'Alternative Hypothesis',  value: xrefAlternative ? `Type ${xrefAlternative}` : '—' },
-    { label: 'Ambiguity Axis',          value: xrefAmbiguity || '—' },
-    { label: 'Cross-Center Divergence', value: s2.crossCenterDivergence ? 'YES' : 'NO' },
+    { label: 'Hornevian (Social Style)', value: s2a.hornevian_result || '—' },
+    { label: 'Harmonic (Coping Style)',  value: s2a.harmonic_result || '—' },
+    { label: 'Object Relations',         value: s2a.object_relations_result || '—' },
+    { label: 'Framework Alignment',      value: s2a.framework_alignment || '—' },
   ];
 
   const s2QuestionKeys = ['q1', 'q2', 'q3'];
@@ -390,20 +382,18 @@ function buildBetaData(row) {
   // ── Stage 3 summary + Q1/Q2 blocks
   // Mode comes from assessment.js as 'COUNTER-TYPE'/'STANDARD' but Claude
   // returns 'COUNTER_TYPE'/'STANDARD' — normalize so comparisons match either.
-  const rawS3Mode    = scores.s3mode       ?? s3.mode       ?? hyp.stage3_mode;
-  const s3Mode       = rawS3Mode ? String(rawS3Mode).replace(/_/g, '-') : null;
-  const s3Pair       = scores.s3pair       ?? s3.pair;
-  const s3Q1Result   = scores.s3q1Result   ?? s3.q1Result;
-  const s3Leading    = scores.s3leading    ?? s3.leading;
-  const s3Confidence = scores.s3confidence ?? s3.confidence ?? hyp.stage3_confidence;
+  // v2: Stage-3 lean lives in scores.stage3 { mode, pair, ctPair, ctId, typeA, typeB, q1Answer, q1Lean }.
+  const s3Mode       = s3.mode ? String(s3.mode).replace(/_/g, '-') : null;
+  const s3Pair       = s3.pair;
+  const s3Q1Result   = s3.q1Lean;
+  const s3Leading    = s3.typeA;
 
   const stage3Summary = [
     { label: 'Mode',         value: s3Mode || '—' },
     { label: 'Pair Tested',  value: s3Pair || '—' },
     { label: 'Result',       value: s3Q1Result || '—' },
     { label: 'Leading Type', value: s3Leading ? `Type ${s3Leading}` : '—' },
-    { label: 'Confidence',   value: s3Confidence || '—' },
-    { label: 'CT Answer',    value: s3.ctAnswer || 'N/A' },
+    { label: 'CT Answer',    value: s3.q1Answer || 'N/A' },
   ];
 
   // Q1 — present whenever a Stage-3 answer was recorded
@@ -411,7 +401,7 @@ function buildBetaData(row) {
   if (r3.q1) {
     const decoded = decodeStage3Answer(r3.q1);
     if (s3Mode === 'COUNTER-TYPE') {
-      const ctKey = s3.pairKey || s1.counterTypeKey;
+      const ctKey = s3.ctPair;
       const ctPair = STAGE3_CT_PAIRS[ctKey] || {};
       stage3Q1 = {
         stem: STAGE3_Q1_STEM,
@@ -422,13 +412,8 @@ function buildBetaData(row) {
         selectedLabel: decoded.label,
       };
     } else {
-      const pairKey = s3.pairKey;
-      let typeA, typeB;
-      if (pairKey && pairKey.includes('-')) {
-        const parts = pairKey.split('-');
-        typeA = parseInt(parts[0]);
-        typeB = parseInt(parts[1]);
-      }
+      const typeA = s3.typeA;
+      const typeB = s3.typeB;
       stage3Q1 = {
         stem: STAGE3_Q1_STEM,
         pairs: [
@@ -444,7 +429,7 @@ function buildBetaData(row) {
   let stage3Q2 = null;
   if (r3.q2) {
     const decoded = decodeStage3Answer(r3.q2);
-    const avoidance = STAGE3_AVOIDANCE_QUESTIONS[s3.pairKey] || {};
+    const avoidance = STAGE3_AVOIDANCE_QUESTIONS[`${s3.typeA}-${s3.typeB}`] || {};
     stage3Q2 = {
       stem: STAGE3_Q2_STEM,
       pairs: [
@@ -624,12 +609,10 @@ async function generateBetaReport(clientId, opts = {}) {
   return { filename, outPath, generated_at };
 }
 
-module.exports = { generateBetaReport };
-
 // ─── CLI entry point ──────────────────────────────────────────────────────────
-
-if (require.main === module) {
-  (async () => {
+// Single source of truth — beta/generate_report.js is a thin shim that calls runCli().
+async function runCli() {
+  await (async () => {
     const args = process.argv.slice(2);
     const forceFlag = args.includes('--force');
     const mainArg   = args.find(a => !a.startsWith('--'));
@@ -684,3 +667,7 @@ if (require.main === module) {
     if (_pool) await _pool.end();
   })().catch(e => { console.error('Fatal:', e.message); process.exit(1); });
 }
+
+module.exports = { generateBetaReport, runCli, buildBetaData };
+
+if (require.main === module) runCli();
