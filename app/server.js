@@ -418,10 +418,16 @@ Question 3 — Strengths and challenges: Provide the client's key strengths and 
 
 Question 4 (conditional — include ONLY when confusion flags exist and outcome is not REDIRECT) — Type confusion observation: "An invitation to observe yourself this week." Describe the two types in question. State the core motivation of each. Ask the client to notice which feels closer in challenging moments this week.
 
+FIELD 7 — instinct_evidence
+For the client report's "In Your Responses" box (Page 6): exactly 3 short bullets, ≤25 words each, each naming a SPECIFIC piece of the client's own responses that shows their dominant instinct (SP/SO/SX) at work. Plain language, no stage/framework jargon. Distinct from FIELD 3 instinct_personal_overlay (a 2-4 sentence narrative) — these are crisp, evidence-pointing bullets for a different page. Set to null when the low_instinct_confidence flag is present (instinct genuinely uncertain); otherwise always exactly 3 bullets.
+
 TASK 5 — Coach Prep Report
 Produce a structured coach_report JSON object. This report is for Cai and Monique, not the client. Use coaching-oriented, Enneagram-literate language. Assume deep system knowledge. Write in second or third person about the client consistently throughout (use "she," "he," "they," or "the client" — pick one based on Stage 0 language clues, defaulting to "they" if unclear).
 
 Per §9.4, the coach report shows a coherence bar graph of all nine types. That graph is rendered downstream from the call1_ranking field — do NOT describe, narrate, or reproduce it in any prose field. The third_candidate is reasoning context that a coach may raise as a debrief move; never present it as a conclusion.
+
+THE BOTTOM LINE — bottom_line
+One short paragraph (2-3 sentences) giving the plain-English bottom line for the coach: who this client most likely is and the single most important thing to hold going into the debrief. No jargon, no scores, no framework language. This is distinct from section1.the_read — the_read is the fuller 4-6 sentence read; bottom_line is the one-breath summary. Always present: on AMBIGUOUS, state plainly that the pattern is genuinely complex and points to a session rather than a single type.
 
 SECTION 1 — Your Read on This Client
 the_read: 4-6 sentence plain-English read of this client, anchored firmly in their Stage 0 language. What jumped out? What does the overall pattern feel like? What's the most important thing to know going in?
@@ -479,6 +485,12 @@ types_in_question: string describing both types being explored (e.g. "Type 9 and
 what_to_do: 3-4 bullets on how to debrief the type confusion observation — what data to bring in, what to listen for, how to hold both possibilities
 if_no_data: 2-3 bullets noting what type-specific access challenges might explain the ambiguity — why certain types are harder to confirm through self-report alone
 probe: One question to use when the confusion observation didn't yield clarity. Format as "Try asking: [question]"
+
+TASK 6 — Verbatim Client Words (client_words)
+Select the client's own words to quote in both reports. These are VERBATIM selections — copy the client's exact text; never paraphrase, summarize, correct, or edit it. Pull ONLY from the client's open responses in the case file (the Stage 0 and Stage 1 open answers).
+leading_quotes: 1-2 short quotes (≤60 words total across all quotes) that best capture the language pointing toward the confirmed/leading type. Copy each quote character-for-character from the client's responses. If you must trim for length, trim only at a natural boundary and never alter the words you keep. Always produce at least one quote.
+alternate_absence_note: One brief sentence noting that the client's language shows little or no signal for the alternate type. Set to null when stage4_outcome is AMBIGUOUS (no single leading type to contrast against).
+This client_words object is a top-level sibling of client_facing and coach_report — not nested inside either.
 `;
 
 const OUTPUT_FORMAT = `CRITICAL: Return your complete analysis as a single JSON object. Do not include any text, explanation, markdown formatting, or code fences outside the JSON object. The application parses this response directly — any non-JSON content will cause a parsing failure.
@@ -536,9 +548,11 @@ const OUTPUT_FORMAT = `CRITICAL: Return your complete analysis as a single JSON 
     "secondary_type_narrative": <string or null — 3-5 sentences on secondary type if holistic analysis surfaced meaningful alternative signal. Null if none.>,
     "stress_point_narrative": <string or null — 2-3 client-appropriate sentences on confirmed type's stress movement. Null for AMBIGUOUS.>,
     "security_point_narrative": <string or null — 2-3 client-appropriate sentences on confirmed type's security movement. Null for AMBIGUOUS.>,
-    "what_to_explore": [<string q1>, <string q2>, <string q3>]
+    "what_to_explore": [<string q1>, <string q2>, <string q3>],
+    "instinct_evidence": <[<string>, <string>, <string>] or null — exactly 3 bullets, ≤25 words each, client-specific instinct evidence; null on low_instinct_confidence>
   },
   "coach_report": {
+    "bottom_line": <string — 1 short paragraph (2-3 sentences), plain-English summary of the finding; no jargon, no scores. Distinct from section1.the_read.>,
     "section1": {
       "the_read": <string — 4-6 sentence paragraph, plain-English, anchored to Stage 0 language>,
       "going_in": [<string bullet>, ...]
@@ -602,6 +616,10 @@ const OUTPUT_FORMAT = `CRITICAL: Return your complete analysis as a single JSON 
       "if_no_data": [<string bullet>, ...],
       "probe": <string — "Try asking: [question]">
     }>
+  },
+  "client_words": {
+    "leading_quotes": [<string — VERBATIM client quote copied exactly from an open response, never edited>, ...1-2 quotes, ≤60 words total],
+    "alternate_absence_note": <string or null — brief note that the client's language shows little/no signal for the alternate type; null on AMBIGUOUS>
   },
   "final_response": {
     "present": <boolean>,
@@ -936,6 +954,9 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     if (scores.typeProfile)             h.type_score_profile     = scores.typeProfile;
     if (scores.instinctProfile)         h.instinct_score_profile = scores.instinctProfile;
     if (scores.stage4 && scores.stage4.outcome) h.stage4_outcome  = scores.stage4.outcome;
+    // Step 7: stamp the deterministic Stage-1 coherence gap (tight/medium/wide) so the
+    // prep layer can derive near_tie = (gap === 'tight'). Engine-set; the AI never emits it.
+    if (scores.gap != null)             h.gap                    = scores.gap;
   }
 
   // 3. Persist api_result now that the call succeeded
