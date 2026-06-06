@@ -39,6 +39,9 @@ const http = require('http');
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
+// Render half (Step 7 Phase 7b): exercise the full pipeline — report_prep -> Part B/C
+// renderer -> measurement gate (with self-heal) — on the live Call #2 result.
+const renderReport = require(path.join(__dirname, '..', 'app', 'render_report'));
 
 // ─── Args ─────────────────────────────────────────────────────────────────────
 const fixtureName = (process.argv[2] || '').toLowerCase();
@@ -275,6 +278,21 @@ async function runAssert() {
   }
   if (meta.expected_dominant_instinct) {
     softCheck('dominant_instinct_hypothesis', h.dominant_instinct_hypothesis, meta.expected_dominant_instinct);
+  }
+
+  // Render half: build both reports through report_prep -> renderer -> measurement gate.
+  console.log('\n=== RENDER + MEASURE ===');
+  const intake = state.intake || {};
+  const client = { first_name: intake.firstName || 'Test', last_name: intake.lastName || 'Client', organization: intake.organization, date: 'June 2026' };
+  const coach = { full_name: intake.coach || 'Cai Delumpa', type: null, instinct: null };
+  for (const [kind, fn] of [['coach', renderReport.renderCoachReport], ['client', renderReport.renderClientReport]]) {
+    try {
+      const r = await fn({ apiResult: result, client, coach });
+      checkTrue(`${kind} report fits the measurement gate (tighten=${r.tighten})`, r.gate.pass);
+    } catch (e) {
+      checkTrue(`${kind} report fits the measurement gate`, false);
+      console.log(`      ${e.message}`);
+    }
   }
 
   console.log(`\n=== RESULT: ${passed} passed, ${failed} failed ===`);
