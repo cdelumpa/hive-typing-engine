@@ -1374,8 +1374,276 @@ function buildCoachPdfOptions() {
   };
 }
 
+// ============================================================================
+// PART C — Client Report (Step 7 Phase 6a). 10 pages (Title + TOC + 8 body) off
+// the client view-model (report_prep.buildClientModel). US Letter; data-page zones
+// for the measurement gate. V1 buildClientHTML untouched (retired in 6b).
+// ============================================================================
+
+const CLIENT_TOC = [
+  ['Welcome', 'A note from Cai & Monique', 1],
+  ['What Is the Enneagram?', 'The system in brief', 2],
+  ['Your Type Hypotheses', 'The pattern your responses point to', 3],
+  ['How Your Type Shows Up', 'Thinking, feeling, and behaving', 4],
+  ['Wings & Lines', 'Adjacent types and movement', 5],
+  ['Instinct & Subtype', 'Your dominant instinct', 6],
+  ['Strengths, Challenges & Growth', 'Where you shine and stretch', 7],
+  ['Putting It All Together', 'Communication, conflict, center', 8],
+];
+
+const _clBullets = (arr) => (arr || []).map(b => `<div class="cl-bullet">${esc(b)}</div>`).join('');
+const _clHeader = (title) => `<div class="page-header"><div class="ph-title">${esc(title)}</div></div>`;
+const _clFooter = (n) => `<div class="page-footer">© Hive · Confidential · Page ${n}</div>`;
+
+function _clPage(title, n, bodyClass, inner) {
+  return `<div class="report-page">${_clHeader(title)}
+    <div class="page-body ${bodyClass || ''}" data-page="${n}" data-zone="p${n}-body">${inner}</div>
+    ${_clFooter(n)}</div>`;
+}
+
+function _clTitle(m) {
+  return `<div class="report-page report-title">
+    <div class="ph-supertitle">INSIGHTOUT BY HIVE</div>
+    <div class="tp-title">Your Enneagram Report</div>
+    <div class="tp-tagline">Understanding yourself, from the inside out.</div>
+    <div class="tp-svg">${buildEnneagramSVG(m.svg.base)}</div>
+    <div class="tp-client">${esc(m.client.full_name)}</div>
+    <div class="tp-date">${esc(m.client.date)}</div>
+    <div class="page-footer">© Hive · Confidential</div></div>`;
+}
+
+function _clTOC(m) {
+  const rows = CLIENT_TOC.map(([t, d, n]) =>
+    `<div class="toc-row"><span class="toc-t">${esc(t)}</span><span class="toc-d">${esc(d)}</span><span class="toc-n">${n}</span></div>`).join('');
+  return `<div class="report-page">
+    <div class="page-header"><div class="ph-supertitle">INSIGHTOUT ENNEAGRAM REPORT</div></div>
+    <div class="page-body" data-page="toc" data-zone="toc-body">
+      <div class="toc-client">${esc(m.client.full_name)} · Type ${m.hero.number} — ${esc(m.hero.name)} · ${esc(m.hero.subtype_name)} Subtype · ${esc(m.client.date)}</div>
+      <div class="toc-title">Table of Contents</div>
+      ${rows}
+    </div>
+    <div class="page-footer">© Hive · Confidential</div></div>`;
+}
+
+function _clP1Welcome(m) {
+  const paras = (m.pages.welcome.body || '').split('\n\n').map(p => `<p class="cl-body">${esc(p)}</p>`).join('');
+  const inner = `
+    <div class="cl-greeting">Welcome, ${esc(m.pages.welcome.greeting_name)}!</div>
+    <div class="cl-welcome">${paras}</div>
+    <div class="cl-sigs">
+      <div class="cl-sig"><strong>Cai Delumpa</strong><br>Co-Founder, Hive Inc.<br>Type 7 — The Enthusiast</div>
+      <div class="cl-sig"><strong>Monique Breault</strong><br>Co-Founder, Hive Inc.<br>Type 9 — The Peacemaker</div>
+    </div>`;
+  return _clPage('Welcome', 1, 'cl-center', inner);
+}
+
+function _clP2Primer(m) {
+  const p = m.pages.primer;
+  const pillars = (p.pillars || []).map(x => `<div class="prm-pillar"><div class="prm-pillar-t">${esc(x.title)}</div><div class="prm-pillar-b">${esc(x.body)}</div></div>`).join('');
+  const cards = (p.nine_types || []).map(c => `
+    <div class="prm-card">
+      <div class="prm-card-h">TYPE ${c.number} · ${esc((c.center || '').toUpperCase())} CENTER</div>
+      <div class="prm-card-n">${esc(c.name)}</div>
+      <div class="prm-card-d">${esc(c.description)}</div>
+      <div class="prm-card-g"><strong>Gifts:</strong> ${esc(c.gifts)}</div>
+    </div>`).join('');
+  const inner = `
+    <div class="prm-top">
+      <div class="prm-intro">${(p.intro || '').split('\n\n').map(x => `<p class="cl-body">${esc(x)}</p>`).join('')}</div>
+      <div class="prm-pillars">${pillars}</div>
+    </div>
+    <div class="prm-scan">${esc(p.scan_line || '')}</div>
+    <div class="prm-grid">${cards}</div>
+    <div class="prm-footer">${esc(p.footer || '')}</div>`;
+  return _clPage('What Is the Enneagram?', 2, '', inner);
+}
+
+function _clP3Hypotheses(m) {
+  const th = m.pages.type_hypotheses, r = th.comparison_rows;
+  const row = (l, v) => `<tr><td class="cmp-label">${esc(l)}</td><td>${esc(v || '')}</td></tr>`;
+  const quote = (th.quote || []).map(q => `“${esc(q)}”`).join('<br>');
+  const inner = `<div class="cl-2col">
+    <div class="cl-2col-l">
+      <div class="cl-pill"><span class="cl-pill-num">Type ${th.pill.number}</span> <span class="cl-pill-name">${esc(th.pill.name)}</span><div class="cl-pill-sub">${esc(th.pill.subtype_name)} Subtype</div></div>
+      <div class="cl-label">Core Motivation</div><p class="cl-body">${esc(th.core_motivation)}</p>
+      ${th.alternate_note ? `<div class="cl-label">A Secondary Pattern Worth Exploring — Type ${m.alternate.number} (${esc(m.alternate.name)})</div><p class="cl-body">${esc(th.alternate_note)}</p>` : ''}
+      ${quote ? `<div class="cl-quote"><div class="cl-label">In Your Own Words</div>${quote}</div>` : ''}
+      <table class="cmp"><tbody>
+        ${row('Core Motivation', r.core_motivation)}${row('Focus of Attention', r.focus)}${row('Energy Goes To', r.energy)}${row('Gifts', r.gifts)}${row('Challenges', r.challenges)}
+        ${th.discriminator ? `<tr><td class="cmp-label">Key Distinction</td><td class="cmp-disc">${esc(th.discriminator)}</td></tr>` : ''}
+      </tbody></table>
+    </div>
+    <div class="cl-2col-r"><div class="cl-svg">${buildEnneagramSVG(m.svg.type)}</div>
+      <div class="cl-disclaimer">This is a hypothesis to test in your life — not a label.</div></div>
+  </div>`;
+  return _clPage('Your Type Hypotheses', 3, 'cl-dense', inner);
+}
+
+function _clP4Patterns(m) {
+  const p = m.pages.patterns;
+  const sec = (title, blk, inq) => `
+    <div class="pat-sec">
+      <div class="cl-label">${esc(title)}</div>
+      <p class="cl-body">${esc(blk.intro)}</p>
+      <div class="pat-cols">${_clBullets(blk.bullets)}</div>
+      <div class="cl-inquiry">${esc(blk.inquiry || inq || '')}</div>
+    </div>`;
+  const inner = sec('How You Think', p.thinking) + sec('How You Feel', p.feeling) + sec('How You Behave', p.behaving);
+  return _clPage('How Your Type Shows Up', 4, '', inner);
+}
+
+function _clP5WingsLines(m) {
+  const w = m.pages.wings_lines;
+  const wing = (x) => `<div class="cl-label">Wing — Type ${x.target_type} (${esc(TYPE_NAMES[x.target_type])})</div><p class="cl-body">${esc(x.body)}</p>`;
+  const line = (lbl, x) => `<div class="cl-label">${esc(lbl)} — Type ${x.target_type} (${esc(TYPE_NAMES[x.target_type])})</div><p class="cl-body">${esc(x.narrative)}</p>${x.resource_card ? `<div class="cl-card">${esc(x.resource_card)}</div>` : ''}`;
+  const inner = `<div class="cl-2col">
+    <div class="cl-2col-l">${wing(w.wings.wing_a)}${wing(w.wings.wing_b)}${line('Stress Point', w.lines.stress)}${line('Security Point', w.lines.security)}</div>
+    <div class="cl-2col-r"><div class="cl-svg">${buildEnneagramSVG(m.svg.wings)}</div>
+      <div class="cl-sidebar"><div class="cl-side-h">About Wings</div><p class="cl-side-b">${esc(w.wings_primer)}</p>
+      <div class="cl-side-h">About Stress & Security Points</div><p class="cl-side-b">${esc(w.lines_primer)}</p></div></div>
+  </div>`;
+  return _clPage('Wings & Lines', 5, '', inner);
+}
+
+function _clP6Instinct(m) {
+  const i = m.pages.instinct_subtype, st = i.subtype;
+  const defs = (i.instinct_definitions || []).map(d => `<div class="cl-def"><strong>${esc(d.name)} (${esc(d.code)})</strong> ${esc(d.body)}</div>`).join('');
+  const stack = (i.instinct_stack || []).map(s => `<div class="cl-stack-row"><span class="cl-stack-l">${esc(s.label)}</span><span>${esc(s.name)} (${esc(s.code)})</span></div>`).join('');
+  const evidence = (i.instinct_evidence || []).map(b => `<div class="cl-bullet">${esc(b)}</div>`).join('');
+  const inner = `<div class="cl-2col">
+    <div class="cl-2col-l">
+      <div class="cl-subtype-name">${esc(st.name)}</div><div class="cl-subtype-tag">${esc(st.tagline)}</div>
+      <p class="cl-body">${esc(st.narrative)}</p>
+      <div class="cl-label">How the ${esc(st.name)} Thinks</div>${_clBullets(st.patterns.thinking)}
+      <div class="cl-label">How the ${esc(st.name)} Feels</div>${_clBullets(st.patterns.feeling)}
+      <div class="cl-label">How the ${esc(st.name)} Behaves</div>${_clBullets(st.patterns.behaving)}
+      ${evidence ? `<div class="cl-orange"><div class="cl-orange-h">In Your Responses</div>${evidence}</div>` : ''}
+    </div>
+    <div class="cl-2col-r"><div class="cl-sidebar"><div class="cl-side-h">About the Instincts</div><p class="cl-side-b">${esc(i.instinct_primer)}</p>
+      <div class="cl-side-h">The Three Instincts</div>${defs}
+      <div class="cl-side-h">Your Instincts Stack</div>${stack}</div></div>
+  </div>`;
+  return _clPage('Instinct & Subtype', 6, 'cl-dense', inner);
+}
+
+function _clP7Strengths(m) {
+  const s = m.pages.strengths_challenges;
+  const cards = (arr, cls) => (arr || []).map(c => `<div class="sc-card ${cls}"><div class="sc-card-t">${esc(c.title)}</div><div class="sc-card-b">${esc(c.body)}</div></div>`).join('');
+  const inner = `
+    <div class="cl-label">Strengths</div><div class="sc-row">${cards(s.strengths, 'sc-str')}</div>
+    <div class="cl-label">Challenges</div><div class="sc-row">${cards(s.challenges, 'sc-chl')}</div>
+    <div class="cl-orange"><div class="cl-orange-h">As a ${esc(m.hero.subtype_name)} — What Shifts</div>${_clBullets(s.shifts)}</div>
+    <div class="cl-label">Practices That Help</div><p class="cl-body">${esc(s.practices.intro)}</p>${_clBullets(s.practices.bullets)}`;
+  return _clPage('Strengths, Challenges & Growth', 7, '', inner);
+}
+
+function _clP8Application(m) {
+  const a = m.pages.application;
+  const block = (title, blk, sub, subTitle) => `
+    <div class="app-sec">
+      <div class="cl-label">${esc(title)}</div>
+      <div class="app-subhead">${esc(blk.subhead)}</div><div class="app-fw">${esc(blk.framework)}</div>
+      ${_clBullets(blk.bullets)}
+      <div class="app-sub-t">${esc(subTitle)}</div>${_clBullets(blk[sub])}
+    </div>`;
+  const inner = `<div class="app-cols">
+    ${block('Communication Style', a.communication, 'watch_for', 'What to watch for')}
+    ${block('Conflict Style', a.conflict, 'working_with', 'Working with it')}
+    ${block('Coming Back to Center', a.center, 'off_center', "When you're off-center")}
+  </div>`;
+  return _clPage('Putting It All Together', 8, 'cl-9pt', inner);
+}
+
+function clientReportStyles() {
+  return `<style>
+  @page { size: 8.5in 11in; margin: 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: var(--body); }
+  .report-page { width: 816px; height: 1056px; padding: 40px 48px; overflow: hidden; position: relative; page-break-after: always; background: #fff; }
+  .page-header { height: 50px; border-bottom: 1px solid #ddd; margin-bottom: 14px; }
+  .ph-title { font-size: 9pt; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; color: var(--hive-blue); padding-top: 8px; }
+  .ph-supertitle { font-size: 8pt; font-weight: bold; letter-spacing: .12em; color: var(--hive-blue); padding-top: 8px; }
+  .page-body { height: 888px; overflow: hidden; }
+  .page-footer { position: absolute; left: 48px; right: 48px; bottom: 22px; font-size: 7pt; color: var(--footer); text-align: center; }
+  .cl-label { font-size: 9pt; font-weight: bold; letter-spacing: .05em; text-transform: uppercase; color: var(--hive-blue); margin: 12px 0 5px; }
+  .cl-body { font-size: 10pt; line-height: 15pt; margin: 0 0 8px; }
+  .cl-bullet { font-size: 10pt; line-height: 14pt; margin: 0 0 5px; padding-left: 12px; position: relative; }
+  .cl-bullet::before { content: "•"; color: var(--hive-orange); position: absolute; left: 0; }
+  .cl-center { text-align: center; }
+  .report-title { text-align: center; padding-top: 120px; }
+  .tp-title { font-size: 30pt; font-weight: bold; color: var(--body); margin: 30px 0 8px; }
+  .tp-tagline { font-size: 12pt; font-style: italic; color: var(--section-title); }
+  .tp-svg { width: 300px; height: 300px; margin: 30px auto; }
+  .tp-client { font-size: 24pt; color: var(--hive-orange); }
+  .tp-date { font-size: 11pt; color: var(--section-title); }
+  .toc-client { font-size: 10pt; color: var(--section-title); margin-bottom: 18px; }
+  .toc-title { font-size: 18pt; font-weight: bold; color: var(--hive-blue); margin-bottom: 16px; }
+  .toc-row { display: grid; grid-template-columns: 2.2fr 3fr 0.4fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid #eee; font-size: 11pt; }
+  .toc-t { font-weight: bold; color: var(--body); } .toc-d { color: var(--section-title); } .toc-n { text-align: right; color: var(--hive-blue); font-weight: bold; }
+  .cl-greeting { font-size: 26pt; font-weight: bold; color: var(--hive-orange); margin-bottom: 14px; }
+  .cl-welcome { text-align: left; } .cl-welcome .cl-body:last-child { font-style: italic; color: var(--section-title); }
+  .cl-sigs { display: flex; gap: 40px; justify-content: center; margin-top: 18px; font-size: 9pt; color: var(--section-title); }
+  .prm-top { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+  .prm-pillars { display: flex; flex-direction: column; gap: 8px; }
+  .prm-pillar-t { font-size: 10pt; font-weight: bold; color: var(--hive-blue); } .prm-pillar-b { font-size: 9pt; color: var(--body); }
+  .prm-scan { font-size: 9pt; font-style: italic; color: var(--section-title); margin: 10px 0 8px; }
+  .prm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .prm-card { border: 1px solid #eee; border-radius: 5px; padding: 7px 9px; }
+  .prm-card-h { font-size: 7pt; font-weight: bold; color: var(--hive-blue); letter-spacing: .04em; }
+  .prm-card-n { font-size: 10pt; font-weight: bold; color: var(--body); }
+  .prm-card-d { font-size: 8pt; line-height: 11pt; color: var(--body); margin: 2px 0; }
+  .prm-card-g { font-size: 8pt; color: var(--section-title); }
+  .prm-footer { font-size: 9pt; font-style: italic; color: var(--section-title); margin-top: 8px; text-align: center; }
+  .cl-2col { display: grid; grid-template-columns: 60% 40%; gap: 20px; }
+  .cl-svg { width: 250px; height: 250px; margin: 0 auto; }
+  .cl-pill-num { font-size: 22pt; font-weight: bold; color: var(--leading-pill-text); } .cl-pill-name { font-size: 14pt; font-weight: bold; color: var(--leading-pill-text); } .cl-pill-sub { font-size: 10pt; color: var(--leading-pill-text); }
+  .cl-quote { background: var(--teal-box); border-left: 3px solid var(--hive-blue); padding: 8px 12px; border-radius: 4px; font-style: italic; font-size: 10pt; margin: 8px 0; }
+  table.cmp { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  table.cmp td { font-size: 9pt; line-height: 13pt; padding: 4px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+  .cmp-label { font-weight: bold; color: var(--section-title); width: 30%; } .cmp-disc { font-style: italic; }
+  .cl-disclaimer { font-size: 8pt; font-style: italic; color: var(--section-title); text-align: center; margin-top: 10px; }
+  .pat-sec { margin-bottom: 12px; } .pat-cols { columns: 2; column-gap: 22px; } .pat-cols .cl-bullet { break-inside: avoid; }
+  .cl-inquiry { background: var(--teal-box); border-left: 3px solid var(--hive-blue); padding: 7px 12px; border-radius: 4px; font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-top: 6px; }
+  .cl-card { background: var(--callout-bg); border-radius: 4px; padding: 6px 10px; font-size: 9pt; margin: 4px 0 8px; }
+  .cl-sidebar { background: #FAFAF7; border-radius: 6px; padding: 12px; } .cl-side-h { font-size: 9pt; font-weight: bold; color: var(--hive-blue); text-transform: uppercase; margin: 8px 0 4px; } .cl-side-h:first-child { margin-top: 0; } .cl-side-b { font-size: 9pt; line-height: 12.5pt; margin: 0; }
+  .cl-subtype-name { font-size: 14pt; font-weight: bold; color: var(--body); } .cl-subtype-tag { font-size: 10pt; font-style: italic; color: var(--section-title); margin-bottom: 6px; }
+  .cl-def { font-size: 9pt; line-height: 12.5pt; margin-bottom: 6px; }
+  .cl-stack-row { display: flex; justify-content: space-between; font-size: 9pt; padding: 3px 0; border-bottom: 1px solid #eee; } .cl-stack-l { font-weight: bold; color: var(--hive-orange); }
+  .cl-orange { background: #FDF1E7; border-left: 4px solid var(--hive-orange); border-radius: 4px; padding: 8px 12px; margin: 8px 0; } .cl-orange-h { font-size: 9pt; font-weight: bold; color: var(--hive-orange); text-transform: uppercase; margin-bottom: 4px; }
+  .sc-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; } .sc-card { border-radius: 5px; padding: 8px 10px; } .sc-str { background: #EAF4EE; } .sc-chl { background: #FBEDE6; } .sc-card-t { font-size: 10pt; font-weight: bold; color: var(--body); } .sc-card-b { font-size: 9pt; line-height: 12.5pt; }
+  .cl-9pt .cl-bullet { font-size: 9pt; line-height: 12.5pt; } .cl-9pt .cl-label { margin-top: 6px; }
+  .cl-dense .cl-body { font-size: 9.5pt; line-height: 13pt; margin-bottom: 6px; }
+  .cl-dense .cl-bullet { font-size: 9pt; line-height: 12pt; margin-bottom: 4px; }
+  .cl-dense .cl-label { margin: 8px 0 4px; }
+  .cl-dense table.cmp td { padding: 3px 8px; line-height: 12pt; }
+  .cl-dense .cl-quote { padding: 6px 10px; margin: 6px 0; }
+  .cl-dense .cl-side-b, .cl-dense .cl-def { font-size: 8.5pt; line-height: 11.5pt; }
+  .app-cols { columns: 3; column-gap: 18px; } .app-sec { break-inside: avoid; margin-bottom: 10px; } .app-subhead { font-size: 9pt; font-weight: bold; color: var(--body); } .app-fw { font-size: 8pt; font-style: italic; color: var(--section-title); margin-bottom: 4px; } .app-sub-t { font-size: 8pt; font-weight: bold; color: var(--hive-blue); text-transform: uppercase; margin: 5px 0 3px; }
+  </style>`;
+}
+
+function buildClientReportHTML(model) {
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Your Enneagram Report — Type ${model.hero.number}</title>
+${partAStyles()}
+${clientReportStyles()}
+</head><body>
+${_clTitle(model)}
+${_clTOC(model)}
+${_clP1Welcome(model)}
+${_clP2Primer(model)}
+${_clP3Hypotheses(model)}
+${_clP4Patterns(model)}
+${_clP5WingsLines(model)}
+${_clP6Instinct(model)}
+${_clP7Strengths(model)}
+${_clP8Application(model)}
+</body></html>`;
+}
+
 module.exports = {
   buildClientHTML, buildCoachHTML, buildBetaHTML, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
   buildCoachReportHTML, buildCoachPdfOptions, COACH_CLARIFICATION_QUESTIONS,
+  buildClientReportHTML,
 };
