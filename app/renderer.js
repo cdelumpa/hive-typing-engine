@@ -1651,25 +1651,93 @@ function _clP2Primer(m) {
 </div>`;
 }
 
+// P3 "Your Type Hypotheses" — V2 template-ported (hyp_flow.html). Body page (flowing
+// .p3-page, min-height, absolute-pinned footer). Two-column comparison (leading vs
+// alternate) — both columns come from the model (th.comparison_rows + th.alternate.comparison).
+// Symbol is buildEnneagramSVG(m.svg.type) (single source; template inline SVG is preview-only);
+// legend stress/security numbers read from the same SVG_TYPE_META the diagram uses, so they
+// can't drift. "In Your Own Words" joins the 1–2 AI quotes (array-safe). The legacy "Key
+// Distinction" row is intentionally dropped — the V2 template has no such slot (the
+// discriminator still surfaces in the coach report).
 function _clP3Hypotheses(m) {
-  const th = m.pages.type_hypotheses, r = th.comparison_rows;
-  const row = (l, v) => `<tr><td class="cmp-label">${esc(l)}</td><td>${esc(v || '')}</td></tr>`;
-  const quote = (th.quote || []).map(q => `“${esc(q)}”`).join('<br>');
-  const inner = `<div class="cl-2col">
-    <div class="cl-2col-l">
-      <div class="cl-pill"><span class="cl-pill-num">Type ${th.pill.number}</span> <span class="cl-pill-name">${esc(th.pill.name)}</span><div class="cl-pill-sub">${esc(th.pill.subtype_name)} Subtype</div></div>
-      <div class="cl-label">Core Motivation</div><p class="cl-body">${esc(th.core_motivation)}</p>
-      ${th.alternate_note ? `<div class="cl-label">A Secondary Pattern Worth Exploring — Type ${m.alternate.number} (${esc(m.alternate.name)})</div><p class="cl-body">${esc(th.alternate_note)}</p>` : ''}
-      ${quote ? `<div class="cl-quote"><div class="cl-label">In Your Own Words</div>${quote}</div>` : ''}
-      <table class="cmp"><tbody>
-        ${row('Core Motivation', r.core_motivation)}${row('Focus of Attention', r.focus)}${row('Energy Goes To', r.energy)}${row('Gifts', r.gifts)}${row('Challenges', r.challenges)}
-        ${th.discriminator ? `<tr><td class="cmp-label">Key Distinction</td><td class="cmp-disc">${esc(th.discriminator)}</td></tr>` : ''}
-      </tbody></table>
+  const th = m.pages.type_hypotheses, L = th.comparison_rows, A = th.alternate.comparison;
+  const sm = SVG_TYPE_META[m.hero.number] || {};
+  const quote = (th.quote || []).map(q => esc(q)).join(' … ');
+  const cmpRow = (label, l, a, cls) => `<tr${cls ? ` class="${cls}"` : ''}>
+        <td class="p3-rowlabel">${label}</td>
+        <td class="p3-side p3-lead-side">${esc(l || '')}</td>
+        <td class="p3-side p3-alt-side">${esc(a || '')}</td>
+      </tr>`;
+  return `<div class="p3-page">
+  <div class="p3-masthead">${HIVE_LOGO_SVG}<div style="text-align:right">
+      <div class="p3-report-label">INSIGHTOUT ENNEAGRAM REPORT</div>
+      <div class="p3-runhead">${esc(m.client.full_name)} &nbsp;·&nbsp; Type ${m.hero.number} – ${esc(m.hero.name)}</div>
+    </div></div>
+  <div class="p3-page-title">Your Type Hypotheses</div>
+  <div class="p3-title-rule"></div>
+
+  <div class="p3-upper">
+    <div class="p3-col-left">
+      <div class="p3-label">LEADING TYPE HYPOTHESIS</div>
+      <div class="p3-pill">
+        <div class="p3-num">${m.hero.number}</div>
+        <div>
+          <div class="p3-pill-name">${esc(m.hero.name)}</div>
+          <div class="p3-pill-sub">${esc(m.display.instinct_label)} Instinct (${esc(m.display.instinct_code)})</div>
+        </div>
+      </div>
+      <div class="p3-label p3-motivation-label">CORE MOTIVATION</div>
+      <div class="p3-motivation">${esc(th.core_motivation)}</div>
+      <div class="p3-alt-callout">
+        <b>Also in the picture: Type ${m.alternate.number} (${esc(m.alternate.name)}).</b>
+        Both types appear in your results. The table below shows each side so you can sit with both.
+        Your coach will help you explore which fits more deeply.
+      </div>
+      <div class="p3-own-words">
+        <div class="p3-ow-label">IN YOUR OWN WORDS</div>
+        <div class="p3-ow-quote">${quote}</div>
+      </div>
     </div>
-    <div class="cl-2col-r"><div class="cl-svg">${buildEnneagramSVG(m.svg.type)}</div>
-      <div class="cl-disclaimer">This is a hypothesis to test in your life — not a label.</div></div>
-  </div>`;
-  return _clPage('Your Type Hypotheses', 3, 'cl-dense', inner);
+    <div class="p3-col-right">
+      <div class="p3-symbol">${buildEnneagramSVG(m.svg.type)}</div>
+      <div class="p3-legend">
+        <div><span class="p3-dot" style="background:#00B2D9"></span> Type ${m.hero.number} – Home Base</div>
+        <div><span class="p3-dot" style="background:#D38481"></span> Type ${sm.stress} – Stress Point</div>
+        <div><span class="p3-dot" style="background:#4F845C"></span> Type ${sm.security} – Security Point</div>
+      </div>
+      <div class="p3-disclaimer">
+        <b>Remember:</b> This is a hypothesis, not a verdict. The Enneagram works from the inside out — you are the final authority on which description captures the deeper pattern of your inner life.
+      </div>
+    </div>
+  </div>
+
+  <div class="p3-compare-title">HOW THESE TWO TYPES SEE THE WORLD</div>
+  <div class="p3-compare-wrap">
+  <table class="p3-compare">
+    <colgroup><col class="p3-c-label"><col class="p3-c-side"><col class="p3-c-side"></colgroup>
+    <thead>
+      <tr>
+        <th class="p3-corner"></th>
+        <th class="p3-th-leading">Type ${m.hero.number} - ${esc(m.hero.name)}<span class="p3-badge p3-leading">LEADING</span></th>
+        <th class="p3-th-alternate">Type ${m.alternate.number} - ${esc(m.alternate.name)}<span class="p3-badge p3-alternate">ALTERNATE</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      ${cmpRow('CORE MOTIVATION', L.core_motivation, A.core_motivation)}
+      ${cmpRow('FOCUS OF ATTENTION', L.focus, A.focus)}
+      ${cmpRow('ENERGY GOES TO', L.energy, A.energy)}
+      ${cmpRow('GIFTS', L.gifts, A.gifts, 'p3-gifts')}
+      ${cmpRow('CHALLENGES', L.challenges, A.challenges, 'p3-challenges')}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="p3-footer">
+    <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span class="center">Page 3</span>
+    <span>Client confidential - for use by report owner only.</span>
+  </div>
+</div>`;
 }
 
 function _clP4Patterns(m) {
@@ -1904,6 +1972,57 @@ function clientReportStyles() {
   .cw-sig-name { margin-top: 10px; font-size: 15px; font-weight: 700; color: var(--section-title); }
   .cw-sig-role { margin-top: 2px; font-size: 12.5px; color: var(--section-title); }
   .cw-sig-type { margin-top: 2px; font-size: 12.5px; color: var(--hive-orange); }
+  /* ===== P3 Your Type Hypotheses — V2 template-ported. Body page (flowing, absolute footer). ===== */
+  /* p3- namespace avoids collision with P2/cover/legacy classes that share names (masthead/logo/footer/label/symbol/legend). */
+  .p3-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; padding-bottom: 40px; page-break-after: always; }
+  .p3-page b { color: var(--body-text); }
+  .p3-masthead { display: flex; align-items: flex-start; justify-content: space-between; padding: var(--margin-y) var(--margin-x) 0; }
+  .p3-runhead { font-size: 11px; font-style: italic; color: var(--section-title); margin-top: 4px; }
+  .p3-report-label { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--hive-blue); }
+  .p3-page-title { margin: 18px var(--margin-x) 0; font-size: 30px; font-weight: 700; color: var(--leading-text); }
+  .p3-title-rule { margin: 8px var(--margin-x) 0; height: 1px; background: #D7E6EC; }
+  .p3-upper { margin: 18px var(--margin-x) 0; display: flex; gap: 26px; }
+  .p3-col-left { flex: 0 0 56%; }
+  .p3-col-right { flex: 1 1 auto; text-align: center; }
+  .p3-label { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--hive-blue); }
+  .p3-pill { margin-top: 8px; background: #D9E4E9; border-radius: 8px; padding: 12px 18px; display: flex; align-items: center; gap: 14px; }
+  .p3-pill .p3-num { font-size: 27px; font-weight: 700; color: var(--leading-text); line-height: 1; }
+  .p3-pill-name { font-size: 15px; font-weight: 700; color: var(--leading-text); }
+  .p3-pill-sub { font-size: 11px; color: var(--leading-text); margin-top: 2px; }
+  .p3-motivation-label { margin-top: 16px; }
+  .p3-motivation { margin-top: 6px; font-size: 14px; font-style: italic; line-height: 1.5; color: var(--body-text); }
+  .p3-alt-callout { margin-top: 16px; background: #F4F4F4; border: 1px solid #E1E1E1; border-radius: 6px; padding: 12px 14px; font-size: 12px; line-height: 1.5; color: var(--body-text); }
+  .p3-symbol { width: 230px; height: 230px; margin: 0 auto; }
+  .p3-legend { margin-top: -6px; display: inline-block; text-align: left; font-size: 11.5px; color: var(--body-text); }
+  .p3-legend div { display: flex; align-items: center; gap: 7px; margin: 3px 0; }
+  .p3-legend .p3-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+  .p3-own-words { margin-top: 16px; background: #F5F5EE; border-left: 5px solid var(--hive-orange); border-radius: 0 5px 5px 0; padding: 12px 18px; }
+  .p3-ow-label { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--hive-orange); }
+  .p3-ow-quote { margin-top: 6px; font-size: 12.5px; font-style: italic; line-height: 1.55; color: var(--section-title); }
+  .p3-compare-title { margin: 26px var(--margin-x) 0; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--hive-blue); }
+  .p3-compare-wrap { margin: 8px var(--margin-x) 0; }
+  table.p3-compare { border-collapse: collapse; table-layout: fixed; width: 100%; }
+  table.p3-compare col.p3-c-label { width: 18%; }
+  table.p3-compare col.p3-c-side { width: 41%; }
+  .p3-compare th, .p3-compare td { vertical-align: top; padding: 9px 12px; }
+  .p3-compare thead th { text-align: left; font-size: 13px; }
+  .p3-compare thead .p3-th-leading { background: #D9E4E9; color: var(--leading-text); }
+  .p3-compare thead .p3-th-alternate { background: #F5F5EE; color: var(--leading-text); }
+  .p3-compare thead .p3-corner { background: #fff; }
+  .p3-badge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 10px; margin-left: 8px; vertical-align: middle; }
+  .p3-badge.p3-leading { background: var(--hive-blue); color: #fff; }
+  .p3-badge.p3-alternate { background: #D6D7D8; color: var(--section-title); }
+  .p3-compare tbody .p3-rowlabel { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; color: var(--section-title); }
+  .p3-compare tbody td.p3-side { font-size: 11.5px; line-height: 1.4; color: var(--body-text); }
+  .p3-compare tbody td.p3-lead-side { background: #D9E4E9; }
+  .p3-compare tbody td.p3-alt-side { background: #F5F5EE; }
+  .p3-compare tbody tr td { border-bottom: 3px solid #fff; }
+  .p3-compare .p3-gifts .p3-side { color: #4F845C; font-weight: 700; }
+  .p3-compare .p3-challenges .p3-side { color: #D38481; font-weight: 700; }
+  .p3-disclaimer { margin-top: 18px; text-align: left; font-size: 11px; font-style: italic; line-height: 1.5; color: var(--body-text); }
+  .p3-disclaimer b { color: var(--hive-blue); font-style: italic; }
+  .p3-footer { position: absolute; left: var(--margin-x); right: var(--margin-x); bottom: var(--margin-y); display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
+  .p3-footer .center { color: var(--hive-blue); }
   </style>`;
 }
 
