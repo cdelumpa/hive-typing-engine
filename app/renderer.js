@@ -1380,17 +1380,6 @@ function buildCoachPdfOptions() {
 // (min-height, no clip; data-page/data-zone attributes now inert). V1 buildClientHTML untouched (retired in 6b).
 // ============================================================================
 
-const CLIENT_TOC = [
-  ['Welcome', 'A note from Cai & Monique', 1],
-  ['What Is the Enneagram?', 'The system in brief', 2],
-  ['Your Type Hypotheses', 'The pattern your responses point to', 3],
-  ['How Your Type Shows Up', 'Thinking, feeling, and behaving', 4],
-  ['Wings & Lines', 'Adjacent types and movement', 5],
-  ['Instinct & Subtype', 'Your dominant instinct', 6],
-  ['Strengths, Challenges & Growth', 'Where you shine and stretch', 7],
-  ['Putting It All Together', 'Communication, conflict, center', 8],
-];
-
 const _clBullets = (arr) => (arr || []).map(b => `<div class="cl-bullet">${esc(b)}</div>`).join('');
 const _clHeader = (title) => `<div class="page-header"><div class="ph-title">${esc(title)}</div></div>`;
 const _clFooter = (n) => `<div class="page-footer">© Hive · Confidential · Page ${n}</div>`;
@@ -1401,28 +1390,76 @@ function _clPage(title, n, bodyClass, inner) {
     ${_clFooter(n)}</div>`;
 }
 
+// Title (cover) — V2 template-ported (title_page.html). Absolute-positioned cover chrome
+// (masthead/hero/footer) in its own .cover/.cv-* namespace — does NOT reuse P2's flow
+// classes. Symbol authored by buildEnneagramSVG(m.svg.base) (single SVG source; the
+// template's inline base SVG is preview-only). Only dynamic fields: client name + date.
 function _clTitle(m) {
-  return `<div class="report-page report-title">
-    <div class="ph-supertitle">INSIGHTOUT BY HIVE</div>
-    <div class="tp-title">Your Enneagram Report</div>
-    <div class="tp-tagline">Understanding yourself, from the inside out.</div>
-    <div class="tp-svg">${buildEnneagramSVG(m.svg.base)}</div>
-    <div class="tp-client">${esc(m.client.full_name)}</div>
-    <div class="tp-date">${esc(m.client.date)}</div>
-    <div class="page-footer">© Hive · Confidential</div></div>`;
+  return `<div class="cover">
+  <div class="cv-masthead">${HIVE_LOGO_SVG}<div class="cv-report-label">INSIGHTOUT ENNEAGRAM REPORT</div></div>
+  <div class="cv-hero">
+    <div class="cv-symbol">${buildEnneagramSVG(m.svg.base)}</div>
+    <div class="cv-supertitle">INSIGHTOUT BY HIVE</div>
+    <h1 class="cv-title">Your <span class="cv-accent">Enneagram</span><br>Report</h1>
+    <hr class="cv-rule">
+    <p class="cv-tagline">Understanding yourself from the inside out.</p>
+    <div class="cv-prepared-card">
+      <div class="cv-tp-label">PREPARED FOR</div>
+      <div class="cv-tp-name">${esc(m.client.full_name)}</div>
+      <div class="cv-tp-date">${esc(m.client.date)}</div>
+    </div>
+  </div>
+  <div class="cv-footer">
+    <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span>Client confidential - for use by report owner only.</span>
+  </div>
+</div>`;
 }
 
+// TOC (cover) — V2 template-ported (toc_page.html). Numbered-badge + leader-dot + page-num
+// layout in the .cover/.cv-* namespace. Entries 4/5/6/7 are personalized from existing
+// frozen display.* fields. The template's {{type_name}} slot is resolved HERE by mapping
+// the existing m.display.confirmed_type_name (no new model field; prep layer untouched).
 function _clTOC(m) {
-  const rows = CLIENT_TOC.map(([t, d, n]) =>
-    `<div class="toc-row"><span class="toc-t">${esc(t)}</span><span class="toc-d">${esc(d)}</span><span class="toc-n">${n}</span></div>`).join('');
-  return `<div class="report-page">
-    <div class="page-header"><div class="ph-supertitle">INSIGHTOUT ENNEAGRAM REPORT</div></div>
-    <div class="page-body" data-page="toc" data-zone="toc-body">
-      <div class="toc-client">${esc(m.client.full_name)} · Type ${m.hero.number} — ${esc(m.hero.name)} · ${esc(m.hero.subtype_name)} Subtype · ${esc(m.client.date)}</div>
-      <div class="toc-title">Table of Contents</div>
-      ${rows}
-    </div>
-    <div class="page-footer">© Hive · Confidential</div></div>`;
+  const D = m.display;
+  const entries = [
+    ['Welcome from Cai &amp; Monique', 'What this report is, how to use it, and what to bring to your debrief.'],
+    ['What Is the Enneagram?', 'A brief introduction to the system — nine types, one dynamic map.'],
+    ['Your Type Hypotheses', 'Your leading and alternate type hypotheses, your core motivation, and how the two compare.'],
+    ['How Your Type Shows Up', `Characteristic patterns of thinking, feeling, and behaving for ${esc(D.confirmed_type_name)}.`],
+    ['Wings &amp; Lines', `The adjacent types that flavor your ${esc(D.type_word)} — and where your energy goes under stress and in flow.`],
+    ['Instincts &amp; Subtypes', `Your dominant instinct, your instinct stack, and what it means to be a ${esc(D.subtype_label)}.`],
+    ['Strengths, Challenges, &amp; Growth', `The gifts of the ${esc(D.type_word)} pattern and the places where the same gifts create friction.`],
+    ['Putting It All Together', 'Communication style, conflict style, and coming back to center — your type in everyday practice.'],
+  ];
+  const rows = entries.map(([t, d], i) => `
+      <li class="cv-entry">
+        <div class="cv-num">${i + 1}</div>
+        <div class="cv-entry-main">
+          <div class="cv-entry-titleline">
+            <span class="cv-entry-title">${t}</span>
+            <span class="cv-leader"></span>
+            <span class="cv-entry-page">${i + 1}</span>
+          </div>
+          <div class="cv-entry-desc">${d}</div>
+        </div>
+      </li>`).join('');
+  return `<div class="cover">
+  <div class="cv-masthead">${HIVE_LOGO_SVG}<div class="cv-report-label">INSIGHTOUT ENNEAGRAM REPORT</div></div>
+  <div class="cv-header-rule"></div>
+  <div class="cv-body">
+    <div class="cv-toc-label">PREPARED FOR</div>
+    <div class="cv-toc-name">${esc(m.client.full_name)}</div>
+    <div class="cv-type-line">Type ${m.hero.number} — ${esc(m.hero.name)}<span class="cv-sep">·</span>${esc(D.instinct_label)} Subtype<span class="cv-sep">·</span>${esc(m.client.date)}</div>
+    <div class="cv-section-heading">WHAT'S IN THIS REPORT</div>
+    <ul class="cv-toc">${rows}
+    </ul>
+  </div>
+  <div class="cv-footer">
+    <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span>Client confidential - for use by report owner only.</span>
+  </div>
+</div>`;
 }
 
 function _clP1Welcome(m) {
@@ -1779,6 +1816,44 @@ function clientReportStyles() {
   .cl-dense .cl-quote { padding: 6px 10px; margin: 6px 0; }
   .cl-dense .cl-side-b, .cl-dense .cl-def { font-size: 8.5pt; line-height: 11.5pt; }
   .app-cols { columns: 3; column-gap: 18px; } .app-sec { break-inside: avoid; margin-bottom: 10px; } .app-subhead { font-size: 9pt; font-weight: bold; color: var(--body); } .app-fw { font-size: 8pt; font-style: italic; color: var(--section-title); margin-bottom: 4px; } .app-sub-t { font-size: 8pt; font-weight: bold; color: var(--hive-blue); text-transform: uppercase; margin: 5px 0 3px; }
+  /* ===== Cover pages (Title + TOC) — V2 template-ported. Print-locked, absolute layout. ===== */
+  /* Namespaced .cover/.cv-* so they never collide with P2's flow chrome (.page/.masthead/.footer) or the legacy .report-page/.tp-*/.toc-* rules above. */
+  .cover { position: relative; width: var(--page-w); height: var(--page-h); overflow: hidden; background: #fff; margin: 0 auto; page-break-after: always; }
+  .cover h1, .cover p, .cover ul, .cover li { margin: 0; padding: 0; }
+  .cover ul { list-style: none; }
+  .cover .logo { height: 38px; width: auto; display: block; }
+  .cv-masthead { position: absolute; top: var(--margin-y); left: var(--margin-x); right: var(--margin-x); display: flex; align-items: center; justify-content: space-between; }
+  .cv-report-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--hive-blue); }
+  .cv-footer { position: absolute; left: var(--margin-x); right: var(--margin-x); bottom: var(--margin-y); display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #E8E8E8; padding-top: 8px; }
+  /* --- Title --- */
+  .cv-hero { position: absolute; left: 0; right: 0; top: 188px; text-align: center; }
+  .cv-symbol { width: 320px; height: 320px; margin: 0 auto; }
+  .cv-supertitle { margin-top: 26px; font-size: 14px; font-weight: 700; letter-spacing: 0.14em; color: var(--hive-blue); }
+  .cv-title { margin-top: 10px; font-size: 50px; font-weight: 700; line-height: 1.06; color: var(--leading-text); }
+  .cv-title .cv-accent { color: var(--hive-blue); }
+  .cv-rule { width: 120px; height: 3px; background: var(--hive-orange); border: none; margin: 22px auto 0; }
+  .cv-tagline { margin-top: 20px; font-size: 17px; font-style: italic; color: var(--body-text); }
+  .cv-prepared-card { margin: 20px auto 0; width: 320px; padding: 22px 24px; background: #F5F5F5; border: 1px solid var(--card-border); border-radius: 6px; text-align: center; }
+  .cv-tp-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--section-title); }
+  .cv-tp-name { margin-top: 8px; font-size: 24px; font-weight: 700; color: var(--hive-orange); }
+  .cv-tp-date { margin-top: 4px; font-size: 13px; color: var(--body-text); }
+  /* --- TOC --- */
+  .cv-header-rule { position: absolute; top: 96px; left: var(--margin-x); right: var(--margin-x); height: 2px; background: var(--hive-blue); opacity: 0.55; }
+  .cv-body { position: absolute; top: 178px; left: var(--margin-x); right: var(--margin-x); }
+  .cv-toc-label { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--section-title); }
+  .cv-toc-name { margin-top: 6px; font-size: 26px; font-weight: 700; color: var(--leading-text); }
+  .cv-type-line { margin-top: 6px; font-size: 13px; font-style: italic; color: var(--body-text); }
+  .cv-type-line .cv-sep { color: #C8C9CA; padding: 0 6px; }
+  .cv-section-heading { margin-top: 30px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--section-title); }
+  .cv-toc { margin-top: 18px; }
+  .cv-entry { display: flex; align-items: flex-start; gap: 14px; padding: 13px 0; }
+  .cv-num { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: var(--leading-text); color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+  .cv-entry-main { flex: 1 1 auto; min-width: 0; }
+  .cv-entry-titleline { display: flex; align-items: baseline; gap: 6px; }
+  .cv-entry-title { font-size: 17px; font-weight: 700; color: var(--leading-text); white-space: nowrap; }
+  .cv-leader { flex: 1 1 auto; border-bottom: 1.5px dotted #C8C9CA; transform: translateY(-4px); min-width: 12px; }
+  .cv-entry-page { font-size: 14px; font-weight: 700; color: var(--hive-blue); flex: 0 0 auto; }
+  .cv-entry-desc { margin-top: 4px; font-size: 12.5px; color: var(--section-title); line-height: 1.4; }
   </style>`;
 }
 
