@@ -1777,17 +1777,77 @@ function _clP4Patterns(m) {
 </div>`;
 }
 
+// P5 "Wings & Lines" — V2 template-ported (wings_lines.html). Body page, flex-column flow +
+// margin footer. Library-driven per-type via the PR-0 template-shaped remap: wing_low/wing_high
+// {number,name,body,best} and line_stress/line_security {toward,name,body,resource}. Symbol is
+// the wings-lines variant (gray circle, no wedges, dashed stress / solid security, navy home) —
+// buildEnneagramSVG(m.svg.wings). ABOUT explainers come from the model primers (content library),
+// not the template preview copy (prep frozen). Resource cards use line_*.resource.
 function _clP5WingsLines(m) {
   const w = m.pages.wings_lines;
-  const wing = (x) => `<div class="cl-label">Wing — Type ${x.target_type} (${esc(TYPE_NAMES[x.target_type])})</div><p class="cl-body">${esc(x.body)}</p>`;
-  const line = (lbl, x) => `<div class="cl-label">${esc(lbl)} — Type ${x.target_type} (${esc(TYPE_NAMES[x.target_type])})</div><p class="cl-body">${esc(x.narrative)}</p>${x.resource_card ? `<div class="cl-card">${esc(x.resource_card)}</div>` : ''}`;
-  const inner = `<div class="cl-2col">
-    <div class="cl-2col-l">${wing(w.wings.wing_a)}${wing(w.wings.wing_b)}${line('Stress Point', w.lines.stress)}${line('Security Point', w.lines.security)}</div>
-    <div class="cl-2col-r"><div class="cl-svg">${buildEnneagramSVG(m.svg.wings)}</div>
-      <div class="cl-sidebar"><div class="cl-side-h">About Wings</div><p class="cl-side-b">${esc(w.wings_primer)}</p>
-      <div class="cl-side-h">About Stress & Security Points</div><p class="cl-side-b">${esc(w.lines_primer)}</p></div></div>
-  </div>`;
-  return _clPage('Wings & Lines', 5, '', inner);
+  const wl = w.wing_low, wh = w.wing_high, ls = w.line_stress, lsec = w.line_security;
+  const resCard = (x, kind, label) => `
+      <div class="p5-res-card">
+        <div class="p5-res-head"><span class="p5-res-dot p5-${kind}">${x.toward}</span><div><div class="p5-res-title">Type ${x.toward} – ${esc(x.name)}</div><div class="p5-res-sub">${label} · ${m.hero.number} → ${x.toward}</div></div></div>
+        <div class="p5-res-body">${esc(x.resource)}</div>
+      </div>`;
+  return `<div class="p5-page">
+  <div class="p5-page-body">
+  <div class="p5-masthead">${HIVE_LOGO_SVG}<div style="text-align:right">
+      <div class="p5-report-label">INSIGHTOUT ENNEAGRAM REPORT</div>
+      <div class="p5-runhead">${esc(m.client.full_name)} · Type ${m.hero.number} – ${esc(m.hero.name)}</div>
+    </div></div>
+  <div class="p5-page-title">Wings &amp; Lines</div>
+  <div class="p5-title-rule"></div>
+
+  <div class="p5-cols">
+    <div class="p5-col-left">
+      <div class="p5-label">YOUR WINGS · TYPE ${wl.number} &amp; TYPE ${wh.number}</div>
+      <div class="p5-wing-name">Type ${wl.number} – ${esc(wl.name)}</div>
+      <div class="p5-wing-body">${esc(wl.body)}</div>
+      <div class="p5-best">${esc(wl.best)}</div>
+      <div class="p5-wing-gap"></div>
+      <div class="p5-wing-name">Type ${wh.number} – ${esc(wh.name)}</div>
+      <div class="p5-wing-body">${esc(wh.body)}</div>
+      <div class="p5-best">${esc(wh.best)}</div>
+
+      <div class="p5-label p5-lines-label">YOUR LINES · TYPE ${ls.toward} &amp; TYPE ${lsec.toward}</div>
+      <div class="p5-line-block">
+        <div class="p5-line-head"><span class="p5-sev-badge p5-stress">STRESS</span><span class="p5-line-title">Moving Toward Type ${ls.toward} – ${esc(ls.name)}</span></div>
+        <div class="p5-line-body">${esc(ls.body)}</div>
+      </div>
+      <div class="p5-line-block">
+        <div class="p5-line-head"><span class="p5-sev-badge p5-security">SECURITY</span><span class="p5-line-title">Moving Toward Type ${lsec.toward} – ${esc(lsec.name)}</span></div>
+        <div class="p5-line-body">${esc(lsec.body)}</div>
+      </div>
+    </div>
+
+    <div class="p5-col-right">
+      <div class="p5-symbol">${buildEnneagramSVG(m.svg.wings)}</div>
+      <div class="p5-sym-legend">
+        <div><span class="p5-leg-line p5-leg-stress"></span> Stress Point (Type ${ls.toward})</div>
+        <div><span class="p5-leg-line p5-leg-security"></span> Security Point (Type ${lsec.toward})</div>
+      </div>
+      <div class="p5-about">
+        <div class="p5-about-label">ABOUT WINGS</div>
+        <div class="p5-about-body">${esc(w.wings_primer)}</div>
+      </div>
+      <div class="p5-about">
+        <div class="p5-about-label">ABOUT STRESS &amp; SECURITY POINTS</div>
+        <div class="p5-about-body">${esc(w.lines_primer)}</div>
+      </div>
+      ${resCard(ls, 'stress', 'Stress Point')}
+      ${resCard(lsec, 'security', 'Security Point')}
+    </div>
+  </div>
+
+  </div>
+  <div class="p5-footer">
+    <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span class="center">Page 5</span>
+    <span>Client confidential - for use by report owner only.</span>
+  </div>
+</div>`;
 }
 
 function _clP6Instinct(m) {
@@ -2067,6 +2127,49 @@ function clientReportStyles() {
   .p4-inquiry { margin-top: 12px; border-left: 4px solid var(--hive-blue); padding-left: 12px; font-size: 12.5px; font-style: italic; color: var(--hive-blue); }
   .p4-footer { margin: 22px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
   .p4-footer .center { color: var(--hive-blue); }
+  /* ===== P5 Wings & Lines — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
+  .p5-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
+  .p5-page-body { flex: 1 1 auto; }
+  .p5-masthead { display: flex; align-items: flex-start; justify-content: space-between; padding: var(--margin-y) var(--margin-x) 0; }
+  .p5-report-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-blue); }
+  .p5-runhead { font-size: 11px; font-style: italic; color: var(--section-title); margin-top: 4px; }
+  .p5-page-title { margin: 18px var(--margin-x) 0; font-size: 30px; font-weight: 700; color: var(--leading-text); }
+  .p5-title-rule { margin: 8px var(--margin-x) 0; height: 1px; background: #D7E6EC; }
+  .p5-cols { margin: 24px var(--margin-x) 0; display: flex; gap: 34px; }
+  .p5-col-left { flex: 0 0 56%; }
+  .p5-col-right { flex: 1 1 auto; }
+  .p5-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-blue); }
+  .p5-wing-name { margin-top: 14px; font-size: 17px; font-weight: 700; color: var(--leading-text); }
+  .p5-wing-body { margin-top: 8px; font-size: 12.5px; line-height: 1.62; color: var(--body-text); }
+  .p5-best { margin-top: 13px; background: #E6F4FA; border-left: 4px solid var(--hive-blue); border-radius: 0 4px 4px 0; padding: 12px 15px; font-size: 12px; font-style: italic; line-height: 1.5; color: var(--leading-text); }
+  .p5-wing-gap { height: 22px; }
+  .p5-lines-label { margin-top: 28px; }
+  .p5-line-block { margin-top: 14px; }
+  .p5-line-head { display: flex; align-items: center; gap: 10px; }
+  .p5-sev-badge { font-size: 9px; font-weight: 700; letter-spacing: .05em; color: #fff; padding: 3px 11px; border-radius: 3px; }
+  .p5-sev-badge.p5-stress { background: #D14B4B; }
+  .p5-sev-badge.p5-security { background: #4F845C; }
+  .p5-line-title { font-size: 14px; font-weight: 700; color: var(--leading-text); }
+  .p5-line-body { margin-top: 8px; font-size: 12.5px; line-height: 1.62; color: var(--body-text); }
+  .p5-symbol { width: 230px; height: 230px; display: block; margin: 0 auto; }
+  .p5-sym-legend { margin-top: 6px; font-size: 11px; color: var(--body-text); }
+  .p5-sym-legend div { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  .p5-leg-line { width: 26px; height: 0; flex: 0 0 auto; }
+  .p5-leg-stress { border-top: 3px dashed #D14B4B; }
+  .p5-leg-security { border-top: 3px solid #4F845C; }
+  .p5-about { margin-top: 22px; }
+  .p5-about-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-blue); }
+  .p5-about-body { margin-top: 7px; font-size: 11.5px; line-height: 1.6; color: var(--body-text); }
+  .p5-res-card { margin-top: 13px; border: 1px solid var(--card-border); border-radius: 6px; padding: 12px 13px; }
+  .p5-res-head { display: flex; align-items: center; gap: 8px; }
+  .p5-res-dot { width: 20px; height: 20px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .p5-res-dot.p5-stress { background: #D14B4B; }
+  .p5-res-dot.p5-security { background: #4F845C; }
+  .p5-res-title { font-size: 12px; font-weight: 700; color: var(--leading-text); line-height: 1.2; }
+  .p5-res-sub { font-size: 9.5px; color: var(--section-title); }
+  .p5-res-body { margin-top: 7px; font-size: 10.5px; line-height: 1.55; color: var(--body-text); }
+  .p5-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
+  .p5-footer .center { color: var(--hive-blue); }
   </style>`;
 }
 
