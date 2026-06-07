@@ -1437,25 +1437,147 @@ function _clP1Welcome(m) {
   return _clPage('Welcome', 1, 'cl-center', inner);
 }
 
+// Hive wordmark logo (masthead). Ported verbatim from the V2 templates; reused by every
+// page's masthead as pages are ported. Carries class="logo" (sized by .logo in the stylesheet).
+const HIVE_LOGO_SVG = `<svg class="logo" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 420.551 132.143">
+<defs>
+<clipPath id="clip-0">
+<path clip-rule="nonzero" d="M 232 26 L 355 26 L 355 101 L 232 101 Z M 232 26 "/>
+</clipPath>
+<clipPath id="clip-1">
+<path clip-rule="nonzero" d="M 232.398438 26.914062 L 232.398438 100.621094 L 239.242188 100.621094 L 239.242188 81.113281 C 239.242188 74.074219 239.570312 69.253906 240.21875 66.648438 C 241.261719 62.605469 243.421875 59.21875 246.691406 56.480469 C 249.96875 53.75 253.679688 52.382812 257.816406 52.382812 C 261.4375 52.382812 264.359375 53.261719 266.582031 55.039062 C 268.816406 56.816406 270.363281 59.457031 271.207031 62.980469 C 271.695312 65.03125 271.9375 69.121094 271.9375 75.25 L 271.9375 100.621094 L 278.785156 100.621094 L 278.785156 73.25 C 278.785156 65.980469 278.050781 60.640625 276.585938 57.242188 C 275.117188 53.828125 272.84375 51.121094 269.765625 49.101562 C 266.683594 47.078125 263.160156 46.074219 259.183594 46.074219 C 255.308594 46.074219 251.707031 46.976562 248.378906 48.777344 C 245.058594 50.59375 242.019531 53.324219 239.242188 56.964844 L 239.242188 26.914062 Z M 347.367188 47.4375 L 329.71875 86.152344 L 311.925781 47.4375 L 304.640625 47.4375 L 329.128906 100.621094 L 330.347656 100.621094 L 354.699219 47.4375 Z M 290.519531 100.621094 L 297.410156 100.621094 L 297.410156 47.4375 L 290.519531 47.4375 Z M 290.519531 100.621094 "/>
+</clipPath>
+<clipPath id="clip-2">
+<path clip-rule="nonzero" d="M 188 0 L 399 0 L 399 131.292969 L 188 131.292969 Z M 188 0 "/>
+</clipPath>
+<clipPath id="clip-3">
+<path clip-rule="nonzero" d="M 355 47 L 410 47 L 410 102 L 355 102 Z M 355 47 "/>
+</clipPath>
+<clipPath id="clip-4">
+<path clip-rule="nonzero" d="M 368.320312 51.085938 C 361.089844 55.429688 356.976562 61.65625 355.988281 69.761719 C 355.191406 76.140625 356.464844 82.097656 359.792969 87.644531 C 363.332031 93.535156 368.507812 97.609375 375.332031 99.863281 C 382.152344 102.125 389.128906 101.113281 396.253906 96.832031 C 399.460938 94.902344 402.046875 92.6875 404.007812 90.179688 C 405.957031 87.671875 407.394531 84.875 408.296875 81.773438 C 409.214844 78.679688 409.527344 75.140625 409.242188 71.15625 L 403.007812 71.515625 C 403.011719 75.402344 402.667969 78.4375 401.972656 80.605469 C 401.273438 82.773438 400.109375 84.886719 398.46875 86.921875 C 396.832031 88.960938 394.898438 90.648438 392.679688 91.984375 C 388.070312 94.75 383.230469 95.445312 378.148438 94.082031 C 373.058594 92.703125 368.925781 89.507812 365.765625 84.488281 L 405.042969 60.890625 C 401.40625 54.949219 396.808594 50.933594 391.25 48.84375 C 388.117188 47.652344 385.015625 47.058594 381.941406 47.058594 C 377.332031 47.058594 372.789062 48.398438 368.320312 51.085938 M 363.078125 67.191406 C 364.503906 62.582031 367.351562 58.988281 371.640625 56.421875 C 374.234375 54.859375 377.039062 53.921875 380.0625 53.597656 C 383.070312 53.285156 385.847656 53.589844 388.347656 54.523438 C 390.859375 55.457031 393.386719 57.195312 395.941406 59.742188 L 363.414062 79.289062 C 362.140625 74.578125 362.042969 70.546875 363.078125 67.191406 "/>
+</clipPath>
+<clipPath id="clip-5">
+<path clip-rule="nonzero" d="M 313 4 L 418.972656 4 L 418.972656 131.292969 L 313 131.292969 Z M 313 4 "/>
+</clipPath>
+</defs>
+<path fill-rule="nonzero" fill="rgb(12.713623%, 11.364746%, 11.106873%)" fill-opacity="1" d="M 232.398438 26.914062 L 239.242188 26.914062 L 239.242188 56.964844 C 242.019531 53.324219 245.058594 50.59375 248.378906 48.777344 C 251.707031 46.976562 255.308594 46.074219 259.183594 46.074219 C 263.160156 46.074219 266.683594 47.078125 269.765625 49.101562 C 272.84375 51.121094 275.117188 53.828125 276.585938 57.242188 C 278.050781 60.640625 278.785156 65.980469 278.785156 73.25 L 278.785156 100.621094 L 271.9375 100.621094 L 271.9375 75.25 C 271.9375 69.121094 271.699219 65.03125 271.207031 62.980469 C 270.363281 59.457031 268.816406 56.8125 266.582031 55.039062 C 264.359375 53.261719 261.4375 52.382812 257.820312 52.382812 C 253.679688 52.382812 249.96875 53.75 246.691406 56.480469 C 243.421875 59.21875 241.261719 62.605469 240.21875 66.648438 C 239.570312 69.257812 239.242188 74.074219 239.242188 81.113281 L 239.242188 100.621094 L 232.398438 100.621094 Z M 290.519531 47.4375 L 297.410156 47.4375 L 297.410156 100.621094 L 290.519531 100.621094 Z M 304.640625 47.4375 L 311.925781 47.4375 L 329.71875 86.152344 L 347.367188 47.4375 L 354.699219 47.4375 L 330.347656 100.621094 L 329.125 100.621094 Z M 304.640625 47.4375 "/>
+<g clip-path="url(#clip-0)">
+<g clip-path="url(#clip-1)">
+<rect x="-42.0551" y="-13.2143" width="504.6612" height="158.5716" fill="rgb(12.713623%, 11.364746%, 11.106873%)" fill-opacity="1"/>
+<path fill-rule="nonzero" fill="rgb(12.713623%, 11.364746%, 11.106873%)" fill-opacity="1" stroke-width="3.132" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(12.713623%, 11.364746%, 11.106873%)" stroke-opacity="1" stroke-miterlimit="10" d="M 226.766817 24.873673 L 361.856029 24.873673 L 361.856029 111.057917 L 226.766817 111.057917 Z M 226.766817 24.873673 " transform="matrix(0.993556, 0, 0, -0.993556, 1.13188, 131.291522)"/>
+<path fill="none" stroke-width="3.132" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(12.713623%, 11.364746%, 11.106873%)" stroke-opacity="1" stroke-miterlimit="10" d="M -1944.866967 -614.445065 L 857.094024 -614.445065 L 857.094024 343.929545 L -1944.866967 343.929545 Z M -1944.866967 -614.445065 " transform="matrix(0.993556, 0, 0, -0.993556, 1.13188, 131.291522)"/>
+</g>
+</g>
+<g clip-path="url(#clip-2)">
+<path fill="none" stroke-width="3.132" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(12.713623%, 11.364746%, 11.106873%)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00121356 0.0000890823 L 6.889348 0.0000890823 L 6.889348 -30.245583 C 9.684704 -26.581348 12.743476 -23.833171 16.085322 -22.004984 C 19.435031 -20.192524 23.059951 -19.284328 26.960082 -19.284328 C 30.962434 -19.284328 34.508723 -20.294745 37.610742 -22.331306 C 40.70883 -24.363934 42.997012 -27.088522 44.475287 -30.524726 C 45.949631 -33.945204 46.688769 -39.319678 46.688769 -46.636355 L 46.688769 -74.184962 L 39.796703 -74.184962 L 39.796703 -48.649326 C 39.796703 -42.480672 39.556876 -38.364304 39.061497 -36.300222 C 38.212274 -32.753934 36.655367 -30.092252 34.406502 -28.307313 C 32.16943 -26.518442 29.228606 -25.633836 25.58796 -25.633836 C 21.420481 -25.633836 17.685477 -27.00989 14.386878 -29.758067 C 11.096142 -32.514107 8.921977 -35.92279 7.872244 -39.991979 C 7.219601 -42.618277 6.889348 -47.46592 6.889348 -54.550633 L 6.889348 -74.184962 L 0.00121356 -74.184962 Z M 58.499246 -20.656451 L 65.434559 -20.656451 L 65.434559 -74.184962 L 58.499246 -74.184962 Z M 72.71192 -20.656451 L 80.044324 -20.656451 L 97.952687 -59.622376 L 115.715582 -20.656451 L 123.095164 -20.656451 L 98.585672 -74.184962 L 97.355086 -74.184962 Z M 72.71192 -20.656451 " transform="matrix(0.993556, 0, 0, -0.993556, 232.397232, 26.914151)"/>
+</g>
+<path fill-rule="nonzero" fill="rgb(12.713623%, 11.364746%, 11.106873%)" fill-opacity="1" d="M 403.007812 71.515625 L 409.242188 71.15625 C 409.527344 75.140625 409.214844 78.679688 408.296875 81.773438 C 407.394531 84.875 405.957031 87.671875 404.007812 90.179688 C 402.046875 92.6875 399.460938 94.902344 396.253906 96.832031 C 389.128906 101.113281 382.152344 102.125 375.335938 99.863281 C 368.507812 97.609375 363.332031 93.53125 359.792969 87.644531 C 356.464844 82.097656 355.191406 76.140625 355.988281 69.761719 C 356.976562 61.65625 361.089844 55.433594 368.320312 51.085938 C 375.765625 46.609375 383.414062 45.871094 391.25 48.84375 C 396.808594 50.933594 401.410156 54.949219 405.042969 60.890625 L 365.765625 84.488281 C 368.925781 89.511719 373.058594 92.703125 378.148438 94.082031 C 383.230469 95.449219 388.070312 94.75 392.679688 91.984375 C 394.898438 90.648438 396.832031 88.960938 398.46875 86.921875 C 400.109375 84.886719 401.273438 82.773438 401.972656 80.605469 C 402.667969 78.4375 403.011719 75.402344 403.007812 71.515625 M 395.941406 59.742188 C 393.386719 57.195312 390.859375 55.457031 388.347656 54.523438 C 385.847656 53.589844 383.070312 53.285156 380.058594 53.597656 C 377.039062 53.921875 374.234375 54.859375 371.640625 56.421875 C 367.351562 58.988281 364.503906 62.582031 363.078125 67.191406 C 362.042969 70.546875 362.140625 74.578125 363.414062 79.289062 Z M 395.941406 59.742188 "/>
+<g clip-path="url(#clip-3)">
+<g clip-path="url(#clip-4)">
+<path fill-rule="nonzero" fill="rgb(12.713623%, 11.364746%, 11.106873%)" fill-opacity="1" d="M -1883.691406 518.421875 L 774.582031 750.992188 L 854.128906 -158.238281 L -1804.140625 -390.808594 Z M -1883.691406 518.421875 "/>
+<path fill-rule="nonzero" fill="rgb(12.713623%, 11.364746%, 11.106873%)" fill-opacity="1" stroke-width="3.002" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(12.713623%, 11.364746%, 11.106873%)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00110752 -0.000795406 L 55.204473 33.166044 L 88.909939 -22.925859 L 33.706574 -56.09663 Z M 0.00110752 -0.000795406 " transform="matrix(0.993556, 0, 0, -0.993556, 338.080931, 62.59296)"/>
+<path fill="none" stroke-width="3.002" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(12.713623%, 11.364746%, 11.106873%)" stroke-opacity="1" stroke-miterlimit="10" d="M -0.000815861 0.000952604 L 2675.512584 -234.077671 L 2755.575352 681.04952 L 80.065884 915.128143 Z M -0.000815861 0.000952604 " transform="matrix(0.993556, 0, 0, -0.993556, -1883.690596, 518.422821)"/>
+</g>
+</g>
+<g clip-path="url(#clip-5)">
+<path fill="none" stroke-width="3.002" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(12.713623%, 11.364746%, 11.106873%)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00025833 -0.00013232 L 6.275066 0.361573 C 6.562071 -3.648642 6.247545 -7.210657 5.323623 -10.324471 C 4.415427 -13.446148 2.968604 -16.261162 1.006744 -18.785239 C -0.966911 -21.309315 -3.56962 -23.538523 -6.79745 -25.480726 C -13.968658 -29.789741 -20.990466 -30.808021 -27.85108 -28.531634 C -34.723488 -26.263111 -39.932836 -22.158537 -43.494851 -16.233641 C -46.84456 -10.650792 -48.126256 -4.655127 -47.324213 1.765149 C -46.329523 9.923185 -42.189565 16.186197 -34.912204 20.56205 C -27.418606 25.067645 -19.720565 25.810714 -11.833808 22.818779 C -6.239165 20.715382 -1.607759 16.673714 2.048613 10.693775 L -37.48346 -13.056921 C -34.302808 -18.112938 -30.143193 -21.325042 -25.02034 -22.712891 C -19.905349 -24.088945 -15.034117 -23.385191 -10.394849 -20.60163 C -8.161709 -19.257029 -6.215575 -17.558585 -4.568242 -15.506298 C -2.916977 -13.457943 -1.745365 -11.330956 -1.041611 -9.148927 C -0.341789 -6.966898 0.00418991 -3.912058 0.00025833 -0.00013232 Z M -7.111976 11.849661 C -9.683232 14.413053 -12.226967 16.162608 -14.754975 17.102256 C -17.271188 18.041905 -20.066544 18.348568 -23.097795 18.034042 C -26.136909 17.70772 -28.959786 16.76414 -31.570358 15.191507 C -35.887237 12.608456 -38.753361 8.991399 -40.188389 4.352131 C -41.230259 0.9749 -41.131969 -3.082494 -39.850273 -7.823984 Z M -7.111976 11.849661 " transform="matrix(0.993556, 0, 0, -0.993556, 403.007556, 71.515494)"/>
+</g>
+<path fill-rule="nonzero" fill="rgb(95.883179%, 45.910645%, 10.510254%)" fill-opacity="1" d="M 9.691406 37.085938 L 65.496094 5.128906 L 120.308594 36.878906 L 120.433594 50.542969 L 109.875 57.371094 L 109.875 43.339844 L 65.664062 17.628906 L 20.703125 43.214844 L 20.578125 89.664062 L 65.539062 115.246094 L 93.480469 99.476562 L 104.164062 105.683594 L 65.664062 127.542969 L 9.898438 95.996094 Z M 9.691406 37.085938 "/>
+<path fill-rule="nonzero" fill="rgb(28.529358%, 71.832275%, 86.001587%)" fill-opacity="1" d="M 27.410156 46.941406 L 65.539062 25.578125 L 102.921875 46.816406 L 103.046875 61.71875 L 97.207031 65.570312 L 97.082031 50.542969 L 65.414062 32.285156 L 33.496094 50.542969 L 33.496094 82.832031 L 65.539062 100.71875 L 90.625 87.800781 L 90.625 94.257812 L 65.539062 107.671875 L 27.535156 86.308594 Z M 27.410156 46.941406 "/>
+<path fill-rule="nonzero" fill="rgb(28.529358%, 71.832275%, 86.001587%)" fill-opacity="1" d="M 124.40625 34.023438 L 113.726562 27.816406 L 151.355469 4.960938 L 206.25 36.878906 L 206.25 96.371094 L 151.480469 127.667969 L 95.84375 95.625 L 95.84375 85.191406 L 106.523438 78.238281 L 106.523438 89.664062 L 151.480469 115.125 L 195.570312 90.035156 L 195.570312 43.214844 L 151.480469 17.753906 Z M 124.40625 34.023438 "/>
+<path fill-rule="nonzero" fill="rgb(95.883179%, 45.910645%, 10.510254%)" fill-opacity="1" d="M 125.523438 41.101562 L 151.605469 25.332031 L 189.234375 46.816406 L 189.234375 86.683594 L 151.730469 107.671875 L 113.601562 86.1875 L 113.601562 73.519531 L 119.6875 69.792969 L 119.6875 82.832031 L 151.730469 100.71875 L 183.152344 82.957031 L 183.152344 50.542969 L 151.605469 32.410156 L 125.523438 48.058594 Z M 125.523438 41.101562 "/>
+</svg>`;
+
+// P2 "What Is the Enneagram?" — fully static (template-ported, V2). Full template chrome
+// (masthead + header-rule + 3-span footer). Content is byte-static; the only dynamic
+// element is the Enneagram symbol, which is authored by buildEnneagramSVG(m.svg.base)
+// (single SVG source — the template's inline copy is preview-only and is NOT used here).
 function _clP2Primer(m) {
-  const p = m.pages.primer;
-  const pillars = (p.pillars || []).map(x => `<div class="prm-pillar"><div class="prm-pillar-t">${esc(x.title)}</div><div class="prm-pillar-b">${esc(x.body)}</div></div>`).join('');
-  const cards = (p.nine_types || []).map(c => `
-    <div class="prm-card">
-      <div class="prm-card-h">TYPE ${c.number} · ${esc((c.center || '').toUpperCase())} CENTER</div>
-      <div class="prm-card-n">${esc(c.name)}</div>
-      <div class="prm-card-d">${esc(c.description)}</div>
-      <div class="prm-card-g"><strong>Gifts:</strong> ${esc(c.gifts)}</div>
-    </div>`).join('');
-  const inner = `
-    <div class="prm-top">
-      <div class="prm-intro">${(p.intro || '').split('\n\n').map(x => `<p class="cl-body">${esc(x)}</p>`).join('')}</div>
-      <div class="prm-pillars">${pillars}</div>
+  return `<div class="page">
+  <div class="page-body">
+  <div class="masthead">${HIVE_LOGO_SVG}<div></div></div>
+  <div class="header-rule"></div>
+  <div class="intro">
+    <div class="intro-left">
+      <span class="badge-label">WHAT IS THE ENNEAGRAM?</span>
+      <p>The Enneagram is a dynamic system that describes nine distinct ways of being in the world — nine strategies, shaped early in life, for how to get what we need, stay safe, and belong. Each type is anchored by a core worldview and a deep motivational drive that shapes everything: how we think, what we feel, and how we act.</p>
+      <p>Understanding your type isn't about putting yourself in a box. It's about seeing the pattern clearly enough that you have a choice about it.</p>
     </div>
-    <div class="prm-scan">${esc(p.scan_line || '')}</div>
-    <div class="prm-grid">${cards}</div>
-    <div class="prm-footer">${esc(p.footer || '')}</div>`;
-  return _clPage('What Is the Enneagram?', 2, '', inner);
+    <div class="intro-right">
+      <div class="intro-symbol">${buildEnneagramSVG(m.svg.base)}</div>
+    </div>
+  </div>
+  <div class="feature-cards">
+    <div class="fcard"><div class="ft">Dynamic</div><div class="fd">A map of how you move, not just where you sit.</div></div>
+    <div class="fcard"><div class="ft">Motivational</div><div class="fd">Driven by your deeper "why," not just what you do.</div></div>
+    <div class="fcard"><div class="ft">Relational</div><div class="fd">A lens to see yourself and everyone around you.</div></div>
+  </div>
+  <div class="grid-head">THE NINE ENNEAGRAM TYPES – SCAN EACH ONE</div>
+  <div class="grid-instr">As you read, notice which descriptions pull at you – even slightly. That's the Enneagram beginning to work.</div>
+  <div class="grid">
+    <div class="tcard body">
+      <div class="thead">TYPE 8 · BODY CENTER</div>
+      <div class="tname">The Protector</div>
+      <div class="tdesc">Sees a world where only the strong protect the weak. Motivated to assert strength and guard against injustice. Attention goes to power dynamics and who needs protecting.</div>
+      <div class="tgifts">Gifts: Strength, advocacy, courage</div>
+    </div>
+    <div class="tcard body">
+      <div class="thead">TYPE 9 · BODY CENTER</div>
+      <div class="tname">The Peacemaker</div>
+      <div class="tdesc">Sees a world with underlying unity that conflict threatens. Motivated to maintain harmony and avoid disconnection. Attention goes to others' perspectives and seeking common ground.</div>
+      <div class="tgifts">Gifts: Inclusion, steadiness, presence</div>
+    </div>
+    <div class="tcard body">
+      <div class="thead">TYPE 1 · BODY CENTER</div>
+      <div class="tname">The Improver</div>
+      <div class="tdesc">Sees a world that falls short of what it could be. Motivated to be good, principled, and beyond criticism. Attention goes to what's wrong or is broken.</div>
+      <div class="tgifts">Gifts: Integrity, discernment, high standards</div>
+    </div>
+    <div class="tcard heart">
+      <div class="thead">TYPE 2 · HEART CENTER</div>
+      <div class="tname">The Giver</div>
+      <div class="tdesc">Sees a world where love is earned through service. Motivated to be needed and seen as caring. Attention goes to others' needs and relationship dynamics.</div>
+      <div class="tgifts">Gifts: Warmth, attunement, deep care</div>
+    </div>
+    <div class="tcard heart">
+      <div class="thead">TYPE 3 · HEART CENTER</div>
+      <div class="tname">The Performer</div>
+      <div class="tdesc">Sees a world that rewards results. Motivated to achieve and be recognized as valuable. Attention goes to goals, image, and how others perceive them.</div>
+      <div class="tgifts">Gifts: Drive, adaptability, inspiring</div>
+    </div>
+    <div class="tcard heart">
+      <div class="thead">TYPE 4 · HEART CENTER</div>
+      <div class="tname">The Individualist</div>
+      <div class="tdesc">Sees a world with infinite depth but always something missing. Motivated to be authentic and deeply known. Attention goes to what's absent or lacking.</div>
+      <div class="tgifts">Gifts: Depth, originality, emotional honesty</div>
+    </div>
+    <div class="tcard head">
+      <div class="thead">TYPE 5 · HEAD CENTER</div>
+      <div class="tname">The Observer</div>
+      <div class="tdesc">Sees a world that is overwhelming and intrusive. Motivated to be competent and self-sufficient. Attention goes to ideas, concepts, and conserving energy.</div>
+      <div class="tgifts">Gifts: Clarity, insight, objectivity</div>
+    </div>
+    <div class="tcard head">
+      <div class="thead">TYPE 6 · HEAD CENTER</div>
+      <div class="tname">The Questioner</div>
+      <div class="tdesc">Sees a world that is unpredictable and unsafe. Motivated by security, trust, and preparedness. Attention goes to potential threats and who can be counted on.</div>
+      <div class="tgifts">Gifts: Loyalty, foresight, fierce commitment</div>
+    </div>
+    <div class="tcard head">
+      <div class="thead">TYPE 7 · HEAD CENTER</div>
+      <div class="tname">The Enthusiast</div>
+      <div class="tdesc">Sees a world full of possibility, threatened by limitation and pain. Motivated to stay free and experience life fully. Attention goes to options and what's next.</div>
+      <div class="tgifts">Gifts: Possibility, joy, generative energy</div>
+    </div>
+  </div>
+  <div class="closing">We each have access to all Enneagram types — and one of these nine patterns is your home base. Keep reading to find out which type your responses pointed to most clearly.</div>
+  </div>
+  <div class="footer">
+    <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span class="center">Page 2</span>
+    <span>Client confidential - for use by report owner only.</span>
+  </div>
+</div>`;
 }
 
 function _clP3Hypotheses(m) {
@@ -1556,6 +1678,44 @@ function _clP8Application(m) {
 
 function clientReportStyles() {
   return `<style>
+:root{
+  --body-text:#404040;--leading-text:#495A78;--footer-gray:#999999;
+  --card-bg:#E6F4FA;--card-border:#D6D7D8;
+  --body-color:#3F7CC4;--heart-color:#D38481;--head-color:#4F845C;
+  --p2-callout-bg:#FBF3EB;--font:Arial,Helvetica,sans-serif;
+  --page-w:816px;--page-h:1056px;--margin-x:53px;--margin-y:40px;
+}
+  /* ===== P2 (enneagram_overview) chrome + body — V2 template-ported ===== */
+  .page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
+  .page p { margin: 0; }
+  .masthead { display: flex; align-items: center; justify-content: space-between; padding: var(--margin-y) var(--margin-x) 0; }
+  .logo { height: 34px; width: auto; display: block; }
+  .header-rule { margin: 10px var(--margin-x) 0; height: 2px; background: var(--hive-blue); opacity: .55; }
+  .intro { margin: 14px var(--margin-x) 0; display: flex; gap: 26px; }
+  .intro-left { flex: 1 1 63%; }
+  .intro-right { flex: 0 0 33%; text-align: center; }
+  .badge-label { display: inline-block; background: var(--hive-orange); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 4px 12px; border-radius: 3px; }
+  .intro p { margin-top: 12px; font-size: 13.5px; line-height: 1.6; color: var(--body-text); }
+  .intro-symbol { width: 205px; height: 205px; margin: 0 auto; }
+  .feature-cards { margin: 15px var(--margin-x) 0; display: flex; gap: 14px; }
+  .fcard { flex: 1; background: var(--card-bg); border-radius: 6px; padding: 12px 14px; text-align: center; }
+  .fcard .ft { font-size: 13px; font-weight: 700; color: var(--section-title); }
+  .fcard .fd { margin-top: 4px; font-size: 11.5px; line-height: 1.4; color: var(--section-title); }
+  .grid-head { margin: 16px var(--margin-x) 0; font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--hive-blue); }
+  .grid-instr { margin: 4px var(--margin-x) 0; font-size: 12px; font-style: italic; color: var(--section-title); }
+  .grid { margin: 10px var(--margin-x) 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tcard { border: 1px solid var(--card-border); border-radius: 6px; padding: 9px 12px; }
+  .tcard .thead { font-size: 9px; font-weight: 700; letter-spacing: .05em; color: var(--section-title); }
+  .tcard .tname { margin-top: 3px; font-size: 16px; font-weight: 700; }
+  .tcard.body .tname { color: var(--body-color); }
+  .tcard.heart .tname { color: var(--heart-color); }
+  .tcard.head .tname { color: var(--head-color); }
+  .tcard .tdesc { margin-top: 5px; font-size: 11px; line-height: 1.4; color: var(--body-text); }
+  .tcard .tgifts { margin-top: 6px; font-size: 10.5px; font-weight: 700; color: var(--hive-orange); }
+  .closing { margin: 12px var(--margin-x) 0; background: var(--p2-callout-bg); border-left: 5px solid var(--hive-orange); border-radius: 0 5px 5px 0; padding: 12px 18px; font-size: 12.5px; font-style: italic; line-height: 1.55; color: var(--body-text); }
+  .footer { margin: 12px var(--margin-x) 24px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
+  .footer .center { color: var(--hive-blue); }
+  /* ===== existing repo client rules (UNCHANGED — drive Title/TOC/P1/P3–P8 until ported) ===== */
   @page { size: 8.5in 11in; margin: 0; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: var(--body); }
