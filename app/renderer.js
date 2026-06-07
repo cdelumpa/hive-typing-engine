@@ -14,6 +14,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { HEADSHOT_CAI, HEADSHOT_MO } = require('./report_assets');
 
 
 // ---- Hive logo (base64 PNG, embedded for Puppeteer header template) ----
@@ -1462,16 +1463,49 @@ function _clTOC(m) {
 </div>`;
 }
 
+// Welcome (cover) — V2 template-ported (welcome_page.html). Cover-family page on the
+// .cover/.cv-* chrome (with .cover-welcome overriding --margin-x to 64px); welcome-body
+// content in its own .cw-* namespace. Consumes the structured pages.welcome fields
+// (greeting_name, subhead, letters[5], callout) from PR-2b-1 — no flat-string split.
+// The callout box sits between letters 2 and 3, per template. Signatures + their two
+// base64 headshots (report_assets.js) are static, like PREPARED FOR on the other covers.
 function _clP1Welcome(m) {
-  const paras = (m.pages.welcome.body || '').split('\n\n').map(p => `<p class="cl-body">${esc(p)}</p>`).join('');
-  const inner = `
-    <div class="cl-greeting">Welcome, ${esc(m.pages.welcome.greeting_name)}!</div>
-    <div class="cl-welcome">${paras}</div>
-    <div class="cl-sigs">
-      <div class="cl-sig"><strong>Cai Delumpa</strong><br>Co-Founder, Hive Inc.<br>Type 7 — The Enthusiast</div>
-      <div class="cl-sig"><strong>Monique Breault</strong><br>Co-Founder, Hive Inc.<br>Type 9 — The Peacemaker</div>
-    </div>`;
-  return _clPage('Welcome', 1, 'cl-center', inner);
+  const w = m.pages.welcome;
+  const L = (w.letters || []).map(t => `<p class="cw-letter">${esc(t)}</p>`);
+  return `<div class="cover cover-welcome">
+  <div class="cv-masthead">${HIVE_LOGO_SVG}<div></div></div>
+  <div class="cv-header-rule"></div>
+  <div class="cw-body">
+    <div class="cw-greeting">Welcome, ${esc(w.greeting_name)}!</div>
+    <div class="cw-subhead">${esc(w.subhead)}</div>
+    <div class="cw-note-label">A NOTE FROM CAI &amp; MO</div>
+    ${L[0] || ''}
+    ${L[1] || ''}
+    <div class="cw-callout">${esc(w.callout)}</div>
+    ${L[2] || ''}
+    ${L[3] || ''}
+    ${L[4] || ''}
+    <div class="cw-signatures">
+      <div class="cw-sig">
+        <div class="cw-sig-photo">${HEADSHOT_CAI}</div>
+        <div class="cw-sig-name">Cai Delumpa</div>
+        <div class="cw-sig-role">Co-Founder, Hive, Inc.</div>
+        <div class="cw-sig-type">Type 7 — The Enthusiast</div>
+      </div>
+      <div class="cw-sig">
+        <div class="cw-sig-photo">${HEADSHOT_MO}</div>
+        <div class="cw-sig-name">Monique Breault</div>
+        <div class="cw-sig-role">Co-Founder, Hive, Inc.</div>
+        <div class="cw-sig-type">Type 9 — The Peacemaker</div>
+      </div>
+    </div>
+  </div>
+  <div class="cv-footer">
+    <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span class="center">Page 1</span>
+    <span>Client confidential - for use by report owner only.</span>
+  </div>
+</div>`;
 }
 
 // Hive wordmark logo (masthead). Ported verbatim from the V2 templates; reused by every
@@ -1854,6 +1888,22 @@ function clientReportStyles() {
   .cv-leader { flex: 1 1 auto; border-bottom: 1.5px dotted #C8C9CA; transform: translateY(-4px); min-width: 12px; }
   .cv-entry-page { font-size: 14px; font-weight: 700; color: var(--hive-blue); flex: 0 0 auto; }
   .cv-entry-desc { margin-top: 4px; font-size: 12.5px; color: var(--section-title); line-height: 1.4; }
+  /* --- Welcome (cover-family, wider 64px margin; reuses .cv-masthead/.cv-header-rule/.cv-footer) --- */
+  .cover-welcome { --margin-x: 64px; }
+  .cv-footer .center { color: var(--hive-blue); }
+  .cw-body { position: absolute; top: 150px; left: var(--margin-x); right: var(--margin-x); }
+  .cw-greeting { text-align: center; font-size: 40px; font-weight: 400; color: var(--section-title); }
+  .cw-subhead { margin-top: 6px; text-align: center; font-size: 19px; font-style: italic; color: var(--section-title); }
+  .cw-note-label { margin-top: 30px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--hive-blue); }
+  .cw-letter { margin-top: 14px; font-size: 14.5px; line-height: 1.62; color: var(--body-text); }
+  .cw-callout { margin-top: 22px; background: #E6F4FA; border-left: 5px solid var(--hive-blue); border-radius: 0 6px 6px 0; padding: 18px 22px; font-size: 14.5px; font-style: italic; line-height: 1.6; color: var(--leading-text); }
+  .cw-signatures { margin-top: 40px; display: flex; justify-content: center; gap: 80px; }
+  .cw-sig { text-align: center; width: 200px; }
+  .cw-sig-photo { width: 92px; height: 92px; border-radius: 50%; margin: 0 auto; padding: 3px; background: linear-gradient(135deg, var(--hive-orange), var(--hive-blue)); }
+  .cw-sig-photo img { width: 100%; height: 100%; border-radius: 50%; display: block; background: #fff; }
+  .cw-sig-name { margin-top: 10px; font-size: 15px; font-weight: 700; color: var(--section-title); }
+  .cw-sig-role { margin-top: 2px; font-size: 12.5px; color: var(--section-title); }
+  .cw-sig-type { margin-top: 2px; font-size: 12.5px; color: var(--hive-orange); }
   </style>`;
 }
 
