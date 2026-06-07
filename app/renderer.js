@@ -1740,17 +1740,41 @@ function _clP3Hypotheses(m) {
 </div>`;
 }
 
+// P4 "How Your Type Shows Up" — V2 template-ported (patterns_page.html). Body page,
+// flex-column flow model with margin footer (matches P2; P3's absolute footer was the
+// outlier). Static-by-type from the content library (pages.patterns): intro + 6 bullets +
+// inquiry per Thinking/Feeling/Behaving section. Bullets render PLAIN — the library carries
+// plain strings; the mockups' bolded lead-ins are not in the data (see commit note).
 function _clP4Patterns(m) {
   const p = m.pages.patterns;
-  const sec = (title, blk, inq) => `
-    <div class="pat-sec">
-      <div class="cl-label">${esc(title)}</div>
-      <p class="cl-body">${esc(blk.intro)}</p>
-      <div class="pat-cols">${_clBullets(blk.bullets)}</div>
-      <div class="cl-inquiry">${esc(blk.inquiry || inq || '')}</div>
-    </div>`;
-  const inner = sec('How You Think', p.thinking) + sec('How You Feel', p.feeling) + sec('How You Behave', p.behaving);
-  return _clPage('How Your Type Shows Up', 4, '', inner);
+  const NAME_UP = esc(m.hero.name).toUpperCase();
+  const tw = esc(m.display.type_word);
+  const bullets = (arr) => (arr || []).map(b => `<div class="p4-bullet"><span>${esc(b)}</span></div>`).join('');
+  const sec = (n, kind, blk) => `
+  <div class="p4-section">
+    <div class="p4-sec-head"><div class="p4-sec-num">${n}</div><div class="p4-sec-title">${kind} PATTERNS OF A TYPE ${tw} — ${NAME_UP}</div></div>
+    <div class="p4-sec-intro">${esc(blk.intro)}</div>
+    <div class="p4-bullets">${bullets(blk.bullets)}</div>
+    <div class="p4-inquiry">${esc(blk.inquiry || '')}</div>
+  </div>`;
+  return `<div class="p4-page">
+  <div class="p4-page-body">
+  <div class="p4-masthead">${HIVE_LOGO_SVG}<div style="text-align:right">
+      <div class="p4-report-label">INSIGHTOUT ENNEAGRAM REPORT</div>
+      <div class="p4-runhead">${esc(m.client.full_name)} · Type ${m.hero.number} – ${esc(m.hero.name)}</div>
+    </div></div>
+  <div class="p4-page-title">How Your Type Shows Up</div>
+  <div class="p4-title-rule"></div>
+  ${sec(1, 'THINKING', p.thinking)}
+  ${sec(2, 'FEELING', p.feeling)}
+  ${sec(3, 'BEHAVIOR', p.behaving)}
+  </div>
+  <div class="p4-footer">
+    <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span class="center">Page 4</span>
+    <span>Client confidential - for use by report owner only.</span>
+  </div>
+</div>`;
 }
 
 function _clP5WingsLines(m) {
@@ -2023,6 +2047,26 @@ function clientReportStyles() {
   .p3-disclaimer b { color: var(--hive-blue); font-style: italic; }
   .p3-footer { position: absolute; left: var(--margin-x); right: var(--margin-x); bottom: var(--margin-y); display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
   .p3-footer .center { color: var(--hive-blue); }
+  /* ===== P4 How Your Type Shows Up — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
+  .p4-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
+  .p4-page-body { flex: 1 1 auto; }
+  .p4-masthead { display: flex; align-items: flex-start; justify-content: space-between; padding: var(--margin-y) var(--margin-x) 0; }
+  .p4-report-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-blue); }
+  .p4-runhead { font-size: 11px; font-style: italic; color: var(--section-title); margin-top: 4px; }
+  .p4-page-title { margin: 18px var(--margin-x) 0; font-size: 30px; font-weight: 700; color: var(--leading-text); }
+  .p4-title-rule { margin: 8px var(--margin-x) 0; height: 1px; background: #D7E6EC; }
+  .p4-section { margin: 18px var(--margin-x) 0; }
+  .p4-sec-head { display: flex; align-items: center; gap: 11px; }
+  .p4-sec-num { width: 26px; height: 26px; border-radius: 50%; background: var(--leading-text); color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .p4-sec-title { font-size: 14px; font-weight: 700; letter-spacing: .04em; color: var(--leading-text); }
+  .p4-sec-intro { margin-top: 9px; font-size: 13px; line-height: 1.55; color: var(--body-text); }
+  .p4-bullets { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 30px; }
+  .p4-bullet { display: flex; gap: 8px; font-size: 12px; line-height: 1.45; color: var(--body-text); }
+  .p4-bullet > span { flex: 1; }
+  .p4-bullet::before { content: "■"; color: #9AA6B8; font-size: 9px; line-height: 1.6; flex: 0 0 auto; }
+  .p4-inquiry { margin-top: 12px; border-left: 4px solid var(--hive-blue); padding-left: 12px; font-size: 12.5px; font-style: italic; color: var(--hive-blue); }
+  .p4-footer { margin: 22px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
+  .p4-footer .center { color: var(--hive-blue); }
   </style>`;
 }
 
