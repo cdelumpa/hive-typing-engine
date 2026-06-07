@@ -1817,7 +1817,7 @@ function clientReportStyles() {
   .cl-dense .cl-side-b, .cl-dense .cl-def { font-size: 8.5pt; line-height: 11.5pt; }
   .app-cols { columns: 3; column-gap: 18px; } .app-sec { break-inside: avoid; margin-bottom: 10px; } .app-subhead { font-size: 9pt; font-weight: bold; color: var(--body); } .app-fw { font-size: 8pt; font-style: italic; color: var(--section-title); margin-bottom: 4px; } .app-sub-t { font-size: 8pt; font-weight: bold; color: var(--hive-blue); text-transform: uppercase; margin: 5px 0 3px; }
   /* ===== Cover pages (Title + TOC) — V2 template-ported. Print-locked, absolute layout. ===== */
-  /* Namespaced .cover/.cv-* so they never collide with P2's flow chrome (.page/.masthead/.footer) or the legacy .report-page/.tp-*/.toc-* rules above. */
+  /* Namespaced cover/cv- classes so they never collide with P2 flow chrome (page/masthead/footer) or the legacy report-page/tp-/toc- rules above. */
   .cover { position: relative; width: var(--page-w); height: var(--page-h); overflow: hidden; background: #fff; margin: 0 auto; page-break-after: always; }
   .cover h1, .cover p, .cover ul, .cover li { margin: 0; padding: 0; }
   .cover ul { list-style: none; }
