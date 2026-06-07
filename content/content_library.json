@@ -1,11 +1,22 @@
 {
   "_meta": {
     "source": "InsightOut_Static_Content_Library_v1_060526.docx",
-    "built_at": "2026-06-06T03:39:31.597Z",
+    "built_at": "2026-06-07T16:50:44.145Z",
     "version": "v1_060526"
   },
   "static": {
     "welcome_body": "You just did something most people never do. You took the time to look inward. That’s not a small thing. Whether you’re here because a coach recommended this, a colleague forwarded it, or you simply got curious and we’re glad you showed up!\n\nWhat you’re holding is a hypothesis about your personality — specifically, a map of what drives you, how you see the world, and why you do the things you do. It’s built from how you responded to the InsightOut Assessment, and it’s designed to be a starting point, not a final word.\n\nThis report is organized as a journey: first, a brief introduction to the Enneagram system itself, then a deep dive into the pattern your responses point to most strongly. Along the way we’ll also introduce a secondary hypothesis — another pattern worth exploring with a coach.\n\nThere’s no perfect outcome here. The goal isn’t to be “typed correctly” — it’s to see yourself a little more clearly, and to have a richer conversation with whoever helps you go deeper.\n\nWe hope it lands!\n\nYou are the final authority on your own type. If something in here resonates deeply, wonderful — that’s the recognition we’re going for. If something doesn’t quite fit, that’s useful information too. Hold all of it lightly, and stay curious.",
+    "welcome": {
+      "subhead": "You just did something most people never do.",
+      "letters": [
+        "You took the time to look inward. That’s not a small thing. Whether you’re here because a coach recommended this, a colleague forwarded it, or you simply got curious — we’re glad you showed up!",
+        "What you’re holding is a hypothesis about your personality — specifically, a map of what drives you, how you see the world, and why you do the things you do. It’s built from how you responded to the InsightOut Assessment, and it’s designed to be a starting point, not a final word.",
+        "This report is organized as a journey: first, a brief introduction to the Enneagram system itself, then a deep dive into the pattern your responses point to most strongly. Along the way we’ll also introduce a secondary hypothesis — another pattern worth exploring with a coach.",
+        "There’s no perfect outcome here. The goal isn’t to be “typed correctly” — it’s to see yourself a little more clearly, and to have a richer conversation with whoever helps you go deeper.",
+        "We hope it lands!"
+      ],
+      "callout": "You are the final authority on your own type. If something in here resonates deeply, wonderful — that’s the recognition we’re going for. If something doesn’t quite fit, that’s useful information too. Hold all of it lightly, and stay curious."
+    },
     "primer": {
       "intro": "The Enneagram is a dynamic system that describes nine distinct ways of being in the world — nine strategies, shaped early in life, for how to get what we need, stay safe, and belong. Each type is anchored by a core worldview and a deep motivational drive that shapes everything: how we think, what we feel, and how we act.\n\nUnderstanding your type isn’t about putting yourself in a box. It’s about seeing the pattern clearly enough that you have a choice about it.",
       "scan_line": "As you read, notice which descriptions pull at you — even slightly. That’s the Enneagram beginning to work.",

@@ -26,6 +26,22 @@ const JSZip = require(path.join(ROOT, 'app/node_modules/jszip'));
 const DOCX = path.join(ROOT, 'docs/step7-incoming/InsightOut_Static_Content_Library_v1_060526.docx');
 const OUT  = path.join(ROOT, 'content/content_library.json');
 
+// INTERIM SOURCE — provisional welcome content pending canonical binary-docx
+// reconciliation (tracked offline). Do not treat as permanent source of truth.
+// When the canonical step7-incoming docx gains a Word-styled WELCOME PAGE section,
+// replace this with a parseStatics() read and confirm regenerated output is identical.
+const INTERIM_WELCOME = {
+  subhead: "You just did something most people never do.",
+  letters: [
+    "You took the time to look inward. That’s not a small thing. Whether you’re here because a coach recommended this, a colleague forwarded it, or you simply got curious — we’re glad you showed up!",
+    "What you’re holding is a hypothesis about your personality — specifically, a map of what drives you, how you see the world, and why you do the things you do. It’s built from how you responded to the InsightOut Assessment, and it’s designed to be a starting point, not a final word.",
+    "This report is organized as a journey: first, a brief introduction to the Enneagram system itself, then a deep dive into the pattern your responses point to most strongly. Along the way we’ll also introduce a secondary hypothesis — another pattern worth exploring with a coach.",
+    "There’s no perfect outcome here. The goal isn’t to be “typed correctly” — it’s to see yourself a little more clearly, and to have a richer conversation with whoever helps you go deeper.",
+    "We hope it lands!"
+  ],
+  callout: "You are the final authority on your own type. If something in here resonates deeply, wonderful — that’s the recognition we’re going for. If something doesn’t quite fit, that’s useful information too. Hold all of it lightly, and stay curious."
+};
+
 // Engine source of truth (mirrors renderer TYPE_NAMES + design A6; Phase 4 centralizes into type_meta.js).
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver', 3: 'The Performer', 4: 'The Individualist',
@@ -214,6 +230,7 @@ function parseStatics(toks) {
   };
   return {
     welcome_body: text('WELCOME BODY'),
+    welcome: INTERIM_WELCOME,   // INTERIM (see top): structured welcome; welcome_body kept additively
     primer,
     wings_primer: text('WINGS PRIMER'),
     lines_primer: text('LINES PRIMER'),
@@ -268,7 +285,7 @@ function validateSubtype(key, st) {
   // Split into type regions by H1; within each, the H2 begins the subtype region.
   const h1idx = toks.map((t, i) => ({ t, i })).filter(x => x.t.style === 'Heading1');
   const lib = { _meta: { source: path.basename(DOCX), built_at: new Date().toISOString(), version: 'v1_060526' }, static: {
-    primer: null, welcome_body: null, instinct_primer: null, instinct_definitions: null, wings_primer: null, lines_primer: null,
+    primer: null, welcome_body: null, welcome: null, instinct_primer: null, instinct_definitions: null, wings_primer: null, lines_primer: null,
   } };
   const seenTypes = [];
 
@@ -312,6 +329,8 @@ function validateSubtype(key, st) {
   // static.* coverage — now sourced from the docx GLOBAL STATIC CONTENT section (hard gate)
   const S = lib.static || {};
   for (const k of ['welcome_body', 'wings_primer', 'lines_primer', 'instinct_primer']) need(S[k], `static.${k} empty`);
+  need(S.welcome && S.welcome.subhead && Array.isArray(S.welcome.letters) && S.welcome.letters.length === 5 && S.welcome.letters.every(Boolean) && S.welcome.callout,
+    'static.welcome shape invalid (want { subhead, letters[5], callout })');
   need(S.primer && S.primer.intro, 'static.primer.intro empty');
   need(S.primer && Array.isArray(S.primer.pillars) && S.primer.pillars.length === 3, `static.primer.pillars != 3 (${S.primer && S.primer.pillars && S.primer.pillars.length})`);
   need(S.primer && Array.isArray(S.primer.nine_types) && S.primer.nine_types.length === 9, `static.primer.nine_types != 9 (${S.primer && S.primer.nine_types && S.primer.nine_types.length})`);
@@ -322,7 +341,7 @@ function validateSubtype(key, st) {
   console.log('=== Content library build ===');
   console.log(`Types parsed:    ${seenTypes.sort((a, b) => a - b).join(', ')} (${seenTypes.length}/9)`);
   console.log(`Subtypes parsed: ${subCount}/27`);
-  const staticKeys = ['welcome_body', 'primer', 'wings_primer', 'lines_primer', 'instinct_primer', 'instinct_definitions'];
+  const staticKeys = ['welcome_body', 'welcome', 'primer', 'wings_primer', 'lines_primer', 'instinct_primer', 'instinct_definitions'];
   const pending = staticKeys.filter(k => lib.static[k] == null);
   console.log(`Static globals:  ${staticKeys.length - pending.length}/${staticKeys.length} populated` + (pending.length ? ` — PENDING: ${pending.join(', ')}` : ' (zero PENDING)'));
 

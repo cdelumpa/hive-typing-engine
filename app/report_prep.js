@@ -217,7 +217,8 @@ function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  // tight
     charts: { instincts: instinctBars(h.instinct_score_profile) },
     instinct_stack: instinctStack(h.instinct_score_profile),
     pages: {
-      welcome: { greeting_name: client.first_name || '', body: stat.welcome_body },           // static PENDING
+      welcome: { greeting_name: client.first_name || '', body: stat.welcome_body,             // body kept (additive); structured fields added for V2 port
+        subhead: stat.welcome.subhead, letters: stat.welcome.letters, callout: stat.welcome.callout },
       primer: stat.primer,                                                                      // static PENDING
       type_hypotheses: {                                                                        // P3
         pill: { number: heroN, name: meta.name, subtype_name: instinctName(instinct) },
@@ -304,9 +305,11 @@ const CLIENT_SPEC = {
     'pages.instinct_subtype.subtype', 'pages.strengths_challenges.strengths',
     'pages.strengths_challenges.challenges', 'pages.application.communication',
     'pages.application.conflict', 'pages.application.center',
+    'pages.welcome.subhead', 'pages.welcome.callout',                               // PR-2b structured welcome (body stays unread)
   ],
   nonEmptyArrays: ['charts.instincts', 'instinct_stack', 'pages.patterns.inquiry_lines',
-    'pages.strengths_challenges.strengths', 'pages.strengths_challenges.challenges'],
+    'pages.strengths_challenges.strengths', 'pages.strengths_challenges.challenges',
+    'pages.welcome.letters'],
   ints0to100: ['charts.instincts'],
 };
 
