@@ -2005,7 +2005,8 @@ function clientReportStyles() {
   /* ===== Cover pages (Title + TOC) — V2 template-ported. Print-locked, absolute layout. ===== */
   /* Namespaced cover/cv- classes so they never collide with P2 flow chrome (page/masthead/footer) or the legacy report-page/tp-/toc- rules above. */
   .cover { position: relative; width: var(--page-w); height: var(--page-h); overflow: hidden; background: #fff; margin: 0 auto; page-break-after: always; }
-  .cover h1, .cover p, .cover ul, .cover li { margin: 0; padding: 0; }
+  /* :where() keeps this UA-margin reset at zero specificity so the authored .cv-*/.cw-* element margins win (source order). */
+  .cover :where(h1, p, ul, li) { margin: 0; padding: 0; }
   .cover ul { list-style: none; }
   .cover .logo { height: 38px; width: auto; display: block; }
   .cv-masthead { position: absolute; top: var(--margin-y); left: var(--margin-x); right: var(--margin-x); display: flex; align-items: center; justify-content: space-between; }
