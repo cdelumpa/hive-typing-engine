@@ -1850,25 +1850,75 @@ function _clP5WingsLines(m) {
 </div>`;
 }
 
+// P6 "Instinct & Subtype" — V2 template-ported (instinct_subtype.html). Body page,
+// flex-column flow + margin footer. Three content sources: per-SUBTYPE static (name,
+// keywords, narrative, 3x3 pattern bullets), fully STATIC (ABOUT THE INSTINCTS primer +
+// THE THREE INSTINCTS defs), and per-CLIENT AI (the orange evidence box + instinct stack).
+// Orange box is labelled "IN YOUR RESPONSES" (per the C2 spec; P3 owns "In Your Own Words"
+// for verbatim quotes — P6's content is AI-described evidence). Pattern headers use
+// subtype.name uppercased (template's {{subtype.code}} has no model field). The draft
+// "flavor" bridging sentence is intentionally absent: it's in neither instinct_primer nor
+// this template version (content-track item, not invented here).
 function _clP6Instinct(m) {
   const i = m.pages.instinct_subtype, st = i.subtype;
-  const defs = (i.instinct_definitions || []).map(d => `<div class="cl-def"><strong>${esc(d.name)} (${esc(d.code)})</strong> ${esc(d.body)}</div>`).join('');
-  const stack = (i.instinct_stack || []).map(s => `<div class="cl-stack-row"><span class="cl-stack-l">${esc(s.label)}</span><span>${esc(s.name)} (${esc(s.code)})</span></div>`).join('');
-  const evidence = (i.instinct_evidence || []).map(b => `<div class="cl-bullet">${esc(b)}</div>`).join('');
-  const inner = `<div class="cl-2col">
-    <div class="cl-2col-l">
-      <div class="cl-subtype-name">${esc(st.name)}</div><div class="cl-subtype-tag">${esc(st.tagline)}</div>
-      <p class="cl-body">${esc(st.narrative)}</p>
-      <div class="cl-label">How the ${esc(st.name)} Thinks</div>${_clBullets(st.patterns.thinking)}
-      <div class="cl-label">How the ${esc(st.name)} Feels</div>${_clBullets(st.patterns.feeling)}
-      <div class="cl-label">How the ${esc(st.name)} Behaves</div>${_clBullets(st.patterns.behaving)}
-      ${evidence ? `<div class="cl-orange"><div class="cl-orange-h">In Your Responses</div>${evidence}</div>` : ''}
+  const NAME_UP = esc(st.name).toUpperCase();
+  const patBullets = (arr) => `<div class="p6-pat-bullets">${(arr || []).map(b => `<div class="p6-pat-bullet"><span>${esc(b)}</span></div>`).join('')}</div>`;
+  const evidence = (i.instinct_evidence || []).map(b => `<div class="p6-ow-bullet"><span>${esc(b)}</span></div>`).join('');
+  const defs = (i.instinct_definitions || []).map(d =>
+    `<div class="p6-inst-block"><div class="p6-inst-name">${esc(d.name)} (${esc(d.code)})</div><div class="p6-inst-desc">${esc(d.body)}</div></div>`).join('');
+  const stack = (i.instinct_stack || []).map((s, n) => {
+    const r = `r${n + 1}`;
+    return `<div class="p6-stack-row"><span class="p6-stack-num ${r}">${n + 1}</span><div><span class="p6-stack-rank ${r}">${esc(String(s.label)).toUpperCase()}:</span> <span class="p6-stack-inst">${esc(s.name)}</span></div></div>`;
+  }).join('');
+  return `<div class="p6-page">
+  <div class="p6-page-body">
+  <div class="p6-masthead">${HIVE_LOGO_SVG}<div style="text-align:right">
+      <div class="p6-report-label">INSIGHTOUT ENNEAGRAM REPORT</div>
+      <div class="p6-runhead">${esc(m.client.full_name)} · Type ${m.hero.number} – ${esc(m.hero.name)}</div>
+    </div></div>
+  <div class="p6-page-title">Instinct &amp; Subtype</div>
+  <div class="p6-title-rule"></div>
+
+  <div class="p6-cols">
+    <div class="p6-col-left">
+      <div class="p6-label">YOUR SUBTYPE</div>
+      <div class="p6-subtype-name">${esc(st.name)}</div>
+      <div class="p6-subtype-keywords">${esc(st.tagline)}</div>
+      <div class="p6-subtype-narr">${String(st.narrative || '').split(/\n\n+/).map(par => `<p>${esc(par)}</p>`).join('')}</div>
+
+      <div class="p6-pat-head">HOW THE ${NAME_UP} THINKS</div>
+      ${patBullets(st.patterns.thinking)}
+      <div class="p6-pat-head">HOW THE ${NAME_UP} FEELS</div>
+      ${patBullets(st.patterns.feeling)}
+      <div class="p6-pat-head">HOW THE ${NAME_UP} BEHAVES</div>
+      ${patBullets(st.patterns.behaving)}
     </div>
-    <div class="cl-2col-r"><div class="cl-sidebar"><div class="cl-side-h">About the Instincts</div><p class="cl-side-b">${esc(i.instinct_primer)}</p>
-      <div class="cl-side-h">The Three Instincts</div>${defs}
-      <div class="cl-side-h">Your Instincts Stack</div>${stack}</div></div>
-  </div>`;
-  return _clPage('Instinct & Subtype', 6, 'cl-dense', inner);
+
+    <div class="p6-col-right">
+      <div class="p6-label">ABOUT THE INSTINCTS</div>
+      <div class="p6-about-body">${esc(i.instinct_primer)}</div>
+
+      <div class="p6-label p6-three-label">THE THREE INSTINCTS</div>
+      ${defs}
+
+      <div class="p6-label p6-stack-label">YOUR INSTINCTS STACK</div>
+      <div class="p6-stack-intro">How automatically each instinct activates, from most to least.</div>
+      <div class="p6-stack">${stack}</div>
+    </div>
+  </div>
+
+  ${evidence ? `<div class="p6-own-words">
+    <div class="p6-ow-label">IN YOUR RESPONSES</div>
+    <div class="p6-ow-bullets">${evidence}</div>
+  </div>` : ''}
+
+  </div>
+  <div class="p6-footer">
+    <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span class="center">Page 6</span>
+    <span>Client confidential - for use by report owner only.</span>
+  </div>
+</div>`;
 }
 
 function _clP7Strengths(m) {
@@ -2171,6 +2221,53 @@ function clientReportStyles() {
   .p5-res-body { margin-top: 7px; font-size: 10.5px; line-height: 1.55; color: var(--body-text); }
   .p5-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
   .p5-footer .center { color: var(--hive-blue); }
+  /* ===== P6 Instinct & Subtype — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
+  .p6-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
+  .p6-page-body { flex: 1 1 auto; }
+  .p6-masthead { display: flex; align-items: flex-start; justify-content: space-between; padding: var(--margin-y) var(--margin-x) 0; }
+  .p6-report-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-blue); }
+  .p6-runhead { font-size: 11px; font-style: italic; color: var(--section-title); margin-top: 4px; }
+  .p6-page-title { margin: 18px var(--margin-x) 0; font-size: 30px; font-weight: 700; color: var(--leading-text); }
+  .p6-title-rule { margin: 8px var(--margin-x) 0; height: 1px; background: #D7E6EC; }
+  .p6-cols { margin: 18px var(--margin-x) 0; display: flex; gap: 32px; }
+  .p6-col-left { flex: 0 0 56%; }
+  .p6-col-right { flex: 1 1 auto; }
+  .p6-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-blue); }
+  .p6-subtype-name { margin-top: 8px; font-size: 21px; font-weight: 700; color: var(--leading-text); }
+  .p6-subtype-keywords { margin-top: 3px; font-size: 13px; font-style: italic; color: var(--section-title); }
+  .p6-subtype-narr { margin-top: 10px; font-size: 12.5px; line-height: 1.55; color: var(--body-text); }
+  .p6-subtype-narr p { margin: 0 0 5px; }
+  .p6-subtype-narr p:last-child { margin-bottom: 0; }
+  .p6-pat-head { margin-top: 9px; font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--section-title); }
+  .p6-pat-bullets { margin-top: 5px; }
+  .p6-pat-bullet { display: flex; gap: 8px; font-size: 11.5px; line-height: 1.45; color: var(--body-text); margin: 3px 0; }
+  .p6-pat-bullet::before { content: "■"; color: #9AA6B8; font-size: 8px; line-height: 1.7; flex: 0 0 auto; }
+  .p6-own-words { margin: 8px var(--margin-x) 0; background: #F5F5EE; border-left: 5px solid var(--hive-orange); border-radius: 0 5px 5px 0; padding: 8px 16px; }
+  .p6-ow-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-orange); }
+  .p6-ow-bullets { margin-top: 4px; }
+  .p6-ow-bullet { display: flex; gap: 8px; font-size: 11.5px; font-style: italic; line-height: 1.5; color: var(--section-title); margin: 3px 0; }
+  .p6-ow-bullet::before { content: "■"; color: var(--hive-orange); font-size: 8px; line-height: 1.8; flex: 0 0 auto; font-style: normal; }
+  .p6-about-body { margin-top: 6px; font-size: 11.5px; line-height: 1.55; color: var(--body-text); }
+  .p6-three-label { margin-top: 18px; }
+  .p6-inst-block { margin-top: 10px; }
+  .p6-inst-name { font-size: 13px; font-weight: 700; color: var(--leading-text); }
+  .p6-inst-desc { margin-top: 3px; font-size: 11px; line-height: 1.5; color: var(--body-text); }
+  .p6-stack-label { margin-top: 20px; }
+  .p6-stack-intro { margin-top: 5px; font-size: 11px; line-height: 1.45; color: var(--section-title); }
+  .p6-stack { margin-top: 10px; }
+  .p6-stack-row { display: flex; align-items: center; gap: 10px; margin: 9px 0; }
+  .p6-stack-num { width: 24px; height: 24px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .p6-stack-num.r1 { background: var(--hive-orange); }
+  .p6-stack-num.r2 { background: var(--hive-blue); }
+  .p6-stack-num.r3 { background: #B8BCC4; }
+  .p6-stack-rank { font-size: 9.5px; font-weight: 700; letter-spacing: .05em; }
+  .p6-stack-rank.r1 { color: var(--hive-orange); }
+  .p6-stack-rank.r2 { color: var(--hive-blue); }
+  .p6-stack-rank.r3 { color: #B8BCC4; }
+  .p6-stack-inst { font-size: 12.5px; font-weight: 700; color: var(--leading-text); }
+  .p6-stack-row:last-child .p6-stack-inst { color: var(--section-title); }
+  .p6-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
+  .p6-footer .center { color: var(--hive-blue); }
   </style>`;
 }
 
