@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "partA-gallery",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8777", "--directory", ".phase3_gallery"],
+      "port": 8777
+    },
+    {
+      "name": "assessment-static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8778", "--directory", "app/public"],
+      "port": 8778
+    }
+  ]
+}

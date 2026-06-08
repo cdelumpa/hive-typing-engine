@@ -1442,13 +1442,26 @@ function render() {
     case 'error':          app.innerHTML = renderError(); break;
   }
 
-  // Inject Save and Continue Later link for active assessment stages
+  // Inject Save and Continue Later link for active assessment stages. It sits
+  // just left of the primary action (Continue/Submit) inside the screen's
+  // .nav-row, styled as a ghost button to match the Back/Skip controls there.
+  // Analyzing interstitials have no nav-row, so they fall back to a centered bar.
   if (SAVE_LATER_PHASES.has(state.phase) && state.intake && state.intake.token) {
-    const saveLaterEl = document.createElement('div');
-    saveLaterEl.id = 'save-later-bar';
-    saveLaterEl.style.cssText = 'text-align:center;padding:16px 0 8px;';
-    saveLaterEl.innerHTML = '<button id="btn-save-later" style="background:none;border:none;color:#7A96A6;font-size:13px;font-family:Georgia,serif;cursor:pointer;text-decoration:underline;padding:4px 8px;">Save and Continue Later</button>';
-    app.appendChild(saveLaterEl);
+    const navRow = app.querySelector('.nav-row');
+    const primaryBtn = navRow && navRow.querySelector('.btn-primary');
+    if (navRow && primaryBtn) {
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'btn btn-ghost';
+      saveBtn.id = 'btn-save-later';
+      saveBtn.textContent = 'Save and Continue Later';
+      navRow.insertBefore(saveBtn, primaryBtn);
+    } else {
+      const saveLaterEl = document.createElement('div');
+      saveLaterEl.id = 'save-later-bar';
+      saveLaterEl.style.cssText = 'text-align:center;padding:16px 0 8px;';
+      saveLaterEl.innerHTML = '<button id="btn-save-later" style="background:none;border:none;color:#7A96A6;font-size:13px;font-family:Georgia,serif;cursor:pointer;text-decoration:underline;padding:4px 8px;">Save and Continue Later</button>';
+      app.appendChild(saveLaterEl);
+    }
   }
 
   attachHandlers();
