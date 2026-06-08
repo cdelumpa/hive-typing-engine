@@ -5,7 +5,7 @@
  *
  * For sp4/sx7: api_result fixture + synthetic client/coach → buildClientModel →
  * buildClientReportHTML → PDF. Flowing layout (no measurement gate): renders straight,
- * then measures each .report-page's rendered height to flag any page that spills past
+ * then measures each client page's rendered height to flag any page that spills past
  * one physical sheet (1056px @96dpi). Writes HTML + PDF to .phase6_out/ (gitignored).
  */
 
@@ -30,12 +30,14 @@ async function launch() {
   });
 }
 
-// Measure each .report-page's rendered height + physical-sheet count under flowing layout.
+// Measure each client page's rendered height + physical-sheet count under flowing layout.
+// V2 ported pages use .cover (Title/TOC/Welcome), .page (P2), and .pN-page (P3–P8) — the
+// legacy .report-page selector no longer matches any client page.
 async function measureLayout(page) {
   await page.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
   await new Promise(r => setTimeout(r, 150));
   return page.evaluate((PAGE_PX) => {
-    return [...document.querySelectorAll('.report-page')].map((el, i) => {
+    return [...document.querySelectorAll('.cover, .page, .p3-page, .p4-page, .p5-page, .p6-page, .p7-page, .p8-page')].map((el, i) => {
       const h = el.getBoundingClientRect().height;
       return { index: i, height: Math.round(h), sheets: Math.max(1, Math.ceil(h / (PAGE_PX + 1))) };
     });
