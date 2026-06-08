@@ -1168,13 +1168,15 @@ body{font-family:Arial,Helvetica,sans-serif;color:var(--body);}
 
 // B2: 6 static clarification questions, identical on every report (placeholder wording
 // pending Mo review — flagged in the Phase 5 notes).
+// P2 "Example Type Clarification Questions" — STATIC. Wording from the V2 template,
+// PENDING MO REVIEW (Mo confirms or revises; not final). Each has an axis annotation.
 const COACH_CLARIFICATION_QUESTIONS = [
-  'When you walk into a room, where does your attention go first?',
-  'What are you usually moving toward — or away from — without noticing?',
-  'When something matters deeply to you, what do you do?',
-  'What feeling is closest to the surface for you, and which takes longest to reach?',
-  'When you are at your best, what is true? When you are stretched thin, what changes?',
-  'What do people consistently misread about you?',
+  { q: 'What do you value most in the world?', axis: 'core motivation' },
+  { q: 'Where does your mind go when nothing is demanding your time or attention?', axis: 'focus of attention' },
+  { q: 'What activities make you feel most alive?', axis: 'where energy goes' },
+  { q: 'What do you want to be known for?', axis: 'gifts' },
+  { q: 'What’s the thing you tend to put off or avoid?', axis: 'challenges/avoidance' },
+  { q: 'What does connecting with others look like for you?', axis: 'relating to others' },
 ];
 
 const _bcBullets = (arr) => (arr || []).map(b =>
@@ -1271,33 +1273,46 @@ function _coachPage1(m) {
 function _coachPage2(m) {
   const c = m.comparison;
   const row = (label, lead, alt) => `
-    <tr><td class="cmp-label">${esc(label)}</td>
-      <td class="cmp-lead">${esc(lead || '')}</td>
-      <td class="cmp-alt">${esc(alt || '')}</td></tr>`;
-  const quotes = (c.client_words.quotes || []).map(q => `“${esc(q)}”`).join('<br>');
+      <tr><td class="cmp-label">${esc(label)}</td>
+        <td class="cmp-lead">${esc(lead || '')}</td>
+        <td class="cmp-alt">${esc(alt || '')}</td></tr>`;
+  const quotes = (c.client_words.quotes || []).map(q => `<p>&ldquo;${esc(q)}&rdquo;</p>`).join('');
   return `
   <div class="report-page">
-    <div class="page-header"><div class="ph-title">Type Hypothesis Comparison</div></div>
-    <div class="page-body" data-page="2" data-zone="page2-body">
-      ${c.note ? `<div class="bc-callout" data-zone="p2-callout">${esc(c.note)}</div>` : ''}
-      <table class="cmp" data-zone="p2-table">
-        <thead><tr><th></th>
-          <th class="cmp-lead-h">Type ${c.leading.number} — ${esc(c.leading.name)}</th>
-          <th class="cmp-alt-h">Type ${c.alternate.number} — ${esc(c.alternate.name)}</th></tr></thead>
+
+    <div class="bc-hd">
+      ${HIVE_LOGO_SVG}
+      <div class="bc-hd-toprow">
+        <div class="bc-hd-label">INSIGHTOUT ENNEAGRAM COACH REPORT</div>
+        <div class="bc-hd-runhead">${esc(m.client.full_name)} &middot; Type ${m.hero.number} &ndash; ${esc(m.hero.name)}</div>
+      </div>
+      <div class="bc-hd-title">Leading vs. Alternate Hypothesis</div>
+    </div>
+
+    <div class="page-body">
+      ${c.note ? `<div class="bc-callout">${esc(c.note)}</div>` : ''}
+      <table class="cmp">
+        <colgroup><col style="width:16%"><col style="width:42%"><col style="width:42%"></colgroup>
+        <thead><tr>
+          <th class="cmp-label"></th>
+          <th class="cmp-lead cmp-lead-h">Type ${c.leading.number} - ${esc(c.leading.name)}<span class="role">Leading Hypothesis</span></th>
+          <th class="cmp-alt cmp-alt-h">Type ${c.alternate.number} - ${esc(c.alternate.name)}<span class="role">Alternate Hypothesis</span></th>
+        </tr></thead>
         <tbody>
-          ${row('Core Motivation', c.leading.rows.core_motivation, c.alternate.rows.core_motivation)}
-          ${row('Focus of Attention', c.leading.rows.focus, c.alternate.rows.focus)}
-          ${row('Energy Goes To', c.leading.rows.energy, c.alternate.rows.energy)}
-          ${row('Gifts', c.leading.rows.gifts, c.alternate.rows.gifts)}
-          ${row('Challenges', c.leading.rows.challenges, c.alternate.rows.challenges)}
-          <tr><td class="cmp-label">Key Discriminator</td><td class="cmp-disc" colspan="2">${esc(c.discriminator || '')}</td></tr>
-          <tr><td class="cmp-label">In ${esc(m.client.first_name || 'Client')}'s Words</td>
-            <td class="cmp-lead">${quotes}</td>
-            <td class="cmp-alt">${esc(c.client_words.absence_note || '')}</td></tr>
+          ${row('CORE MOTIVATION', c.leading.rows.core_motivation, c.alternate.rows.core_motivation)}
+          ${row('FOCUS OF ATTENTION', c.leading.rows.focus, c.alternate.rows.focus)}
+          ${row('ENERGY GOES TO…', c.leading.rows.energy, c.alternate.rows.energy)}
+          ${row('GIFTS', c.leading.rows.gifts, c.alternate.rows.gifts)}
+          ${row('CHALLENGES', c.leading.rows.challenges, c.alternate.rows.challenges)}
+          <tr><td class="cmp-label">KEY DISCRIMINATOR</td><td class="cmp-disc" colspan="2">${esc(c.discriminator || '')}</td></tr>
+          <tr><td class="cmp-label">In ${esc(m.client.first_name || 'Client')}&rsquo;s Words</td>
+            <td class="cmp-lead cmp-words">${quotes}</td>
+            <td class="cmp-alt cmp-words"><p>${esc(c.client_words.absence_note || '')}</p></td></tr>
         </tbody>
       </table>
-      <div class="bc-label">Clarification Questions</div>
-      <div class="bc-qlist">${COACH_CLARIFICATION_QUESTIONS.map(q => `<div class="bc-q">${esc(q)}</div>`).join('')}</div>
+      <div class="bc-label">Example Type Clarification Questions</div>
+      <div class="bc-qlist">${COACH_CLARIFICATION_QUESTIONS.map(o =>
+        `<div class="bc-q">${esc(o.q)} <span class="axis">(${esc(o.axis)})</span></div>`).join('')}</div>
     </div>
     ${_coachFooter(2)}
   </div>`;
@@ -1374,16 +1389,30 @@ function coachReportStyles() {
   .ag-rows { margin-bottom: 18px; }
   .bc-chart { margin-bottom: 18px; }
   .bc-chart svg { display: block; width: 100%; }
-  .bc-callout { background: var(--callout-bg); border-left: 4px solid var(--hive-orange); border-radius: 4px; padding: 10px 14px; font-size: 10pt; line-height: 15pt; margin-bottom: 12px; }
-  table.cmp { width: 100%; border-collapse: collapse; }
-  table.cmp th, table.cmp td { text-align: left; vertical-align: top; padding: 4px 8px; font-size: 10pt; line-height: 13pt; border-bottom: 1px solid #eee; }
+  /* ===== Body-page masthead (.bc-hd) — shared by P2 + P3 (V2) ===== */
+  .bc-hd { border-bottom: 1px solid #bbb; padding-bottom: 10px; margin-bottom: 18px; }
+  .bc-hd .logo { height: 30px; width: auto; display: block; margin-bottom: 10px; }   /* masthead-scoped: P1 uses .bc-masthead .logo{34px} */
+  .bc-hd-toprow { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+  .bc-hd-label { font-size: 9pt; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; color: var(--hive-orange); }
+  .bc-hd-runhead { font-size: 10pt; font-style: italic; color: var(--section-title); text-align: right; white-space: nowrap; }
+  .bc-hd-title { font-size: 26pt; font-weight: bold; color: var(--leading-pill-text); line-height: 1.05; }
+  /* ===== P2 Comparison table (V2) ===== */
+  .bc-callout { background: var(--callout-bg); border-left: 4px solid var(--hive-orange); border-radius: 4px; padding: 10px 14px; font-size: 10pt; line-height: 15pt; margin-bottom: 18px; }
+  table.cmp { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 26px; }
+  table.cmp th, table.cmp td { text-align: left; vertical-align: top; padding: 5px 10px; font-size: 10pt; line-height: 13pt; border-bottom: 1px solid #eee; }
   .cmp-label { font-size: 9pt; font-weight: bold; color: var(--section-title); width: 18%; }
   .cmp-lead-h, .cmp-alt-h { font-size: 12pt; font-weight: bold; color: var(--leading-pill-text); }
+  .cmp-lead-h .role, .cmp-alt-h .role { display: block; font-size: 10pt; font-weight: normal; color: var(--leading-pill-text); }
   .cmp-lead { background: var(--leading-pill-bg); }
   .cmp-alt { background: var(--callout-bg); }
-  .cmp-disc { font-style: italic; color: var(--body); }
-  .bc-qlist { columns: 2; column-gap: 22px; }
-  .bc-q { font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-bottom: 6px; break-inside: avoid; }
+  .cmp-disc { color: var(--hive-blue); background: #EAF6FA; }
+  .cmp-words { font-style: italic; color: var(--section-title); }
+  .cmp-words p { margin: 0 0 8px; }
+  .cmp-words p:last-child { margin-bottom: 0; }
+  .bc-qlist { columns: 2; column-gap: 28px; margin-top: 4px; }
+  .bc-q { font-size: 10pt; color: var(--body); margin-bottom: 8px; break-inside: avoid; padding-left: 20px; position: relative; line-height: 14pt; }
+  .bc-q::before { content: "✓"; color: var(--hive-orange); font-weight: bold; position: absolute; left: 0; }
+  .bc-q .axis { font-style: italic; color: var(--section-title); }
   .bc-9pt .bc-label { margin-top: 8px; }
   .bc-9pt .bc-bullet { font-size: 9pt; line-height: 13.5pt; }
   .dbf-cols { columns: 2; column-gap: 24px; }
