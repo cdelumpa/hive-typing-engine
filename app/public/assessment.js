@@ -1095,8 +1095,14 @@ function computeStage4Scores() {
   } else if (habitFired && habitConfirmed === false) {
     outcome = 'AMBIGUOUS';
   } else {
-    // One confirmed, habit not fired (shouldn't normally happen) or unresolved.
-    outcome = 'AMBIGUOUS';
+    // Unreachable under valid flow. Reaching here requires exactly one of stress/security
+    // confirmed (the only state past the CONFIRMED and REDIRECT branches above) AND the habit
+    // question not having fired — but stress/security disagreement is exactly what makes
+    // shouldFireHabit() fire, and the habit slot's Next button is gated until it's answered,
+    // with stage4Sequence/stage4Answers kept in sync on back-nav. So one-confirmed always
+    // yields a fired, answered habit -> branch (2) or (4), never here. Fail loud instead of
+    // silently emitting AMBIGUOUS so a broken invariant surfaces.
+    throw new Error('computeStage4Scores: unreachable state — exactly one of stress/security confirmed but the habit question did not fire. This violates the shouldFireHabit invariant (stress/security disagreement must trigger the habit question). Check shouldFireHabit(), the Next-gating on the habit slot, and stage4Sequence/stage4Answers sync in the Stage 4 Next handler.');
   }
 
   // Describe what the user chose for each instrument (AI-facing).
