@@ -3,14 +3,14 @@
 /**
  * build_content_library.js — Step 7 Phase 2.
  *
- * Compiles the static content library docx into content/content_library.json.
+ * Compiles the static content library docx into app/content/content_library.json.
  * Authoring surface stays Word; this script parses it into the runtime store.
  * Offline; no API key. Word stays the single editing surface (handles smart quotes).
  *
  *   docs/step7-incoming/InsightOut_Static_Content_Library_v1_060526.docx
  *        │  node scripts/build_content_library.js
  *        ▼
- *   content/content_library.json   (keys: type_1..type_9, subtype_sp1..sx9, static)
+ *   app/content/content_library.json   (keys: type_1..type_9, subtype_sp1..sx9, static)
  *
  * Hard coverage gate: 9 types × required keys, 27 subtypes × 3 pattern blocks +
  * narrative + shifts; wing/line targets validated against the engine. The 6 global
@@ -24,7 +24,7 @@ const ROOT = path.resolve(__dirname, '..');
 const JSZip = require(path.join(ROOT, 'app/node_modules/jszip'));
 
 const DOCX = path.join(ROOT, 'docs/step7-incoming/InsightOut_Static_Content_Library_v1_060526.docx');
-const OUT  = path.join(ROOT, 'content/content_library.json');
+const OUT  = path.join(ROOT, 'app/content/content_library.json');
 
 // INTERIM SOURCE — provisional welcome content pending canonical binary-docx
 // reconciliation (tracked offline). Do not treat as permanent source of truth.

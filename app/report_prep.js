@@ -16,7 +16,7 @@
  *  - Content from content_library.json (Phase 2 shapes); only personalized zones are AI.
  */
 
-const library = require('../content/content_library.json');
+const library = require('./content/content_library.json');
 const { TYPE_NAMES, TYPE_META, INSTINCT_NAME } = require('./type_meta');
 
 // Bar-fill per Center (A5/A2): Gut/Heart use one value; Head fill is lighter than its text.
