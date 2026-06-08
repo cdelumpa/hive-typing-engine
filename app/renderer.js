@@ -1319,21 +1319,27 @@ function _coachPage2(m) {
 }
 
 function _coachPage3(m) {
-  const section = (title, blk, zone) => `
-    <div class="dbf-section" data-zone="${zone}" data-budget="330">
+  // per-section band: full-width heading + powerful-question, then 2-column bullets (per-section, NOT continuous-flow)
+  const section = (title, blk) => `
       <div class="bc-label">${esc(title)}</div>
-      <div class="dbf-q">${esc(blk.question || '')}</div>
-      ${_bcBullets(blk.bullets)}
-    </div>`;
+      ${blk.question ? `<div class="dbf-q"><span class="pq-label">Powerful question &ndash;</span> &ldquo;${esc(blk.question)}&rdquo;</div>` : ''}
+      <div class="dbf-cols">${_bcBullets(blk.bullets)}</div>`;
   return `
   <div class="report-page">
-    <div class="page-header"><div class="ph-title">Debriefing Tips</div></div>
-    <div class="page-body bc-9pt" data-page="3" data-zone="page3-body">
-      <div class="dbf-cols">
-        ${section('Debriefing the ' + esc(m.hero.subtype_name) + ' Subtype', m.debrief.subtype, 'p3-subtype')}
-        ${section('Debriefing the Stress & Release Points', m.debrief.lines, 'p3-lines')}
-        ${section('Debriefing the Wings', m.debrief.wings, 'p3-wings')}
+
+    <div class="bc-hd">
+      ${HIVE_LOGO_SVG}
+      <div class="bc-hd-toprow">
+        <div class="bc-hd-label">INSIGHTOUT ENNEAGRAM COACH REPORT</div>
+        <div class="bc-hd-runhead">${esc(m.client.full_name)} &middot; Type ${m.hero.number} &ndash; ${esc(m.hero.name)}</div>
       </div>
+      <div class="bc-hd-title">Debriefing Tips</div>
+    </div>
+
+    <div class="page-body bc-9pt">
+      ${section('Debriefing the ' + m.hero.subtype_name + ' Subtype', m.debrief.subtype)}
+      ${section('Debriefing the Stress & Release Points', m.debrief.lines)}
+      ${section('Debriefing the Wings', m.debrief.wings)}
     </div>
     ${_coachFooter(3)}
   </div>`;
@@ -1345,8 +1351,6 @@ function coachReportStyles() {
   * { box-sizing: border-box; }
   body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: var(--body); }
   .report-page { width: 816px; min-height: 1056px; padding: 40px 48px; position: relative; page-break-after: always; background: #fff; display: flex; flex-direction: column; }
-  .page-header { height: 56px; border-bottom: 1px solid #ddd; margin-bottom: 16px; }
-  .ph-title { font-size: 9pt; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; color: var(--hive-blue); padding-top: 8px; }
   .page-body { flex: 1 1 auto; }
   .page-footer { margin-top: auto; height: 48px; border-top: 1px solid #ccc; display: flex; align-items: center; font-size: 7pt; color: var(--footer); }
   .pf-left { flex: 1; text-align: left; }
@@ -1413,11 +1417,13 @@ function coachReportStyles() {
   .bc-q { font-size: 10pt; color: var(--body); margin-bottom: 8px; break-inside: avoid; padding-left: 20px; position: relative; line-height: 14pt; }
   .bc-q::before { content: "✓"; color: var(--hive-orange); font-weight: bold; position: absolute; left: 0; }
   .bc-q .axis { font-style: italic; color: var(--section-title); }
+  /* ===== P3 Debriefing (V2) — per-section bands; 9.5/14 step-down (diverges from client A3's 9/13.5, Cai) ===== */
   .bc-9pt .bc-label { margin-top: 8px; }
-  .bc-9pt .bc-bullet { font-size: 9pt; line-height: 13.5pt; }
-  .dbf-cols { columns: 2; column-gap: 24px; }
-  .dbf-section { break-inside: avoid; margin-bottom: 12px; }
+  .bc-9pt .bc-bullet { font-size: 9.5pt; line-height: 14pt; }
+  .bc-9pt .dbf-q { font-size: 9.5pt; }
+  .dbf-cols { columns: 2; column-gap: 24px; margin-bottom: 24px; }
   .dbf-q { font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-bottom: 6px; }
+  .dbf-q .pq-label { font-style: normal; font-weight: bold; }
   </style>`;
 }
 
