@@ -2,7 +2,7 @@
 
 **Repo:** `cdelumpa/hive-typing-engine`
 **Branch:** `port-clientv2-prep` (local + `origin/`, in sync) — **never merged to main**
-**As of commit:** `b223a13`
+**As of commit:** `6c1999f`
 **Last updated:** 2026-06-07
 
 > Living tracking doc for the InsightOut client-report V2 template port. Update the
@@ -10,7 +10,10 @@
 
 ## Commit stack (newest first)
 ```
-b223a13  port: P6 Instinct & Subtype -> V2 (full-width evidence box, one sheet)   <- origin tip
+6c1999f  content: P6 trims v1.3 — SX5 + SP2 bullets (closes 27/27 sweep)   <- origin tip
+05b165a  content: P6 trims v1.2 — 16 subtypes (approved by Mo)
+675cb29  docs: P6 done + 27-subtype sweep + Mo content target list
+b223a13  port: P6 Instinct & Subtype -> V2 (full-width evidence box, one sheet)
 acd88ab  docs: client-report V2 port status (this tracking doc)
 d931a44  fix: cover margin reset specificity (restore cover-page spacing)
 faaf361  port: P5 Wings & Lines -> V2 (renderer-only)
@@ -33,7 +36,7 @@ c69e900  fix: repair .cover CSS comment that dropped the .cover rule (PR-2a regr
 | P3 Hypotheses | done (V2) | two-column comparison; type-variant SVG; legend from in-file `SVG_TYPE_META` |
 | P4 Patterns | done (V2) | flex-column flow page; plain bullets |
 | P5 Wings & Lines | done (V2) | wings-lines SVG variant; resource cards |
-| P6 Instinct & Subtype | done (V2) | **Intentional deviation:** "In Your Responses" evidence box promoted to full-width below both columns (resolves column imbalance + spill). Both fixtures fit one sheet. See 27-subtype sweep below. |
+| P6 Instinct & Subtype | done (V2) | **Intentional deviation:** "In Your Responses" evidence box promoted to full-width below both columns (resolves column imbalance + spill). **27/27 subtypes fit ≤1056px** (sweep CLOSED) after content trims in `content_library.json` (v1.2 `05b165a` + v1.3 `6c1999f`). See sweep section below. |
 | **P7, P8** | NOT ported (legacy renderer) | next up |
 
 ## Verification standard (applied every PR)
@@ -67,7 +70,16 @@ markup can still render broken.
 - All cover CSS additive/namespaced (`.cv-`/`.cw-`/`.p3-`/`.p4-`/`.p5-`) inside
   `clientReportStyles()`.
 
-## P6 27-subtype sweep + Mo content target list
+## P6 27-subtype sweep + Mo content target list — ✅ CLOSED
+**Outcome: 27/27 subtypes fit ≤1056px under worst-case evidence (3×25w, box 144px).**
+Started at 16/27 spilling; resolved by Mo content trims (no further layout change beyond the
+full-width box):
+- **v1.2 (`05b165a`)** — 16 subtypes trimmed (narrative and/or pattern bullets); re-sweep → 25/27 fit, 2 residual (SX5 +13, SP2 +10, both bullet-driven).
+- **v1.3 (`6c1999f`)** — final 2 residual subtypes' bullets trimmed (SX5 101w, SP2 103w); re-sweep → **27/27 fit, 0 spill** (tallest SP1 at exactly 1056px).
+- v1.3 source carried `**` bold lead-in markers on SX5/SP2 — **stripped on apply** (renderer doesn't parse markdown; only 2/27 had them). See bold-lead-in item in the content-pipeline track.
+
+_Historical detail of the original sweep + target list retained below for reference._
+
 P6's `.cover` is fixed 816×1056 (spec A8). The two fixtures (sp4/sx7) fit one sheet, but a
 27-subtype sweep (9 types × 3 instincts, final full-width layout) under a **worst-case
 evidence stand-in** (3 bullets × exactly 25 words = the ≤25-word max; box a constant 144px)
@@ -114,8 +126,7 @@ split 2+1 across a wide measure).*
 
 ## Open / tracked
 **Remaining work**
-- Port P7 (Strengths, Challenges & Growth), P8 (Putting It All Together).
-- P6 spill: Mo content pass (target list above) → re-sweep → minimum residual layout lever.
+- Port P7 (Strengths, Challenges & Growth), P8 (Putting It All Together). (8/10 ported: Title, TOC, P1–P6.)
 
 **Cleanup PR (deferred)**
 - Remove dead `welcome_body` + dead legacy CSS (`.tp-*`/`.toc-*`, and once P6–P8 move,
@@ -128,7 +139,18 @@ split 2+1 across a wide measure).*
 - Replace the interim `INTERIM_WELCOME` constant in `build_content_library.js` with a
   canonical binary-docx `parseStatics()` read (the generator's source docx lacks the
   structured welcome section).
-- P4 bullet lead-in bold (mockups show it; data carries plain strings).
+- **Binary-docx reconciliation now also owes** the P6 content trims (v1.2 16 subtypes +
+  v1.3 SX5/SP2) — applied as a one-time direct JSON update from the plain-text
+  `InsightOut_Static_Content_Library_v1_2/v1_3` files; the canonical `docs/step7-incoming/`
+  binary docx must absorb them. Includes the two SP8 inline corrections: thinking[0] spaced
+  hyphen→em-dash, and behaving[2] inserted missing "like" (probable omission — Mo to
+  confirm at reconciliation).
+- **Bold lead-in pass (coordinated, not piecemeal):** Mo to add `**` markers to *all 27*
+  subtype lead-in bullets in the source docx, AND the renderer updated to parse `**` → `<b>`
+  (P6, and P4 which has the same plain-bullets question). Mo's intent is on record via the
+  v1.3 SX5/SP2 markers, which were **stripped on apply** pending full-pass support (applying
+  to only 2/27 would be inconsistent and the renderer doesn't bold yet).
+- P5 `wings_primer` one-word wording difference vs template ABOUT copy.
 - P5 `wings_primer` one-word wording difference vs template ABOUT copy.
 - P4 heading mixed-casing (`type_word` title-case beside uppercased type name —
   template-faithful but visually inconsistent).
