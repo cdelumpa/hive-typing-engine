@@ -1047,19 +1047,19 @@
     "narrative": "Self-Preservation Twos build warm, personable relationships and take care of others so they will be taken care of in return. There’s a childlike, endearing quality, and often an unspoken entitlement — “I’ve given so much, now it’s my turn“ — or its inverse, false modesty. The giving has a reciprocal undercurrent: care offered with an expectation of care received.\n\nThis is the countertype of Type 2. SP Twos can look more childlike, dependent, or even needy than the classic giving Two, and the helping can carry a conditional quality that isn’t obvious on the surface. The pride that resists receiving in other Twos is softer here — there’s a more direct, if unspoken, hope to be looked after.",
     "patterns": {
       "thinking": [
-        "Attention goes to close relationships and to being cared for in return for caring.",
-        "An unspoken ledger runs underneath — what's been given, and what's owed back.",
-        "More focused on a small circle of important people than on a wide social field."
+        "Attention goes to close relationships and to being cared for in return.",
+        "Runs a silent reciprocation ledger; what’s been given, and what’s owed back.",
+        "More focused on a small circle of important others."
       ],
       "feeling": [
         "Warmth comes with a childlike, endearing quality that draws others in.",
-        "A quiet entitlement (“now it's my turn”) or its inverse (false modesty) sits beneath the giving.",
-        "Hurt surfaces when the reciprocal care doesn't come, though it's rarely named directly."
+        "A quiet entitlement (“now it’s my turn”) or its inverse (false modesty) is always present.",
+        "Hurt surfaces when the reciprocity doesn’t come, though it’s rarely named directly."
       ],
       "behaving": [
-        "Builds warm, personable bonds and takes care of others to secure being taken care of.",
-        "Can appear more dependent or needy than the classic self-sufficient-seeming Two.",
-        "The helping carries a conditional quality — care given with care expected in return."
+        "Builds personable bonds and shows care to those close to them.",
+        "Can appear more needy than the classic self-sufficient Two.",
+        "The helping carries conditions — care given with care expected in return."
       ]
     },
     "shifts": [
@@ -1856,8 +1856,8 @@
     "narrative": "One-to-One Fives share their inner experiences selectively with carefully chosen intimates, seeking a quality of connection that’s rare and trusted. They keep their lives compartmentalized, sharing different parts with different people. Quietly intense and secretive, with high barriers to trust, they look for an ideal merging that most relationships can’t provide.\n\nThis is the countertype within Type 5. SX Fives can appear more emotionally available and connected than the classic detached Five — the intensity in their selected relationships is real. But the compartmentalization is rarely visible from outside; others may not realize how much is kept separate, or that the openness they receive is just one carefully chosen room in a larger, guarded house.",
     "patterns": {
       "thinking": [
-        "Attention goes to a few chosen intimates and the quality of deep, trusted connection with them.",
-        "Compartmentalizes — different people get different parts, kept carefully separate.",
+        "Attention goes to a few intimates and the quality of connection with them.",
+        "Compartmentalizes — different people get different parts of them.",
         "Seeks an ideal of merging and trust that ordinary relationships rarely meet."
       ],
       "feeling": [
@@ -1866,9 +1866,9 @@
         "The romantic longing for a rare, total connection runs underneath the reserve."
       ],
       "behaving": [
-        "Shares inner life selectively with carefully chosen people, keeping relationships compartmentalized.",
-        "Can appear connected and warm, masking how much is kept separate and private.",
-        "Quietly intense and secretive, with parts of life few people ever see together."
+        "Shares inner life selectively with a select few, compartmentalizing relationships.",
+        "Can appear connected and warm, masking an inner withdrawal.",
+        "Quietly intense and secretive, with parts of life few people ever see."
       ]
     },
     "shifts": [
