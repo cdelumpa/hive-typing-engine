@@ -75,7 +75,7 @@ async function measureLayout(page) {
       await page.setContent(html, { waitUntil: 'networkidle0' });
       await page.emulateMediaType('print');
       const { pages, bcGrid } = await measureLayout(page);
-      const labels = ['P1 Snapshot', 'P2 Comparison', 'P3 Debrief', 'P4 Coach-Type'];
+      const labels = ['P1 Orientation', 'P2 Comparison', 'P3 Debrief'];
       let sheets = 0;
       for (const p of pages) {
         sheets += p.sheets;

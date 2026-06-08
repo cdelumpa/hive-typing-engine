@@ -1183,6 +1183,13 @@ const _bcRevealed = (arr) => (arr || []).map(r =>
   `<div class="bc-bullet">${r.bold_lead ? `<strong>${esc(r.bold_lead)}</strong> ` : ''}${esc(r.body)}</div>`).join('');
 const _agRow = (label, value, color) =>
   `<div class="ag-row"><span class="ag-label">${esc(label)}</span><span class="ag-val" style="color:${color || '#404040'}">${value}</span></div>`;
+// V2 3-zone footer (0.5in, top border) — shared by all coach pages. Copyright left / page center / practitioners right.
+const _coachFooter = (n) => `
+    <div class="page-footer">
+      <span class="pf-left">&copy; Copyright 2026 Hive, Inc. All rights reserved.</span>
+      <span class="pf-center">Page ${n}</span>
+      <span class="pf-right">For use by Hive InsightOut Certified Practitioners only.</span>
+    </div>`;
 
 function _coachPage1(m) {
   const wings = m.ataglance.wings.map(w => `Type ${w.number} — ${esc(w.name)}`).join('<br>');
@@ -1229,7 +1236,7 @@ function _coachPage1(m) {
         </div>
       </div>
     </div>
-    <div class="page-footer">© Hive · Confidential · Page 1</div>
+    ${_coachFooter(1)}
   </div>`;
 }
 
@@ -1264,7 +1271,7 @@ function _coachPage2(m) {
       <div class="bc-label">Clarification Questions</div>
       <div class="bc-qlist">${COACH_CLARIFICATION_QUESTIONS.map(q => `<div class="bc-q">${esc(q)}</div>`).join('')}</div>
     </div>
-    <div class="page-footer">© Hive · Confidential · Page 2</div>
+    ${_coachFooter(2)}
   </div>`;
 }
 
@@ -1285,18 +1292,7 @@ function _coachPage3(m) {
         ${section('Debriefing the Wings', m.debrief.wings, 'p3-wings')}
       </div>
     </div>
-    <div class="page-footer">© Hive · Confidential · Page 3</div>
-  </div>`;
-}
-
-function _coachPage4() {
-  return `
-  <div class="report-page">
-    <div class="page-header"><div class="ph-title">Coach-Type Preparation</div></div>
-    <div class="page-body" data-page="4" data-zone="page4-body">
-      <div class="bc-placeholder">Reserved — coach-type preparation (type-on-type) is being designed offline and will inherit this layout.</div>
-    </div>
-    <div class="page-footer">© Hive · Confidential · Page 4</div>
+    ${_coachFooter(3)}
   </div>`;
 }
 
@@ -1309,7 +1305,10 @@ function coachReportStyles() {
   .page-header { height: 56px; border-bottom: 1px solid #ddd; margin-bottom: 16px; }
   .ph-title { font-size: 9pt; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; color: var(--hive-blue); padding-top: 8px; }
   .page-body { flex: 1 1 auto; }
-  .page-footer { margin-top: auto; font-size: 7pt; color: var(--footer); text-align: center; }
+  .page-footer { margin-top: auto; height: 48px; border-top: 1px solid #ccc; display: flex; align-items: center; font-size: 7pt; color: var(--footer); }
+  .pf-left { flex: 1; text-align: left; }
+  .pf-center { flex: 1; text-align: center; }
+  .pf-right { flex: 1; text-align: right; }
   .bc-label { font-size: 9pt; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; color: var(--hive-blue); margin: 14px 0 6px; }
   .bc-body { font-size: 10pt; line-height: 15pt; margin: 0 0 8px; }
   .bc-bullet { font-size: 10pt; line-height: 15pt; margin: 0 0 6px; padding-left: 12px; position: relative; }
@@ -1345,11 +1344,10 @@ function coachReportStyles() {
   .dbf-cols { columns: 2; column-gap: 24px; }
   .dbf-section { break-inside: avoid; margin-bottom: 12px; }
   .dbf-q { font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-bottom: 6px; }
-  .bc-placeholder { font-size: 10pt; color: #888; font-style: italic; padding-top: 40px; text-align: center; }
   </style>`;
 }
 
-// Build the full 3-page (+placeholder) coach report HTML from the coach view-model.
+// Build the full 3-page coach report HTML from the coach view-model.
 function buildCoachReportHTML(model, opts = {}) {
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>Coach Report — Type ${model.hero.number}</title>
@@ -1359,7 +1357,6 @@ ${coachReportStyles()}
 ${_coachPage1(model)}
 ${_coachPage2(model)}
 ${_coachPage3(model)}
-${_coachPage4()}
 </body></html>`;
 }
 
