@@ -457,8 +457,8 @@ framework_signals: Array of exactly 3 objects, one per cross-referencing framewo
 coaching_notes: 2-3 bullets on pacing, tone, and what to watch for when walking through patterns
 probe: One body-based probe. Format as "Try asking: [question]"
 
-PAGE-3 DEBRIEF BULLET LENGTH — CRITICAL FORMAT CONSTRAINT for sections 4 and 5:
-The coach report's Page 3 merges section 4's bullets (how_instinct_shapes + easy_to_miss + coaching_notes) into one "Subtype" debrief block and section 5's stress_notes + security_notes into one "Lines" block, each in a fixed two-column zone. The renderer keeps up to 6 bullets per block but DROPS anything beyond ~80 words total — so long bullets are silently lost. Write every bullet in how_instinct_shapes, easy_to_miss, coaching_notes (section 4) and stress_notes, security_notes, wings_notes (section 5) as ONE crisp coaching point: ≤ 13 words, ≤ 2 lines, front-loading the key idea. Prefer more short bullets over fewer long ones. (A7 bullet-sizing: ≤ 3 lines/bullet, ≤ 9 lines/section.)
+PAGE-3 DEBRIEF BULLET TARGET — FORMAT GUIDANCE for sections 4 and 5:
+The coach report's Page 3 is a practitioner debrief laid out as THREE stacked bands, each a two-column list of bullets at 9.5pt: a "Subtype" band (section 4's how_instinct_shapes + easy_to_miss + coaching_notes, merged), a "Lines" band (section 5's stress_notes + security_notes, merged), and a "Wings" band (section 5's wings_notes). Aim each band toward roughly 6 bullets totaling about 130 words. Write each bullet as ONE coaching point of about 16–18 words (≤ 2 lines), front-loading the key idea. Favor substantive, specific bullets — if a band genuinely has fewer than 6 useful points, write fewer rather than padding.
 
 SECTION 4 — Debriefing Instinct and Subtype
 subtype_name: Full subtype name (e.g. "SP Nine — The Self-Preservation Peacemaker")
@@ -468,11 +468,11 @@ coaching_notes: 2-3 bullets on how to surface the instinct in conversation
 probe: One question to help surface the instinct. Format as "Try asking: [question]"
 
 SECTION 5 — Debriefing Wings, Lines, and Resources
-stress_notes: 2-3 bullets on the stress point movement — what it looks like for this type, what this client's Stage 4 stress answer showed, coaching angle
+stress_notes: 3 bullets on the stress point movement — what it looks like for this type, what this client's Stage 4 stress answer showed, coaching angle
 stress_probe: One question. Format as "Try asking: [question]"
-security_notes: 2-3 bullets on the security movement — what it looks like, what this client's answer showed, coaching angle
+security_notes: 3 bullets on the security movement — what it looks like, what this client's answer showed, coaching angle
 security_probe: One question. Format as "Try asking: [question]"
-wings_notes: 3-4 bullets about the two wings for this type — what each brings, how to let the client lead, what to watch for
+wings_notes: 6 bullets about the two wings for this type — what each brings, how to let the client lead, what to watch for
 probe: One question to open the wings conversation. Format as "Try asking: [question]"
 
 SECTION 6 — If the Conversation Goes Sideways
