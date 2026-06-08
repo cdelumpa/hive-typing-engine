@@ -1921,15 +1921,61 @@ function _clP6Instinct(m) {
 </div>`;
 }
 
+// P7 "Strengths, Challenges & Growth" — V2 template-ported (strengths_challenges.html).
+// Body page, flex-column flow + margin footer. Fully static-by-type. Two styled cards
+// (green/checkmark strengths, red/X challenges); each library {title, body} item renders as
+// one "title — body" bullet (plain now; forward-compatible with the bold-lead-in pass).
+// What-Shifts box = per-subtype; practices grid = per-type. Intro is omitted (template's
+// {{intro}} slot is unused); the closing "remember" block is static with a type-name
+// interpolation (m.hero.name) — no model field needed. practices.intro is dropped (no
+// template slot). Legacy classes this replaces (now dead, left for cleanup PR): sc-row,
+// sc-card (legacy variant), sc-str, sc-chl, sc-card-t, sc-card-b, cl-orange, cl-orange-h.
 function _clP7Strengths(m) {
   const s = m.pages.strengths_challenges;
-  const cards = (arr, cls) => (arr || []).map(c => `<div class="sc-card ${cls}"><div class="sc-card-t">${esc(c.title)}</div><div class="sc-card-b">${esc(c.body)}</div></div>`).join('');
-  const inner = `
-    <div class="cl-label">Strengths</div><div class="sc-row">${cards(s.strengths, 'sc-str')}</div>
-    <div class="cl-label">Challenges</div><div class="sc-row">${cards(s.challenges, 'sc-chl')}</div>
-    <div class="cl-orange"><div class="cl-orange-h">As a ${esc(m.hero.subtype_name)} — What Shifts</div>${_clBullets(s.shifts)}</div>
-    <div class="cl-label">Practices That Help</div><p class="cl-body">${esc(s.practices.intro)}</p>${_clBullets(s.practices.bullets)}`;
-  return _clPage('Strengths, Challenges & Growth', 7, '', inner);
+  const NAME = esc(m.hero.name);
+  const scItems = (arr) => (arr || []).map(c => `<div class="p7-sc-item"><span>${esc(c.title)} — ${esc(c.body)}</span></div>`).join('');
+  const shiftItems = (arr) => (arr || []).map(b => `<div class="p7-shift-item"><span>${esc(b)}</span></div>`).join('');
+  const pracItems = (arr) => (arr || []).map(b => `<div class="p7-prac-item"><span>${esc(b)}</span></div>`).join('');
+  const remember = `These patterns are tendencies, not sentences. Awareness of them — in the moment, not just in reflection — is ${NAME}’s most useful growth practice. Bring what you notice to your debrief.`;
+  return `<div class="p7-page">
+  <div class="p7-page-body">
+  <div class="p7-masthead">${HIVE_LOGO_SVG}<div style="text-align:right">
+      <div class="p7-report-label">INSIGHTOUT ENNEAGRAM REPORT</div>
+      <div class="p7-runhead">${esc(m.client.full_name)} · Type ${m.hero.number} – ${esc(m.hero.name)}</div>
+    </div></div>
+  <div class="p7-page-title">Strengths, Challenges &amp; Growth</div>
+  <div class="p7-title-rule"></div>
+
+  <div class="p7-sc-cards">
+    <div class="p7-sc-card p7-str">
+      <div class="p7-sc-head"><span class="p7-sc-icon">&#10004;</span><span class="p7-sc-title">STRENGTHS</span></div>
+      <div class="p7-sc-list">${scItems(s.strengths)}</div>
+    </div>
+    <div class="p7-sc-card p7-chal">
+      <div class="p7-sc-head"><span class="p7-sc-icon">&#10006;</span><span class="p7-sc-title">CHALLENGES</span></div>
+      <div class="p7-sc-list">${scItems(s.challenges)}</div>
+    </div>
+  </div>
+
+  <div class="p7-shifts">
+    <div class="p7-shifts-title">WHAT SHIFTS — AS A ${esc(m.display.subtype_label).toUpperCase()}</div>
+    ${shiftItems(s.shifts)}
+  </div>
+
+  <div class="p7-practices">
+    <div class="p7-practices-label">PRACTICES THAT HELP</div>
+    <div class="p7-prac-grid">${pracItems(s.practices.bullets)}</div>
+  </div>
+
+  <div class="p7-remember"><b>Remember:</b> ${remember}</div>
+
+  </div>
+  <div class="p7-footer">
+    <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span class="center">Page 7</span>
+    <span>Client confidential - for use by report owner only.</span>
+  </div>
+</div>`;
 }
 
 function _clP8Application(m) {
@@ -2268,6 +2314,41 @@ function clientReportStyles() {
   .p6-stack-row:last-child .p6-stack-inst { color: var(--section-title); }
   .p6-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
   .p6-footer .center { color: var(--hive-blue); }
+  /* ===== P7 Strengths, Challenges & Growth — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
+  .p7-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
+  .p7-page-body { flex: 1 1 auto; }
+  .p7-masthead { display: flex; align-items: flex-start; justify-content: space-between; padding: var(--margin-y) var(--margin-x) 0; }
+  .p7-report-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-blue); }
+  .p7-runhead { font-size: 11px; font-style: italic; color: var(--section-title); margin-top: 4px; }
+  .p7-page-title { margin: 18px var(--margin-x) 0; font-size: 30px; font-weight: 700; color: var(--leading-text); }
+  .p7-title-rule { margin: 8px var(--margin-x) 0; height: 1px; background: #D7E6EC; }
+  .p7-sc-cards { margin: 22px var(--margin-x) 0; display: flex; gap: 24px; }
+  .p7-sc-card { flex: 1; border-radius: 8px; padding: 20px 22px; }
+  .p7-sc-card.p7-str { background: #EAF3EC; }
+  .p7-sc-card.p7-chal { background: #FBEDEC; }
+  .p7-sc-head { display: flex; align-items: center; gap: 10px; }
+  .p7-sc-icon { width: 24px; height: 24px; border-radius: 50%; color: #fff; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .p7-sc-card.p7-str .p7-sc-icon { background: #4F845C; }
+  .p7-sc-card.p7-chal .p7-sc-icon { background: #C0504D; }
+  .p7-sc-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--section-title); }
+  .p7-sc-list { margin-top: 14px; }
+  .p7-sc-item { display: flex; gap: 9px; font-size: 12px; line-height: 1.5; color: var(--body-text); margin: 11px 0; }
+  .p7-sc-item::before { content: "●"; font-size: 8px; line-height: 1.8; flex: 0 0 auto; }
+  .p7-sc-card.p7-str .p7-sc-item::before { color: #4F845C; }
+  .p7-sc-card.p7-chal .p7-sc-item::before { color: #C0504D; }
+  .p7-shifts { margin: 22px var(--margin-x) 0; background: #F2F2F2; border-radius: 8px; padding: 18px 22px; }
+  .p7-shifts-title { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--section-title); }
+  .p7-shift-item { display: flex; gap: 9px; font-size: 12px; line-height: 1.5; color: var(--body-text); margin: 10px 0 0; }
+  .p7-shift-item::before { content: "■"; color: var(--hive-orange); font-size: 8px; line-height: 1.8; flex: 0 0 auto; }
+  .p7-practices { margin: 24px var(--margin-x) 0; }
+  .p7-practices-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-blue); }
+  .p7-prac-grid { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 30px; }
+  .p7-prac-item { display: flex; gap: 9px; font-size: 12px; line-height: 1.45; color: var(--body-text); }
+  .p7-prac-item::before { content: "●"; color: var(--hive-blue); font-size: 8px; line-height: 1.8; flex: 0 0 auto; }
+  .p7-remember { margin: 24px var(--margin-x) 0; font-size: 12px; font-style: italic; line-height: 1.55; color: var(--body-text); }
+  .p7-remember b { color: var(--hive-blue); font-style: italic; }
+  .p7-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
+  .p7-footer .center { color: var(--hive-blue); }
   </style>`;
 }
 
