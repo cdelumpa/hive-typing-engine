@@ -1381,16 +1381,6 @@ function buildCoachPdfOptions() {
 // (min-height, no clip; data-page/data-zone attributes now inert). V1 buildClientHTML untouched (retired in 6b).
 // ============================================================================
 
-const _clBullets = (arr) => (arr || []).map(b => `<div class="cl-bullet">${esc(b)}</div>`).join('');
-const _clHeader = (title) => `<div class="page-header"><div class="ph-title">${esc(title)}</div></div>`;
-const _clFooter = (n) => `<div class="page-footer">© Hive · Confidential · Page ${n}</div>`;
-
-function _clPage(title, n, bodyClass, inner) {
-  return `<div class="report-page">${_clHeader(title)}
-    <div class="page-body ${bodyClass || ''}" data-page="${n}" data-zone="p${n}-body">${inner}</div>
-    ${_clFooter(n)}</div>`;
-}
-
 // Title (cover) — V2 template-ported (title_page.html). Absolute-positioned cover chrome
 // (masthead/hero/footer) in its own .cover/.cv-* namespace — does NOT reuse P2's flow
 // classes. Symbol authored by buildEnneagramSVG(m.svg.base) (single SVG source; the
@@ -2061,70 +2051,10 @@ function clientReportStyles() {
   .closing { margin: 12px var(--margin-x) 0; background: var(--p2-callout-bg); border-left: 5px solid var(--hive-orange); border-radius: 0 5px 5px 0; padding: 12px 18px; font-size: 12.5px; font-style: italic; line-height: 1.55; color: var(--body-text); }
   .footer { margin: 12px var(--margin-x) 24px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
   .footer .center { color: var(--hive-blue); }
-  /* ===== existing repo client rules (UNCHANGED — drive Title/TOC/P1/P3–P8 until ported) ===== */
+  /* ===== client global resets (client report only: @page / box-sizing / body) ===== */
   @page { size: 8.5in 11in; margin: 0; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: var(--body); }
-  .report-page { width: 816px; min-height: 1056px; padding: 40px 48px; position: relative; page-break-after: always; background: #fff; display: flex; flex-direction: column; }
-  .page-header { height: 50px; border-bottom: 1px solid #ddd; margin-bottom: 14px; }
-  .ph-title { font-size: 9pt; font-weight: bold; letter-spacing: .06em; text-transform: uppercase; color: var(--hive-blue); padding-top: 8px; }
-  .ph-supertitle { font-size: 8pt; font-weight: bold; letter-spacing: .12em; color: var(--hive-blue); padding-top: 8px; }
-  .page-body { flex: 1 1 auto; }
-  .page-footer { margin-top: auto; font-size: 7pt; color: var(--footer); text-align: center; }
-  .cl-label { font-size: 9pt; font-weight: bold; letter-spacing: .05em; text-transform: uppercase; color: var(--hive-blue); margin: 12px 0 5px; }
-  .cl-body { font-size: 10pt; line-height: 15pt; margin: 0 0 8px; }
-  .cl-bullet { font-size: 10pt; line-height: 14pt; margin: 0 0 5px; padding-left: 12px; position: relative; }
-  .cl-bullet::before { content: "•"; color: var(--hive-orange); position: absolute; left: 0; }
-  .cl-center { text-align: center; }
-  .report-title { text-align: center; padding-top: 120px; }
-  .tp-title { font-size: 30pt; font-weight: bold; color: var(--body); margin: 30px 0 8px; }
-  .tp-tagline { font-size: 12pt; font-style: italic; color: var(--section-title); }
-  .tp-svg { width: 300px; height: 300px; margin: 30px auto; }
-  .tp-client { font-size: 24pt; color: var(--hive-orange); }
-  .tp-date { font-size: 11pt; color: var(--section-title); }
-  .toc-client { font-size: 10pt; color: var(--section-title); margin-bottom: 18px; }
-  .toc-title { font-size: 18pt; font-weight: bold; color: var(--hive-blue); margin-bottom: 16px; }
-  .toc-row { display: grid; grid-template-columns: 2.2fr 3fr 0.4fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid #eee; font-size: 11pt; }
-  .toc-t { font-weight: bold; color: var(--body); } .toc-d { color: var(--section-title); } .toc-n { text-align: right; color: var(--hive-blue); font-weight: bold; }
-  .cl-greeting { font-size: 26pt; font-weight: bold; color: var(--hive-orange); margin-bottom: 14px; }
-  .cl-welcome { text-align: left; } .cl-welcome .cl-body:last-child { font-style: italic; color: var(--section-title); }
-  .cl-sigs { display: flex; gap: 40px; justify-content: center; margin-top: 18px; font-size: 9pt; color: var(--section-title); }
-  .prm-top { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
-  .prm-pillars { display: flex; flex-direction: column; gap: 8px; }
-  .prm-pillar-t { font-size: 10pt; font-weight: bold; color: var(--hive-blue); } .prm-pillar-b { font-size: 9pt; color: var(--body); }
-  .prm-scan { font-size: 9pt; font-style: italic; color: var(--section-title); margin: 10px 0 8px; }
-  .prm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .prm-card { border: 1px solid #eee; border-radius: 5px; padding: 7px 9px; }
-  .prm-card-h { font-size: 7pt; font-weight: bold; color: var(--hive-blue); letter-spacing: .04em; }
-  .prm-card-n { font-size: 10pt; font-weight: bold; color: var(--body); }
-  .prm-card-d { font-size: 8pt; line-height: 11pt; color: var(--body); margin: 2px 0; }
-  .prm-card-g { font-size: 8pt; color: var(--section-title); }
-  .prm-footer { font-size: 9pt; font-style: italic; color: var(--section-title); margin-top: 8px; text-align: center; }
-  .cl-2col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
-  .cl-svg { width: 250px; height: 250px; margin: 0 auto; }
-  .cl-pill-num { font-size: 22pt; font-weight: bold; color: var(--leading-pill-text); } .cl-pill-name { font-size: 14pt; font-weight: bold; color: var(--leading-pill-text); } .cl-pill-sub { font-size: 10pt; color: var(--leading-pill-text); }
-  .cl-quote { background: var(--teal-box); border-left: 3px solid var(--hive-blue); padding: 8px 12px; border-radius: 4px; font-style: italic; font-size: 10pt; margin: 8px 0; }
-  table.cmp { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  table.cmp td { font-size: 9pt; line-height: 13pt; padding: 4px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
-  .cmp-label { font-weight: bold; color: var(--section-title); width: 30%; } .cmp-disc { font-style: italic; }
-  .cl-disclaimer { font-size: 8pt; font-style: italic; color: var(--section-title); text-align: center; margin-top: 10px; }
-  .pat-sec { margin-bottom: 12px; } .pat-cols { columns: 2; column-gap: 22px; } .pat-cols .cl-bullet { break-inside: avoid; }
-  .cl-inquiry { background: var(--teal-box); border-left: 3px solid var(--hive-blue); padding: 7px 12px; border-radius: 4px; font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-top: 6px; }
-  .cl-card { background: var(--callout-bg); border-radius: 4px; padding: 6px 10px; font-size: 9pt; margin: 4px 0 8px; }
-  .cl-sidebar { background: #FAFAF7; border-radius: 6px; padding: 12px; } .cl-side-h { font-size: 9pt; font-weight: bold; color: var(--hive-blue); text-transform: uppercase; margin: 8px 0 4px; } .cl-side-h:first-child { margin-top: 0; } .cl-side-b { font-size: 9pt; line-height: 12.5pt; margin: 0; }
-  .cl-subtype-name { font-size: 14pt; font-weight: bold; color: var(--body); } .cl-subtype-tag { font-size: 10pt; font-style: italic; color: var(--section-title); margin-bottom: 6px; }
-  .cl-def { font-size: 9pt; line-height: 12.5pt; margin-bottom: 6px; }
-  .cl-stack-row { display: flex; justify-content: space-between; font-size: 9pt; padding: 3px 0; border-bottom: 1px solid #eee; } .cl-stack-l { font-weight: bold; color: var(--hive-orange); }
-  .cl-orange { background: #FDF1E7; border-left: 4px solid var(--hive-orange); border-radius: 4px; padding: 8px 12px; margin: 8px 0; } .cl-orange-h { font-size: 9pt; font-weight: bold; color: var(--hive-orange); text-transform: uppercase; margin-bottom: 4px; }
-  .sc-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; } .sc-card { border-radius: 5px; padding: 8px 10px; } .sc-str { background: #EAF4EE; } .sc-chl { background: #FBEDE6; } .sc-card-t { font-size: 10pt; font-weight: bold; color: var(--body); } .sc-card-b { font-size: 9pt; line-height: 12.5pt; }
-  .cl-9pt .cl-bullet { font-size: 9pt; line-height: 12.5pt; } .cl-9pt .cl-label { margin-top: 6px; }
-  .cl-dense .cl-body { font-size: 9.5pt; line-height: 13pt; margin-bottom: 6px; }
-  .cl-dense .cl-bullet { font-size: 9pt; line-height: 12pt; margin-bottom: 4px; }
-  .cl-dense .cl-label { margin: 8px 0 4px; }
-  .cl-dense table.cmp td { padding: 3px 8px; line-height: 12pt; }
-  .cl-dense .cl-quote { padding: 6px 10px; margin: 6px 0; }
-  .cl-dense .cl-side-b, .cl-dense .cl-def { font-size: 8.5pt; line-height: 11.5pt; }
-  .app-cols { columns: 3; column-gap: 18px; } .app-sec { break-inside: avoid; margin-bottom: 10px; } .app-subhead { font-size: 9pt; font-weight: bold; color: var(--body); } .app-fw { font-size: 8pt; font-style: italic; color: var(--section-title); margin-bottom: 4px; } .app-sub-t { font-size: 8pt; font-weight: bold; color: var(--hive-blue); text-transform: uppercase; margin: 5px 0 3px; }
   /* ===== Cover pages (Title + TOC) — V2 template-ported. Print-locked, absolute layout. ===== */
   /* Namespaced cover/cv- classes so they never collide with P2 flow chrome (page/masthead/footer) or the legacy report-page/tp-/toc- rules above. */
   .cover { position: relative; width: var(--page-w); height: var(--page-h); overflow: hidden; background: #fff; margin: 0 auto; page-break-after: always; }
