@@ -2,16 +2,19 @@
 
 **Repo:** `cdelumpa/hive-typing-engine`
 **Branch:** `port-clientv2-prep` (local + `origin/`, in sync) — **never merged to main**
-**As of commit:** `464b1c4`
+**As of commit:** cleanup PR (tip of `port-clientv2-prep`)
 **Last updated:** 2026-06-07
-**Milestone:** 🎉 **All 10 pages ported (Title, TOC, P1–P8).**
+**Milestone:** 🎉 **V2 port + cleanup COMPLETE.** All 10 pages ported (Title, TOC, P1–P8);
+dead legacy code removed. Ready to FF-merge `port-clientv2-prep` → `typing-engine-v2`.
 
 > Living tracking doc for the InsightOut client-report V2 template port. Update the
 > commit stack, page table, and Open/Tracked section as work lands.
 
 ## Commit stack (newest first)
 ```
-464b1c4  port: P8 Putting It All Together -> V2 (renderer-only)   <- origin tip
+7f1c192  cleanup: fix render_client.js page-label drift after V2 port   <- origin tip
+3107026  cleanup: remove dead legacy client renderer code (post-V2-port)
+464b1c4  port: P8 Putting It All Together -> V2 (renderer-only)
 7f6444d  port: P7 Strengths, Challenges & Growth -> V2 (renderer-only)
 6c1999f  content: P6 trims v1.3 — SX5 + SP2 bullets (closes 27/27 sweep)
 05b165a  content: P6 trims v1.2 — 16 subtypes (approved by Mo)
@@ -52,7 +55,7 @@ c69e900  fix: repair .cover CSS comment that dropped the .cover rule (PR-2a regr
 - **Visual QA** (pages 1–5, sx7) passed: layout, mastheads/footers, typography, Hive
   palette, both SVG variants with legends, Welcome headshots + mid-letter callout.
 
-## Regressions found & fixed mid-port (both PR-2a CSS bugs the markup-diff missed)
+## Regressions found & fixed mid-port (CSS bugs the markup-diff alone missed)
 1. **`c69e900`** — a `*/` inside a CSS comment (`.tp-*/.toc-*`) closed the comment early
    and dropped the `.cover` rule entirely; Title/TOC rendered collapsed (height 0) since
    PR-2a.
@@ -60,10 +63,18 @@ c69e900  fix: repair .cover CSS comment that dropped the .cover rule (PR-2a regr
    outranked authored `.cv-*/.cw-*` margins (0,1,0), zeroing them; fixed with `:where()`
    (zero specificity). Restored Title rule→tagline spacing (now equidistant, 20px) and
    Welcome/TOC spacing.
+3. **Cleanup pass near-miss (caught pre-commit, no bad commit)** — the "dead" legacy CSS
+   block contained one **live** rule: `* { box-sizing: border-box }`, the client report's
+   *only* copy (the matching rule at renderer.js:1306 is in the coach stylesheet, which is
+   not emitted into the client). Removing the block silently reverted box-sizing to
+   content-box and spilled P3 to a 2nd sheet (1056→1096px). The rendered-height assertion
+   flagged it during verification; the global resets were preserved and only the dead
+   class rules removed. A concrete payoff of the three-check standard — a markup byte-diff
+   alone would have shipped it (the `<body>` was byte-identical; only the `<style>` shrank).
 
-**Lesson logged:** cover/CSS ports need a *rendered-height + computed-style* assertion on
-the real elements, not just a markup byte-diff — a shared stylesheet means identical
-markup can still render broken.
+**Lesson logged:** cover/CSS ports — and dead-CSS removal — need a *rendered-height +
+computed-style* assertion on the real elements, not just a markup byte-diff. A shared (or
+in this case *not*-shared) stylesheet means identical markup can still render broken.
 
 ## Constraints held throughout
 - Prep layer frozen during renderer PRs (`report_prep.js`, `content_library.json`,
@@ -130,23 +141,37 @@ split 2+1 across a wide measure).*
 
 ## Open / tracked
 **Remaining work**
-- ✅ All 10 client pages ported (Title, TOC, P1–P8). Renderer port complete. Next: the
-  cleanup PR and the content-pipeline track below.
+- ✅ All 10 client pages ported (Title, TOC, P1–P8). Renderer port complete.
+- ✅ **Cleanup PR complete** (`3107026` dead-code removal + `7f1c192` render_client label
+  fix). Next: FF-merge into `typing-engine-v2` (below), then the content-pipeline track.
 
-**Cleanup PR (deferred)**
-- Remove dead `welcome_body`. Now that **all 10 pages are ported**, the legacy renderer
-  paths and their CSS are fully dead and removable: `_clPage`/`_clHeader`/`_clFooter`
-  helpers, `.report-page`/`.page-header`/`.page-body`/`.page-footer`, and the legacy
-  page classes `.tp-*`, `.toc-*`, `.cl-*` (incl. `cl-2col`, `cl-svg`, `cl-pill`, `cl-quote`,
-  `cmp`/`cmp-*`), `.prm-*`, `.pat-sec`/`.pat-cols`/`.cl-inquiry`, `.sc-row`/`.sc-card`/
-  `.sc-str`/`.sc-chl`/`.sc-card-t`/`.sc-card-b`, `.cl-orange*`, `.app-*`, `.cl-9pt`,
-  `.cl-dense`, `.cl-sidebar`/`.cl-side-*`, `.cl-subtype-*`, `.cl-def`, `.cl-stack-*`.
-  (Verify no remaining references before deleting.)
-- Consolidate duplicated masthead/footer chrome across the per-page namespaces
-  (`p3-`/`p4-`/`p5-`/`p6-`/`p7-`/`p8-` + `cv-`/`cw-`) into a shared set — the rules are
-  near-identical (logo + report-label + runhead + title-rule + flow footer).
-- Fix `render_client.js` positional page-label drift (mislabels since ported pages left
-  the `.report-page` selector — the height log now mislabels pages).
+**Cleanup PR — DONE (`3107026`, `7f1c192`)**
+- ✅ Removed orphaned helpers (`_clPage`/`_clHeader`/`_clFooter`/`_clBullets`) and the dead
+  legacy client CSS class block (`.tp-*`, `.toc-*`, all `.cl-*`, `.sc-*`, `.app-*`, `.pat-*`,
+  `.prm-*`, and the now-unused duplicate `.report-page`/`.page-*`/`.ph-*`/`.cmp*` client
+  copies). `partAStyles` and the coach stylesheet untouched.
+- ✅ Fixed `render_client.js` page-label drift (selector → `.cover`/`.page`/`.pN-page`).
+- Deferred items (intentionally NOT done in this PR):
+  - **`welcome_body` removal — blocked by binary-docx reconciliation debt.** It's harmless
+    dead data (renderer no longer reads `pages.welcome.body`). Removing it cleanly means the
+    generator (`build_content_library.js`) must stop emitting it AND regenerate — but
+    `content_library.json` currently carries the v1.2/v1.3 P6 trims as *direct JSON edits*
+    not in the binary docx, so regenerating now would clobber them. Clean removal path = when
+    the generator becomes canonical again (reconciliation), drop `welcome_body` there.
+  - **Chrome consolidation — optional future refactor, deferred.** The per-page
+    `p3-`…`p8-` masthead/title rules are near-identical, but footers and containers vary
+    (P3 absolute/non-flex; P4–P8 flow with differing margins) so a shared `.bp-*` set
+    wouldn't fully collapse, and consolidating would require renaming classes in 6 builders
+    (a 6-page structural diff) for zero visual benefit. Left as-is.
+  - **P3 footer inconsistency — minor tech debt, deferred.** P3 uses an absolute-pinned
+    footer; P2/P4–P8 use flex-column flow. Renders identically (footer at the same position,
+    every page 1056px/1 sheet) — no visual difference, not worth the regression risk of
+    touching P3's working output.
+
+**Merge**
+- `port-clientv2-prep` → `typing-engine-v2` via **fast-forward** (0 divergent commits;
+  `typing-engine-v2` at `54c6a4f`). Commands handed to Cai to run — **CC does not push
+  `typing-engine-v2`** (guardrail: never push to `main` or `typing-engine-v2` directly).
 
 **Offline / content-pipeline track**
 - Replace the interim `INTERIM_WELCOME` constant in `build_content_library.js` with a
