@@ -1192,49 +1192,77 @@ const _coachFooter = (n) => `
     </div>`;
 
 function _coachPage1(m) {
-  const wings = m.ataglance.wings.map(w => `Type ${w.number} — ${esc(w.name)}`).join('<br>');
-  const pill = `
-    <div class="bc-pill">
-      <div class="bc-pill-num">Type ${m.hero.number}</div>
-      <div class="bc-pill-name">${esc(m.hero.name)}</div>
-      <div class="bc-pill-sub">${esc(m.hero.subtype_name)} Subtype</div>
-    </div>
-    <div class="bc-badges">
-      <span class="bc-conf">${esc(m.confidence.label)} confidence</span>
-      ${m.confidence.near_tie ? '<span class="bc-tie">Near-Tie (see notes)</span>' : ''}
-      <span class="bc-alt">Alternate: Type ${m.alternate.number} — ${esc(m.alternate.name)}</span>
-    </div>`;
+  const w = m.ataglance.wings;
+  const cc = m.ataglance.centerColor;
+  // redirect banner = flagged DRAFT copy, pending Mo; renders only on REDIRECT outcomes (edge case)
   const redirect = m.redirect
     ? `<div class="bc-redirect">REDIRECT — confirmed type differs from the leading coherence bar (originally Type ${m.redirect.from_type}). The chart shows the coherence ranking; the hero reflects the Stage 4 evidence.</div>`
     : '';
   return `
   <div class="report-page">
-    <div class="page-header"><div class="ph-title">Coach Prep Report · Type ${m.hero.number} — ${esc(m.hero.name)}</div></div>
-    <div class="page-body" data-page="1" data-zone="page1-body">
-      <div class="bc-grid">
-        <div class="bc-left" data-budget="880" data-zone="p1-left">
-          <div class="bc-label">Leading Type Hypothesis</div>
-          ${pill}${redirect}
-          <div class="bc-label">The Bottom Line</div>
-          <p class="bc-body">${esc(m.bottom_line)}</p>
-          <div class="bc-label">What ${esc(m.client.first_name || 'the client')} Revealed</div>
-          ${_bcRevealed(m.responses_revealed)}
+
+    <div class="bc-masthead">
+      ${HIVE_LOGO_SVG}
+      <div class="bc-mh-right">
+        <div class="bc-report-label">INSIGHTOUT ENNEAGRAM COACH REPORT</div>
+        <div class="bc-prepared">Prepared for: ${esc(m.coach.full_name)} | ${esc(m.client.org)} | ${esc(m.client.date)}</div>
+      </div>
+    </div>
+    <div class="bc-client-name">${esc(m.client.full_name)}</div>
+    <hr class="bc-mh-rule">
+
+    <div class="page-body">
+    <div class="bc-grid">
+
+      <div class="bc-left">
+        <div class="bc-label">Leading Type Hypothesis</div>
+        <div class="bc-pill">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div class="bc-pill-num">${m.hero.number}</div>
+            <div>
+              <div class="bc-pill-name">${esc(m.hero.name)}</div>
+              <!-- subtype_title ("The Adventurer") omitted: no model source yet (pending Mo: 27-way lib vs AI Call #2 field) -->
+              <div class="bc-pill-sub">${esc(m.hero.subtype_name)} Subtype</div>
+            </div>
+          </div>
         </div>
-        <div class="bc-right">
+        <div class="bc-badges">
+          <span class="bc-conf">${esc(m.confidence.label)} Confidence</span>
+          ${m.confidence.near_tie ? '<span class="bc-tie">Near-Tie (see notes)</span>' : ''}
+          <span class="bc-alt">Alternate: Type ${m.alternate.number} — ${esc(m.alternate.name)}</span>
+        </div>
+        ${redirect}
+
+        <div class="bc-label">The Bottom Line</div>
+        <p class="bc-body">${esc(m.bottom_line)}</p>
+
+        <div class="bc-label">What ${esc(m.client.first_name || 'the client')}&rsquo;s Responses Revealed</div>
+        ${_bcRevealed(m.responses_revealed)}
+      </div>
+
+      <div class="bc-right">
+        <div class="bc-ataglance">
+          <div class="bc-label">At-a-Glance</div>
           <div class="bc-svg">${buildEnneagramSVG(m.svg)}</div>
-          <div class="bc-ataglance">
-            ${_agRow('Wings', wings, m.ataglance.centerColor)}
+          <div class="ag-rows">
+            ${_agRow('Wings', `Type ${w[0].number} / Type ${w[1].number}`, cc)}
             ${_agRow('Stress', `Type ${m.ataglance.stress.number} — ${esc(m.ataglance.stress.name)}`, '#D0312D')}
             ${_agRow('Release', `Type ${m.ataglance.release.number} — ${esc(m.ataglance.release.name)}`, '#4F845C')}
-            ${_agRow('Center of Intelligence', esc(m.ataglance.center), m.ataglance.centerColor)}
+            ${_agRow('Center', `${esc(m.ataglance.center)} Center`, cc)}
           </div>
-          <div class="bc-chart-title">Relative Type Pattern Strength</div>
-          ${renderTypeStrengthChart(m.charts.types)}
-          <div class="bc-chart-title">Relative Instincts Strength</div>
-          ${renderInstinctChart(m.charts.instincts)}
-          <div class="bc-reminder">These are hypotheses to inform the debrief — not labels to assign.</div>
+          <div class="bc-chart">
+            <div class="bc-chart-title">Relative Type Pattern Strength</div>
+            ${renderTypeStrengthChart(m.charts.types)}
+          </div>
+          <div class="bc-chart">
+            <div class="bc-chart-title">Relative Instincts Strength</div>
+            ${renderInstinctChart(m.charts.instincts)}
+          </div>
+          <p class="bc-reminder">Reminder: These are hypotheses and not final conclusions and are meant to inform the client, not label them.</p>
         </div>
       </div>
+
+    </div>
     </div>
     ${_coachFooter(1)}
   </div>`;
@@ -1323,12 +1351,29 @@ function coachReportStyles() {
   .bc-tie { font-size: 9pt; font-weight: bold; color: #B25A00; background: #FBE8D6; border-radius: 10px; padding: 3px 10px; }
   .bc-alt { font-size: 9pt; font-style: italic; color: var(--alt-pill-text); background: var(--alternate-pill-bg); border-radius: 10px; padding: 3px 10px; }
   .bc-redirect { font-size: 9pt; color: #B25A00; background: #FBE8D6; border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
-  .bc-svg { width: 280px; height: 280px; margin: 0 auto 6px; }
+  .bc-svg { width: 232px; height: 232px; margin: 0 auto 14px; }
   .ag-row { display: flex; justify-content: space-between; gap: 8px; font-size: 10pt; padding: 3px 0; border-bottom: 1px solid #eee; }
   .ag-label { font-weight: bold; color: var(--body); }
   .ag-val { text-align: right; font-weight: 600; }
   .bc-chart-title { font-size: 9pt; font-weight: bold; color: var(--section-title); margin: 10px 0 4px; }
   .bc-reminder { font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-top: 10px; }
+  /* ===== P1 Orientation (V2) — masthead + column divider + right-col spacing. P1-only; */
+  /* shared .bc-label/.bc-bullet bases left intact, P1 overrides scoped to .bc-left/.bc-ataglance. */
+  .bc-masthead { display: flex; justify-content: space-between; align-items: flex-start; }
+  .bc-masthead .logo { height: 34px; width: auto; display: block; }   /* masthead-scoped: P2/P3 use .bc-hd .logo{30px} */
+  .bc-mh-right { text-align: right; padding-top: 6px; }
+  .bc-report-label { font-size: 11pt; font-weight: bold; color: var(--hive-orange); letter-spacing: .02em; }
+  .bc-prepared { font-size: 10pt; color: var(--body); margin-top: 2px; }
+  .bc-client-name { font-size: 24pt; font-weight: bold; color: var(--hive-orange); margin: 6px 0 0; }
+  .bc-mh-rule { border: none; border-top: 1px solid #ccc; margin: 12px 0 4px; }
+  .bc-right { border-left: 1px solid #D8D8D8; padding-left: 22px; }
+  .bc-left .bc-label, .bc-ataglance .bc-label { margin: 22px 0 8px; }
+  .bc-left > .bc-label:first-child, .bc-ataglance > .bc-label:first-child { margin-top: 4px; }
+  .bc-ataglance .bc-label { text-align: left; }
+  .bc-left .bc-bullet { margin-bottom: 12px; }
+  .ag-rows { margin-bottom: 18px; }
+  .bc-chart { margin-bottom: 18px; }
+  .bc-chart svg { display: block; width: 100%; }
   .bc-callout { background: var(--callout-bg); border-left: 4px solid var(--hive-orange); border-radius: 4px; padding: 10px 14px; font-size: 10pt; line-height: 15pt; margin-bottom: 12px; }
   table.cmp { width: 100%; border-collapse: collapse; }
   table.cmp th, table.cmp td { text-align: left; vertical-align: top; padding: 4px 8px; font-size: 10pt; line-height: 13pt; border-bottom: 1px solid #eee; }
