@@ -477,6 +477,9 @@ body {
 
 .nav-row .spacer { flex: 1; }
 
+/* Short footer-link label is desktop-hidden; swapped in on narrow widths. */
+.save-short { display: none; }
+
 /* ---- Processing screen ---- */
 .processing-wrap {
   text-align: center;
@@ -879,4 +882,15 @@ body {
   .slider-track-wrap { order: 3; flex-basis: 100%; width: 100%; margin-top: 10px; }
   .pole-full { display: none; }
   .pole-short { display: inline; }
+
+  /* Footer controls on narrow widths: shorten the save link and trim the
+     footer buttons' side padding so the common 3-control row (Back · Save ·
+     Continue) stays on one line. flex-wrap is the safety net for the 4-control
+     finalopen footer (Back · Skip · Save · Submit), which wraps to a second
+     line rather than pushing a button off-screen. Desktop layout is unchanged;
+     full-width CTAs are untouched (only .nav-row .btn is trimmed). */
+  .save-full { display: none; }
+  .save-short { display: inline; }
+  .nav-row { flex-wrap: wrap; row-gap: 12px; }
+  .nav-row .btn { padding-left: 18px; padding-right: 18px; }
 }

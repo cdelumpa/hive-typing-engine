@@ -1453,7 +1453,9 @@ function render() {
       const saveBtn = document.createElement('button');
       saveBtn.className = 'btn btn-ghost';
       saveBtn.id = 'btn-save-later';
-      saveBtn.textContent = 'Save and Continue Later';
+      // Label swaps to a shorter form on narrow widths (see .save-full /
+      // .save-short in styles.css), mirroring the slider pole label pattern.
+      saveBtn.innerHTML = '<span class="save-full">Save and Continue Later</span><span class="save-short">Save &amp; Exit</span>';
       navRow.insertBefore(saveBtn, primaryBtn);
     } else {
       const saveLaterEl = document.createElement('div');
