@@ -1978,21 +1978,48 @@ function _clP7Strengths(m) {
 </div>`;
 }
 
+// P8 "Putting It All Together" — V2 template-ported (putting_together.html). Densest body
+// page: 3 sections (CENTER, COMMS, CONFLICT), each a per-type named title + 2 columns of 4
+// bullets. Fully static-by-type; flex-column flow + margin footer. Renderer-only; prep frozen.
+// Section title = model subhead with the leading "{Section} — " prefix stripped (the static
+// sec-style label already names the section); a second em-dash in the title is preserved.
+// framework is dropped (no template slot). Intro is static with a type-name interpolation
+// (m.hero.name) — no model field. Legacy classes now dead (left for cleanup PR): app-cols,
+// app-sec, app-subhead, app-fw, app-sub-t, and the cl-9pt page modifier.
 function _clP8Application(m) {
   const a = m.pages.application;
-  const block = (title, blk, sub, subTitle) => `
-    <div class="app-sec">
-      <div class="cl-label">${esc(title)}</div>
-      <div class="app-subhead">${esc(blk.subhead)}</div><div class="app-fw">${esc(blk.framework)}</div>
-      ${_clBullets(blk.bullets)}
-      <div class="app-sub-t">${esc(subTitle)}</div>${_clBullets(blk[sub])}
-    </div>`;
-  const inner = `<div class="app-cols">
-    ${block('Communication Style', a.communication, 'watch_for', 'What to watch for')}
-    ${block('Conflict Style', a.conflict, 'working_with', 'Working with it')}
-    ${block('Coming Back to Center', a.center, 'off_center', "When you're off-center")}
+  const stripPrefix = s => { const p = String(s || '').split(/\s*—\s*/); return p.length > 1 ? p.slice(1).join(' — ') : String(s || ''); };
+  const bullets = (arr) => (arr || []).map(b => `<div class="p8-bullet"><span>${esc(b)}</span></div>`).join('');
+  const section = (iconCls, glyph, style, title, lLabel, lBul, rLabel, rBul) => `
+  <div class="p8-section">
+    <div class="p8-sec-head"><div class="p8-sec-icon ${iconCls}">${glyph}</div><div><div class="p8-sec-style">${style}</div><div class="p8-sec-name">${esc(stripPrefix(title))}</div></div></div>
+    <div class="p8-sec-cols">
+      <div class="p8-col-l"><div class="p8-sub-label">${lLabel}</div>${bullets(lBul)}</div>
+      <div class="p8-col-r"><div class="p8-sub-label">${rLabel}</div>${bullets(rBul)}</div>
+    </div>
   </div>`;
-  return _clPage('Putting It All Together', 8, 'cl-9pt', inner);
+  const intro = `The three areas below translate what you’ve learned about ${esc(m.hero.name)} into everyday practice: how you show up in conversation, how you move through conflict, and how to find your way back when the pattern is running the show.`;
+  return `<div class="p8-page">
+  <div class="p8-page-body">
+  <div class="p8-masthead">${HIVE_LOGO_SVG}<div style="text-align:right">
+      <div class="p8-report-label">INSIGHTOUT ENNEAGRAM REPORT</div>
+      <div class="p8-runhead">${esc(m.client.full_name)} · Type ${m.hero.number} – ${esc(m.hero.name)}</div>
+    </div></div>
+  <div class="p8-page-title">Putting It All Together</div>
+  <div class="p8-title-rule"></div>
+  <div class="p8-intro">${intro}</div>
+
+  ${section('p8-body', '&#9678;', 'GETTING RE-CENTERED AND PRESENT', a.center.subhead, 'YOUR CENTER OF INTELLIGENCE', a.center.bullets, 'WHEN YOU&#39;RE OFF-CENTER', a.center.off_center)}
+  ${section('p8-comms', '&#128172;', 'COMMUNICATIONS STYLE', a.communication.subhead, 'HOW YOU NATURALLY COMMUNICATE', a.communication.bullets, 'WHAT TO WATCH FOR', a.communication.watch_for)}
+  ${section('p8-conflict', '&#9889;', 'CONFLICT STYLE', a.conflict.subhead, 'HOW CONFLICT SHOWS UP FOR YOU', a.conflict.bullets, 'WORKING WITH IT', a.conflict.working_with)}
+
+  </div>
+  <div class="p8-footer">
+    <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span class="center">Page 8</span>
+    <span>Client confidential - for use by report owner only.</span>
+  </div>
+</div>`;
 }
 
 function clientReportStyles() {
@@ -2349,6 +2376,29 @@ function clientReportStyles() {
   .p7-remember b { color: var(--hive-blue); font-style: italic; }
   .p7-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
   .p7-footer .center { color: var(--hive-blue); }
+  /* ===== P8 Putting It All Together — V2 template-ported. Densest body page, flex-column flow + margin footer. ===== */
+  .p8-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
+  .p8-page-body { flex: 1 1 auto; }
+  .p8-masthead { display: flex; align-items: flex-start; justify-content: space-between; padding: var(--margin-y) var(--margin-x) 0; }
+  .p8-report-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-blue); }
+  .p8-runhead { font-size: 11px; font-style: italic; color: var(--section-title); margin-top: 4px; }
+  .p8-page-title { margin: 18px var(--margin-x) 0; font-size: 30px; font-weight: 700; color: var(--leading-text); }
+  .p8-title-rule { margin: 8px var(--margin-x) 0; height: 1px; background: #D7E6EC; }
+  .p8-intro { margin: 18px var(--margin-x) 0; font-size: 12.5px; line-height: 1.58; color: var(--body-text); }
+  .p8-section { margin: 20px var(--margin-x) 0; }
+  .p8-sec-head { display: flex; align-items: center; gap: 11px; }
+  .p8-sec-icon { width: 30px; height: 30px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; font-size: 15px; }
+  .p8-sec-icon.p8-body { background: #1F3A66; }
+  .p8-sec-icon.p8-comms { background: #1F3A66; }
+  .p8-sec-icon.p8-conflict { background: #C0504D; }
+  .p8-sec-style { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--hive-blue); }
+  .p8-sec-name { font-size: 16px; font-weight: 700; color: var(--leading-text); line-height: 1.1; }
+  .p8-sec-cols { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 30px; }
+  .p8-sub-label { font-size: 9px; font-weight: 700; letter-spacing: .05em; color: var(--section-title); margin-bottom: 4px; }
+  .p8-bullet { display: flex; gap: 8px; font-size: 11px; line-height: 1.45; color: var(--body-text); margin: 6px 0; }
+  .p8-bullet::before { content: "●"; color: var(--hive-blue); font-size: 7px; line-height: 1.7; flex: 0 0 auto; }
+  .p8-footer { margin: 16px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
+  .p8-footer .center { color: var(--hive-blue); }
   </style>`;
 }
 
