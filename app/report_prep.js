@@ -113,7 +113,7 @@ function assertName(flags, label, derivedName, aiString, typeNum) {
 // ---------- coach view-model ----------
 function buildCoachModel({ apiResult, client, coach, tighten = 0 }) {
   const flags = [], warnings = [];
-  const capW = [80, 62, 48, 40][Math.min(tighten, 3)];   // self-heal: debrief word budget tightens by level
+  const capW = 130;   // PR-4: single 130w/band budget (verified ceiling at 48px band spacing). Was [80,62,48,40] tighten ladder — inert since the measurement gate was removed.
   const h = apiResult.hypothesis;
   const cr = apiResult.coach_report || {};
   const cw = apiResult.client_words || {};

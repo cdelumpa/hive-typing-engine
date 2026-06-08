@@ -1421,7 +1421,7 @@ function coachReportStyles() {
   .bc-9pt .bc-label { margin-top: 8px; }
   .bc-9pt .bc-bullet { font-size: 9.5pt; line-height: 14pt; }
   .bc-9pt .dbf-q { font-size: 9.5pt; }
-  .dbf-cols { columns: 2; column-gap: 24px; margin-bottom: 24px; }
+  .dbf-cols { columns: 2; column-gap: 24px; margin-bottom: 48px; }
   .dbf-q { font-size: 10pt; font-style: italic; color: var(--hive-blue); margin-bottom: 6px; }
   .dbf-q .pq-label { font-style: normal; font-weight: bold; }
   </style>`;
