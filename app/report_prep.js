@@ -133,7 +133,11 @@ function buildCoachModel({ apiResult, client, coach, tighten = 0 }) {
   const pb = s6.pushes_back || {};
 
   const model = {
-    client: { first_name: client.first_name || '', org: client.organization || '', date: client.date || '' },
+    client: {
+      first_name: client.first_name || '',
+      full_name: `${client.first_name || ''} ${client.last_name || ''}`.trim(),   // composed from the input arg (carries last_name), mirroring buildClientModel; powers the coach mastheads
+      org: client.organization || '', date: client.date || '',
+    },
     coach: { full_name: coach.full_name || coach.name || '', type: coach.type ?? null, instinct: coach.instinct || '' },
     hero: { number: heroN, name: meta.name, subtype_name: instinctName(instinct), center: meta.center, centerColor: meta.centerColor },
     confidence: { label: confidenceLabel(h.confidence_level), near_tie: nearTie(h.call1_ranking) },
@@ -277,7 +281,7 @@ function validateModel(model, spec) {
 
 const COACH_SPEC = {
   required: [
-    'client.first_name', 'hero.number', 'hero.name', 'hero.center', 'hero.centerColor',
+    'client.first_name', 'client.full_name', 'hero.number', 'hero.name', 'hero.center', 'hero.centerColor',
     'confidence.label', 'confidence.near_tie', 'alternate.number', 'alternate.name',
     'svg.type', 'bottom_line', 'comparison.leading.rows', 'comparison.alternate.rows',
     'comparison.discriminator', 'comparison.client_words', 'ataglance.stress', 'ataglance.release',
