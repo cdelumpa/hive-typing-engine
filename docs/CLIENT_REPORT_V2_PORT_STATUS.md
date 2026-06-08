@@ -2,15 +2,18 @@
 
 **Repo:** `cdelumpa/hive-typing-engine`
 **Branch:** `port-clientv2-prep` (local + `origin/`, in sync) — **never merged to main**
-**As of commit:** `6c1999f`
+**As of commit:** `464b1c4`
 **Last updated:** 2026-06-07
+**Milestone:** 🎉 **All 10 pages ported (Title, TOC, P1–P8).**
 
 > Living tracking doc for the InsightOut client-report V2 template port. Update the
 > commit stack, page table, and Open/Tracked section as work lands.
 
 ## Commit stack (newest first)
 ```
-6c1999f  content: P6 trims v1.3 — SX5 + SP2 bullets (closes 27/27 sweep)   <- origin tip
+464b1c4  port: P8 Putting It All Together -> V2 (renderer-only)   <- origin tip
+7f6444d  port: P7 Strengths, Challenges & Growth -> V2 (renderer-only)
+6c1999f  content: P6 trims v1.3 — SX5 + SP2 bullets (closes 27/27 sweep)
 05b165a  content: P6 trims v1.2 — 16 subtypes (approved by Mo)
 675cb29  docs: P6 done + 27-subtype sweep + Mo content target list
 b223a13  port: P6 Instinct & Subtype -> V2 (full-width evidence box, one sheet)
@@ -27,7 +30,7 @@ c69e900  fix: repair .cover CSS comment that dropped the .cover rule (PR-2a regr
 54c6a4f  base: flowing layout, measurement-gate removal (tip of typing-engine-v2)
 ```
 
-## Pages ported (8 of 10)
+## Pages ported (10 of 10) ✅
 | Page | Status | Notes |
 |---|---|---|
 | Title, TOC | done (V2) | `.cover` fixed-height, absolute footer |
@@ -37,7 +40,8 @@ c69e900  fix: repair .cover CSS comment that dropped the .cover rule (PR-2a regr
 | P4 Patterns | done (V2) | flex-column flow page; plain bullets |
 | P5 Wings & Lines | done (V2) | wings-lines SVG variant; resource cards |
 | P6 Instinct & Subtype | done (V2) | **Intentional deviation:** "In Your Responses" evidence box promoted to full-width below both columns (resolves column imbalance + spill). **27/27 subtypes fit ≤1056px** (sweep CLOSED) after content trims in `content_library.json` (v1.2 `05b165a` + v1.3 `6c1999f`). See sweep section below. |
-| **P7, P8** | NOT ported (legacy renderer) | next up |
+| P7 Strengths, Challenges & Growth | done (V2) | static-by-type; two styled cards (green/✓ strengths, red/✗ challenges) with `title — body` bullets; What-Shifts box (per-subtype, `display.subtype_label`); practices grid; static intro/remember with `m.hero.name` interpolation (no model field). |
+| P8 Putting It All Together | done (V2) | densest page — 3 sections (Center/Comms/Conflict) × 2 cols × 4 bullets; section title = `subhead` with `"{Section} — "` prefix stripped; `framework` dropped (no slot); fits 1056px / 1 sheet. |
 
 ## Verification standard (applied every PR)
 - **Structural diff** on both fixtures (`sp4_api_result.json`, `sx7_api_result.json`):
@@ -126,14 +130,23 @@ split 2+1 across a wide measure).*
 
 ## Open / tracked
 **Remaining work**
-- Port P7 (Strengths, Challenges & Growth), P8 (Putting It All Together). (8/10 ported: Title, TOC, P1–P6.)
+- ✅ All 10 client pages ported (Title, TOC, P1–P8). Renderer port complete. Next: the
+  cleanup PR and the content-pipeline track below.
 
 **Cleanup PR (deferred)**
-- Remove dead `welcome_body` + dead legacy CSS (`.tp-*`/`.toc-*`, and once P6–P8 move,
-  `cl-2col`/`cl-svg`/`cmp`/`pat-*`).
-- Consolidate duplicated `p3-/p4-/p5-` masthead chrome into a shared set.
+- Remove dead `welcome_body`. Now that **all 10 pages are ported**, the legacy renderer
+  paths and their CSS are fully dead and removable: `_clPage`/`_clHeader`/`_clFooter`
+  helpers, `.report-page`/`.page-header`/`.page-body`/`.page-footer`, and the legacy
+  page classes `.tp-*`, `.toc-*`, `.cl-*` (incl. `cl-2col`, `cl-svg`, `cl-pill`, `cl-quote`,
+  `cmp`/`cmp-*`), `.prm-*`, `.pat-sec`/`.pat-cols`/`.cl-inquiry`, `.sc-row`/`.sc-card`/
+  `.sc-str`/`.sc-chl`/`.sc-card-t`/`.sc-card-b`, `.cl-orange*`, `.app-*`, `.cl-9pt`,
+  `.cl-dense`, `.cl-sidebar`/`.cl-side-*`, `.cl-subtype-*`, `.cl-def`, `.cl-stack-*`.
+  (Verify no remaining references before deleting.)
+- Consolidate duplicated masthead/footer chrome across the per-page namespaces
+  (`p3-`/`p4-`/`p5-`/`p6-`/`p7-`/`p8-` + `cv-`/`cw-`) into a shared set — the rules are
+  near-identical (logo + report-label + runhead + title-rule + flow footer).
 - Fix `render_client.js` positional page-label drift (mislabels since ported pages left
-  the `.report-page` selector).
+  the `.report-page` selector — the height log now mislabels pages).
 
 **Offline / content-pipeline track**
 - Replace the interim `INTERIM_WELCOME` constant in `build_content_library.js` with a
