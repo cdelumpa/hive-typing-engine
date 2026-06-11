@@ -83,7 +83,7 @@ const basicAuthMiddleware = basicAuth({
 // '/' entry, and the data layer all stay gated.
 const SPA_ASSET_PATHS = new Set([
   '/styles.css', '/state.js', '/ui.js', '/assessment.js', '/app.js',
-  '/content/type_library.json',
+  '/content/type_library.json', '/favicon.svg',
 ]);
 app.use((req, res, next) => {
   if (req.path === '/admin/login' || req.path.startsWith('/admin')) return next();
