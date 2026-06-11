@@ -315,6 +315,48 @@ async function saveSessionState() {
   }
 }
 
+// Commit the assessment to in_progress (Decision D). Fired once from the Welcome
+// "Start Assessment" click so Save works on the profile-confirm / intake screens
+// and the token's used_at is stamped. Best-effort and idempotent — the server
+// also no-ops a repeat begin.
+async function beginAssessment() {
+  const token = state.intake && state.intake.token;
+  if (!token || state._begun) return;
+  state._begun = true;
+  try {
+    await fetch(`/assessment/${encodeURIComponent(token)}/begin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+  } catch (e) {
+    // best-effort — status flip is server-authoritative
+  }
+}
+
+// Persist edited intake fields to the client record (§0B edit flow). Best-effort;
+// the running session already holds the values in state.intake.
+async function persistProfile() {
+  const token = state.intake && state.intake.token;
+  if (!token) return;
+  const i = state.intake;
+  try {
+    await fetch(`/assessment/${encodeURIComponent(token)}/profile`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        first_name: i.firstName,
+        last_name: i.lastName,
+        email: i.email,
+        organization: i.organization || null,
+        coach: i.coach || null,
+      }),
+    });
+  } catch (e) {
+    // silent fail — best-effort
+  }
+}
+
 // =================== INIT ===================
 
 initStage1();
@@ -355,9 +397,11 @@ if (window.__hiveIntake) {
         if (ss[key] !== undefined) state[key] = ss[key];
       });
     }
-  } else if (state.phase === 'welcome') {
-    state.phase = 'stage0';
   }
+  // Fresh (non-resume) token entry: the SPA now owns the full pre-assessment flow
+  // (Welcome → profile-confirm/intake → orientation → Stage 0), so leave the phase
+  // at the default 'welcome'. The Welcome "Start" handler reads window.__hiveBootstrap.route
+  // to choose profile-confirm vs intake.
 }
 
 render();

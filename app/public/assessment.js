@@ -1429,7 +1429,7 @@ const SAVE_LATER_PHASES = new Set([
 // variant a phase uses; progress numbers come from ui.js (progressFor).
 
 // Product name shown next to the logo in the full topbar.
-const CHROME_PRODUCT_NAME = 'InsightOut Assessment';
+const CHROME_PRODUCT_NAME = 'InsightOut Enneagram Assessment';
 
 // Phase → chrome variant. topbar 'logo-only' = centered logo, no progress/save;
 // 'full' = logo + divider + product + Save. progress/sub toggle the global bar
@@ -1437,7 +1437,9 @@ const CHROME_PRODUCT_NAME = 'InsightOut Assessment';
 // orientation, resume, part1/part2-complete, thank-you, error screens).
 const PHASE_CHROME = {
   welcome:                     { topbar: 'logo-only', progress: false, sub: false },
+  'profile-confirm':           { topbar: 'full',      progress: false, sub: false },
   intake:                      { topbar: 'full',      progress: false, sub: false },
+  orientation:                 { topbar: 'full',      progress: false, sub: false },
   stage0:                      { topbar: 'full',      progress: true,  sub: true  },
   'mid-assessment-reminders':  { topbar: 'full',      progress: true,  sub: false },
   stage1:                      { topbar: 'full',      progress: true,  sub: true  },
@@ -1470,6 +1472,9 @@ function chromeFor(phase) {
     dotIndex:        prog.dotIndex,
     dotTotal:        prog.dotTotal,
     labelColor:      'blue',
+    // Orientation re-uses the inlined SVG (PNGs absent, Decision C) but namespaces
+    // its clipPath ids to avoid collision with any other logo instance on the page.
+    logoNs:          phase === 'orientation' ? 'orient-logo' : null,
   };
 }
 
@@ -1493,7 +1498,12 @@ function renderSubProgress(chrome) {
 // node: CSS positions it top-right in the topbar on desktop and as a full-width
 // row below the progress bar on mobile (collapsing with the brand header).
 function renderChromeShell(chrome, bodyHtml) {
-  const logo = (typeof window !== 'undefined' && window.__HIVE_LOGO_SVG) || '';
+  let logo = (typeof window !== 'undefined' && window.__HIVE_LOGO_SVG) || '';
+  // Namespace the clipPath ids (clip-0…clip-5 → <ns>-clip-0…) when requested, so a
+  // second logo instance on the same page can't collide on shared ids (§2 / §0C.5).
+  // Match only id definitions ("clip-) and references (#clip-) — NOT the clip-path
+  // attribute/property name, which also contains the substring "clip-".
+  if (chrome.logoNs && logo) logo = logo.replace(/(["#])clip-/g, `$1${chrome.logoNs}-clip-`);
   const full = chrome.topbar === 'full';
 
   const brand = `<div class="chrome-brand">
@@ -1555,7 +1565,9 @@ function render() {
   let body = '';
   switch (state.phase) {
     case 'welcome':                  body = renderWelcome(); break;
+    case 'profile-confirm':          body = renderProfileConfirm(); break;
     case 'intake':                   body = renderIntake(); break;
+    case 'orientation':              body = renderOrientationInterstitial(); break;
     case 'stage0':                   body = renderStage0(); break;
     case 'mid-assessment-reminders': body = renderMidAssessmentReminders(); break;
     case 'stage1':                   body = renderStage1(); break;
@@ -1581,64 +1593,156 @@ function render() {
 
 // ---- Welcome ----
 function renderWelcome() {
-  return `<div class="screen">
-    <h1 class="welcome-heading">Discover your<br><strong>Enneagram type.</strong></h1>
-    <p class="welcome-body">
-      This assessment guides you through a series of questions about how you experience the world, what drives you, and what matters most to you. There are no right or wrong answers — simply respond as honestly as you can.<br><br>
-      The process takes about 15–20 minutes. Find a quiet moment and go with your first instinct.
-    </p>
-    <button class="btn btn-primary" id="btn-start">Start Assessment</button>
+  // Small Hive-Blue envelope glyph for the report carrot (sized via CSS).
+  const envelope = `<svg class="carrot-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5" stroke="#00B2D9" stroke-width="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5" stroke="#00B2D9" stroke-width="2" fill="none" stroke-linejoin="round"/></svg>`;
+  return `<div class="screen welcome-screen">
+    <div class="welcome-eyebrow">INSIGHTOUT ENNEAGRAM ASSESSMENT</div>
+    <h1 class="welcome-headline"><span class="wh-light">Discover your</span><span class="wh-bold">Enneagram type.</span></h1>
+    <p class="welcome-tagline">Welcome to an experience that reveals why you think, feel, act the way you do.</p>
+    <p class="report-carrot">${envelope}<span class="carrot-full">When you’re done, a personalized Enneagram report lands in your inbox.</span><span class="carrot-short">When you’re done, a personalized report lands in your inbox.</span></p>
+    <p class="welcome-meta">15–20 minutes · No right or wrong answers · Go with your first instinct</p>
+    <p class="welcome-precta">Now, find a quiet moment and…</p>
+    <button class="btn btn-primary welcome-cta" id="btn-start">Start Assessment</button>
+  </div>`;
+}
+
+// ---- Profile Confirmation (§0A, returning clients) ----
+// Shown when the bootstrap route resolves to 'profile-confirm' (client record
+// already has name/email/coach). Read-only card + Continue (always unlocked) +
+// Save. Edit link routes to the Intake form (edit flow) prepopulated.
+function renderProfileConfirm() {
+  const i = state.intake || {};
+  const fullName = `${i.firstName || ''} ${i.lastName || ''}`.trim();
+  // Organisation row omitted entirely when empty (§0A.4) — no blank row.
+  const orgRow = (i.organization && i.organization.trim())
+    ? `<div class="pc-row"><div class="pc-label">Organization</div><div class="pc-value">${esc(i.organization)}</div></div>`
+    : '';
+  return `<div class="screen preassess-screen">
+    <h1 class="preassess-heading">Welcome back, ${esc(i.firstName || 'there')}.</h1>
+    <p class="preassess-subhead">We found your details on file. Confirm everything looks right before you begin.</p>
+    <div class="pc-card">
+      <div class="pc-row"><div class="pc-label">Name</div><div class="pc-value">${esc(fullName || '—')}</div></div>
+      <div class="pc-row"><div class="pc-label">Email</div><div class="pc-value">${esc(i.email || '—')}</div></div>
+      ${orgRow}
+      <div class="pc-row"><div class="pc-label">Coach</div><div class="pc-value">${esc(i.coach || '—')}</div></div>
+    </div>
+    <button class="pc-edit" id="btn-edit-profile"><span class="pc-edit-icon">✎</span> Edit your profile</button>
+    <div class="preassess-nav">
+      <button class="btn btn-primary" id="btn-profile-continue">Continue</button>
+      <button class="btn btn-ghost preassess-save" id="btn-save-later"><span class="save-full">Save and continue later</span><span class="save-short">Save &amp; Exit</span></button>
+    </div>
   </div>`;
 }
 
 // ---- Intake ----
 function renderIntake() {
   const i = state.intake || {};
-  return `<div class="screen">
-    <h1 class="welcome-heading" style="font-size:22px;margin-bottom:8px;">Before we begin</h1>
-    <p class="welcome-body" style="margin-bottom:28px;">
-      Please share a few details so we can send your personalized report to the right place.
-    </p>
+  // Coach roster from the server bootstrap (active coaches, names only — §0B.7 / E).
+  // Falls back to the two seeded coaches for non-token/local sessions.
+  const bootCoaches = (typeof window !== 'undefined' && window.__hiveBootstrap && Array.isArray(window.__hiveBootstrap.coaches))
+    ? window.__hiveBootstrap.coaches : [];
+  const roster = bootCoaches.length ? bootCoaches : ['Cai Delumpa', 'Monique Breault'];
+  const single = roster.length === 1;
+  // Single coach → pre-select + disable (client can't change). Multiple → blank
+  // default + require selection.
+  const selectedCoach = single ? roster[0] : (i.coach && roster.includes(i.coach) ? i.coach : '');
+  const coachOpts =
+    (single ? '' : `<option value="" ${selectedCoach ? '' : 'selected'} disabled>Select your coach</option>`) +
+    roster.map((c) => `<option value="${esc(c)}" ${selectedCoach === c ? 'selected' : ''}>${esc(c)}</option>`).join('');
 
-    <div style="width:100%;max-width:400px;margin:0 auto;text-align:left;">
+  // Gate (§0B.4): all four required fields present (org optional). Computed for
+  // the initial render; the live state is maintained in attachHandlers.
+  const gateMet = !!((i.firstName || '').trim() && (i.lastName || '').trim() && (i.email || '').trim() && selectedCoach);
 
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:11px;font-weight:700;color:#4A6070;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">First Name <span style="color:#f58527;">*</span></label>
-        <input id="intake-first-name" type="text" value="${esc(i.firstName || '')}" autocomplete="given-name"
-          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border, #D6E2E8);border-radius:6px;font-family:inherit;font-size:14px;color:#1A2B33;outline:none;" />
+  return `<div class="screen preassess-screen intake-screen">
+    <h1 class="preassess-heading">Before we begin</h1>
+    <p class="preassess-subhead">Please share a few details so we can send your personalized report to the right place.</p>
+
+    <div class="intake-form">
+      <div class="intake-grid">
+        <div class="intake-field">
+          <label class="intake-label" for="intake-first-name">First name <span class="req">*</span></label>
+          <input class="intake-input" id="intake-first-name" type="text" value="${esc(i.firstName || '')}" autocomplete="given-name" />
+        </div>
+        <div class="intake-field">
+          <label class="intake-label" for="intake-last-name">Last name <span class="req">*</span></label>
+          <input class="intake-input" id="intake-last-name" type="text" value="${esc(i.lastName || '')}" autocomplete="family-name" />
+        </div>
       </div>
 
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:11px;font-weight:700;color:#4A6070;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Last Name <span style="color:#f58527;">*</span></label>
-        <input id="intake-last-name" type="text" value="${esc(i.lastName || '')}" autocomplete="family-name"
-          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border, #D6E2E8);border-radius:6px;font-family:inherit;font-size:14px;color:#1A2B33;outline:none;" />
+      <div class="intake-field">
+        <label class="intake-label" for="intake-email">Email address <span class="req">*</span></label>
+        <input class="intake-input" id="intake-email" type="email" value="${esc(i.email || '')}" autocomplete="email" />
+        <div id="intake-email-error" class="intake-inline-error" style="display:none;">Please enter a valid email address.</div>
       </div>
 
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:11px;font-weight:700;color:#4A6070;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Email Address <span style="color:#f58527;">*</span></label>
-        <input id="intake-email" type="email" value="${esc(i.email || '')}" autocomplete="email"
-          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border, #D6E2E8);border-radius:6px;font-family:inherit;font-size:14px;color:#1A2B33;outline:none;" />
-        <div id="intake-email-error" style="display:none;color:#C44530;font-size:12px;margin-top:4px;">Please enter a valid email address.</div>
+      <div class="intake-field">
+        <label class="intake-label" for="intake-organization">Organization <span class="intake-optional">(optional)</span></label>
+        <input class="intake-input" id="intake-organization" type="text" value="${esc(i.organization || '')}" autocomplete="organization" />
       </div>
 
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:11px;font-weight:700;color:#4A6070;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Organization <span style="color:#7A96A6;font-weight:400;text-transform:none;">(optional)</span></label>
-        <input id="intake-organization" type="text" value="${esc(i.organization || '')}" autocomplete="organization"
-          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border, #D6E2E8);border-radius:6px;font-family:inherit;font-size:14px;color:#1A2B33;outline:none;" />
-      </div>
-
-      <div style="margin-bottom:28px;">
-        <label style="display:block;font-size:11px;font-weight:700;color:#4A6070;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Select your coach <span style="color:#f58527;">*</span></label>
-        <select id="intake-coach"
-          style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid var(--border, #D6E2E8);border-radius:6px;font-family:inherit;font-size:14px;color:#1A2B33;outline:none;background:#fff;appearance:none;-webkit-appearance:none;background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path fill=%22%234A6070%22 d=%22M6 8L0 0h12z%22/></svg>');background-repeat:no-repeat;background-position:right 14px center;">
-          <option value="Cai Delumpa" ${i.coach === 'Cai Delumpa' ? 'selected' : ''}>Cai Delumpa</option>
-          <option value="Monique Breault" ${i.coach === 'Monique Breault' ? 'selected' : ''}>Monique Breault</option>
+      <div class="intake-field">
+        <label class="intake-label" for="intake-coach">Select your coach <span class="req">*</span></label>
+        <select class="intake-input intake-select" id="intake-coach" ${single ? 'disabled' : ''}>
+          ${coachOpts}
         </select>
       </div>
 
-      <div id="intake-error" style="display:none;color:#C44530;font-size:13px;margin-bottom:16px;text-align:center;">Please fill in all required fields.</div>
+      <div id="intake-error" class="intake-form-error" style="display:none;">Please fill in all required fields.</div>
 
-      <button class="btn btn-primary" id="btn-intake-continue" style="width:100%;">Continue</button>
+      <div class="preassess-nav">
+        <button class="btn btn-primary" id="btn-intake-continue" ${gateMet ? '' : 'disabled'}>Continue</button>
+        <button class="btn btn-ghost preassess-save" id="btn-save-later"><span class="save-full">Save and continue later</span><span class="save-short">Save &amp; Exit</span></button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---- Orientation Interstitial (§0C) ----
+// Shown once on the initial run (after profile-confirm/intake, before Stage 0);
+// skipped on resume. Full topbar, no progress, no Save. Logo note (§0C.5 /
+// Decision C): PNGs absent → the topbar logo uses the inlined SVG with its
+// clipPath ids namespaced to orient-logo-clip (handled in chromeFor /
+// renderChromeShell) to avoid collision with any other instance on the page.
+function renderOrientationInterstitial() {
+  const pills = [
+    { label: 'Warmup',       count: '4 short questions', kind: 'Open responses',     featured: false },
+    { label: 'Part 1',       count: '14 screens',        kind: 'Sliders',            featured: true  },
+    { label: 'Part 2',       count: '3 questions',       kind: 'Multiple choice',    featured: false },
+    { label: 'Parts 3 & 4',  count: 'A few rounds',      kind: 'Paired comparisons', featured: false },
+  ];
+  const pillsHtml = pills.map((p) => `
+    <div class="orient-pill ${p.featured ? 'featured' : ''}">
+      <div class="orient-pill-label">${esc(p.label)}${p.featured ? ' <span class="orient-star">★</span>' : ''}</div>
+      <div class="orient-pill-count">${esc(p.count)}</div>
+      <div class="orient-pill-kind">${esc(p.kind)}</div>
+    </div>`).join('');
+
+  return `<div class="screen orient-screen">
+    <p class="orient-lead">Here’s what to expect — 4 parts, about 15–20 minutes total. Part 1 is the most involved, but it’s also where the most insight comes from. Take it at your own pace.</p>
+
+    <div class="orient-pills">${pillsHtml}</div>
+
+    <div class="orient-tip">
+      <div class="orient-badge warmup">WARMUP</div>
+      <ul class="orient-tip-list">
+        <li>No wrong answers — a few words is plenty, but feel free to say more. The richer the detail, the more we have to work with.</li>
+        <li>Think about your life in general, not just how you’ve been lately or at work.</li>
+      </ul>
+    </div>
+
+    <div class="orient-tip">
+      <div class="orient-badge part1">PART 1</div>
+      <ul class="orient-tip-list">
+        <li>Move the slider even if you’re not sure — an uncertain answer is more useful than a blank one. You can’t get this wrong.</li>
+        <li>Go with your gut. If a statement makes you pause, ask yourself: would my closest friend say this is true of me?</li>
+      </ul>
+    </div>
+
+    <p class="orient-closing">Ready? The first question is a warm-up — just a chance to find your voice before the real work begins.</p>
+
+    <div class="preassess-nav orient-nav">
+      <button class="btn btn-primary" id="btn-orient-begin">Let’s begin</button>
     </div>
   </div>`;
 }
@@ -2294,26 +2398,58 @@ function renderError() {
 // =================== EVENT HANDLERS ===================
 
 function attachHandlers() {
-  // Welcome
+  // ---- Welcome (§0) ----
   const btnStart = document.getElementById('btn-start');
   if (btnStart) btnStart.addEventListener('click', () => {
-    // Belt-and-suspenders: if storage somehow survived, clear it when a fresh
-    // assessment actually begins. (resetAndReturnHome already clears on
-    // "New Analysis", but this protects edge cases.)
+    // Belt-and-suspenders: clear any stale persisted result when a fresh
+    // assessment begins.
     clearResult();
+    // Decision D: commit the session to in_progress at Start so Save works on the
+    // profile-confirm / intake screens. Fire-and-forget — resolves long before
+    // the first session save (Stage 0 → Stage 1).
+    beginAssessment();
+    // Token clients always resolve to profile-confirm (Decision B); local/no-token
+    // sessions fall back to the intake form.
+    const route = (typeof window !== 'undefined' && window.__hiveBootstrap && window.__hiveBootstrap.route) || 'intake';
+    state.phase = (route === 'profile-confirm') ? 'profile-confirm' : 'intake';
+    render();
+  });
+
+  // ---- Profile Confirmation (§0A) ----
+  const btnProfileContinue = document.getElementById('btn-profile-continue');
+  if (btnProfileContinue) btnProfileContinue.addEventListener('click', () => {
+    state.phase = 'orientation';
+    render();
+  });
+  const btnEditProfile = document.getElementById('btn-edit-profile');
+  if (btnEditProfile) btnEditProfile.addEventListener('click', () => {
     state.phase = 'intake';
     render();
   });
 
-  // Intake form
+  // ---- Intake form (§0B) ----
+  // Live gate: Continue unlocks only when all four required fields are present.
+  const refreshIntakeGate = () => {
+    const btn = document.getElementById('btn-intake-continue');
+    if (!btn) return;
+    const v = (id) => { const el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
+    btn.disabled = !(v('intake-first-name') && v('intake-last-name') && v('intake-email') && v('intake-coach'));
+  };
+  ['intake-first-name', 'intake-last-name', 'intake-email', 'intake-coach'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', refreshIntakeGate);
+    el.addEventListener('change', refreshIntakeGate);
+  });
+
   const btnIntakeContinue = document.getElementById('btn-intake-continue');
   if (btnIntakeContinue) {
-    btnIntakeContinue.addEventListener('click', () => {
+    btnIntakeContinue.addEventListener('click', async () => {
       const firstName = (document.getElementById('intake-first-name').value || '').trim();
       const lastName = (document.getElementById('intake-last-name').value || '').trim();
       const email = (document.getElementById('intake-email').value || '').trim();
       const organization = (document.getElementById('intake-organization').value || '').trim();
-      const coach = (document.getElementById('intake-coach').value || 'Cai Delumpa').trim();
+      const coach = (document.getElementById('intake-coach').value || '').trim();
 
       const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       const errorDiv = document.getElementById('intake-error');
@@ -2321,18 +2457,27 @@ function attachHandlers() {
 
       emailErrorDiv.style.display = (!email || emailValid) ? 'none' : 'block';
 
-      if (!firstName || !lastName || !email || !emailValid) {
+      if (!firstName || !lastName || !email || !emailValid || !coach) {
         errorDiv.style.display = 'block';
         return;
       }
 
       errorDiv.style.display = 'none';
-      state.intake = { firstName, lastName, email, organization, coach };
-      state.phase = 'stage0';
-      state.stage0Idx = 0;
+      // Preserve token / client_id while updating the editable fields (§0B edit flow).
+      Object.assign(state.intake, { firstName, lastName, email, organization, coach });
+      await persistProfile();   // edit-flow: update the client record in place
+      state.phase = 'orientation';
       render();
     });
   }
+
+  // ---- Orientation (§0C) ----
+  const btnOrientBegin = document.getElementById('btn-orient-begin');
+  if (btnOrientBegin) btnOrientBegin.addEventListener('click', () => {
+    state.phase = 'stage0';
+    state.stage0Idx = 0;
+    render();
+  });
 
   // Restart (used by stage1complete placeholder + "New Analysis" button on results)
   const resetAndReturnHome = () => {

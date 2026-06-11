@@ -203,6 +203,113 @@ body {
   width: 100%;
 }
 
+/* ============================================================
+   v2 PRE-ASSESSMENT SCREENS (PR2) — §0 Welcome · §0A Profile Confirm
+   · §0B Intake · §0C Orientation. All inside .hive-assessment, so they
+   inherit the §2 scoped tokens (Hive Blue/Orange, Arial).
+   ============================================================ */
+
+/* ---- §0 Welcome ---- */
+/* Compound .screen.X selectors so these widths beat the generic .screen max-width
+   (660px) defined later in the file regardless of source order. */
+.screen.welcome-screen { max-width: 520px; text-align: center; }
+.welcome-eyebrow {
+  font-size: 11px; font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--hive-blue); margin-bottom: 16px;
+}
+.welcome-headline { margin: 0 0 18px; line-height: 1.15; }
+.welcome-headline .wh-light { display: block; font-weight: 300; font-size: 38px; color: var(--ink); }
+.welcome-headline .wh-bold  { display: block; font-weight: 600; font-size: 38px; color: var(--ink); }
+.welcome-tagline { font-size: 16px; color: #6B7785; line-height: 1.6; max-width: 460px; margin: 0 auto 18px; }
+.report-carrot {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 14px; font-weight: 500; color: var(--ink); margin: 0 auto 18px;
+}
+.carrot-icon { width: 16px; height: 16px; flex: none; }
+.carrot-short { display: none; }
+.welcome-meta { font-size: 13px; color: #9AA3AD; margin-bottom: 22px; }
+.welcome-precta { font-size: 14px; font-style: italic; color: #6B7785; margin-bottom: 16px; }
+.welcome-cta { border-radius: 10px; padding: 15px 52px; font-size: 16px; font-weight: 500; }
+
+/* ---- Shared pre-assessment (profile-confirm / intake) ---- */
+.screen.preassess-screen { max-width: 400px; text-align: left; }
+.preassess-screen { width: 100%; }
+.preassess-heading { font-size: 26px; font-weight: 500; color: var(--ink); margin: 0 0 8px; }
+.preassess-subhead { font-size: 14px; color: #6B7785; line-height: 1.5; margin: 0 0 22px; }
+.preassess-nav { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.preassess-nav .btn-primary { padding: 12px 34px; }
+
+/* ---- §0A Profile Confirm ---- */
+.pc-card { background: #fff; border: 0.5px solid var(--border); border-radius: 10px; padding: 2px 16px; margin-bottom: 14px; }
+.pc-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 12px 0; border-bottom: 0.5px solid #F0F2F4; }
+.pc-row:last-child { border-bottom: none; }
+.pc-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #9AA3AD; }
+.pc-value { font-size: 14px; color: var(--ink); text-align: right; }
+.pc-edit { background: none; border: none; color: var(--hive-blue); font-size: 13px; font-family: inherit; cursor: pointer; padding: 0; margin-bottom: 24px; }
+.pc-edit-icon { margin-right: 2px; }
+
+/* ---- §0B Intake ---- */
+.intake-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.intake-field { margin-bottom: 16px; }
+.intake-label { display: block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: #5A6472; margin-bottom: 6px; }
+.req { color: var(--hive-orange); }
+.intake-optional { color: #9AA3AD; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 11px; }
+.intake-input {
+  width: 100%; box-sizing: border-box; background: #fff;
+  border: 1px solid #B8C8D4; border-radius: 7px; padding: 10px 13px;
+  font-family: inherit; font-size: 14px; color: var(--ink); outline: none;
+}
+.intake-input:focus { border-color: var(--hive-blue); }
+.intake-select {
+  -webkit-appearance: none; appearance: none; background-color: #fff;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22><path fill=%22%238A96A3%22 d=%22M6 8L0 0h12z%22/></svg>');
+  background-repeat: no-repeat; background-position: right 13px center; padding-right: 32px;
+}
+.intake-select:disabled { color: var(--ink); opacity: 1; }
+.intake-inline-error { color: #C44530; font-size: 12px; margin-top: 4px; }
+.intake-form-error { color: #C44530; font-size: 13px; margin-bottom: 14px; }
+
+/* ---- §0C Orientation ---- */
+.screen.orient-screen { max-width: 560px; text-align: left; }
+.orient-screen { width: 100%; }
+.orient-lead { font-size: 18px; font-weight: 500; color: var(--ink); line-height: 1.5; margin: 0 0 20px; }
+.orient-pills { display: flex; gap: 8px; margin-bottom: 22px; }
+.orient-pill { flex: 1 1 0; min-width: 0; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.orient-pill.featured { background: #EBF9FD; border-color: var(--hive-blue); }
+.orient-pill-label { font-size: 13px; font-weight: 600; color: var(--ink); }
+.orient-star { color: var(--hive-blue); }
+.orient-pill-count { font-size: 11px; color: #6B7785; margin-top: 3px; }
+.orient-pill-kind { font-size: 10px; color: #9AA3AD; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+.orient-tip { border-top: 0.5px solid #E8ECF0; padding-top: 16px; margin-bottom: 14px; }
+.orient-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #fff; border-radius: 4px; padding: 3px 8px; margin-bottom: 10px; }
+.orient-badge.warmup { background: #8ABEC9; }
+.orient-badge.part1  { background: #00B2D9; }
+.orient-tip-list { margin: 0; padding-left: 18px; }
+.orient-tip-list li { font-size: 14px; color: var(--ink); line-height: 1.55; margin-bottom: 8px; }
+.orient-tip-list li:last-child { margin-bottom: 0; }
+.orient-closing { font-style: italic; font-size: 13px; color: #6B7785; margin: 8px 0 20px; }
+
+/* ---- Pre-assessment mobile (§0 / §3.2) ---- */
+@media (max-width: 600px) {
+  .welcome-headline .wh-light, .welcome-headline .wh-bold { font-size: 26px; }
+  .welcome-tagline { font-size: 13px; max-width: 260px; }
+  .report-carrot { font-size: 12px; }
+  .carrot-icon { width: 12px; height: 12px; }
+  .carrot-full { display: none; }
+  .carrot-short { display: inline; }
+  .welcome-meta { font-size: 11px; }
+  .welcome-precta { font-size: 12px; }
+  .welcome-cta { padding: 12px 36px; font-size: 14px; border-radius: 8px; }
+
+  .preassess-heading { font-size: 18px; }
+  .intake-grid { grid-template-columns: 1fr; gap: 0; }
+  .preassess-nav { flex-direction: column-reverse; align-items: stretch; }
+  .preassess-nav .btn-primary, .preassess-nav .preassess-save { width: 100%; }
+
+  .orient-pills { flex-wrap: wrap; }
+  .orient-pill { flex: 1 1 45%; }
+}
+
 .screen {
   width: 100%;
   max-width: 660px;
