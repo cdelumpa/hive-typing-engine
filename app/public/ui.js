@@ -156,12 +156,85 @@ function overallFraction() {
 
 // Chrome reads this for the global bar + sub-progress strip.
 function progressFor(phase) {
+  let dotIndex = stageDotIndex(phase);
+  let dotTotal = stageDotTotal(phase);
+
+  // §6.5 dot trail: Stage 4 and the final open response form ONE continuous Part 4
+  // trail of (stage4Sequence.length + 1) dots — the final open is its last dot. So
+  // Stage 4 screens read "Screen N of M+1" (no denominator jump at the final open),
+  // and the final open reads "Screen M+1 of M+1" (fully filled = assessment done).
+  // Localized here so overallFraction (which sums stage4 + 1 separately) is untouched.
+  if (phase === 'stage4' || phase === 'finalopen') {
+    const m = (state.stage4Sequence && state.stage4Sequence.length) || 2;
+    dotTotal = m + 1;
+    dotIndex = phase === 'finalopen' ? m : (state.stage4Idx || 0);
+  }
+
   return {
     stageLabel: PHASE_FIXED[phase] ? PHASE_FIXED[phase].label : (STAGE_LABELS[phase] || null),
     pct:        Math.round(overallFraction() * 100),
-    dotIndex:   stageDotIndex(phase),
-    dotTotal:   stageDotTotal(phase),
+    dotIndex:   dotIndex,
+    dotTotal:   dotTotal,
   };
+}
+
+// =================== RESUME PROGRESS (§0G) ===================
+//
+// The Resume screen uses a SEGMENT-WEIGHT model that is intentionally distinct
+// from the chrome's part-anchored overallFraction. Per §0G.4 the four parts carry
+// flex weights Warmup 1 · Part 1 3 · Part 2 1 · Parts 3 & 4 1.5 (total 6.5), and
+// the overall % is (completed-part weights + current-part fraction × its weight)
+// / 6.5. screens_done counts the current screen (dotIndex + 1), so "screen 8 of 14"
+// reads 8/14 and the badge shows 42% — matching the §0G worked example exactly.
+const RESUME_SEGMENTS = [
+  { key: 'warmup', label: 'Warmup', weight: 1 },
+  { key: 'part1',  label: 'Part 1', weight: 3 },
+  { key: 'part2',  label: 'Part 2', weight: 1 },
+  { key: 'part34', label: 'Part 4', weight: 1.5 }, // Parts 3 & 4 combined (§0G.4)
+];
+
+// Map a saved (resume-target) phase → { segIdx, label, done, total } where done/total
+// are screens within the current part. Part labels are part-only per Decision B.
+function resumePartInfo(phase) {
+  const s3 = stageDotTotal('stage3');
+  const s4 = stageDotTotal('stage4');
+  const p34Total = s3 + s4 + 1; // Parts 3 & 4 + final open share one trail (§6.5)
+  switch (phase) {
+    case 'stage0':
+      return { segIdx: 0, label: 'Warmup', done: (state.stage0Idx || 0) + 1, total: stageDotTotal('stage0') };
+    case 'stage1':
+      return { segIdx: 1, label: 'Part 1', done: (state.stage1Idx || 0) + 1, total: stageDotTotal('stage1') };
+    case 'part1-complete':
+      return { segIdx: 1, label: 'Part 1', done: stageDotTotal('stage1'), total: stageDotTotal('stage1') };
+    case 'stage2':
+      return { segIdx: 2, label: 'Part 2', done: (state.stage2Idx || 0) + 1, total: stageDotTotal('stage2') };
+    case 'part2-complete':
+      return { segIdx: 2, label: 'Part 2', done: stageDotTotal('stage2'), total: stageDotTotal('stage2') };
+    case 'stage3':
+      return { segIdx: 3, label: 'Part 3', done: (state.stage3Idx || 0) + 1, total: p34Total };
+    case 'stage4':
+      return { segIdx: 3, label: 'Part 4', done: s3 + (state.stage4Idx || 0) + 1, total: p34Total };
+    case 'finalopen':
+      return { segIdx: 3, label: 'Part 4', done: p34Total, total: p34Total };
+    default:
+      return { segIdx: 0, label: 'Warmup', done: 1, total: stageDotTotal('stage0') };
+  }
+}
+
+// Full resume progress payload for renderResume: current part, screen position,
+// per-segment fill fractions, and the segment-weighted overall %.
+function resumeProgress(phase) {
+  const part = resumePartInfo(phase);
+  const frac = part.total > 0 ? Math.min(1, part.done / part.total) : 0;
+  const completedWeight = RESUME_SEGMENTS.slice(0, part.segIdx).reduce((s, x) => s + x.weight, 0);
+  const totalWeight = RESUME_SEGMENTS.reduce((s, x) => s + x.weight, 0);
+  const pct = Math.round(((completedWeight + frac * RESUME_SEGMENTS[part.segIdx].weight) / totalWeight) * 100);
+  const segments = RESUME_SEGMENTS.map((seg, i) => ({
+    weight: seg.weight,
+    state: i < part.segIdx ? 'done' : (i === part.segIdx ? 'current' : 'upcoming'),
+    fill:  i < part.segIdx ? 1 : (i === part.segIdx ? frac : 0),
+  }));
+  return { segIdx: part.segIdx, label: part.label, done: part.done, total: part.total, pct, segments };
 }
 
 // Live-update the global bar width without a full re-render. No-ops when the bar

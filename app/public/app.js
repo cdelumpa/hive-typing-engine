@@ -364,7 +364,12 @@ initStage1();
 loadTypeLibrary();
 
 // Token-based entry: server injects window.__hiveIntake when a valid token session is active.
-if (window.__hiveIntake) {
+var __boot = (typeof window !== 'undefined' && window.__hiveBootstrap) || null;
+
+// Terminal error routes (§10) — no intake, no session, render the screen directly.
+if (__boot && (__boot.route === 'invalid-token' || __boot.route === 'expired-token')) {
+  state.phase = __boot.route;
+} else if (window.__hiveIntake) {
   Object.assign(state.intake, window.__hiveIntake);
 
   // Resume flow: server injects window.__hiveSessionState when the client had
@@ -413,6 +418,13 @@ if (window.__hiveIntake) {
         }
         if (state.phase === 'part1-complete') state._part1Ready = false;
       }
+    }
+    // Resume (§0G): stash the rehydrated saved phase and show the Resume screen
+    // first; the Continue handler advances to _resumeTarget. Defensive guard skips
+    // terminal phases (session_state is only ever saved mid-assessment).
+    if (__boot && __boot.route === 'resume' && ['confirmation', 'results'].indexOf(state.phase) === -1) {
+      state._resumeTarget = state.phase;
+      state.phase = 'resume';
     }
   }
   // Fresh (non-resume) token entry: the SPA now owns the full pre-assessment flow

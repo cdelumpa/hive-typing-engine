@@ -2263,20 +2263,30 @@ app.get('/assessment/:token', async (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   const tokenRow = await db.getTokenWithClient(req.params.token);
 
+  // Token not found → Invalid Link SPA screen (§10.3). No client data — the token
+  // didn't resolve, so the SPA renders generic copy with no personalization.
   if (!tokenRow) {
-    return res.send(renderAssessmentGate(
-      'Link Not Found',
-      'This assessment link is not valid. Please contact your coach to request a new invite.',
-      ''
-    ));
+    try {
+      let html = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
+      return res.send(injectAssessmentBootstrap(html, null, { route: 'invalid-token' }));
+    } catch (e) {
+      console.error('[assessment/:token invalid] serve error:', e.message);
+      return res.send(renderAssessmentGate('Link Not Found',
+        'This assessment link is not valid. Please contact your coach to request a new invite.', ''));
+    }
   }
 
+  // Token resolved but expired → Expired Link SPA screen (§10.2). Generic coach
+  // copy for alpha (Decision C) — no personalization despite the record resolving.
   if (new Date(tokenRow.expires_at) < new Date()) {
-    return res.send(renderAssessmentGate(
-      'Link Expired',
-      'This assessment link has expired. Please contact your coach to request a new invite.',
-      ''
-    ));
+    try {
+      let html = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
+      return res.send(injectAssessmentBootstrap(html, null, { route: 'expired-token' }));
+    } catch (e) {
+      console.error('[assessment/:token expired] serve error:', e.message);
+      return res.send(renderAssessmentGate('Link Expired',
+        'This assessment link has expired. Please contact your coach to request a new invite.', ''));
+    }
   }
 
   if (tokenRow.client_status === 'complete') {
@@ -2310,9 +2320,11 @@ app.get('/assessment/:token', async (req, res) => {
           token:        req.params.token,
         };
         const sessionTag = `<script>window.__hiveSessionState = ${JSON.stringify(tokenRow.session_state)};</script>`;
-        // injectAssessmentBootstrap inlines the logo + intake; append the resume
-        // session state alongside them before </head>.
-        html = injectAssessmentBootstrap(html, intake).replace('</head>', `${sessionTag}\n</head>`);
+        // injectAssessmentBootstrap inlines the logo + intake + the resume route
+        // flag (§0G); append the saved session state alongside them before </head>.
+        // The SPA stashes the saved phase as _resumeTarget and shows the Resume
+        // screen first rather than jumping straight into the assessment.
+        html = injectAssessmentBootstrap(html, intake, { route: 'resume' }).replace('</head>', `${sessionTag}\n</head>`);
         return res.send(html);
       } catch (e) {
         console.error('[assessment/resume] index.html read error:', e.message);
