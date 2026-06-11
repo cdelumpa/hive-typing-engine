@@ -2371,18 +2371,18 @@ app.get('/assessment/:token', async (req, res) => {
         console.error('[assessment/resume] index.html read error:', e.message);
       }
     }
-    // No saved state — dead-end gate
-    return res.send(renderAssessmentGate(
-      'Assessment In Progress',
-      `It looks like you've already started your assessment, ${esc(tokenRow.first_name)}. If you need to restart, please contact your coach.`,
-      ''
-    ));
+    // In progress but nothing saved yet — e.g. a refresh during the pre-assessment
+    // screens (Welcome / intake / profile-confirm / orientation), before the first
+    // Stage 0 save writes session_state. There is no progress to resume, so fall
+    // through and re-serve the SPA fresh rather than dead-ending the client with a
+    // "contact your coach" gate. /begin is idempotent for an already-in_progress
+    // client, so re-entering the pre-assessment flow is lossless.
   }
 
-  // not_started — serve the SPA; it owns the full pre-assessment flow
-  // (Welcome → profile-confirm/intake → orientation → Stage 0). The bootstrap
-  // carries the route flag (§0A: profile-confirm when the record is complete,
-  // else intake) and the active coach roster for the intake form.
+  // not_started, or in_progress with no saved state yet — serve the SPA; it owns
+  // the full pre-assessment flow (Welcome → profile-confirm/intake → orientation →
+  // Stage 0). The bootstrap carries the route flag (§0A: profile-confirm when the
+  // record is complete, else intake) and the active coach roster for the intake form.
   try {
     const intake = {
       firstName:    tokenRow.first_name,
