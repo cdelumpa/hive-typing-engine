@@ -90,9 +90,6 @@ const PHASE_FIXED = {
   'part2-complete': { label: 'PART 2 COMPLETE', pct: 68 },
 };
 
-// Question stages in flow order — used for cumulative progress accounting.
-const PROGRESS_ORDER = ['stage0', 'stage1', 'stage2', 'stage3', 'stage4', 'finalopen'];
-
 // Screen (dot) count for a question stage. Fixed for Stage 0/1/2; dynamic for
 // Stage 3/4. Stage 1 reads STAGE1_SCREENS.length so PR4's rebuild flows through.
 function stageDotTotal(phase) {
@@ -121,40 +118,40 @@ function stageDotIndex(phase) {
   }
 }
 
-function overallTotalScreens() {
-  return PROGRESS_ORDER.reduce((sum, ph) => sum + stageDotTotal(ph), 0);
-}
-
-// Cumulative screens completed up to and including the current phase. Returns
-// null for non-question phases. Interstitials report the cumulative total at the
-// boundary of the stage they follow.
-function completedScreens() {
-  const p = state.phase;
-  const s1 = stageDotTotal('stage1');
-  const s3 = stageDotTotal('stage3');
-  const before = {
-    stage0: 0,
-    stage1: 4,
-    stage2: 4 + s1,
-    stage3: 4 + s1 + 3,
-    stage4: 4 + s1 + 3 + s3,
-    finalopen: 4 + s1 + 3 + s3 + stageDotTotal('stage4'),
-  };
-  if (before[p] == null) return null;
-  return PROGRESS_ORDER.includes(p) ? before[p] + stageDotIndex(p) : before[p];
-}
-
-// Overall completion fraction (0-1) for the global progress bar. Pre-assessment
-// phases read 0; terminal phases read 1.
+// Overall completion fraction (0-1) for the global progress bar. Part-anchored
+// model (Decision A / Option 2): the fixed interstitial percentages are the part
+// boundaries, and stage screens interpolate within each band — so the bar is
+// monotonic (no backward jump at the orange interstitials) while still reflecting
+// the screen count within each part. Bands:
+//   Warmup 0→12 · Part 1 12→42 · Part 2 42→68 · Parts 3 & 4 68→100
+// (part1-complete = 42 and part2-complete = 68 are returned by PHASE_FIXED, which
+// coincide exactly with the band endpoints.) Pre-assessment phases read 0;
+// terminal phases read 1.
 function overallFraction() {
   const p = state.phase;
   if (PHASE_FIXED[p]) return PHASE_FIXED[p].pct / 100;
   if (p === 'welcome' || p === 'intake' || p === 'profile-confirm' || p === 'orientation' || p === 'resume') return 0;
   if (p === 'confirmation' || p === 'results' || p === 'processing' || p === 'error') return 1;
-  const done = completedScreens();
-  if (done == null) return 0;
-  const total = overallTotalScreens();
-  return total > 0 ? Math.min(1, done / total) : 0;
+
+  // Interpolate from lo→hi (percent) by screens completed within the band.
+  const lerp = (lo, hi, done, total) => (lo + (total > 0 ? (done / total) * (hi - lo) : 0)) / 100;
+  switch (p) {
+    case 'stage0': return lerp(0,  12, stageDotIndex('stage0'), stageDotTotal('stage0'));
+    case 'stage1': return lerp(12, 42, stageDotIndex('stage1'), stageDotTotal('stage1'));
+    case 'stage2': return lerp(42, 68, stageDotIndex('stage2'), stageDotTotal('stage2'));
+    case 'stage3':
+    case 'stage4':
+    case 'finalopen': {
+      // Parts 3 & 4 + the final open response share one 68→100 band.
+      const s3 = stageDotTotal('stage3'), s4 = stageDotTotal('stage4');
+      const total = s3 + s4 + 1;
+      const done = p === 'stage3' ? stageDotIndex('stage3')
+                 : p === 'stage4' ? s3 + stageDotIndex('stage4')
+                 : s3 + s4; // finalopen — the last screen of the band
+      return lerp(68, 100, done, total);
+    }
+    default: return 0;
+  }
 }
 
 // Chrome reads this for the global bar + sub-progress strip.
