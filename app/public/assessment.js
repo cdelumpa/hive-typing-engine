@@ -1710,14 +1710,14 @@ function renderIntake() {
 // renderChromeShell) to avoid collision with any other instance on the page.
 function renderOrientationInterstitial() {
   const pills = [
-    { label: 'Warmup',       count: '4 short questions', kind: 'Open responses',     featured: false },
-    { label: 'Part 1',       count: '14 screens',        kind: 'Sliders',            featured: true  },
+    { label: 'Warmup',       count: '4 short questions', kind: 'Open responses',     featured: true  },
+    { label: 'Part 1',       count: '14 screens',        kind: 'Sliders',            featured: false },
     { label: 'Part 2',       count: '3 questions',       kind: 'Multiple choice',    featured: false },
     { label: 'Parts 3 & 4',  count: 'A few rounds',      kind: 'Paired comparisons', featured: false },
   ];
   const pillsHtml = pills.map((p) => `
     <div class="orient-pill ${p.featured ? 'featured' : ''}">
-      <div class="orient-pill-label">${esc(p.label)}${p.featured ? ' <span class="orient-star">★</span>' : ''}</div>
+      <div class="orient-pill-label">${esc(p.label)}</div>
       <div class="orient-pill-count">${esc(p.count)}</div>
       <div class="orient-pill-kind">${esc(p.kind)}</div>
     </div>`).join('');
@@ -1740,6 +1740,7 @@ function renderOrientationInterstitial() {
       <ul class="orient-tip-list">
         <li>Move the slider even if you’re not sure — an uncertain answer is more useful than a blank one. You can’t get this wrong.</li>
         <li>Go with your gut. If a statement makes you pause, ask yourself: would my closest friend say this is true of me?</li>
+        <li>All sliders must be moved to continue to the next screen.</li>
       </ul>
     </div>
 
