@@ -94,11 +94,13 @@ app.use(express.urlencoded({ extended: false }));
 const HIVE_LOGO_SVG_CLIENT = HIVE_LOGO_SVG.replace('class="logo"', '');
 const HIVE_LOGO_SCRIPT_TAG = `<script>window.__HIVE_LOGO_SVG = ${JSON.stringify(HIVE_LOGO_SVG_CLIENT)};</script>`;
 
-// Splice the inlined logo (always) and, when present, the token-session intake
-// payload into index.html before </head>. Used by the SPA entry routes.
-function injectAssessmentBootstrap(html, intake) {
+// Splice the inlined logo (always), the token-session intake payload, and the
+// SPA bootstrap (pre-assessment route flag + coach roster) into index.html before
+// </head>. Used by the SPA entry routes.
+function injectAssessmentBootstrap(html, intake, bootstrap) {
   let tags = HIVE_LOGO_SCRIPT_TAG;
   if (intake) tags += `\n<script>window.__hiveIntake = ${JSON.stringify(intake)};</script>`;
+  if (bootstrap) tags += `\n<script>window.__hiveBootstrap = ${JSON.stringify(bootstrap)};</script>`;
   return html.replace('</head>', `${tags}\n</head>`);
 }
 
@@ -2225,157 +2227,6 @@ app.post('/admin/clients/resend/:client_id', requireAdminSession, async (req, re
 
 // ── Assessment Token Entry ─────────────────────────────────────────────────────
 
-function renderAssessmentWelcome(tokenRow, token) {
-  const firstName  = esc(tokenRow.first_name);
-  const lastName   = esc(tokenRow.last_name);
-  const orgRaw     = esc(tokenRow.organization || '');
-  const orgDisplay = orgRaw || '<span style="color:#7A96A6;">—</span>';
-  const tokenEnc   = encodeURIComponent(token);
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hive Enneagram Assessment</title>
-<style>
-  *, *::before, *::after { box-sizing: border-box; }
-  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px 16px; }
-  .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.1); padding: 48px 40px; width: 100%; max-width: 520px; }
-  .logo-bar { border-top: 4px solid #00b1d7; padding-top: 20px; margin-bottom: 28px; text-align: center; }
-  .logo-bar p { font-size: 11px; color: #7A96A6; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px; }
-  .logo-bar h1 { font-size: 22px; color: #00b1d7; margin: 0; font-weight: 700; }
-  .subhead { font-size: 14px; color: #4A6070; text-align: center; margin: 0 0 22px; line-height: 1.6; }
-  .details-block { background: #f7f5f2; border-radius: 6px; padding: 14px 18px; margin-bottom: 14px; }
-  .detail-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid #EFE8E0; font-size: 13px; }
-  .detail-row:last-child { border-bottom: none; }
-  .detail-label { color: #7A96A6; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
-  .detail-value { color: #1A2B33; font-weight: 500; }
-  .text-link { font-size: 12px; color: #7A96A6; text-decoration: underline; text-decoration-style: dotted; cursor: pointer; }
-  .text-link:hover { color: #00b1d7; }
-  .form-group { margin-bottom: 14px; }
-  .form-label { display: block; font-size: 11px; font-weight: 700; color: #4A6070; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; }
-  .opt-label { color: #7A96A6; font-weight: 400; text-transform: none; font-size: 11px; }
-  .form-input { width: 100%; padding: 10px 14px; border: 1.5px solid #C5DDE8; border-radius: 6px; font-family: Georgia, serif; font-size: 14px; color: #1A2B33; outline: none; transition: border-color 0.2s; }
-  .form-input:focus { border-color: #00b1d7; }
-  .btn { display: inline-block; background: #00b1d7; color: #fff; padding: 14px 32px; border-radius: 4px; font-weight: 700; font-family: Georgia, serif; font-size: 15px; text-decoration: none; border: none; cursor: pointer; width: 100%; text-align: center; }
-  .btn:hover:not(:disabled) { background: #009bbf; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .begin-wrap { margin-top: 20px; text-align: center; }
-  .begin-wrap .btn { width: auto; }
-</style>
-</head>
-<body>
-<div class="card">
-  <div class="logo-bar">
-    <p>Hive Enneagram Type Tool</p>
-    <h1>Welcome, ${firstName}.</h1>
-  </div>
-
-  <div id="view-mode">
-    <p class="subhead">Before you begin, make sure your details are correct.</p>
-    <div class="details-block">
-      <div class="detail-row">
-        <span class="detail-label">First Name</span>
-        <span class="detail-value">${firstName}</span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Last Name</span>
-        <span class="detail-value">${lastName}</span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Organization</span>
-        <span class="detail-value">${orgDisplay}</span>
-      </div>
-    </div>
-    <p style="text-align:center;margin:10px 0 0;">
-      <a href="#" id="edit-link" class="text-link">Edit my details</a>
-    </p>
-  </div>
-
-  <div id="edit-mode" style="display:none;">
-    <div class="form-group">
-      <label class="form-label">First Name <span style="color:#f58527;">*</span></label>
-      <input id="inp-fn" type="text" class="form-input" value="${firstName}">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Last Name <span style="color:#f58527;">*</span></label>
-      <input id="inp-ln" type="text" class="form-input" value="${lastName}">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Organization <span class="opt-label">(optional)</span></label>
-      <input id="inp-org" type="text" class="form-input" value="${orgRaw}">
-    </div>
-    <div id="edit-error" style="display:none;color:#C44530;font-size:13px;margin-bottom:14px;"></div>
-    <button id="btn-save-begin" class="btn">Looks Good — Let's Begin</button>
-    <p style="text-align:center;margin:12px 0 0;">
-      <a href="#" id="cancel-link" class="text-link">Cancel</a>
-    </p>
-  </div>
-
-  <div class="begin-wrap">
-    <form method="POST" action="/assessment/${tokenEnc}/begin" id="begin-form">
-      <button type="submit" class="btn">Start Assessment</button>
-    </form>
-  </div>
-</div>
-<script>
-(function() {
-  var TOKEN = ${JSON.stringify(token)};
-
-  document.getElementById('edit-link').addEventListener('click', function(e) {
-    e.preventDefault();
-    document.getElementById('view-mode').style.display = 'none';
-    document.getElementById('edit-mode').style.display = '';
-    document.getElementById('inp-fn').focus();
-  });
-
-  document.getElementById('cancel-link').addEventListener('click', function(e) {
-    e.preventDefault();
-    document.getElementById('edit-mode').style.display = 'none';
-    document.getElementById('edit-error').style.display = 'none';
-    document.getElementById('view-mode').style.display = '';
-  });
-
-  document.getElementById('btn-save-begin').addEventListener('click', async function() {
-    var btn = this;
-    var errDiv = document.getElementById('edit-error');
-    var fn  = document.getElementById('inp-fn').value.trim();
-    var ln  = document.getElementById('inp-ln').value.trim();
-    var org = document.getElementById('inp-org').value.trim();
-    errDiv.style.display = 'none';
-    if (!fn || !ln) {
-      errDiv.textContent = 'First name and last name are required.';
-      errDiv.style.display = '';
-      return;
-    }
-    btn.disabled = true; btn.textContent = 'Saving…';
-    try {
-      var r = await fetch('/assessment/' + encodeURIComponent(TOKEN) + '/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ first_name: fn, last_name: ln, organization: org || null }),
-      });
-      var data = await r.json();
-      if (!r.ok || !data.success) {
-        errDiv.textContent = data.error || 'Could not save your details. Please try again.';
-        errDiv.style.display = '';
-        btn.disabled = false; btn.textContent = 'Looks Good — Let’s Begin';
-        return;
-      }
-      document.getElementById('begin-form').submit();
-    } catch(e) {
-      errDiv.textContent = 'Something went wrong. Please try again.';
-      errDiv.style.display = '';
-      btn.disabled = false; btn.textContent = 'Looks Good — Let’s Begin';
-    }
-  });
-})();
-</script>
-</body>
-</html>`;
-}
-
 function renderAssessmentGate(title, message, actionHtml) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -2475,19 +2326,56 @@ app.get('/assessment/:token', async (req, res) => {
     ));
   }
 
-  // not_started — show welcome screen with profile self-edit + Begin button
-  return res.send(renderAssessmentWelcome(tokenRow, req.params.token));
+  // not_started — serve the SPA; it owns the full pre-assessment flow
+  // (Welcome → profile-confirm/intake → orientation → Stage 0). The bootstrap
+  // carries the route flag (§0A: profile-confirm when the record is complete,
+  // else intake) and the active coach roster for the intake form.
+  try {
+    const intake = {
+      firstName:    tokenRow.first_name,
+      lastName:     tokenRow.last_name,
+      email:        tokenRow.email,
+      organization: tokenRow.organization || '',
+      coach:        tokenRow.coach_name,
+      client_id:    tokenRow.client_id,
+      token:        req.params.token,
+    };
+    const recordComplete = !!(tokenRow.first_name && tokenRow.last_name && tokenRow.email && tokenRow.coach_name);
+    let coaches = [];
+    try {
+      const all = await db.getAllCoaches();
+      coaches = (all || []).filter((c) => c.is_active).map((c) => c.name);
+    } catch (e) { /* roster is best-effort; intake falls back to seeded coaches */ }
+    const bootstrap = { route: recordComplete ? 'profile-confirm' : 'intake', coaches };
+    let html = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
+    html = injectAssessmentBootstrap(html, intake, bootstrap);
+    return res.send(html);
+  } catch (e) {
+    console.error('[assessment/:token not_started] serve error:', e.message);
+    return res.send(renderAssessmentGate(
+      'Something went wrong',
+      'Please try opening your link again, or contact your coach.',
+      ''
+    ));
+  }
 });
 
+// Commit the session to in_progress. Now called by the SPA via fetch from the
+// Welcome "Start Assessment" click (Decision D), so it returns JSON rather than
+// redirecting. Idempotent: a repeat begin only re-affirms the session.
 app.post('/assessment/:token/begin', async (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
   const tokenRow = await db.getTokenWithClient(req.params.token);
 
   if (!tokenRow || new Date(tokenRow.expires_at) < new Date() || tokenRow.client_status === 'complete') {
-    return res.redirect(`/assessment/${encodeURIComponent(req.params.token)}`);
+    return res.status(400).json({ error: 'Assessment not available.' });
   }
 
-  await db.updateClientStatus(tokenRow.client_id, 'in_progress');
-  await db.updateTokenUsedAt(tokenRow.token_id);
+  // Only flip on the first begin; never overwrite an already-started session.
+  if (tokenRow.client_status === 'not_started') {
+    await db.updateClientStatus(tokenRow.client_id, 'in_progress');
+    await db.updateTokenUsedAt(tokenRow.token_id);
+  }
 
   req.session.assessmentClientId = tokenRow.client_id;
   req.session.assessmentIntake = {
@@ -2502,7 +2390,7 @@ app.post('/assessment/:token/begin', async (req, res) => {
 
   req.session.save((err) => {
     if (err) console.error('[assessment/begin] session save error:', err.message);
-    res.redirect('/');
+    res.json({ ok: true });
   });
 });
 
@@ -2535,14 +2423,33 @@ app.patch('/assessment/:token/profile', async (req, res) => {
   const tokenRow = await db.getTokenWithClient(req.params.token).catch(() => null);
   if (!tokenRow) return res.status(404).json({ error: 'Token not found.' });
   if (new Date(tokenRow.expires_at) < new Date()) return res.status(410).json({ error: 'This link has expired.' });
-  if (tokenRow.client_status !== 'not_started') return res.status(409).json({ error: 'Assessment has already started.' });
-  const firstName    = (req.body.first_name    || '').trim();
-  const lastName     = (req.body.last_name     || '').trim();
-  const organization = (req.body.organization  || '').trim() || null;
+  // Decision D: edits are allowed before Start (not_started) and after Start
+  // (in_progress, via the §0A "Edit your profile" flow). Reject only terminal states.
+  if (!['not_started', 'in_progress'].includes(tokenRow.client_status)) {
+    return res.status(409).json({ error: 'Assessment can no longer be edited.' });
+  }
+  const firstName    = (req.body.first_name   || '').trim();
+  const lastName     = (req.body.last_name    || '').trim();
+  const email        = (req.body.email        || '').trim();
+  const organization = (req.body.organization || '').trim() || null;
+  const coachName    = (req.body.coach        || '').trim();
   if (!firstName || !lastName) return res.status(400).json({ error: 'First name and last name are required.' });
+
+  // Resolve coach name → coach_id when provided and recognised; leave unchanged otherwise.
+  let coachId = null;
+  if (coachName) { try { coachId = await db.findOrCreateCoach(coachName); } catch (e) { coachId = null; } }
+
   await db.query(
-    `UPDATE clients SET first_name = $1, last_name = $2, organization = $3, updated_at = NOW(), updated_by = 'self' WHERE id = $4`,
-    [firstName, lastName, organization, tokenRow.client_id]
+    `UPDATE clients
+       SET first_name = $1,
+           last_name  = $2,
+           email      = COALESCE(NULLIF($3, ''), email),
+           organization = $4,
+           coach_id   = COALESCE($5, coach_id),
+           updated_at = NOW(),
+           updated_by = 'self'
+     WHERE id = $6`,
+    [firstName, lastName, email, organization, coachId, tokenRow.client_id]
   );
   console.log(`[assessment/profile] client #${tokenRow.client_id} updated their profile`);
   return res.json({ success: true });
