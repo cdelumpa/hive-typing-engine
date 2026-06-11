@@ -1782,7 +1782,9 @@ function renderFinalOpen() {
   // §6.5/§7: required now — Skip removed, gate on non-whitespace, button label is
   // Continue (the submit action), consistent with every other screen.
   return `<div class="screen">
-    <div class="q-text" style="margin-bottom:20px;">Is there anything about how you experience the world — what drives you, what you tend to avoid, or what you've learned about yourself — that the assessment didn't quite capture?</div>
+    <div class="q-text" style="margin-bottom:12px;">Is there anything about how you experience the world — what drives you, what you tend to avoid, or what you've learned about yourself — that the assessment didn't quite capture?</div>
+    <!-- Mirrors the §0F primer "THE FINAL QUESTION" — keep the two in sync. [PLACEHOLDER — Mo review required] -->
+    <p style="font-size:13px;color:var(--ink-lt);margin-bottom:16px;">You’ve answered a lot of questions — thank you! Your answer to this last one really helps us sharpen the read and bring your report to life. So don’t hold back — the richer the detail, the more we have to work with.</p>
     <textarea class="text-input" id="finalopen-input" placeholder="Type your response here…" style="min-height:130px;">${esc(val)}</textarea>
     <div class="nav-row">
       <button class="btn btn-ghost" id="btn-finalopen-back">Back</button>
