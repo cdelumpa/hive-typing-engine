@@ -81,6 +81,16 @@ ALTER TABLE assessments ADD COLUMN IF NOT EXISTS scores_snapshot  JSONB;
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS pdf_generated_at TIMESTAMPTZ;
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS email_sent_at    TIMESTAMPTZ;
 
+-- Assessment timing (§9). Nullable, no default. assessment_started_at is the
+-- server-stamped Stage 0 Q1 first-save time (carried in clients.session_state
+-- until completion); assessment_completed_at is the submit moment. elapsed_seconds
+-- is wall-clock (idle time included, intentional). session_days is calendar days
+-- spanned (same day = 1).
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS assessment_started_at   TIMESTAMPTZ;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS assessment_completed_at TIMESTAMPTZ;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS elapsed_seconds         INTEGER;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS session_days            INTEGER;
+
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage0_signal JSONB;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS ct_adjustment JSONB;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS responses_snapshot JSONB;
@@ -234,6 +244,18 @@ async function failAssessment(assessmentId) {
   );
 }
 
+// Assessment timing (§9). Writes only the four timing columns — touches no existing
+// columns. Called once from /api/submit after the assessment row is created.
+async function updateAssessmentTiming(assessmentId, { startedAt, completedAt, elapsedSeconds, sessionDays }) {
+  await query(
+    `UPDATE assessments
+       SET assessment_started_at = $1, assessment_completed_at = $2,
+           elapsed_seconds = $3, session_days = $4
+     WHERE id = $5`,
+    [startedAt, completedAt, elapsedSeconds, sessionDays, assessmentId]
+  );
+}
+
 async function createReport(assessmentId, reportType, pdfPath) {
   await query(
     `INSERT INTO reports (assessment_id, report_type, pdf_path) VALUES ($1, $2, $3)`,
@@ -305,6 +327,10 @@ async function getAdminRowsByCoach(coachId) {
       a.email_sent_at,
       (a.scores_snapshot IS NOT NULL) AS has_scores_snapshot,
       (a.api_result IS NOT NULL)      AS has_api_result,
+      a.elapsed_seconds,
+      a.session_days,
+      a.assessment_started_at,
+      a.assessment_completed_at,
       c.beta_report_generated_at,
       c.beta_report_filename
     FROM clients c
@@ -651,6 +677,7 @@ module.exports = {
   createAssessment,
   completeAssessment,
   failAssessment,
+  updateAssessmentTiming,
   createReport,
   getAdminRows,
   getAdminRowsByCoach,
