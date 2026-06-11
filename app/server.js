@@ -2478,12 +2478,24 @@ app.post('/assessment/:token/save', async (req, res) => {
   if (tokenRow.client_status !== 'in_progress') return res.status(400).json({ error: 'Assessment not in progress.' });
   const sessionState = req.body && req.body.sessionState;
   if (!sessionState || typeof sessionState !== 'object') return res.status(400).json({ error: 'Invalid sessionState.' });
-  // §9.2/§9.5 timing: server-authoritative assessment_started_at. Stamp NOW on the
-  // first save that lacks it (≈ Stage 0 Q1); preserve the existing value on every
-  // later save. The client never carries this field, so re-inject from the DB —
-  // this makes the start time idempotent: a resume can never overwrite it.
+  // §9.2/§9.5 timing: server-authoritative assessment_started_at, anchored to the
+  // Stage 0 Q1 answer. Two independent events share the /save endpoint:
+  //   • Stage-0-entry save (orientation "Let's begin"): persists state so a refresh
+  //     on Q1 resumes — but Q1 isn't answered yet, so it must NOT stamp the clock.
+  //   • Q1-answer save (advancing off Q1): stage0Answers.q1 is populated → stamp NOW.
+  // Gating on "Q1 answered" (rather than "first save") keeps the start time pinned to
+  // Q1 even though an earlier save now exists. The client never carries this field, so
+  // once set it's preserved from the DB on every later save — idempotent across resumes.
   const existingStart = tokenRow.session_state && tokenRow.session_state.assessment_started_at;
-  sessionState.assessment_started_at = existingStart || new Date().toISOString();
+  const q1Answered = !!(sessionState.stage0Answers
+    && typeof sessionState.stage0Answers.q1 === 'string'
+    && sessionState.stage0Answers.q1.trim().length > 0);
+  if (existingStart) {
+    sessionState.assessment_started_at = existingStart;          // preserve — never overwrite
+  } else if (q1Answered) {
+    sessionState.assessment_started_at = new Date().toISOString(); // first stamp, at Q1
+  }
+  // else: Stage-0-entry save before Q1 — persist state, leave started_at unset.
   await db.saveClientSessionState(tokenRow.client_id, sessionState);
   return res.json({ ok: true });
 });
