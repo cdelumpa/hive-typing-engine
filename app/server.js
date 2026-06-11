@@ -2361,11 +2361,17 @@ app.get('/assessment/:token', async (req, res) => {
           token:        req.params.token,
         };
         const sessionTag = `<script>window.__hiveSessionState = ${JSON.stringify(tokenRow.session_state)};</script>`;
-        // injectAssessmentBootstrap inlines the logo + intake + the resume route
-        // flag (§0G); append the saved session state alongside them before </head>.
-        // The SPA stashes the saved phase as _resumeTarget and shows the Resume
-        // screen first rather than jumping straight into the assessment.
-        html = injectAssessmentBootstrap(html, intake, { route: 'resume' }).replace('</head>', `${sessionTag}\n</head>`);
+        // Refresh vs. cold return. /begin stamps req.session.assessmentClientId, so
+        // an active browser session (a refresh of an in-flight assessment) carries it.
+        // A genuine cold return — clicking the saved link from a new session/device —
+        // does not. Refresh → 'resume-direct': the SPA rehydrates and lands the client
+        // straight back on the screen they were on. Cold return → 'resume': the §0G
+        // "Welcome back" screen (its specced trigger: "clicks their saved assessment
+        // link"). app.js only shows the Resume screen for route === 'resume', so
+        // 'resume-direct' falls through to the saved phase with no client change.
+        const activeSession = !!(req.session && req.session.assessmentClientId === tokenRow.client_id);
+        const route = activeSession ? 'resume-direct' : 'resume';
+        html = injectAssessmentBootstrap(html, intake, { route }).replace('</head>', `${sessionTag}\n</head>`);
         return res.send(html);
       } catch (e) {
         console.error('[assessment/resume] index.html read error:', e.message);
