@@ -403,6 +403,81 @@ body {
   .ty-eyebrow { font-size: 10px; }
 }
 
+/* ============================================================
+   PR5 — Resume (§0G) + Error screens (§10)
+   ============================================================ */
+
+/* ---- Resume screen (§0G) ---- */
+.resume-card {
+  position: relative;
+  background: #fff;
+  border: 0.5px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 18px 16px;
+  margin-bottom: 18px;
+}
+.resume-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: #FFF3E8;
+  border: 1px solid var(--hive-orange);
+  color: #C45E00;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.resume-badge-short { display: none; }
+.resume-eyebrow { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #9AA3AD; margin-bottom: 6px; }
+.resume-stage { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+.resume-screen { font-size: 12px; color: #6B7785; margin-bottom: 14px; }
+.seg-bar { display: flex; gap: 4px; height: 8px; margin-bottom: 10px; }
+.seg { border-radius: 4px; overflow: hidden; }
+.seg-done { background: #C8D0D9; }
+.seg-current { background: #FFE0BC; }
+.seg-upcoming { background: #B8E8F3; }
+.seg-fill { height: 100%; background: var(--hive-orange); border-radius: 4px; }
+.seg-done .seg-fill, .seg-upcoming .seg-fill { display: none; }
+.resume-here { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--hive-orange); }
+.resume-here-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--hive-orange); flex: none; }
+.resume-here-short { display: none; }
+.resume-cta { padding: 12px 28px; min-width: 220px; }
+
+/* ---- Error screens (§10) — centered-logo, terminal ---- */
+.screen.err-screen { max-width: 480px; text-align: center; }
+.err-screen { width: 100%; }
+.err-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px; border-width: 1.5px; border-style: solid;
+}
+.err-icon svg { width: 26px; height: 26px; }
+.err-icon-expired { background: #FFF3E8; border-color: var(--hive-orange); }
+.err-icon-invalid { background: #F4F6F8; border-color: #D0D6DE; }
+.err-eyebrow { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 12px; }
+.err-eyebrow-expired { color: var(--hive-orange); }
+.err-eyebrow-invalid { color: #9AA3AD; }
+.err-headline { font-size: 26px; font-weight: 500; color: var(--ink); margin: 0 0 16px; }
+.err-body { font-size: 15px; color: #6B7785; line-height: 1.6; max-width: 440px; margin: 0 auto 24px; }
+.coach-card { display: flex; gap: 12px; text-align: left; background: #fff; border: 0.5px solid var(--border); border-radius: 10px; padding: 16px; max-width: 440px; margin: 0 auto; }
+.coach-icon { width: 32px; height: 32px; flex: none; border-radius: 8px; background: #F4F6F8; display: flex; align-items: center; justify-content: center; }
+.coach-icon svg { width: 18px; height: 18px; }
+.coach-title { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+.coach-sub { font-size: 12px; color: #6B7785; line-height: 1.5; }
+
+@media (max-width: 600px) {
+  .resume-badge-full { display: none; }
+  .resume-badge-short { display: inline; }
+  .resume-here-full { display: none; }
+  .resume-here-short { display: inline; }
+  .resume-cta { width: 100%; min-width: 0; }
+  .err-icon { width: 44px; height: 44px; }
+  .err-icon svg { width: 20px; height: 20px; }
+  .err-headline { font-size: 19px; }
+  .err-eyebrow { font-size: 10px; }
+}
+
 .screen {
   width: 100%;
   max-width: 660px;

@@ -1440,6 +1440,9 @@ const PHASE_CHROME = {
   'profile-confirm':           { topbar: 'full',      progress: false, sub: false },
   intake:                      { topbar: 'full',      progress: false, sub: false },
   orientation:                 { topbar: 'full',      progress: false, sub: false },
+  resume:                      { topbar: 'full',      progress: false, sub: false },
+  'expired-token':             { topbar: 'logo-only', progress: false, sub: false },
+  'invalid-token':             { topbar: 'logo-only', progress: false, sub: false },
   stage0:                      { topbar: 'full',      progress: true,  sub: true  },
   stage1:                      { topbar: 'full',      progress: true,  sub: true  },
   'part1-complete':            { topbar: 'full',      progress: true,  sub: false },
@@ -1568,6 +1571,9 @@ function render() {
     case 'profile-confirm':          body = renderProfileConfirm(); break;
     case 'intake':                   body = renderIntake(); break;
     case 'orientation':              body = renderOrientationInterstitial(); break;
+    case 'resume':                   body = renderResume(); break;
+    case 'expired-token':            body = renderExpiredToken(); break;
+    case 'invalid-token':            body = renderInvalidToken(); break;
     case 'stage0':                   body = renderStage0(); break;
     case 'stage1':                   body = renderStage1(); break;
     case 'part1-complete':           body = renderPart1Complete(); break;
@@ -1773,6 +1779,82 @@ function renderThankYou() {
         <div class="inbox-spam">Can’t find it? Check your spam or junk folder.</div>
       </div>
     </div>
+  </div>`;
+}
+
+// ---- Resume Screen (§0G) ----
+// Shown when a returning client's token resolves to an in-progress session. The
+// SPA rehydrates session_state, stashes the saved phase as state._resumeTarget,
+// and lands here instead of jumping straight into the assessment. "Continue where
+// I left off" advances to _resumeTarget. No Start Over (§0G.2 — coach-mediated).
+function renderResume() {
+  const i = state.intake || {};
+  const target = state._resumeTarget || 'stage0';
+  const rp = resumeProgress(target);
+  const segs = rp.segments.map((s) =>
+    `<div class="seg seg-${s.state}" style="flex:${s.weight};"><div class="seg-fill" style="width:${Math.round(s.fill * 100)}%;"></div></div>`
+  ).join('');
+  return `<div class="screen preassess-screen">
+    <h1 class="preassess-heading">Welcome back, ${esc(i.firstName || 'there')}.</h1>
+    <p class="preassess-subhead">You’ve got a saved assessment in progress. Pick up right where you left off.</p>
+    <div class="resume-card">
+      <div class="resume-badge">${rp.pct}% <span class="resume-badge-full">complete</span><span class="resume-badge-short">done</span></div>
+      <div class="resume-eyebrow">YOU LEFT OFF AT</div>
+      <div class="resume-stage">${esc(rp.label)}</div>
+      <div class="resume-screen">Screen ${rp.done} of ${rp.total}</div>
+      <div class="seg-bar">${segs}</div>
+      <div class="resume-here">
+        <span class="resume-here-dot"></span>
+        <span class="resume-here-full">You are here — screen ${rp.done} of ${rp.total} in ${esc(rp.label)}</span>
+        <span class="resume-here-short">Screen ${rp.done} of ${rp.total} in ${esc(rp.label)}</span>
+      </div>
+    </div>
+    <div class="preassess-nav">
+      <button class="btn btn-primary resume-cta" id="btn-resume-continue">Continue where I left off</button>
+    </div>
+  </div>`;
+}
+
+// ---- Error screens (§10) ----
+// Both are terminal, centered-logo chrome, no progress, no CTA. Rendered before any
+// session state loads, off the bootstrap route. Invalid carries no client data
+// (token didn't resolve — §10.3); Expired uses generic coach copy for alpha (§10.5).
+function coachCard(subCopy) {
+  const person = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="#9AA3AD" stroke-width="2"/><path d="M4.5 20c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6" stroke="#9AA3AD" stroke-width="2" stroke-linecap="round"/></svg>`;
+  return `<div class="coach-card">
+    <div class="coach-icon">${person}</div>
+    <div class="coach-body">
+      <div class="coach-title">Reach out to your coach</div>
+      <div class="coach-sub">${subCopy}</div>
+    </div>
+  </div>`;
+}
+
+function renderExpiredToken() {
+  const clock = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="#F68625" stroke-width="2"/><path d="M12 7.5V12l3 2" stroke="#F68625" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  return `<div class="screen err-screen">
+    <div class="err-icon err-icon-expired">${clock}</div>
+    <div class="err-eyebrow err-eyebrow-expired">LINK EXPIRED</div>
+    <h1 class="err-headline">This link is no longer active.</h1>
+    <p class="err-body">
+      <span class="ty-full">Assessment links are valid for 30 days. Yours has expired, but your progress is safe — your coach can send you a fresh link to pick up where you left off.</span>
+      <span class="ty-short">Your link has expired, but your progress is safe. Ask your coach to send a fresh link.</span>
+    </p>
+    ${coachCard('Ask them to resend your assessment link. Your saved responses will still be there.')}
+  </div>`;
+}
+
+function renderInvalidToken() {
+  const broken = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M9 15l6-6M8.5 8.5L7 10a3.5 3.5 0 005 5l1.5-1.5M15.5 15.5L17 14a3.5 3.5 0 00-5-5l-1.5 1.5" stroke="#9AA3AD" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  return `<div class="screen err-screen">
+    <div class="err-icon err-icon-invalid">${broken}</div>
+    <div class="err-eyebrow err-eyebrow-invalid">LINK NOT RECOGNIZED</div>
+    <h1 class="err-headline">We couldn’t find that link.</h1>
+    <p class="err-body">
+      <span class="ty-full">This link doesn’t match any assessment in our system. It may have been copied incorrectly. Your coach can send you the correct link.</span>
+      <span class="ty-short">This link doesn’t match any assessment in our system. Your coach can send you the correct one.</span>
+    </p>
+    ${coachCard('Ask them to resend your assessment link.')}
   </div>`;
 }
 
@@ -2297,6 +2379,14 @@ function attachHandlers() {
   if (btnOrientBegin) btnOrientBegin.addEventListener('click', () => {
     state.phase = 'stage0';
     state.stage0Idx = 0;
+    render();
+  });
+
+  // Resume (§0G) — advance straight to the saved screen; no replay of prior
+  // screens or interstitials (§0G.6). All resumable state was rehydrated at boot.
+  const btnResumeContinue = document.getElementById('btn-resume-continue');
+  if (btnResumeContinue) btnResumeContinue.addEventListener('click', () => {
+    state.phase = state._resumeTarget || 'stage0';
     render();
   });
 
