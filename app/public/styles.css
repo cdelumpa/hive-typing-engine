@@ -842,7 +842,15 @@ body {
   cursor: pointer;
   transition: all 0.15s;
 }
-.person-option:hover { border-color: var(--accent); }
+/* Hover feedback only on devices that truly hover (mouse). On touch devices
+   :hover sticks after a tap until the next tap, which left an option card
+   stroked after advancing screens — a misleading "pre-selected" look on Stage 3/4.
+   Gating behind (hover: hover) removes that artifact on mobile. Color is the
+   selection blue (--teal), not orange (--accent = the milestone/progress color),
+   so an unselected hovered card never reads as selected/complete. */
+@media (hover: hover) and (pointer: fine) {
+  .person-option:hover { border-color: var(--teal); }
+}
 .person-option.selected { border-color: var(--teal); background: #FDF8F2; }
 
 .person-label {
