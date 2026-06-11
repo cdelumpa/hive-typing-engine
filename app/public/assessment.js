@@ -311,14 +311,15 @@ function validateStage1Statements() {
 }
 validateStage1Statements();
 
-// Stage 1 v2 slider screen model. Type screens pair the narrative order two
-// types at a time ([3,6][9,1][4,2][8,5][7]); then an optional type open-response;
+// Stage 1 v2 slider screen model. One type per screen in narrative order
+// (3,6,9,1,4,2,8,5,7) — 5 sliders each (§6.2); then an optional type open-response;
 // then one instinct screen per instinct (SP/SO/SX); then an optional instinct
-// open-response. 10 screens total (indices 0-9).
+// open-response. 14 screens total (indices 0-13). Slot order is unchanged from the
+// paired layout — pagination is orthogonal to the slider→statement mapping.
 const STAGE1_SCREENS = (() => {
   const screens = [];
-  for (let i = 0; i < STAGE1_TYPE_SCREEN_ORDER.length; i += 2) {
-    screens.push({ kind: 'type-sliders', types: STAGE1_TYPE_SCREEN_ORDER.slice(i, i + 2) });
+  for (let i = 0; i < STAGE1_TYPE_SCREEN_ORDER.length; i += 1) {
+    screens.push({ kind: 'type-sliders', types: [STAGE1_TYPE_SCREEN_ORDER[i]] });
   }
   screens.push({ kind: 'type-open' });
   STAGE1_INSTINCT_ORDER.forEach((inst) => screens.push({ kind: 'instinct-sliders', instinct: inst }));
@@ -1778,15 +1779,15 @@ function renderThankYou() {
 // ---- Final Open Question ----
 function renderFinalOpen() {
   const val = state.finalOpenResponse || '';
+  // §6.5/§7: required now — Skip removed, gate on non-whitespace, button label is
+  // Continue (the submit action), consistent with every other screen.
   return `<div class="screen">
     <div class="q-text" style="margin-bottom:20px;">Is there anything about how you experience the world — what drives you, what you tend to avoid, or what you've learned about yourself — that the assessment didn't quite capture?</div>
-    <p style="font-size:13px;color:var(--ink-lt);margin-bottom:16px;font-style:italic;">Optional — skip if nothing comes to mind.</p>
     <textarea class="text-input" id="finalopen-input" placeholder="Type your response here…" style="min-height:130px;">${esc(val)}</textarea>
     <div class="nav-row">
       <button class="btn btn-ghost" id="btn-finalopen-back">Back</button>
       <div class="spacer"></div>
-      <button class="btn btn-ghost" id="btn-finalopen-skip" style="margin-right:10px;">Skip</button>
-      <button class="btn btn-primary" id="btn-finalopen-submit">Submit</button>
+      <button class="btn btn-primary" id="btn-finalopen-submit" ${val.trim() ? '' : 'disabled'}>Continue</button>
     </div>
   </div>`;
 }
@@ -1966,7 +1967,7 @@ function renderStage1() {
     ${header}
     <div class="slider-progress">
       <div class="slider-progress-track"><div class="slider-progress-fill" id="prog" style="width:${Math.round((touchedCount / N) * 100)}%"></div></div>
-      <div class="slider-progress-txt" id="prog-txt">${touchedCount} of ${N} answered</div>
+      <div class="slider-progress-txt" id="prog-txt">${touchedCount < N ? `${touchedCount} of ${N} answered — move all sliders to continue` : `${N} of ${N} answered`}</div>
     </div>
     <p class="slider-instr">Move each slider to show how much each statement is like you.</p>
     <div class="stmt-list">${blocksHtml}</div>
@@ -2427,7 +2428,9 @@ function attachHandlers() {
         const prog = document.getElementById('prog');
         const txt = document.getElementById('prog-txt');
         if (prog) prog.style.width = Math.round((n / N) * 100) + '%';
-        if (txt) txt.textContent = n + ' of ' + N + ' answered';
+        if (txt) txt.textContent = n < N
+          ? `${n} of ${N} answered — move all sliders to continue`
+          : `${N} of ${N} answered`;
         const btn = document.getElementById('btn-next');
         if (btn) btn.disabled = n !== N;
       };
@@ -2804,25 +2807,21 @@ function attachHandlers() {
   if (state.phase === 'finalopen') {
     const inputEl = document.getElementById('finalopen-input');
 
-    // Save draft as user types
+    // Save draft as user types, and live-gate Continue on non-whitespace (§6.5).
     if (inputEl) inputEl.addEventListener('input', () => {
       state.finalOpenResponse = inputEl.value;
+      const btn = document.getElementById('btn-finalopen-submit');
+      if (btn) btn.disabled = !inputEl.value.trim();
     });
 
     const submitFinalOpen = () => {
-      state.finalOpenResponse = (inputEl ? inputEl.value : '') || '';
+      const v = (inputEl ? inputEl.value : '') || '';
+      if (!v.trim()) return;   // required — guard behind the disabled button
+      state.finalOpenResponse = v;
       state.phase = 'processing';
       render();
       callAPI();
     };
-
-    const btnSkip = document.getElementById('btn-finalopen-skip');
-    if (btnSkip) btnSkip.addEventListener('click', () => {
-      state.finalOpenResponse = '';
-      state.phase = 'processing';
-      render();
-      callAPI();
-    });
 
     const btnSubmit = document.getElementById('btn-finalopen-submit');
     if (btnSubmit) btnSubmit.addEventListener('click', submitFinalOpen);
@@ -2834,10 +2833,6 @@ function attachHandlers() {
       render();
     });
   }
-
-  // ---- Stage 1 Complete (placeholder) ----
-  // Only the Restart button lives here for now. Restart handler is attached
-  // above in the shared block.
 
   // ---- Save and Continue Later ----
   const btnSaveLater = document.getElementById('btn-save-later');
