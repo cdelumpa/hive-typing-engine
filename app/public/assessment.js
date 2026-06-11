@@ -2459,6 +2459,10 @@ function attachHandlers() {
       if (state.stage0Idx < 3) {
         state.stage0Idx++;
         render();
+        // §9.2 timing: persist after each Stage 0 answer so the FIRST /save lands
+        // at Q1 — the server stamps assessment_started_at on that save (guarded,
+        // never overwritten on later saves). Best-effort, silent.
+        saveSessionState();
       } else {
         // Stage 0 complete — the retired mid-assessment-reminders screen is gone.
         // Fire the Stage 0 mini-call silently (background, snapshot-guarded) and

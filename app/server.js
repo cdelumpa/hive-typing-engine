@@ -1061,6 +1061,28 @@ app.post('/api/submit', async (req, res) => {
   const intakeInfo = intake ? `${intake.firstName} ${intake.lastName} <${intake.email}>` : 'unknown';
   console.log(`[submit] received from ${intakeInfo} — context ${contextBlock?.length ?? 0} chars`);
 
+  // §9 timing: read the server-stamped start time from session_state BEFORE the
+  // lock block clears it, then compute the completion metrics. Submit IS the
+  // completion moment (§9.2 phase → processing). elapsed is wall-clock (idle time
+  // included, intentional §9.1); session_days = calendar days spanned (same day = 1).
+  let timing = null;
+  if (bodyClientId) {
+    try {
+      const c = await db.getClientById(bodyClientId);
+      const startedAt = c && c.session_state && c.session_state.assessment_started_at;
+      if (startedAt) {
+        const completedAt = new Date();
+        const startDate = new Date(startedAt);
+        const elapsedSeconds = Math.round((completedAt - startDate) / 1000);
+        const dayIdx = (d) => Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 86400000);
+        const sessionDays = (dayIdx(completedAt) - dayIdx(startDate)) + 1;
+        timing = { startedAt, completedAt: completedAt.toISOString(), elapsedSeconds, sessionDays };
+      }
+    } catch (e) {
+      console.error('[submit] timing read failed:', e.message);
+    }
+  }
+
   // Lock the invite link before responding — must happen before Claude fires so
   // a client returning to their link mid-processing hits the processing gate.
   if (bodyClientId) {
@@ -1084,6 +1106,13 @@ app.post('/api/submit', async (req, res) => {
     }
     assessmentId = await db.createAssessment(resolvedClientId, { systemPrompt, userMessage, intake });
     if (assessmentId) console.log(`[submit] assessment #${assessmentId} created for client #${resolvedClientId}`);
+    // §9 timing: write the computed metrics onto the fresh assessment row. Guarded
+    // on a captured start time — if none (client never saved during Stage 0), skip
+    // and the admin clock icon stays hidden (gated on elapsed_seconds IS NOT NULL).
+    if (assessmentId && timing) {
+      await db.updateAssessmentTiming(assessmentId, timing);
+      console.log(`[submit] timing: ${timing.elapsedSeconds}s over ${timing.sessionDays} day(s)`);
+    }
   } catch (e) {
     console.error('[submit] DB record creation error:', e.message);
   }
@@ -2416,6 +2445,12 @@ app.post('/assessment/:token/save', async (req, res) => {
   if (tokenRow.client_status !== 'in_progress') return res.status(400).json({ error: 'Assessment not in progress.' });
   const sessionState = req.body && req.body.sessionState;
   if (!sessionState || typeof sessionState !== 'object') return res.status(400).json({ error: 'Invalid sessionState.' });
+  // §9.2/§9.5 timing: server-authoritative assessment_started_at. Stamp NOW on the
+  // first save that lacks it (≈ Stage 0 Q1); preserve the existing value on every
+  // later save. The client never carries this field, so re-inject from the DB —
+  // this makes the start time idempotent: a resume can never overwrite it.
+  const existingStart = tokenRow.session_state && tokenRow.session_state.assessment_started_at;
+  sessionState.assessment_started_at = existingStart || new Date().toISOString();
   await db.saveClientSessionState(tokenRow.client_id, sessionState);
   return res.json({ ok: true });
 });
@@ -2642,9 +2677,25 @@ ${errorMsg   ? `<div class="flash-error">${errorMsg}</div>`     : ''}
     </form>
   </div>
 </div>
+
+<!-- §9.3.2 assessment-timing modal (fixed overlay; outside-click + Escape dismiss) -->
+<div id="timing-modal" onclick="if(event.target===this)closeTimingModal()" style="display:none;position:fixed;inset:0;background:rgba(26,43,51,0.55);z-index:9500;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:10px;max-width:420px;width:100%;padding:22px 24px;box-shadow:0 8px 30px rgba(0,0,0,.18);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#00B2D9" stroke-width="2"/><path d="M12 7.5V12l3 2" stroke="#00B2D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-weight:700;font-size:15px;color:#1A2B33;">Completion time</span></div>
+      <button onclick="closeTimingModal()" style="background:none;border:none;cursor:pointer;font-size:18px;color:#9AA3AD;line-height:1;">&times;</button>
+    </div>
+    <div id="timing-modal-body"></div>
+  </div>
+</div>
+
 <script>
 var _accordionCache = {};
 var _openCoachId = null;
+// §9.3 assessment timing: per-row timing payloads (keyed by clientId), populated as
+// the accordion renders, read by the timing modal. Inline SVG clock (no Tabler dep).
+var _timingData = {};
+var CLOCK_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline-block;vertical-align:middle;"><circle cx="12" cy="12" r="8.5" stroke="#00B2D9" stroke-width="2"/><path d="M12 7.5V12l3 2" stroke="#00B2D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 var _typeNames = ${JSON.stringify({1:'The Improver',2:'The Giver',3:'The Performer',4:'The Idealist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'})};
 
 async function toggleBetaMode(enable) {
@@ -2759,13 +2810,21 @@ function renderAccordionTable(coachId, rows) {
       : '';
     var deleteBtn = '<button onclick="accordionDelete('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#c0392b;padding:0;">&#128465;</button>';
 
+    // §9.3.1 clock icon — render only on Complete rows that captured timing. Stash the
+    // per-row payload for the modal; the button sits inline-left of the date (5px gap).
+    var clockCell = '';
+    if (status === 'complete' && r.elapsed_seconds != null) {
+      _timingData[clientId] = { name: name, secs: r.elapsed_seconds, days: r.session_days, started: r.assessment_started_at, completed: r.assessment_completed_at };
+      clockCell = '<button title="View completion time" onclick="openTimingModal('+clientId+')" style="background:none;border:none;cursor:pointer;padding:0;margin-right:5px;vertical-align:middle;opacity:0.75;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.75">'+CLOCK_SVG+'</button>';
+    }
+
     html += '<tr id="acc-row-'+clientId+'">' +
       '<td>'+nameLink+'</td>' +
       '<td>'+typeLabel+'</td>' +
       '<td>'+instinct+'</td>' +
       '<td>'+conf+'</td>' +
       '<td id="acc-coach-cell-'+clientId+'">'+coach+'</td>' +
-      '<td>'+date+'</td>' +
+      '<td>'+clockCell+date+'</td>' +
       '<td>'+_statusBadge(status)+'</td>' +
       '<td id="acc-pdf-'+clientId+'" style="font-size:11px;">'+_pdfStatusHtml(r)+'</td>' +
       '<td id="acc-email-'+clientId+'" style="font-size:11px;">'+_emailStatusHtml(r)+'</td>' +
@@ -2775,6 +2834,42 @@ function renderAccordionTable(coachId, rows) {
   });
   html += '</tbody></table>';
   return html;
+}
+
+// §9.3.2 timing modal. Same-day (session_days===1) shows times only; multi-day shows
+// full date + time. Duration min 1 (Math.round, not floor). Dismiss: close button,
+// outside-overlay click (bound on the overlay div), or Escape.
+function _tTime(ts){ return new Date(ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+function _tDateTime(ts){ var d=new Date(ts); return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' at '+_tTime(ts); }
+function _timingEsc(e){ if(e.key==='Escape') closeTimingModal(); }
+function closeTimingModal(){
+  document.getElementById('timing-modal').style.display = 'none';
+  document.removeEventListener('keydown', _timingEsc);
+}
+function openTimingModal(clientId){
+  var t = _timingData[clientId];
+  if(!t) return;
+  var mins = Math.max(1, Math.round(t.secs/60));
+  var dayWord = (t.days===1) ? 'day' : 'days';
+  var body = (t.days===1)
+    ? (t.name+' completed their assessment in a single sitting.')
+    : (t.name+' saved their progress and returned to complete the assessment.');
+  var footer = (t.days===1)
+    ? ('Started '+_tTime(t.started)+' · Completed '+_tTime(t.completed))
+    : ('Started '+_tDateTime(t.started)+' · Completed '+_tDateTime(t.completed));
+  var card = 'flex:1;background:#f7f5f2;border-radius:8px;padding:14px;text-align:center;';
+  var num  = 'font-size:26px;font-weight:700;color:#1A2B33;';
+  var unit = 'font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.05em;';
+  var h = '';
+  h += '<p style="font-size:13px;color:#4A6070;line-height:1.6;margin:0 0 16px;">'+body+'</p>';
+  h += '<div style="display:flex;gap:12px;margin-bottom:16px;">';
+  h += '<div style="'+card+'"><div style="'+num+'">'+mins+'</div><div style="'+unit+'">min</div></div>';
+  h += '<div style="'+card+'"><div style="'+num+'">'+t.days+'</div><div style="'+unit+'">'+dayWord+'</div></div>';
+  h += '</div>';
+  h += '<div style="font-size:12px;color:#9AA3AD;border-top:1px solid #EFE8E0;padding-top:12px;">'+footer+'</div>';
+  document.getElementById('timing-modal-body').innerHTML = h;
+  document.getElementById('timing-modal').style.display = 'flex';
+  document.addEventListener('keydown', _timingEsc);
 }
 
 async function toggleAccordion(coachId, count) {
