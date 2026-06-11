@@ -1416,8 +1416,7 @@ function buildCall2Context(s) {
 // =================== RENDER ===================
 
 const SAVE_LATER_PHASES = new Set([
-  'stage0', 'mid-assessment-reminders', 'stage1', 'ct-analyzing',
-  'stage2', 'call1-analyzing', 'stage3', 'stage4', 'finalopen',
+  'stage0', 'stage1', 'stage2', 'stage3', 'stage4', 'finalopen',
 ]);
 
 // =================== CHROME SYSTEM (PR1) ===================
@@ -1441,15 +1440,13 @@ const PHASE_CHROME = {
   intake:                      { topbar: 'full',      progress: false, sub: false },
   orientation:                 { topbar: 'full',      progress: false, sub: false },
   stage0:                      { topbar: 'full',      progress: true,  sub: true  },
-  'mid-assessment-reminders':  { topbar: 'full',      progress: true,  sub: false },
   stage1:                      { topbar: 'full',      progress: true,  sub: true  },
-  'ct-analyzing':              { topbar: 'full',      progress: true,  sub: false },
+  'part1-complete':            { topbar: 'full',      progress: true,  sub: false },
   stage2:                      { topbar: 'full',      progress: true,  sub: true  },
-  'call1-analyzing':           { topbar: 'full',      progress: true,  sub: false },
+  'part2-complete':            { topbar: 'full',      progress: true,  sub: false },
   stage3:                      { topbar: 'full',      progress: true,  sub: true  },
   stage4:                      { topbar: 'full',      progress: true,  sub: true  },
   finalopen:                   { topbar: 'full',      progress: true,  sub: true  },
-  stage1complete:              { topbar: 'logo-only', progress: false, sub: false },
   processing:                  { topbar: 'logo-only', progress: false, sub: false },
   confirmation:                { topbar: 'logo-only', progress: false, sub: false },
   error:                       { topbar: 'logo-only', progress: false, sub: false },
@@ -1471,7 +1468,9 @@ function chromeFor(phase) {
     pct:             prog.pct,
     dotIndex:        prog.dotIndex,
     dotTotal:        prog.dotTotal,
-    labelColor:      'blue',
+    // The Part-complete interstitials use the orange progress label (§0D/§0F);
+    // everything else is Hive Blue.
+    labelColor:      (phase === 'part1-complete' || phase === 'part2-complete') ? 'orange' : 'blue',
     // Orientation re-uses the inlined SVG (PNGs absent, Decision C) but namespaces
     // its clipPath ids to avoid collision with any other logo instance on the page.
     logoNs:          phase === 'orientation' ? 'orient-logo' : null,
@@ -1569,17 +1568,15 @@ function render() {
     case 'intake':                   body = renderIntake(); break;
     case 'orientation':              body = renderOrientationInterstitial(); break;
     case 'stage0':                   body = renderStage0(); break;
-    case 'mid-assessment-reminders': body = renderMidAssessmentReminders(); break;
     case 'stage1':                   body = renderStage1(); break;
-    case 'ct-analyzing':             body = renderCtAnalyzing(); break;
+    case 'part1-complete':           body = renderPart1Complete(); break;
     case 'stage2':                   body = renderStage2(); break;
-    case 'call1-analyzing':          body = renderCall1Analyzing(); break;
+    case 'part2-complete':           body = renderPart2Complete(); break;
     case 'stage3':                   body = renderStage3(); break;
     case 'stage4':                   body = renderStage4(); break;
     case 'finalopen':                body = renderFinalOpen(); break;
-    case 'stage1complete':           body = renderStage1Complete(); break;
     case 'processing':               body = renderProcessing(); break;
-    case 'confirmation':             body = renderConfirmation(); break;
+    case 'confirmation':             body = renderThankYou(); break;
     case 'error':                    body = renderError(); break;
   }
 
@@ -1747,22 +1744,33 @@ function renderOrientationInterstitial() {
   </div>`;
 }
 
-// ---- Confirmation ----
-function renderConfirmation() {
-  const i = state.intake || {};
-  const firstName = i.firstName || 'there';
-  const email = i.email || '';
-  return `<div class="screen" style="text-align:center;">
-    <div style="margin:0 auto;max-width:480px;">
-      <div style="font-size:42px;margin-bottom:16px;">✓</div>
-      <h1 style="font-family:Georgia,serif;font-size:26px;color:#00b1d7;font-weight:700;margin:0 0 12px;">Thank you, ${esc(firstName)}.</h1>
-      <p style="font-family:Georgia,serif;font-size:16px;color:#1A2B33;margin:0 0 16px;line-height:1.7;">
-        Your Hive Enneagram Report is on its way.
-      </p>
-      <p style="font-family:Georgia,serif;font-size:14px;color:#4A6070;line-height:1.7;margin:0;">
-        You'll receive an email at <strong style="color:#1A2B33;">${esc(email)}</strong> shortly with your results attached.
-        If it doesn't arrive within a few minutes, please check your spam or junk folder.
-      </p>
+// ---- Thank You / Assessment Complete (§0E) ----
+// Terminal screen, rendered on the 'confirmation' phase after the final open
+// response is submitted. Centered-logo chrome (bookend with Welcome). No
+// Continue, no back, no progress.
+function renderThankYou() {
+  // Gradient checkmark badge (§0E.2).
+  const check = `<div class="ty-badge"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+  // Envelope glyph for the inbox card (Hive Blue).
+  const envelope = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5" stroke="#00B2D9" stroke-width="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5" stroke="#00B2D9" stroke-width="2" fill="none" stroke-linejoin="round"/></svg>`;
+  return `<div class="screen ty-screen">
+    ${check}
+    <div class="ty-eyebrow">ASSESSMENT COMPLETE</div>
+    <h1 class="ty-headline"><span class="ty-light">You did it.</span><span class="ty-bold">Thank you.</span></h1>
+    <p class="ty-body">
+      <span class="ty-full">That took real honesty and self-reflection — and it shows. Your personalized Enneagram report is on its way and should arrive shortly. If you don’t receive your report, please reach out to your coach.</span>
+      <span class="ty-short">That took real honesty. Your personalized Enneagram report is on its way and should arrive shortly. If you don’t receive it, please reach out to your coach.</span>
+    </p>
+    <div class="inbox-card">
+      <div class="inbox-icon">${envelope}</div>
+      <div class="inbox-body">
+        <div class="inbox-title">Check your inbox</div>
+        <div class="inbox-sub">
+          <span class="ty-full">Your report will arrive from info@hiveleadership.com. Your coach will reach out soon to schedule your debrief.</span>
+          <span class="ty-short">Your report will arrive from info@hiveleadership.com. Your coach will reach out soon.</span>
+        </div>
+        <div class="inbox-spam">Can’t find it? Check your spam or junk folder.</div>
+      </div>
     </div>
   </div>`;
 }
@@ -1805,63 +1813,85 @@ function renderStage0() {
   </div>`;
 }
 
-// ---- Mid-Assessment Reminders ----
-// Fires after Stage 0 Q4 is submitted and before Stage 1 Q1. Doubles as latency
-// cover for the Stage 0 mini-call (kicked off from attachHandlers on entry).
-function renderMidAssessmentReminders() {
-  return `<div class="screen">
-    <div class="q-text" style="margin-bottom:18px;">Great work — you’ve completed the first part of the assessment. If you want to review or edit your responses, hit the “Go Back” button. Otherwise, here are a few tips to help you complete the rest of the assessment:</div>
-    <ul style="margin:0 0 24px;padding-left:20px;line-height:1.7;font-size:14px;color:#1A2B33;">
-      <li style="margin-bottom:10px;">Answer the questions in the context of your life in general and try not to confine your answers to your work life only.</li>
-      <li style="margin-bottom:10px;">Choose a response that applies to the arc of your life, rather than answering only from what is true in the current moment. If you get stuck on a question, recall how your 25-year-old self might respond to the questions.</li>
-      <li style="margin-bottom:10px;">Try to complete the assessment in one sitting without interruptions.</li>
-      <li style="margin-bottom:10px;">From here it should take you no longer than 20–25 minutes. If it’s taking longer, that could mean you’re overthinking things. Trust your gut when this happens.</li>
-      <li style="margin-bottom:10px;">Now, take a deep breath, hit “Continue” and have fun!</li>
+// Inline checkmark glyph for the interstitial status rows and the part-pill map.
+const IC_CHECK_SVG = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+// Status row shared by both Part-complete interstitials: spinner + text in
+// State A, checkmark + text in State B.
+function interstitialStatus(ready, loadingText, readyText) {
+  return ready
+    ? `<div class="ic-status ready"><span class="ic-check">${IC_CHECK_SVG}</span><span>${esc(readyText)}</span></div>`
+    : `<div class="ic-status loading"><span class="ic-spinner"></span><span>${esc(loadingText)}</span></div>`;
+}
+
+// ---- Part 1 Complete interstitial (§0D) ----
+// Shown after Stage 1, before Stage 2. Two states: A (loading) while the CT
+// mini-call resolves, B (ready) once it does. Per Decision A, a minimum 800ms
+// State A is enforced in the handler (the CT mini-call is a no-op in v2), so the
+// spinner→checkmark transition is always intentional. Orange "PART 1 COMPLETE"
+// label @ 42% (chrome). Continue is locked until State B.
+function renderPart1Complete() {
+  const ready = !!state._part1Ready;
+  const tipsLabel = ready ? 'A few tips for what’s ahead' : 'In the meantime, a few tips for what’s ahead';
+  return `<div class="screen interstitial">
+    <h1 class="ic-headline">Great work — Part 1 is done.</h1>
+    <p class="ic-subhead"><span class="ty-full">That was the heaviest lift. From here it should take you 5–10 more minutes to complete the assessment.</span><span class="ty-short">That was the heaviest lift — about 5–10 more minutes to go.</span></p>
+    ${interstitialStatus(ready, 'Getting your next set of questions ready…', 'All set — ready when you are.')}
+    <div class="ic-divider"></div>
+    <div class="ic-tips-label">${tipsLabel}</div>
+    <ul class="ic-tips">
+      <li>Answer from the arc of your life, not just what’s true right now. If you get stuck, think about how your 25-year-old self would respond.</li>
+      <li>In the paired comparisons coming up, you’ll choose between two descriptions of a person. Pick the one that sounds more like you — even if both feel partly true.</li>
+      <li>Trust your gut and keep moving — overthinking usually leads away from your true type, not toward it.</li>
     </ul>
     <div class="nav-row">
-      <button class="btn btn-ghost" id="btn-mid-back">Go Back</button>
       <div class="spacer"></div>
-      <button class="btn btn-primary" id="btn-mid-continue">Continue</button>
+      <button class="btn btn-primary" id="btn-next" ${ready ? '' : 'disabled'}>Continue</button>
     </div>
   </div>`;
 }
 
-// ---- CT Analyzing Transition ----
-// Fires between Stage 1 and Stage 2 only when a CT flag was raised in Stage 1.
-// Provides latency cover for the CT mini-call, which runs in the background
-// from attachHandlers. Auto-advances to Stage 2 on success or after the
-// 8-second timeout. The progress bar reflects Stage 1 completion (14/23).
-function renderCtAnalyzing() {
-  return `<div class="screen">
-    <div class="processing-wrap">
-      <div class="spinner"></div>
-      <div class="processing-heading">Analyzing your responses…</div>
-      <div class="processing-sub">Thanks for your patience — we’re preparing your next set of questions.</div>
-    </div>
-  </div>`;
-}
+// ---- Part 2 Complete interstitial (§0F) ----
+// Shown after Stage 2, before Stage 3. Two states gated by AI Call #1: A while
+// the call is in flight, B once state._call1Done. Orange "PART 2 COMPLETE" @ 68%.
+// Continue (locked until B) builds the Stage 3 routing and advances.
+function renderPart2Complete() {
+  const ready = !!state._call1Done;
+  const pill = (label, cls, state2, sub) =>
+    `<div class="partmap-pill ${cls}">
+       ${cls === 'done' ? `<span class="pm-check">${IC_CHECK_SVG}</span>` : ''}
+       <span class="pm-label">${label}</span>
+       <span class="pm-state">${state2}</span>
+       ${sub ? `<span class="pm-sub">${sub}</span>` : ''}
+     </div>`;
+  const partmap = `<div class="partmap">
+      ${pill('Warmup', 'done', 'Done', '')}
+      ${pill('Part 1', 'done', 'Done', '')}
+      ${pill('Part 2', 'done', 'Done', '')}
+      ${pill('Parts 3 &amp; 4 →', 'upnext', 'Up next', 'Paired comparisons')}
+    </div>`;
 
-// AI Call #1 interstitial — latency cover while the reasoning call runs after
-// Stage 2. While the call is in flight it shows the spinner; once it resolves it
-// shows a Continue button that advances into Stage 3 off state.call1Result (the
-// routing is built when Continue is clicked, in attachHandlers).
-function renderCall1Analyzing() {
-  const done = state._call1Done;
-  const heading = done ? 'Analysis complete' : 'Analyzing your responses…';
-  const sub = done
-    ? 'Your next set of questions is being prepared.'
-    : 'Thanks for your patience — we’re weighing everything you’ve told us.';
-  const spinner = done ? '' : '<div class="spinner"></div>';
-  const continueBtn = done
-    ? `<div class="nav-row"><div class="spacer"></div><button class="btn btn-primary" id="btn-next">Continue</button></div>`
-    : '';
-  return `<div class="screen">
-    <div class="processing-wrap">
-      ${spinner}
-      <div class="processing-heading">${heading}</div>
-      <div class="processing-sub">${sub}</div>
+  return `<div class="screen interstitial">
+    <h1 class="ic-headline">Nearly there — three parts down.</h1>
+    <p class="ic-subhead"><span class="ty-full">Parts 3 and 4 are the final stretch. They’re shorter and more focused — and end with one last open question.</span><span class="ty-short">Parts 3 and 4 are shorter and more focused — and end with one last open question.</span></p>
+    ${partmap}
+    <div class="primer-card">
+      <div class="primer-section">
+        <div class="primer-label">HOW PAIRED COMPARISONS WORK</div>
+        <!-- [PLACEHOLDER — Mo review required] primer body, replace before beta -->
+        <div class="primer-body">You’ll read two short descriptions — Person A and Person B — and choose the one that sounds more like you. If both feel partly true, pick “Both, but more A” or “Both, but more B” and lean toward whichever fits a little more. Go with your first read; there’s no trick here.</div>
+      </div>
+      <div class="primer-section">
+        <div class="primer-label">THE FINAL QUESTION</div>
+        <!-- [PLACEHOLDER — Mo review required] primer body, replace before beta -->
+        <div class="primer-body">You’ve answered a lot of questions — thank you! Your answer to this last one really helps us sharpen the read and bring your report to life. So don’t hold back — the richer the detail, the more we have to work with.</div>
+      </div>
     </div>
-    ${continueBtn}
+    ${interstitialStatus(ready, 'Selecting your final questions…', 'Your final questions are ready.')}
+    <div class="nav-row">
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="btn-next" ${ready ? '' : 'disabled'}>Continue</button>
+    </div>
   </div>`;
 }
 
@@ -2158,218 +2188,6 @@ function render4WayOptions(personAText, personBText, sel) {
   `;
 }
 
-// Helper for renderStage1Complete: renders the Stage 2 output block.
-function renderStage2Summary(s) {
-  const x = s.stage2;
-  const frameworks = ['Hornevian', 'Harmonic', 'ObjectRelations'];
-  const rows = frameworks.map((f, i) => {
-    const ans = x.answers[i];
-    const label = STAGE2_BUCKET_LABELS[f][ans];
-    return `${STAGE2_FRAMEWORK_LABELS[f]}: <strong>${label}</strong> (${ans})`;
-  }).join('<br>');
-
-  const countRows = s.typeHypotheses.map((t) =>
-    `Type ${t}: <strong>${x.counts[t] != null ? x.counts[t] : 0}</strong> framework matches`
-  ).join('<br>');
-
-  const ctLine = x.xrefCounterType === 'YES'
-    ? `<strong>Counter-type (Stage 2):</strong> YES &nbsp;\u00b7&nbsp; ${CT_COMBOS[`${s.identifiedInstinct}-${x.xrefPrimary}`]}`
-    : `<strong>Counter-type (Stage 2):</strong> NO`;
-
-  const divergenceBlock = x.crossCenterDivergence
-    ? `<div class="coach-block" style="border-left:3px solid var(--accent, #f58527);">
-         <div class="coach-block-label">\u26a0\ufe0f Cross-Center Divergence (stage2_stage3_divergence)</div>
-         <div class="coach-block-text">${esc(x.crossCenterNote)}</div>
-       </div>`
-    : '';
-
-  return `
-    <div class="section-heading">Stage 2 \u00b7 Cross-Referencing</div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Framework Answers</div>
-      <div class="coach-block-text">${rows}</div>
-    </div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Framework Match Counts</div>
-      <div class="coach-block-text">${countRows}</div>
-    </div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Cross-Referencing Result</div>
-      <div class="coach-block-text">
-        <strong>Primary:</strong> Type ${x.xrefPrimary} \u2014 ${TYPE_NAMES[x.xrefPrimary]}<br>
-        <strong>Alternative:</strong> Type ${x.xrefAlternative} \u2014 ${TYPE_NAMES[x.xrefAlternative]}<br>
-        <strong>Ambiguity axis:</strong> ${esc(x.xrefAmbiguityAxis)}<br>
-        ${ctLine}
-      </div>
-    </div>
-
-    ${divergenceBlock}
-  `;
-}
-
-// Helper for renderStage1Complete: renders the Stage 3 output block.
-function renderStage3Summary(s) {
-  const r = s.stage3;
-  const q2Line = r.q2Answer
-    ? `<strong>Q2 (avoidance):</strong> ${esc(r.q2Result)}<br>`
-    : '';
-  return `
-    <div class="section-heading">Stage 3 \u00b7 Pairwise Discrimination</div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Mode &amp; Pair</div>
-      <div class="coach-block-text">
-        <strong>Mode:</strong> ${r.mode}<br>
-        <strong>Pair:</strong> ${r.pair}
-      </div>
-    </div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Answers</div>
-      <div class="coach-block-text">
-        <strong>Q1 (core motivation):</strong> ${esc(r.q1Result)}<br>
-        ${q2Line}
-        ${r.mode === 'COUNTER-TYPE' ? `<strong>CT answer:</strong> ${r.ctAnswer}` : ''}
-      </div>
-    </div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Stage 3 Result</div>
-      <div class="coach-block-text">
-        <strong>Leading:</strong> Type ${r.leading} \u2014 ${TYPE_NAMES[r.leading]}<br>
-        <strong>Confidence:</strong> ${r.confidence}
-      </div>
-    </div>
-  `;
-}
-
-// Helper for renderStage1Complete: renders the Stage 4 output block.
-function renderStage4Summary(s) {
-  const r = s.stage4;
-  const boolLabel = (v) => v === true ? '\u2713 confirmed' : v === false ? '\u2717 unrecognized' : '\u2014 N/A';
-  const habitLine = r.habitConfirmed != null
-    ? `<strong>Habit of Mind:</strong> ${boolLabel(r.habitConfirmed)}<br>`
-    : '';
-  const habitDescLine = r.habitDescription
-    ? `<strong>Habit detail:</strong> ${esc(r.habitDescription)}<br>`
-    : '';
-
-  return `
-    <div class="section-heading">Stage 4 \u00b7 Confirmation</div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Path &amp; Option</div>
-      <div class="coach-block-text">
-        <strong>Path:</strong> ${r.path}<br>
-        <strong>Option:</strong> ${r.option}<br>
-        <strong>Lead type:</strong> Type ${r.leadType} \u2014 ${TYPE_NAMES[r.leadType]}
-        ${r.secondType ? `<br><strong>Second candidate:</strong> Type ${r.secondType} \u2014 ${TYPE_NAMES[r.secondType]}` : ''}
-      </div>
-    </div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Confirmation Results</div>
-      <div class="coach-block-text">
-        <strong>Stress:</strong> ${boolLabel(r.stressConfirmed)}<br>
-        <strong>Security:</strong> ${boolLabel(r.securityConfirmed)}<br>
-        ${habitLine}
-      </div>
-    </div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Answer Detail</div>
-      <div class="coach-block-text">
-        <strong>Stress detail:</strong> ${esc(r.stressDescription)}<br>
-        <strong>Security detail:</strong> ${esc(r.securityDescription)}<br>
-        ${habitDescLine}
-      </div>
-    </div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Stage 4 Outcome</div>
-      <div class="coach-block-text"><strong>${r.outcome}</strong></div>
-    </div>
-  `;
-}
-
-// ---- Stage 1 Complete (all four stages wired; placeholder until report is built) ----
-function renderStage1Complete() {
-  const s = state.scores;
-  const centerCol = (name, score) => {
-    const isPrimary = name === s.identifiedCenter;
-    const isSecond = name === s.secondCenter;
-    const tag = isPrimary ? ' · primary' : isSecond ? ' · second' : '';
-    return `<div class="score-card">
-      <div class="score-card-label">${name}${tag}</div>
-      <div class="score-card-value">${score} / 18</div>
-      <div class="score-bar-wrap"><div class="score-bar" style="width:${Math.round(score / 18 * 100)}%"></div></div>
-    </div>`;
-  };
-
-  const ctLine = s.counterTypeFlag === 'YES'
-    ? `<strong>Counter-type flag:</strong> YES &nbsp;·&nbsp; ${s.counterTypeCombination}`
-    : `<strong>Counter-type flag:</strong> NO`;
-
-  return `<div class="screen">
-    <div class="section-heading">Stage 1 Complete</div>
-    <p style="color:var(--ink-lt);font-size:14px;margin-bottom:24px;">
-      Stages 2, 3, and 4 are under construction. The output below is what Stage 1
-      produces for the AI engine — shown here so we can verify the scoring before
-      the next stages are wired up.
-    </p>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Identified Center</div>
-      <div class="coach-block-text">
-        <strong>${s.identifiedCenter}</strong> &nbsp;·&nbsp; gap ${s.centerGap} &nbsp;·&nbsp; ${s.centerConfidence} confidence
-        ${s.secondCenter ? `<br><span style="color:var(--ink-lt);">Second candidate Center: ${s.secondCenter}</span>` : ''}
-      </div>
-    </div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Identified Instinct</div>
-      <div class="coach-block-text">
-        <strong>${s.identifiedInstinct}</strong> &nbsp;·&nbsp; gap ${s.instinctGap} &nbsp;·&nbsp; ${s.instinctConfidence} confidence
-      </div>
-    </div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Three Type Hypotheses</div>
-      <div class="coach-block-text">
-        ${s.typeHypotheses.map((t) => `Type ${t} — ${TYPE_NAMES[t]}`).join('<br>')}
-      </div>
-    </div>
-
-    <div class="coach-block">
-      <div class="coach-block-label">Counter-Type (Stage 1)</div>
-      <div class="coach-block-text">${ctLine}</div>
-    </div>
-
-    ${s.stage2 ? renderStage2Summary(s) : ''}
-    ${s.stage3 ? renderStage3Summary(s) : ''}
-    ${s.stage4 ? renderStage4Summary(s) : ''}
-
-    <div class="section-heading">Stage 1 Scores</div>
-    <div class="scores-grid">
-      ${centerCol('Head', s.head)}
-      ${centerCol('Heart', s.heart)}
-      ${centerCol('Body', s.body)}
-      <div class="score-card">
-        <div class="score-card-label">SP · SO · SX</div>
-        <div class="score-card-value" style="font-size:16px;">${s.sp} · ${s.so} · ${s.sx}</div>
-      </div>
-    </div>
-
-    <div class="nav-row" style="margin-top:32px;">
-      <button class="btn btn-ghost" id="btn-restart">Start over</button>
-      <div class="spacer"></div>
-    </div>
-  </div>`;
-}
-
 // ---- Processing ----
 function renderProcessing() {
   return `<div class="screen">
@@ -2479,7 +2297,7 @@ function attachHandlers() {
     render();
   });
 
-  // Restart (used by stage1complete placeholder + "New Analysis" button on results)
+  // Restart (used by the "New Analysis" button on the results screen)
   const resetAndReturnHome = () => {
     clearResult();
     Object.assign(state, {
@@ -2549,36 +2367,16 @@ function attachHandlers() {
         state.stage0Idx++;
         render();
       } else {
-        // Stage 0 complete — pause on Mid-Assessment Reminders before Stage 1.
-        // The mini-call is fired from that screen's attachHandlers block.
-        state.phase = 'mid-assessment-reminders';
+        // Stage 0 complete — the retired mid-assessment-reminders screen is gone.
+        // Fire the Stage 0 mini-call silently (background, snapshot-guarded) and
+        // go straight into Stage 1 (Q4). The mini-call never blocks the UI.
+        fireStage0MiniCall();
+        initStage1();
+        state.phase = 'stage1';
+        state.stage1Idx = 0;
         render();
+        saveSessionState();
       }
-    });
-  }
-
-  // ---- Mid-Assessment Reminders ----
-  if (state.phase === 'mid-assessment-reminders') {
-    // Fire the Stage 0 mini-call on entry — runs in the background, never blocks.
-    // Snapshot comparison inside the function skips the call when responses
-    // haven't changed since the last successful fire (so navigating back/forward
-    // without edits is a no-op, but editing any answer triggers a fresh call).
-    fireStage0MiniCall();
-
-    const btnMidBack = document.getElementById('btn-mid-back');
-    if (btnMidBack) btnMidBack.addEventListener('click', () => {
-      state.phase = 'stage0';
-      state.stage0Idx = 3;
-      render();
-    });
-
-    const btnMidContinue = document.getElementById('btn-mid-continue');
-    if (btnMidContinue) btnMidContinue.addEventListener('click', () => {
-      initStage1();
-      state.phase = 'stage1';
-      state.stage1Idx = 0;
-      render();
-      saveSessionState();
     });
   }
 
@@ -2715,72 +2513,57 @@ function attachHandlers() {
         render();
         saveSessionState();
       } else {
-        // Stage 1 complete — score the slider profile and advance to Stage 2.
-        // (v2: no center/CT routing — the AI decides downstream. The retired
-        // ct-analyzing path is now unreachable from Stage 1; left as an orphan
-        // for the Steps 4-5 cleanup.)
+        // Stage 1 complete — score the slider profile and advance to the Part 1
+        // Complete interstitial (§0D). _part1Ready starts false so State A (spinner)
+        // shows; the part1-complete handler flips it once the CT mini-call resolves
+        // (with an 800ms minimum, Decision A).
         state.scores = scoreStage1Profile(state.stage1TypeSliders, state.stage1InstinctSliders);
         console.log('=== STAGE 1 v2 PROFILE ===', state.scores);
-        state.phase = 'stage2';
-        state.stage2Idx = 0;
+        state._part1Ready = false;
+        state.phase = 'part1-complete';
         render();
         saveSessionState();
       }
     });
   }
 
-  // ---- CT Analyzing Transition ----
-  // Snapshot guard handles all three re-entry cases:
-  //   1. First entry — fires the mini-call, records the snapshot
-  //   2. Re-entry with unchanged inputs — skip the call, auto-advance immediately
-  //   3. Re-entry with changed inputs — fires a fresh call (snapshot mismatch)
-  // An 8s timeout caps the wait so the user never sees a stuck screen. On
-  // timeout we keep the original Stage 1 hypotheses and write null for
-  // ct_adjustment (handled in fireCtMiniCall via the catch path).
-  if (state.phase === 'ct-analyzing') {
-    const snapshot = ctSnapshot();
-    const unchanged = state.ctLastSnapshot !== null && snapshot === state.ctLastSnapshot;
-
-    const advance = () => {
-      if (state.phase === 'ct-analyzing') {
-        state.phase = 'stage2';
-        state.stage2Idx = 0;
-        render();
-      }
-    };
-
-    if (unchanged) {
-      // Cached — advance on next tick so the spinner doesn't flash.
-      setTimeout(advance, 200);
-    } else {
-      const timeoutMs = 8000;
-      let advanced = false;
-      const timer = setTimeout(() => {
-        if (!advanced) {
-          advanced = true;
-          // Timeout — clear any partial adjustment, persist null to DB.
-          state.ctAdjustment = null;
-          const cid = state.intake && state.intake.client_id;
-          if (cid) {
-            fetch('/api/ct-adjustment-clear', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ client_id: cid }),
-            }).catch(() => {});
+  // ---- Part 1 Complete interstitial (§0D) ----
+  // State A (spinner) on entry; fires the CT mini-call and flips to State B once
+  // it resolves — but never before an 800ms minimum, so the spinner→checkmark
+  // transition is always intentional (Decision A; the CT mini-call is a no-op in
+  // v2). On error the mini-call still resolves (it catches internally). Continue
+  // is user-controlled and advances to Stage 2 (no auto-advance, §0D.6).
+  if (state.phase === 'part1-complete') {
+    if (!state._part1Ready) {
+      const MIN_SPINNER_MS = 800;
+      const started = performance.now();
+      let settled = false;
+      const reveal = () => {
+        if (settled) return;
+        settled = true;
+        const elapsed = performance.now() - started;
+        const wait = Math.max(0, MIN_SPINNER_MS - elapsed);
+        setTimeout(() => {
+          if (state.phase === 'part1-complete') {
+            state._part1Ready = true;
+            render();
+            saveSessionState();
           }
-          console.warn('[ct-adjustment] 8s timeout — proceeding with original Stage 1 hypotheses');
-          advance();
-        }
-      }, timeoutMs);
-
-      fireCtMiniCall().finally(() => {
-        if (!advanced) {
-          advanced = true;
-          clearTimeout(timer);
-          advance();
-        }
-      });
+        }, wait);
+      };
+      // 8s hard cap so a hung call never traps the client (mirrors the old guard).
+      const timer = setTimeout(() => { console.warn('[part1-complete] 8s cap — proceeding'); reveal(); }, 8000);
+      fireCtMiniCall().finally(() => { clearTimeout(timer); reveal(); });
     }
+
+    const btnNextP1 = document.getElementById('btn-next');
+    if (btnNextP1) btnNextP1.addEventListener('click', () => {
+      if (!state._part1Ready) return;   // locked until State B
+      state.phase = 'stage2';
+      state.stage2Idx = 0;
+      render();
+      saveSessionState();
+    });
   }
 
   // ---- Stage 2: Cross-Referencing ----
@@ -2831,29 +2614,29 @@ function attachHandlers() {
         render();
       } else {
         // Done with Stage 2 — hand off to AI Call #1 (the reasoning layer). The
-        // call1-analyzing screen fires the call, stores the §6.3 result, and (on
-        // Continue) builds the Stage 3 routing off state.call1Result.
+        // part2-complete interstitial fires the call, stores the §6.3 result, and
+        // (on Continue) builds the Stage 3 routing off state.call1Result.
         state._call1Done = false;
-        state.phase = 'call1-analyzing';
+        state.phase = 'part2-complete';
         render();
         saveSessionState();
       }
     });
   }
 
-  // ---- AI Call #1 interstitial ----
-  // Fires the reasoning call once on entry. A 20s timeout caps the wait so the
-  // user never sees a stuck spinner; on success or timeout we mark the screen
-  // done and persist the result into session_state. Once done, a Continue button
+  // ---- Part 2 Complete interstitial (§0F) ----
+  // Fires AI Call #1 once on entry (State A → B). A 20s timeout caps the wait so
+  // the client never sees a stuck spinner; on success or timeout we mark the
+  // screen ready and persist into session_state. Continue (unlocked in State B)
   // builds the Stage 3 routing off state.call1Result and advances (§7.1).
-  if (state.phase === 'call1-analyzing') {
+  if (state.phase === 'part2-complete') {
     const contextBlock = state.scores ? buildContextBlock(state.scores) : '';
     const unchanged = state.call1LastSnapshot !== null
       && contextBlock === state.call1LastSnapshot
       && !!state.call1Result;
 
     const finish = () => {
-      if (state.phase === 'call1-analyzing' && !state._call1Done) {
+      if (state.phase === 'part2-complete' && !state._call1Done) {
         state._call1Done = true;
         render();
         saveSessionState();

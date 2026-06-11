@@ -83,6 +83,13 @@ const STAGE_LABELS = {
   finalopen: 'Part 4',
 };
 
+// Part-complete interstitials use a fixed label + percentage and the orange
+// progress treatment (§0D/§0F). These override the cumulative computation.
+const PHASE_FIXED = {
+  'part1-complete': { label: 'PART 1 COMPLETE', pct: 42 },
+  'part2-complete': { label: 'PART 2 COMPLETE', pct: 68 },
+};
+
 // Question stages in flow order — used for cumulative progress accounting.
 const PROGRESS_ORDER = ['stage0', 'stage1', 'stage2', 'stage3', 'stage4', 'finalopen'];
 
@@ -127,11 +134,8 @@ function completedScreens() {
   const s3 = stageDotTotal('stage3');
   const before = {
     stage0: 0,
-    'mid-assessment-reminders': 4,
     stage1: 4,
-    'ct-analyzing': 4 + s1,
     stage2: 4 + s1,
-    'call1-analyzing': 4 + s1 + 3,
     stage3: 4 + s1 + 3,
     stage4: 4 + s1 + 3 + s3,
     finalopen: 4 + s1 + 3 + s3 + stageDotTotal('stage4'),
@@ -144,8 +148,9 @@ function completedScreens() {
 // phases read 0; terminal phases read 1.
 function overallFraction() {
   const p = state.phase;
+  if (PHASE_FIXED[p]) return PHASE_FIXED[p].pct / 100;
   if (p === 'welcome' || p === 'intake' || p === 'profile-confirm' || p === 'orientation' || p === 'resume') return 0;
-  if (p === 'confirmation' || p === 'results' || p === 'processing' || p === 'error' || p === 'stage1complete') return 1;
+  if (p === 'confirmation' || p === 'results' || p === 'processing' || p === 'error') return 1;
   const done = completedScreens();
   if (done == null) return 0;
   const total = overallTotalScreens();
@@ -155,7 +160,7 @@ function overallFraction() {
 // Chrome reads this for the global bar + sub-progress strip.
 function progressFor(phase) {
   return {
-    stageLabel: STAGE_LABELS[phase] || null,
+    stageLabel: PHASE_FIXED[phase] ? PHASE_FIXED[phase].label : (STAGE_LABELS[phase] || null),
     pct:        Math.round(overallFraction() * 100),
     dotIndex:   stageDotIndex(phase),
     dotTotal:   stageDotTotal(phase),

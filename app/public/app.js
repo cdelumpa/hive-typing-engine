@@ -61,7 +61,7 @@ function ctSnapshot() {
   ].join('|');
 }
 
-// Fires from the 'ct-analyzing' transition screen. Returns a promise that
+// Fires from the 'part1-complete' interstitial (§0D). Returns a promise that
 // resolves when the call completes (success or failure) — the caller races it
 // against an 8-second timeout. When adjustment_made is true the revised
 // hypothesis list overwrites state.scores.typeHypotheses for downstream stages.
@@ -118,7 +118,7 @@ async function fireCtMiniCall() {
 
 // =================== AI CALL #1 (KEYSTONE) ===================
 
-// Fires from the 'call1-analyzing' transition screen after Stage 2. Sends the
+// Fires from the 'part2-complete' interstitial (§0F) after Stage 2. Sends the
 // §6.2 evidence context block to the server, which runs the reasoning call and
 // returns the frozen §6.3 contract. The parsed result is stored on
 // state.call1Result (mirrored into session_state by getSerializableState) and
@@ -396,6 +396,23 @@ if (window.__hiveIntake) {
       rehydratable.forEach(function(key) {
         if (ss[key] !== undefined) state[key] = ss[key];
       });
+
+      // Migrate retired interstitial phase names (PR3) so a session saved before
+      // this release doesn't rehydrate onto a deleted phase.
+      var PHASE_MIGRATION = {
+        'mid-assessment-reminders': 'stage1',
+        'ct-analyzing':             'part1-complete',
+        'call1-analyzing':          'part2-complete',
+        'stage1complete':           'stage1',
+      };
+      if (PHASE_MIGRATION[state.phase]) {
+        state.phase = PHASE_MIGRATION[state.phase];
+        if (state.phase === 'stage1' && (!state.stage1TypeSliders || Object.keys(state.stage1TypeSliders).length === 0)) {
+          initStage1();
+          state.stage1Idx = 0;
+        }
+        if (state.phase === 'part1-complete') state._part1Ready = false;
+      }
     }
   }
   // Fresh (non-resume) token entry: the SPA now owns the full pre-assessment flow
