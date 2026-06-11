@@ -2381,6 +2381,11 @@ function attachHandlers() {
     state.phase = 'stage0';
     state.stage0Idx = 0;
     render();
+    // Persist on entering Stage 0 so a refresh on Q1 (before the client advances)
+    // resumes to Q1 instead of re-serving the pre-assessment flow. Q1 isn't answered
+    // yet, so the server does NOT stamp assessment_started_at on this save — the
+    // timing clock stays anchored to the Q1 answer (see /save handler, §9.2).
+    saveSessionState();
   });
 
   // Resume (§0G) — advance straight to the saved screen; no replay of prior
