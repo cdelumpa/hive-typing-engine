@@ -74,9 +74,21 @@ const basicAuthMiddleware = basicAuth({
   challenge: true,
   realm: 'Hive Typing Engine',
 });
+// The client SPA is served to token-link visitors who carry no basic-auth
+// credentials (the /assessment/ HTML itself is already exempt below). index.html
+// pulls these assets via <link>/<script> with root-absolute paths, so they must
+// bypass basic auth too — otherwise a fresh, credential-less token visit triggers
+// the basic-auth dialog on each asset load (regression from PR2's move to
+// SPA-served token entry). These are pure client assets; admin, API, reports, the
+// '/' entry, and the data layer all stay gated.
+const SPA_ASSET_PATHS = new Set([
+  '/styles.css', '/state.js', '/ui.js', '/assessment.js', '/app.js',
+  '/content/type_library.json',
+]);
 app.use((req, res, next) => {
   if (req.path === '/admin/login' || req.path.startsWith('/admin')) return next();
   if (req.path.startsWith('/assessment/')) return next();
+  if (SPA_ASSET_PATHS.has(req.path)) return next();
   // Tokenized PDF access: generation is session-gated, redemption is token-gated.
   // Both must bypass basic auth so coaches and their PDF viewer can reach them.
   if (req.path.startsWith('/reports/token/') || req.path.startsWith('/reports/view/')) return next();
