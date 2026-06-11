@@ -2371,18 +2371,33 @@ app.get('/assessment/:token', async (req, res) => {
         console.error('[assessment/resume] index.html read error:', e.message);
       }
     }
-    // No saved state — dead-end gate
-    return res.send(renderAssessmentGate(
-      'Assessment In Progress',
-      `It looks like you've already started your assessment, ${esc(tokenRow.first_name)}. If you need to restart, please contact your coach.`,
-      ''
-    ));
+    // In progress with no saved state — two very different situations:
+    //  1. Submitted, but the background job failed. /api/submit clears session_state
+    //     and the failure path reverts status to in_progress (server.js ~973), while
+    //     an assessments row with the client's responses already exists. Re-serving
+    //     the SPA would let them re-take the whole assessment and create a duplicate
+    //     submission — so show a gate; the coach retries the API and their responses
+    //     are safe server-side.
+    //  2. Never submitted — a refresh during the pre-assessment screens (Welcome /
+    //     intake / profile-confirm / orientation), before the first Stage 0 save.
+    //     Nothing to resume, so fall through and re-serve the SPA fresh rather than
+    //     dead-ending the client. /begin is idempotent for an already-in_progress
+    //     client, so re-entering the pre-assessment flow is lossless.
+    const submitted = await db.getAssessmentPayload(tokenRow.client_id).catch(() => null);
+    if (submitted) {
+      return res.send(renderAssessmentGate(
+        'Assessment Received',
+        `Thanks, ${esc(tokenRow.first_name)} — we've received your responses and your report is being prepared. If it doesn't arrive shortly, please reach out to your coach.`,
+        ''
+      ));
+    }
+    // Never submitted — fall through to re-serve the SPA fresh.
   }
 
-  // not_started — serve the SPA; it owns the full pre-assessment flow
-  // (Welcome → profile-confirm/intake → orientation → Stage 0). The bootstrap
-  // carries the route flag (§0A: profile-confirm when the record is complete,
-  // else intake) and the active coach roster for the intake form.
+  // not_started, or in_progress with no saved state yet — serve the SPA; it owns
+  // the full pre-assessment flow (Welcome → profile-confirm/intake → orientation →
+  // Stage 0). The bootstrap carries the route flag (§0A: profile-confirm when the
+  // record is complete, else intake) and the active coach roster for the intake form.
   try {
     const intake = {
       firstName:    tokenRow.first_name,
