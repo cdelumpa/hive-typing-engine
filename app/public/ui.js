@@ -64,59 +64,107 @@ function renderMultiPara(str, style) {
   return segs.map((p) => `<p style="${s}">${esc(p)}</p>`).filter(p => p !== `<p style="${s}"></p>`).join('');
 }
 
-// =================== PROGRESS ===================
+// =================== PROGRESS / CHROME META ===================
+//
+// Single source of truth for the chrome's global progress bar (stage label + %)
+// and the sub-progress dot strip ("Screen N of N"). Replaces the old hard /23
+// denominator. PR1 seeds counts from the current screen model (Stage 1 derived
+// from STAGE1_SCREENS.length); the ~27 recalibration lands with PR4's 9-screen
+// Stage 1 rebuild (decision D1). Stage 3/4 counts are dynamic — read from state
+// after routing resolves (spec §4/§8).
 
-// Returns a cumulative count of questions answered so far (max 23).
-// Used to drive the progress bar — no text or labels, just a fill width.
-function getQuestionsAnswered() {
-  const p = state.phase;
-  if (p === 'welcome' || p === 'intake') return 0;
-  if (p === 'confirmation' || p === 'results' || p === 'processing' || p === 'stage1complete') return 23;
+// Global-bar stage labels (spec §3.4). Phases absent here render no stage label.
+const STAGE_LABELS = {
+  stage0:    'Warmup',
+  stage1:    'Part 1',
+  stage2:    'Part 2',
+  stage3:    'Part 3',
+  stage4:    'Part 4',
+  finalopen: 'Part 4',
+};
 
-  const a0 = state.stage0Answers || {};
-  const s0 = ['q1', 'q2', 'q3', 'q4'].filter(k => a0[k] && String(a0[k]).trim()).length;
-  if (p === 'stage0') return s0;
-  if (p === 'mid-assessment-reminders') return 4;
+// Question stages in flow order — used for cumulative progress accounting.
+const PROGRESS_ORDER = ['stage0', 'stage1', 'stage2', 'stage3', 'stage4', 'finalopen'];
 
-  // stage1: idx = number of questions completed so far on this pass
-  const s1 = (p === 'stage1') ? (state.stage1Idx || 0) : 10;
-  if (p === 'stage1') return 4 + s1;
-
-  // ct-analyzing: transition screen between Stage 1 and Stage 2 — full Stage 1 (14)
-  if (p === 'ct-analyzing') return 14;
-
-  // stage2
-  const s2 = (p === 'stage2') ? (state.stage2Idx || 0) : 3;
-  if (p === 'stage2') return 14 + s2;
-
-  // stage3 and beyond: use array lengths for completed stages
-  const s3 = (state.stage3Answers || []).length;
-  if (p === 'stage3') return 17 + s3;
-
-  const s4 = (state.stage4Answers || []).length;
-  if (p === 'stage4') return 17 + s3 + s4;
-
-  if (p === 'finalopen') return 17 + s3 + s4 + 1;
-
-  return 23;
+// Screen (dot) count for a question stage. Fixed for Stage 0/1/2; dynamic for
+// Stage 3/4. Stage 1 reads STAGE1_SCREENS.length so PR4's rebuild flows through.
+function stageDotTotal(phase) {
+  switch (phase) {
+    case 'stage0': return 4;
+    case 'stage1': return (typeof STAGE1_SCREENS !== 'undefined') ? STAGE1_SCREENS.length : 14;
+    case 'stage2': return 3;
+    case 'stage3':
+      return (state.scores && state.scores.stage3Pair && state.scores.stage3Pair.fireQ2) ? 2 : 1;
+    case 'stage4':
+      return (state.stage4Sequence && state.stage4Sequence.length) ? state.stage4Sequence.length : 2;
+    case 'finalopen': return 1;
+    default: return 0;
+  }
 }
 
-function updateProgress() {
-  const wrap = document.getElementById('progress-bar-wrap');
-  const bar  = document.getElementById('progress-bar');
-  if (!wrap || !bar) return;
+// 0-based index of the current screen within its stage (highlighted dot).
+function stageDotIndex(phase) {
+  switch (phase) {
+    case 'stage0': return state.stage0Idx || 0;
+    case 'stage1': return state.stage1Idx || 0;
+    case 'stage2': return state.stage2Idx || 0;
+    case 'stage3': return state.stage3Idx || 0;
+    case 'stage4': return state.stage4Idx || 0;
+    default: return 0;
+  }
+}
+
+function overallTotalScreens() {
+  return PROGRESS_ORDER.reduce((sum, ph) => sum + stageDotTotal(ph), 0);
+}
+
+// Cumulative screens completed up to and including the current phase. Returns
+// null for non-question phases. Interstitials report the cumulative total at the
+// boundary of the stage they follow.
+function completedScreens() {
   const p = state.phase;
-  if (p === 'welcome' || p === 'intake') {
-    wrap.style.display = 'none';
-    return;
-  }
-  // The mid-assessment-reminders screen uses its own inline progress markup,
-  // so suppress the shared bar to avoid double-rendering.
-  if (p === 'mid-assessment-reminders') {
-    wrap.style.display = 'none';
-    return;
-  }
-  wrap.style.display = '';
-  const pct = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
-  bar.style.width = pct + '%';
+  const s1 = stageDotTotal('stage1');
+  const s3 = stageDotTotal('stage3');
+  const before = {
+    stage0: 0,
+    'mid-assessment-reminders': 4,
+    stage1: 4,
+    'ct-analyzing': 4 + s1,
+    stage2: 4 + s1,
+    'call1-analyzing': 4 + s1 + 3,
+    stage3: 4 + s1 + 3,
+    stage4: 4 + s1 + 3 + s3,
+    finalopen: 4 + s1 + 3 + s3 + stageDotTotal('stage4'),
+  };
+  if (before[p] == null) return null;
+  return PROGRESS_ORDER.includes(p) ? before[p] + stageDotIndex(p) : before[p];
+}
+
+// Overall completion fraction (0-1) for the global progress bar. Pre-assessment
+// phases read 0; terminal phases read 1.
+function overallFraction() {
+  const p = state.phase;
+  if (p === 'welcome' || p === 'intake' || p === 'profile-confirm' || p === 'orientation' || p === 'resume') return 0;
+  if (p === 'confirmation' || p === 'results' || p === 'processing' || p === 'error' || p === 'stage1complete') return 1;
+  const done = completedScreens();
+  if (done == null) return 0;
+  const total = overallTotalScreens();
+  return total > 0 ? Math.min(1, done / total) : 0;
+}
+
+// Chrome reads this for the global bar + sub-progress strip.
+function progressFor(phase) {
+  return {
+    stageLabel: STAGE_LABELS[phase] || null,
+    pct:        Math.round(overallFraction() * 100),
+    dotIndex:   stageDotIndex(phase),
+    dotTotal:   stageDotTotal(phase),
+  };
+}
+
+// Live-update the global bar width without a full re-render. No-ops when the bar
+// isn't in the DOM (no-progress chrome variants). Reserved for PR4's slider nudge.
+function updateProgress() {
+  const bar = document.getElementById('gp-fill');
+  if (bar) bar.style.width = Math.round(overallFraction() * 100) + '%';
 }

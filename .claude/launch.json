@@ -12,6 +12,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8778", "--directory", "app/public"],
       "port": 8778
+    },
+    {
+      "name": "hive-server",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd app && node server.js"],
+      "port": 3000
     }
   ]
 }

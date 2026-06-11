@@ -30,59 +30,177 @@ body {
   flex-direction: column;
 }
 
-/* ---- Assessment Header ---- */
-#assessment-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 80px;
-  background: #fff;
-  border-bottom: 1px solid #D6E2E8;
+/* ============================================================
+   v2 CHROME SYSTEM (PR1) — spec §2/§3
+   Shared topbar, global progress bar, sub-progress dot strip, footer.
+   Tokens are scoped to .hive-assessment (decision D2): the assessment
+   subtree shadows --teal/--accent/--ink/--border/--font without touching
+   :root, so reports and the admin dashboard keep their existing palette.
+   ============================================================ */
+
+.hive-assessment {
+  /* Shadowed :root names — retheme existing assessment rules to §2 in place. */
+  --teal:   #00B2D9;   /* Hive Blue   (was :root #00b1d7) */
+  --accent: #F68625;   /* Hive Orange (was :root #f58527) */
+  --ink:    #1E2A35;   /* dark text   (was :root #1A2B33) */
+  --border: #E2E6EA;   /* default border (was :root #C5DDE8) */
+  --font:   Arial, Helvetica, sans-serif;   /* §2 Arial */
+
+  /* New §2 tokens. */
+  --hive-blue:      #00B2D9;
+  --hive-orange:    #F68625;
+  --body-text:      #2D3A45;
+  --muted:          #8A96A3;
+  --subprog-bg:     #F7FDFF;
+  --subprog-border: #D8F3FA;
+  --subprog-text:   #5A9AAA;
+  --selected-bg:    #EBF9FD;
+  --selected-text:  #0A6E88;
+  --locked:         #B8E8F3;
+  --footer-text:    #C8D0D9;
+  --content-bg:     #F4F6F8;
+
+  font-family: var(--font);
   display: flex;
-  align-items: center;
-  padding: 16px 20px;
-  box-sizing: border-box;
-  z-index: 99;
-}
-#header-logo {
-  height: 32px;
-  width: auto;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  background: var(--content-bg);
 }
 
-/* ---- Inline progress indicator ---- */
-.progress-section {
-  margin: 24px 0 28px 0;
+/* ---- Fixed top stack (sticky so content flows beneath, no padding math) ---- */
+.chrome-top {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
 }
-.progress-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #7A96A6;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 8px;
+
+/* ---- Topbar: logo (+ divider + product) and Save (positioned per mode) ---- */
+.chrome-topbar {
+  position: relative;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  background: #fff;
+  border-bottom: 0.5px solid var(--border);
 }
-.progress-track {
-  width: 100%;
-  height: 8px;
-  background: #EFE8E0;
-  border-radius: 4px;
-  overflow: hidden;
+.chrome-mode-logo .chrome-topbar { justify-content: center; }   /* welcome / thank-you / errors */
+.chrome-mode-full .chrome-topbar { justify-content: flex-start; }
+
+.chrome-brand { display: flex; align-items: center; }
+.chrome-logo svg { height: 28px; width: auto; display: block; }
+.chrome-divider { width: 1px; height: 20px; background: var(--border); margin: 0 12px; }
+.chrome-product { font-size: 13px; color: var(--muted); letter-spacing: 0.03em; }
+
+/* ---- Global progress bar (stage label + % + fill) ---- */
+.global-progress {
+  background: #fff;
+  border-bottom: 0.5px solid var(--border);
+  padding: 8px 20px;
 }
-.progress-fill {
-  height: 8px;
-  background: #f58527;
-  border-radius: 4px;
-  transition: width 0.3s ease;
+.gp-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.gp-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; }
+.gp-blue   { color: var(--hive-blue); }
+.gp-orange { color: var(--hive-orange); }     /* reserved for PR3 Part-complete screens */
+.gp-pct { font-size: 11px; color: var(--muted); }
+.gp-track { width: 100%; height: 3px; background: #EAF0F3; border-radius: 2px; overflow: hidden; }
+.gp-fill  { height: 100%; background: var(--hive-orange); border-radius: 2px; transition: width 0.3s ease; }
+
+/* ---- Save and continue later (desktop: top-right in topbar; mobile: row) ---- */
+.chrome-save-row { padding: 0; }
+.chrome-mode-full .chrome-save-row {
+  position: absolute;
+  top: 0;
+  right: 20px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+}
+.chrome-save {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.chrome-save:hover { border-color: var(--hive-blue); color: var(--hive-blue); }
+
+/* ---- Sub-progress strip: "Screen N of N" + dot trail ---- */
+.sub-progress {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--subprog-bg);
+  border-bottom: 0.5px solid var(--subprog-border);
+  padding: 6px 20px;
+}
+.sp-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--subprog-text); }
+.sp-dots { display: flex; gap: 5px; }
+.sp-dot { width: 6px; height: 6px; border-radius: 50%; background: #CFE8F0; }
+.sp-dot.done     { background: var(--hive-orange); }
+.sp-dot.current  { background: var(--hive-blue); }
+.sp-dot.upcoming { background: #CFE8F0; }
+
+/* ---- Content area (scrolls beneath the sticky top) ---- */
+.chrome-content {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 28px 28px 32px;
+  background: var(--content-bg);
+}
+
+/* ---- Footer (sticky bottom, clears the iOS home indicator) ---- */
+.chrome-footer {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  border-top: 0.5px solid var(--border);
+  text-align: center;
+  font-size: 9px;
+  color: var(--footer-text);
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
+/* ---- Mobile chrome (spec §3.2 / §3.3) ---- */
+@media (max-width: 600px) {
+  .chrome-topbar { flex-direction: column; height: auto; justify-content: center; padding: 10px 14px; gap: 2px; }
+  .chrome-brand { flex-direction: column; align-items: center; gap: 2px; }
+  .chrome-divider { display: none; }            /* stacked brand → no divider */
+  .chrome-logo svg { height: 20px; }
+  .chrome-product { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .global-progress { padding: 8px 14px; }
+  .gp-track { height: 2px; }                     /* §3.2 2px bar */
+
+  /* Save becomes a full-width row below the progress bar (not in the topbar). */
+  .chrome-mode-full .chrome-save-row { position: static; right: auto; height: auto; padding: 8px 14px; }
+  .chrome-save { width: 100%; }
+
+  .sub-progress { padding: 6px 14px; }
+  .chrome-content { padding: 18px 14px 24px; }   /* §3.2 14px side padding */
+  .chrome-footer { font-size: 6.5px; }
+
+  /* Collapse on scroll (>20px): brand header + Save row hide; sub-progress and
+     the global bar stay pinned. JS toggles .chrome-collapsed on .chrome-top. */
+  .chrome-topbar, .chrome-save-row { transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease; max-height: 140px; overflow: hidden; }
+  .chrome-top.chrome-collapsed .chrome-topbar,
+  .chrome-top.chrome-collapsed .chrome-save-row {
+    max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; border: none;
+  }
 }
 
 /* ---- Main container ---- */
 #app {
   flex: 1;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 80px 20px 80px;
+  width: 100%;
 }
 
 .screen {
@@ -737,7 +855,6 @@ body {
   .q-text { font-size: 17px; }
   .resonance-options { grid-template-columns: 1fr; }
   .scores-grid { grid-template-columns: 1fr; }
-  #app { padding: 80px 16px 60px; }
   .rank-btn-group { flex-wrap: wrap; }
 }
 
