@@ -90,7 +90,7 @@ body {
 .chrome-mode-full .chrome-topbar { justify-content: flex-start; }
 
 .chrome-brand { display: flex; align-items: center; }
-.chrome-logo svg { height: 28px; width: auto; display: block; }
+.chrome-logo svg { height: 42px; width: auto; display: block; }
 .chrome-divider { width: 1px; height: 20px; background: var(--border); margin: 0 12px; }
 .chrome-product { font-size: 13px; color: var(--muted); letter-spacing: 0.03em; }
 
@@ -174,7 +174,7 @@ body {
   .chrome-topbar { flex-direction: column; height: auto; justify-content: center; padding: 10px 14px; gap: 2px; }
   .chrome-brand { flex-direction: column; align-items: center; gap: 2px; }
   .chrome-divider { display: none; }            /* stacked brand → no divider */
-  .chrome-logo svg { height: 20px; }
+  .chrome-logo svg { height: 30px; }
   .chrome-product { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
 
   .global-progress { padding: 8px 14px; }
