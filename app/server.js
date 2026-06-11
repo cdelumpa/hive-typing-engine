@@ -26,7 +26,7 @@ if (process.env.SENDGRID_API_KEY) {
 }
 
 // Load renderer and type library
-const { buildCoachPdfOptions } = require('./renderer');
+const { buildCoachPdfOptions, HIVE_LOGO_SVG } = require('./renderer');
 const { renderClientReport, renderCoachReport } = require('./render_report');
 const { generateBetaReport } = require('./generate_report');
 const db = require('./db');
@@ -87,14 +87,30 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
 
-// Inject window.__hiveIntake for token-based assessment sessions before static serves index.html
+// The canonical logo (renderer.js HIVE_LOGO_SVG) is inlined into the assessment
+// SPA at serve time so the client chrome can render it without a second copy or
+// extra I/O. The const carries class="logo", which conflicts with environment
+// stylesheets (spec §0.4/§8) — strip it; the client sizes the logo via CSS.
+const HIVE_LOGO_SVG_CLIENT = HIVE_LOGO_SVG.replace('class="logo"', '');
+const HIVE_LOGO_SCRIPT_TAG = `<script>window.__HIVE_LOGO_SVG = ${JSON.stringify(HIVE_LOGO_SVG_CLIENT)};</script>`;
+
+// Splice the inlined logo (always) and, when present, the token-session intake
+// payload into index.html before </head>. Used by the SPA entry routes.
+function injectAssessmentBootstrap(html, intake) {
+  let tags = HIVE_LOGO_SCRIPT_TAG;
+  if (intake) tags += `\n<script>window.__hiveIntake = ${JSON.stringify(intake)};</script>`;
+  return html.replace('</head>', `${tags}\n</head>`);
+}
+
+// Serve the assessment SPA shell with the logo inlined (and intake when a
+// token session is active). The logo is injected unconditionally so the chrome
+// renders correctly even outside a token session (local dev / fresh load).
 const INDEX_HTML_PATH = path.join(__dirname, 'public', 'index.html');
 app.get('/', (req, res, next) => {
-  if (!req.session || !req.session.assessmentIntake) return next();
   try {
+    const intake = (req.session && req.session.assessmentIntake) || null;
     let html = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
-    const scriptTag = `<script>window.__hiveIntake = ${JSON.stringify(req.session.assessmentIntake)};</script>`;
-    html = html.replace('</head>', `${scriptTag}\n</head>`);
+    html = injectAssessmentBootstrap(html, intake);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
   } catch (e) {
@@ -2442,9 +2458,10 @@ app.get('/assessment/:token', async (req, res) => {
           client_id:    tokenRow.client_id,
           token:        req.params.token,
         };
-        const intakeTag = `<script>window.__hiveIntake = ${JSON.stringify(intake)};</script>`;
         const sessionTag = `<script>window.__hiveSessionState = ${JSON.stringify(tokenRow.session_state)};</script>`;
-        html = html.replace('</head>', `${intakeTag}\n${sessionTag}\n</head>`);
+        // injectAssessmentBootstrap inlines the logo + intake; append the resume
+        // session state alongside them before </head>.
+        html = injectAssessmentBootstrap(html, intake).replace('</head>', `${sessionTag}\n</head>`);
         return res.send(html);
       } catch (e) {
         console.error('[assessment/resume] index.html read error:', e.message);

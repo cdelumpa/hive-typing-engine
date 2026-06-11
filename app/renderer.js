@@ -2433,4 +2433,5 @@ module.exports = {
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
   buildCoachReportHTML, buildCoachPdfOptions, COACH_CLARIFICATION_QUESTIONS,
   buildClientReportHTML,
+  HIVE_LOGO_SVG,
 };

@@ -1420,53 +1420,162 @@ const SAVE_LATER_PHASES = new Set([
   'stage2', 'call1-analyzing', 'stage3', 'stage4', 'finalopen',
 ]);
 
+// =================== CHROME SYSTEM (PR1) ===================
+//
+// Every screen renders inside a shared chrome shell built by render() — topbar
+// (logo + divider + product + Save), global progress bar, sub-progress dot strip,
+// and footer (spec §3). Per-screen renderX() functions return ONLY their body;
+// they no longer emit their own progress markup. chromeFor() decides which chrome
+// variant a phase uses; progress numbers come from ui.js (progressFor).
+
+// Product name shown next to the logo in the full topbar.
+const CHROME_PRODUCT_NAME = 'InsightOut Assessment';
+
+// Phase → chrome variant. topbar 'logo-only' = centered logo, no progress/save;
+// 'full' = logo + divider + product + Save. progress/sub toggle the global bar
+// and the "Screen N of N" dot strip. Later PRs extend this map (profile-confirm,
+// orientation, resume, part1/part2-complete, thank-you, error screens).
+const PHASE_CHROME = {
+  welcome:                     { topbar: 'logo-only', progress: false, sub: false },
+  intake:                      { topbar: 'full',      progress: false, sub: false },
+  stage0:                      { topbar: 'full',      progress: true,  sub: true  },
+  'mid-assessment-reminders':  { topbar: 'full',      progress: true,  sub: false },
+  stage1:                      { topbar: 'full',      progress: true,  sub: true  },
+  'ct-analyzing':              { topbar: 'full',      progress: true,  sub: false },
+  stage2:                      { topbar: 'full',      progress: true,  sub: true  },
+  'call1-analyzing':           { topbar: 'full',      progress: true,  sub: false },
+  stage3:                      { topbar: 'full',      progress: true,  sub: true  },
+  stage4:                      { topbar: 'full',      progress: true,  sub: true  },
+  finalopen:                   { topbar: 'full',      progress: true,  sub: true  },
+  stage1complete:              { topbar: 'logo-only', progress: false, sub: false },
+  processing:                  { topbar: 'logo-only', progress: false, sub: false },
+  confirmation:                { topbar: 'logo-only', progress: false, sub: false },
+  error:                       { topbar: 'logo-only', progress: false, sub: false },
+};
+const DEFAULT_CHROME = { topbar: 'logo-only', progress: false, sub: false };
+
+// Resolve the chrome descriptor for a phase. showSave preserves the original
+// gate exactly (SAVE_LATER_PHASES + an active token). labelColor is 'blue' in
+// PR1; PR3 sets 'orange' for the Part-complete interstitials.
+function chromeFor(phase) {
+  const base = PHASE_CHROME[phase] || DEFAULT_CHROME;
+  const prog = progressFor(phase);
+  return {
+    topbar:          base.topbar,
+    showProgress:    base.progress,
+    showSubProgress: base.sub,
+    showSave:        SAVE_LATER_PHASES.has(phase) && !!(state.intake && state.intake.token),
+    stageLabel:      prog.stageLabel,
+    pct:             prog.pct,
+    dotIndex:        prog.dotIndex,
+    dotTotal:        prog.dotTotal,
+    labelColor:      'blue',
+  };
+}
+
+// Sub-progress dot strip — "Screen N of N" plus one dot per screen in the stage.
+function renderSubProgress(chrome) {
+  const total = chrome.dotTotal || 0;
+  if (total <= 0) return '';
+  let dots = '';
+  for (let i = 0; i < total; i++) {
+    const cls = i < chrome.dotIndex ? 'done' : (i === chrome.dotIndex ? 'current' : 'upcoming');
+    dots += `<span class="sp-dot ${cls}"></span>`;
+  }
+  return `<div class="sub-progress">
+      <span class="sp-label">Screen ${chrome.dotIndex + 1} of ${total}</span>
+      <span class="sp-dots">${dots}</span>
+    </div>`;
+}
+
+// Wrap a screen body in the full chrome shell. The logo SVG is inlined into the
+// page server-side as window.__HIVE_LOGO_SVG (Q3). The Save row is a single DOM
+// node: CSS positions it top-right in the topbar on desktop and as a full-width
+// row below the progress bar on mobile (collapsing with the brand header).
+function renderChromeShell(chrome, bodyHtml) {
+  const logo = (typeof window !== 'undefined' && window.__HIVE_LOGO_SVG) || '';
+  const full = chrome.topbar === 'full';
+
+  const brand = `<div class="chrome-brand">
+        <span class="chrome-logo">${logo}</span>
+        ${full ? `<span class="chrome-divider"></span><span class="chrome-product">${CHROME_PRODUCT_NAME}</span>` : ''}
+      </div>`;
+
+  const progress = chrome.showProgress ? `
+      <div class="global-progress">
+        <div class="gp-head">
+          <span class="gp-label gp-${chrome.labelColor}">${esc(chrome.stageLabel || '')}</span>
+          <span class="gp-pct">${chrome.pct}%</span>
+        </div>
+        <div class="gp-track"><div class="gp-fill" id="gp-fill" style="width:${chrome.pct}%"></div></div>
+      </div>` : '';
+
+  const save = chrome.showSave ? `
+      <div class="chrome-save-row">
+        <button class="chrome-save" id="btn-save-later">
+          <span class="save-full">Save and continue later</span><span class="save-short">Save &amp; Exit</span>
+        </button>
+      </div>` : '';
+
+  const sub = chrome.showSubProgress ? renderSubProgress(chrome) : '';
+
+  return `<div class="hive-assessment ${full ? 'chrome-mode-full' : 'chrome-mode-logo'}">
+    <div class="chrome-top" id="chrome-top">
+      <header class="chrome-topbar">${brand}</header>
+      ${progress}
+      ${save}
+      ${sub}
+    </div>
+    <div class="chrome-content">${bodyHtml}</div>
+    <footer class="chrome-footer">&copy; Copyright 2026 Hive, Inc. All rights reserved.</footer>
+  </div>`;
+}
+
+// Mobile scroll-collapse (spec §3.3): collapse the brand header + Save row once
+// the user scrolls past 20px; restore at the top (≤4px). The sub-progress strip
+// stays pinned (CSS excludes it from the collapse). Desktop is a CSS no-op. The
+// handler is deduped across renders, mirroring _stage1ResizeHandler.
+let _chromeScrollHandler = null;
+function attachChromeScroll() {
+  if (_chromeScrollHandler) window.removeEventListener('scroll', _chromeScrollHandler);
+  const top = document.getElementById('chrome-top');
+  if (!top) { _chromeScrollHandler = null; return; }
+  _chromeScrollHandler = function () {
+    const y = window.scrollY || window.pageYOffset || 0;
+    if (y > 20) top.classList.add('chrome-collapsed');
+    else if (y <= 4) top.classList.remove('chrome-collapsed');
+  };
+  window.addEventListener('scroll', _chromeScrollHandler, { passive: true });
+  _chromeScrollHandler();
+}
+
 function render() {
-  updateProgress();
   const app = document.getElementById('app');
 
+  let body = '';
   switch (state.phase) {
-    case 'welcome':        app.innerHTML = renderWelcome(); break;
-    case 'intake':         app.innerHTML = renderIntake(); break;
-    case 'stage0':         app.innerHTML = renderStage0(); break;
-    case 'mid-assessment-reminders': app.innerHTML = renderMidAssessmentReminders(); break;
-    case 'stage1':         app.innerHTML = renderStage1(); break;
-    case 'ct-analyzing':   app.innerHTML = renderCtAnalyzing(); break;
-    case 'stage2':         app.innerHTML = renderStage2(); break;
-    case 'call1-analyzing': app.innerHTML = renderCall1Analyzing(); break;
-    case 'stage3':         app.innerHTML = renderStage3(); break;
-    case 'stage4':         app.innerHTML = renderStage4(); break;
-    case 'finalopen':      app.innerHTML = renderFinalOpen(); break;
-    case 'stage1complete': app.innerHTML = renderStage1Complete(); break;
-    case 'processing':     app.innerHTML = renderProcessing(); break;
-    case 'confirmation':   app.innerHTML = renderConfirmation(); break;
-    case 'error':          app.innerHTML = renderError(); break;
+    case 'welcome':                  body = renderWelcome(); break;
+    case 'intake':                   body = renderIntake(); break;
+    case 'stage0':                   body = renderStage0(); break;
+    case 'mid-assessment-reminders': body = renderMidAssessmentReminders(); break;
+    case 'stage1':                   body = renderStage1(); break;
+    case 'ct-analyzing':             body = renderCtAnalyzing(); break;
+    case 'stage2':                   body = renderStage2(); break;
+    case 'call1-analyzing':          body = renderCall1Analyzing(); break;
+    case 'stage3':                   body = renderStage3(); break;
+    case 'stage4':                   body = renderStage4(); break;
+    case 'finalopen':                body = renderFinalOpen(); break;
+    case 'stage1complete':           body = renderStage1Complete(); break;
+    case 'processing':               body = renderProcessing(); break;
+    case 'confirmation':             body = renderConfirmation(); break;
+    case 'error':                    body = renderError(); break;
   }
 
-  // Inject Save and Continue Later link for active assessment stages. It sits
-  // just left of the primary action (Continue/Submit) inside the screen's
-  // .nav-row, styled as a ghost button to match the Back/Skip controls there.
-  // Analyzing interstitials have no nav-row, so they fall back to a centered bar.
-  if (SAVE_LATER_PHASES.has(state.phase) && state.intake && state.intake.token) {
-    const navRow = app.querySelector('.nav-row');
-    const primaryBtn = navRow && navRow.querySelector('.btn-primary');
-    if (navRow && primaryBtn) {
-      const saveBtn = document.createElement('button');
-      saveBtn.className = 'btn btn-ghost';
-      saveBtn.id = 'btn-save-later';
-      // Label swaps to a shorter form on narrow widths (see .save-full /
-      // .save-short in styles.css), mirroring the slider pole label pattern.
-      saveBtn.innerHTML = '<span class="save-full">Save and Continue Later</span><span class="save-short">Save &amp; Exit</span>';
-      navRow.insertBefore(saveBtn, primaryBtn);
-    } else {
-      const saveLaterEl = document.createElement('div');
-      saveLaterEl.id = 'save-later-bar';
-      saveLaterEl.style.cssText = 'text-align:center;padding:16px 0 8px;';
-      saveLaterEl.innerHTML = '<button id="btn-save-later" style="background:none;border:none;color:#7A96A6;font-size:13px;font-family:Georgia,serif;cursor:pointer;text-decoration:underline;padding:4px 8px;">Save and Continue Later</button>';
-      app.appendChild(saveLaterEl);
-    }
-  }
+  app.innerHTML = renderChromeShell(chromeFor(state.phase), body);
 
-  attachHandlers();
+  updateProgress();        // reaffirm the global bar width after mount
+  attachHandlers();        // Save (#btn-save-later) is bound here as before
+  attachChromeScroll();    // mobile collapse listener (deduped per render)
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1557,12 +1666,7 @@ function renderConfirmation() {
 // ---- Final Open Question ----
 function renderFinalOpen() {
   const val = state.finalOpenResponse || '';
-  const pct = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="progress-section">
-      <div class="progress-label">Completed</div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
-    </div>
     <div class="q-text" style="margin-bottom:20px;">Is there anything about how you experience the world — what drives you, what you tend to avoid, or what you've learned about yourself — that the assessment didn't quite capture?</div>
     <p style="font-size:13px;color:var(--ink-lt);margin-bottom:16px;font-style:italic;">Optional — skip if nothing comes to mind.</p>
     <textarea class="text-input" id="finalopen-input" placeholder="Type your response here…" style="min-height:130px;">${esc(val)}</textarea>
@@ -1585,12 +1689,7 @@ function renderStage0() {
       <strong>How others describe you:</strong> ${esc(state.stage0Answers.q2 || '')}
     </div>` : '';
 
-  const pct0 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="progress-section">
-      <div class="progress-label">Completed</div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct0}%"></div></div>
-    </div>
     <div class="q-text">${q.text}</div>
     ${refHtml}
     <textarea class="text-input" id="stage0-input" placeholder="Type your response here…">${esc(val)}</textarea>
@@ -1606,12 +1705,7 @@ function renderStage0() {
 // Fires after Stage 0 Q4 is submitted and before Stage 1 Q1. Doubles as latency
 // cover for the Stage 0 mini-call (kicked off from attachHandlers on entry).
 function renderMidAssessmentReminders() {
-  const pctMid = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="progress-section">
-      <div class="progress-label">Completed</div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pctMid}%"></div></div>
-    </div>
     <div class="q-text" style="margin-bottom:18px;">Great work — you’ve completed the first part of the assessment. If you want to review or edit your responses, hit the “Go Back” button. Otherwise, here are a few tips to help you complete the rest of the assessment:</div>
     <ul style="margin:0 0 24px;padding-left:20px;line-height:1.7;font-size:14px;color:#1A2B33;">
       <li style="margin-bottom:10px;">Answer the questions in the context of your life in general and try not to confine your answers to your work life only.</li>
@@ -1634,12 +1728,7 @@ function renderMidAssessmentReminders() {
 // from attachHandlers. Auto-advances to Stage 2 on success or after the
 // 8-second timeout. The progress bar reflects Stage 1 completion (14/23).
 function renderCtAnalyzing() {
-  const pctCt = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="progress-section">
-      <div class="progress-label">Completed</div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pctCt}%"></div></div>
-    </div>
     <div class="processing-wrap">
       <div class="spinner"></div>
       <div class="processing-heading">Analyzing your responses…</div>
@@ -1653,7 +1742,6 @@ function renderCtAnalyzing() {
 // shows a Continue button that advances into Stage 3 off state.call1Result (the
 // routing is built when Continue is clicked, in attachHandlers).
 function renderCall1Analyzing() {
-  const pctC1 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   const done = state._call1Done;
   const heading = done ? 'Analysis complete' : 'Analyzing your responses…';
   const sub = done
@@ -1664,10 +1752,6 @@ function renderCall1Analyzing() {
     ? `<div class="nav-row"><div class="spacer"></div><button class="btn btn-primary" id="btn-next">Continue</button></div>`
     : '';
   return `<div class="screen">
-    <div class="progress-section">
-      <div class="progress-label">Completed</div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pctC1}%"></div></div>
-    </div>
     <div class="processing-wrap">
       ${spinner}
       <div class="processing-heading">${heading}</div>
@@ -1680,16 +1764,12 @@ function renderCall1Analyzing() {
 // ---- Stage 1 (v2 sliders) ----
 function renderStage1() {
   const screen = STAGE1_SCREENS[state.stage1Idx];
-  const pct1 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   const staleNotice = state._stage1StaleNotice
     ? `<div class="stale-notice">We’ve updated the assessment — please restart from the beginning.</div>`
     : '';
-  const header = `
-    <div class="progress-section">
-      <div class="progress-label">Completed</div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct1}%"></div></div>
-    </div>
-    ${staleNotice}`;
+  // Chrome (progress bar / sub-progress) is rendered by render(); this header
+  // now carries only the optional stale-session notice.
+  const header = staleNotice;
 
   // Optional open-response screens — never gate Continue.
   if (screen.kind === 'type-open' || screen.kind === 'instinct-open') {
@@ -1767,7 +1847,6 @@ function renderStage1() {
 // ---- Stage 2: Cross-Referencing ----
 function renderStage2() {
   const q = STAGE2_QUESTIONS[state.stage2Idx];
-  const pct2 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
 
   let bodyHtml, answered;
 
@@ -1820,10 +1899,6 @@ function renderStage2() {
   }
 
   return `<div class="screen">
-    <div class="progress-section">
-      <div class="progress-label">Completed</div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct2}%"></div></div>
-    </div>
     <div class="q-text">${esc(q.text)}</div>
     ${bodyHtml}
     <div class="nav-row">
@@ -1869,12 +1944,7 @@ function renderStage3() {
   const totalQs = pair.mode === 'COUNTER-TYPE' ? 1 : (pair.fireQ2 ? 2 : 1);
   const isLast = idx === totalQs - 1;
 
-  const pct3 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="progress-section">
-      <div class="progress-label">Completed</div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct3}%"></div></div>
-    </div>
     <div class="q-text">${esc(stem)}</div>
 
     <div class="person-options">
@@ -1950,12 +2020,7 @@ function renderStage4() {
     bodyHtml = render4WayOptions(block.personA, block.personB, sel);
   }
 
-  const pct4 = Math.min(100, Math.round((getQuestionsAnswered() / 23) * 100));
   return `<div class="screen">
-    <div class="progress-section">
-      <div class="progress-label">Completed</div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct4}%"></div></div>
-    </div>
     <div class="q-text">${esc(stem)}</div>
 
     <div class="person-options">
