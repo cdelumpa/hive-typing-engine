@@ -1879,12 +1879,12 @@ function renderPart2Complete() {
       <div class="primer-section">
         <div class="primer-label">HOW PAIRED COMPARISONS WORK</div>
         <!-- [PLACEHOLDER — Mo review required] primer body, replace before beta -->
-        <div class="primer-body">You’ll see two short descriptions of a person side by side. Read both, then pick the one that sounds more like you — or, if they both fit, the one that fits a little more. There’s no trick here; go with your first read.</div>
+        <div class="primer-body">You’ll read two short descriptions — Person A and Person B — and choose the one that sounds more like you. If both feel partly true, pick “Both, but more A” or “Both, but more B” and lean toward whichever fits a little more. Go with your first read; there’s no trick here.</div>
       </div>
       <div class="primer-section">
         <div class="primer-label">THE FINAL QUESTION</div>
         <!-- [PLACEHOLDER — Mo review required] primer body, replace before beta -->
-        <div class="primer-body">After the comparisons, we’ll ask one last open question — a chance to add anything in your own words that the rest of the assessment didn’t quite capture. A sentence or two is plenty.</div>
+        <div class="primer-body">You’ve answered a lot of questions — thank you! Your answer to this last one really helps us sharpen the read and bring your report to life. So don’t hold back — the richer the detail, the more we have to work with.</div>
       </div>
     </div>
     ${interstitialStatus(ready, 'Selecting your final questions…', 'Your final questions are ready.')}
