@@ -310,6 +310,99 @@ body {
   .orient-pill { flex: 1 1 45%; }
 }
 
+/* ============================================================
+   v2 INTERSTITIALS + THANK YOU (PR3) — §0D Part 1 Complete ·
+   §0F Part 2 Complete · §0E Thank You. Inside .hive-assessment.
+   ============================================================ */
+
+/* ---- Shared interstitial (§0D / §0F) ---- */
+.screen.interstitial { max-width: 560px; text-align: left; }
+.interstitial { width: 100%; }
+.ic-headline { font-size: 22px; font-weight: 600; color: var(--ink); margin: 0 0 8px; }
+.ic-subhead { font-size: 14px; color: #6B7785; line-height: 1.5; margin: 0 0 18px; }
+
+/* Status row: spinner+text (A) or checkmark+text (B). */
+.ic-status { display: flex; align-items: center; gap: 10px; font-size: 13px; margin: 4px 0 14px; }
+.ic-status.loading { color: #6B7785; }
+.ic-status.ready { color: var(--hive-blue); }
+.ic-spinner {
+  width: 16px; height: 16px; flex: none; border-radius: 50%;
+  border: 2px solid #D8E6EC; border-top-color: var(--hive-blue);
+  animation: spin 0.9s linear infinite;
+}
+.ic-check {
+  width: 18px; height: 18px; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--hive-blue); color: #fff;
+}
+.ic-check svg { width: 12px; height: 12px; }
+
+.ic-divider { height: 0; border-top: 0.5px solid #E8ECF0; margin: 6px 0 14px; }
+.ic-tips-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #9AA3AD; margin-bottom: 10px; }
+.ic-tips { margin: 0; padding-left: 18px; }
+.ic-tips li { font-size: 14px; color: var(--ink); line-height: 1.55; margin-bottom: 10px; }
+.ic-tips li:last-child { margin-bottom: 0; }
+
+/* ---- §0F part-pill progress map ---- */
+.partmap { display: flex; gap: 8px; margin: 4px 0 18px; }
+.partmap-pill {
+  flex: 1 1 0; min-width: 0; border-radius: 8px; padding: 10px 12px;
+  background: #F0F2F4; border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.partmap-pill.upnext { background: #EBF9FD; border-color: var(--hive-blue); }
+.pm-check { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: #C8D0D9; color: #fff; }
+.pm-check svg { width: 11px; height: 11px; }
+.pm-label { font-size: 13px; font-weight: 600; color: var(--ink); }
+.partmap-pill.done .pm-label { color: #8A96A3; }
+.pm-state { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #9AA3AD; }
+.partmap-pill.upnext .pm-state { color: var(--hive-blue); }
+.pm-sub { font-size: 10px; color: #6B7785; }
+
+/* ---- §0F primer card ---- */
+.primer-card { background: #fff; border: 0.5px solid var(--border); border-radius: 10px; padding: 2px 16px; margin-bottom: 14px; }
+.primer-section { padding: 14px 0; border-bottom: 0.5px solid #F0F2F4; }
+.primer-section:last-child { border-bottom: none; }
+.primer-label { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--hive-blue); margin-bottom: 6px; }
+.primer-body { font-size: 14px; color: var(--ink); line-height: 1.55; }
+
+/* ---- §0E Thank You ---- */
+.screen.ty-screen { max-width: 520px; text-align: center; }
+.ty-screen { width: 100%; }
+.ty-badge {
+  width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 24px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #00B2D9, #49B7DB);
+}
+.ty-badge svg { width: 28px; height: 28px; }
+.ty-eyebrow { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--hive-blue); margin-bottom: 12px; }
+.ty-headline { margin: 0 0 18px; line-height: 1.15; }
+.ty-headline .ty-light { display: block; font-weight: 300; font-size: 34px; color: var(--ink); }
+.ty-headline .ty-bold  { display: block; font-weight: 600; font-size: 34px; color: var(--ink); }
+.ty-body { font-size: 15px; color: #6B7785; line-height: 1.6; max-width: 460px; margin: 0 auto 24px; }
+.inbox-card { display: flex; gap: 12px; text-align: left; background: #fff; border: 0.5px solid var(--border); border-radius: 10px; padding: 16px; max-width: 440px; margin: 0 auto; }
+.inbox-icon { width: 32px; height: 32px; flex: none; border-radius: 8px; background: #EBF9FD; display: flex; align-items: center; justify-content: center; }
+.inbox-icon svg { width: 18px; height: 18px; }
+.inbox-title { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+.inbox-sub { font-size: 13px; color: #6B7785; line-height: 1.5; margin-bottom: 6px; }
+.inbox-spam { font-size: 11px; color: #9AA3AD; }
+
+/* Generic desktop/mobile copy toggles (shared by interstitials + thank-you). */
+.ty-short { display: none; }
+
+/* ---- Interstitial + Thank-You mobile ---- */
+@media (max-width: 600px) {
+  .ic-headline { font-size: 16px; }
+  .ic-subhead, .ic-tips li, .primer-body, .ty-body, .inbox-sub { font-size: 12px; }
+  .ty-full { display: none; }
+  .ty-short { display: inline; }
+  .partmap { flex-wrap: wrap; }
+  .partmap-pill { flex: 1 1 45%; }
+  .ty-badge { width: 44px; height: 44px; }
+  .ty-badge svg { width: 22px; height: 22px; }
+  .ty-headline .ty-light, .ty-headline .ty-bold { font-size: 24px; }
+  .ty-eyebrow { font-size: 10px; }
+}
+
 .screen {
   width: 100%;
   max-width: 660px;
