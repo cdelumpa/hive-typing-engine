@@ -1553,10 +1553,20 @@ function attachChromeScroll() {
   if (_chromeScrollHandler) window.removeEventListener('scroll', _chromeScrollHandler);
   const top = document.getElementById('chrome-top');
   if (!top) { _chromeScrollHandler = null; return; }
+  // rAF-gated scroll handler (Fix 2): coalesce bursts of scroll events into one
+  // DOM read+write per frame, and only touch classList on an actual state change
+  // so momentum scrolling can't re-trigger the collapse transition every event.
+  let ticking = false;
+  let collapsed = top.classList.contains('chrome-collapsed');
   _chromeScrollHandler = function () {
-    const y = window.scrollY || window.pageYOffset || 0;
-    if (y > 20) top.classList.add('chrome-collapsed');
-    else if (y <= 4) top.classList.remove('chrome-collapsed');
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () {
+      const y = window.scrollY || window.pageYOffset || 0;
+      if (y > 20 && !collapsed) { collapsed = true; top.classList.add('chrome-collapsed'); }
+      else if (y <= 4 && collapsed) { collapsed = false; top.classList.remove('chrome-collapsed'); }
+      ticking = false;
+    });
   };
   window.addEventListener('scroll', _chromeScrollHandler, { passive: true });
   _chromeScrollHandler();
@@ -1592,7 +1602,10 @@ function render() {
   updateProgress();        // reaffirm the global bar width after mount
   attachHandlers();        // Save (#btn-save-later) is bound here as before
   attachChromeScroll();    // mobile collapse listener (deduped per render)
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Instant (not smooth) scroll-to-top (Fix 4): a smooth scroll on every render
+  // animates the scroll position, which re-fires the collapse scroll handler on
+  // each render (e.g. slider nudges) and fed the jitter loop on mobile.
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
 // ---- Welcome ----

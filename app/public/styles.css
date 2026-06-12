@@ -74,6 +74,10 @@ body {
   top: 0;
   z-index: 100;
   background: #fff;
+  /* Promote to its own compositor layer so the sticky chrome composites instead
+     of repainting on the main thread during scroll / collapse (Fix 3). */
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 /* ---- Topbar: logo (+ divider + product) and Save (positioned per mode) ---- */
@@ -189,11 +193,17 @@ body {
   .chrome-footer { font-size: 6.5px; }
 
   /* Collapse on scroll (>20px): brand header + Save row hide; sub-progress and
-     the global bar stay pinned. JS toggles .chrome-collapsed on .chrome-top. */
-  .chrome-topbar, .chrome-save-row { transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease; max-height: 140px; overflow: hidden; }
+     the global bar stay pinned. JS toggles .chrome-collapsed on .chrome-top.
+     Compositor-only collapse (Fix 1): ONLY transform + opacity transition. The
+     space-reclaiming properties (max-height, padding, border) are NOT in the
+     transition list, so they snap in a single frame — the content reflows once
+     instead of every animation frame — while the 0.3s opacity fade masks the
+     snap. Never transition max-height / padding / height here. */
+  .chrome-topbar, .chrome-save-row { transition: transform 0.3s ease, opacity 0.3s ease; transform-origin: top; max-height: 140px; overflow: hidden; }
   .chrome-top.chrome-collapsed .chrome-topbar,
   .chrome-top.chrome-collapsed .chrome-save-row {
     max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; border: none;
+    transform: translateY(-100%);
   }
 }
 
