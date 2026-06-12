@@ -1773,7 +1773,7 @@ function _clP3Hypotheses(m) {
         <div><span class="p3-dot" style="background:#4F845C"></span> Type ${sm.security} – Security Point</div>
       </div>
       <div class="p3-disclaimer">
-        <b>Remember:</b> This is a hypothesis, not a verdict. The Enneagram works from the inside out — you are the final authority on which description captures the deeper pattern of your inner life.
+        <b>Remember:</b> This is the hypothesis, not a verdict. The Enneagram works from the inside out — you are the final authority on which description captures the deeper pattern of your inner life.
       </div>
     </div>
   </div>
@@ -1785,8 +1785,8 @@ function _clP3Hypotheses(m) {
     <thead>
       <tr>
         <th class="p3-corner"></th>
-        <th class="p3-th-leading">Type ${m.hero.number} - ${esc(m.hero.name)}<span class="p3-badge p3-leading">LEADING</span></th>
-        <th class="p3-th-alternate">Type ${m.alternate.number} - ${esc(m.alternate.name)}<span class="p3-badge p3-alternate">ALTERNATE</span></th>
+        <th class="p3-th-leading">Type ${m.hero.number} – ${esc(m.hero.name)}<span class="p3-badge p3-leading">LEADING</span></th>
+        <th class="p3-th-alternate">Type ${m.alternate.number} – ${esc(m.alternate.name)}<span class="p3-badge p3-alternate">ALTERNATE</span></th>
       </tr>
     </thead>
     <tbody>
@@ -2215,7 +2215,7 @@ function clientReportStyles() {
   .p3-ow-label { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--hive-orange); }
   .p3-ow-quote { margin-top: 6px; font-size: 12.5px; font-style: italic; line-height: 1.55; color: var(--section-title); }
   .p3-compare-title { margin: 26px var(--margin-x) 0; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--hive-blue); }
-  .p3-compare-wrap { margin: 8px var(--margin-x) 0; }
+  .p3-compare-wrap { margin: 14px var(--margin-x) 0; }
   table.p3-compare { border-collapse: collapse; table-layout: fixed; width: 100%; }
   table.p3-compare col.p3-c-label { width: 18%; }
   table.p3-compare col.p3-c-side { width: 41%; }
