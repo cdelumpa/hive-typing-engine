@@ -2127,7 +2127,7 @@ function clientReportStyles() {
   .tcard .tgifts { margin-top: 6px; font-size: 10.5px; font-weight: 700; color: var(--hive-orange); }
   .closing { margin: 12px var(--margin-x) 0; background: var(--p2-callout-bg); border-left: 5px solid var(--hive-orange); border-radius: 0 5px 5px 0; padding: 12px 18px; font-size: 12.5px; font-style: italic; line-height: 1.55; color: var(--body-text); }
   .footer { margin: 12px var(--margin-x) 24px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .footer .center { color: var(--hive-blue); }
+  .footer .center { color: var(--footer-gray); }
   /* ===== client global resets (client report only: @page / box-sizing / body) ===== */
   @page { size: 8.5in 11in; margin: 0; }
   * { box-sizing: border-box; }
@@ -2173,7 +2173,7 @@ function clientReportStyles() {
   .cv-entry-desc { margin-top: 4px; font-size: 12.5px; color: var(--section-title); line-height: 1.4; }
   /* --- Welcome (cover-family, wider 64px margin; reuses .cv-masthead/.cv-header-rule/.cv-footer) --- */
   .cover-welcome { --margin-x: 64px; }
-  .cv-footer .center { color: var(--hive-blue); }
+  .cv-footer .center { color: var(--footer-gray); }
   .cw-body { position: absolute; top: 150px; left: var(--margin-x); right: var(--margin-x); }
   .cw-greeting { text-align: center; font-size: 40px; font-weight: 400; color: var(--section-title); }
   .cw-subhead { margin-top: 6px; text-align: center; font-size: 19px; font-style: italic; color: var(--section-title); }
@@ -2237,7 +2237,7 @@ function clientReportStyles() {
   .p3-disclaimer { margin-top: 18px; text-align: left; font-size: 11px; font-style: italic; line-height: 1.5; color: var(--body-text); }
   .p3-disclaimer b { color: var(--hive-blue); font-style: italic; }
   .p3-footer { position: absolute; left: var(--margin-x); right: var(--margin-x); bottom: var(--margin-y); display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p3-footer .center { color: var(--hive-blue); }
+  .p3-footer .center { color: var(--footer-gray); }
   /* ===== P4 How Your Type Shows Up — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
   .p4-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
   .p4-page-body { flex: 1 1 auto; }
@@ -2257,7 +2257,7 @@ function clientReportStyles() {
   .p4-bullet::before { content: "■"; color: #9AA6B8; font-size: 9px; line-height: 1.6; flex: 0 0 auto; }
   .p4-inquiry { margin-top: 12px; border-left: 4px solid var(--hive-blue); padding-left: 12px; font-size: 12.5px; font-style: italic; color: var(--hive-blue); }
   .p4-footer { margin: 22px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p4-footer .center { color: var(--hive-blue); }
+  .p4-footer .center { color: var(--footer-gray); }
   /* ===== P5 Wings & Lines — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
   .p5-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
   .p5-page-body { flex: 1 1 auto; }
@@ -2300,7 +2300,7 @@ function clientReportStyles() {
   .p5-res-sub { font-size: 9.5px; color: var(--section-title); }
   .p5-res-body { margin-top: 7px; font-size: 10.5px; line-height: 1.55; color: var(--body-text); }
   .p5-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p5-footer .center { color: var(--hive-blue); }
+  .p5-footer .center { color: var(--footer-gray); }
   /* ===== P6 Instinct & Subtype — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
   .p6-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
   .p6-page-body { flex: 1 1 auto; }
@@ -2347,7 +2347,7 @@ function clientReportStyles() {
   .p6-stack-inst { font-size: 12.5px; font-weight: 700; color: var(--leading-text); }
   .p6-stack-row:last-child .p6-stack-inst { color: var(--section-title); }
   .p6-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p6-footer .center { color: var(--hive-blue); }
+  .p6-footer .center { color: var(--footer-gray); }
   /* ===== P7 Strengths, Challenges & Growth — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
   .p7-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
   .p7-page-body { flex: 1 1 auto; }
@@ -2382,7 +2382,7 @@ function clientReportStyles() {
   .p7-remember { margin: 24px var(--margin-x) 0; font-size: 12px; font-style: italic; line-height: 1.55; color: var(--body-text); }
   .p7-remember b { color: var(--hive-blue); font-style: italic; }
   .p7-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p7-footer .center { color: var(--hive-blue); }
+  .p7-footer .center { color: var(--footer-gray); }
   /* ===== P8 Putting It All Together — V2 template-ported. Densest body page, flex-column flow + margin footer. ===== */
   .p8-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
   .p8-page-body { flex: 1 1 auto; }
@@ -2405,7 +2405,7 @@ function clientReportStyles() {
   .p8-bullet { display: flex; gap: 8px; font-size: 11px; line-height: 1.45; color: var(--body-text); margin: 6px 0; }
   .p8-bullet::before { content: "●"; color: var(--hive-blue); font-size: 7px; line-height: 1.7; flex: 0 0 auto; }
   .p8-footer { margin: 16px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p8-footer .center { color: var(--hive-blue); }
+  .p8-footer .center { color: var(--footer-gray); }
   </style>`;
 }
 
