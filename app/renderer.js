@@ -1853,11 +1853,6 @@ function _clP4Patterns(m) {
 function _clP5WingsLines(m) {
   const w = m.pages.wings_lines;
   const wl = w.wing_low, wh = w.wing_high, ls = w.line_stress, lsec = w.line_security;
-  const resCard = (x, kind, label) => `
-      <div class="p5-res-card">
-        <div class="p5-res-head"><span class="p5-res-dot p5-${kind}">${x.toward}</span><div><div class="p5-res-title">Type ${x.toward} – ${esc(x.name)}</div><div class="p5-res-sub">${label} · ${m.hero.number} → ${x.toward}</div></div></div>
-        <div class="p5-res-body">${esc(x.resource)}</div>
-      </div>`;
   return `<div class="p5-page">
   <div class="p5-page-body">
   <div class="p5-masthead">${HIVE_LOGO_SVG}<div style="text-align:right">
@@ -1903,8 +1898,19 @@ function _clP5WingsLines(m) {
         <div class="p5-about-label">ABOUT STRESS &amp; SECURITY POINTS</div>
         <div class="p5-about-body">${esc(w.lines_primer)}</div>
       </div>
-      ${resCard(ls, 'stress', 'Stress Point')}
-      ${resCard(lsec, 'security', 'Security Point')}
+      <!-- USING-YOUR-WINGS-PLACEHOLDER (GROUP 3): static placeholder copy. Mo will
+           replace these 4 bullets with final static content from the content docx
+           in the full content editing pass. Replaced the two redundant stress/
+           security resource pills that duplicated the left-column line content. -->
+      <div class="p5-about p5-using-section">
+        <div class="p5-about-label">USING YOUR WINGS AND LINES</div>
+        <ul class="p5-using-list">
+          <li>Notice which wing is more active this week. You don’t need to pick one permanently — just observe where the texture is coming from right now.</li>
+          <li>Use your stress point as an early warning system. When you notice yourself moving into that pattern, something important has been pushed aside.</li>
+          <li>Your security point is a resource, not just a destination. You can consciously move toward those qualities before you need them.</li>
+          <li>Wings and lines aren’t fixed. They’re dynamic — the texture of your type shifts with context, stress, and growth.</li>
+        </ul>
+      </div>
     </div>
   </div>
 
@@ -2291,6 +2297,11 @@ function clientReportStyles() {
   .p5-about { margin-top: 22px; }
   .p5-about-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-blue); }
   .p5-about-body { margin-top: 7px; font-size: 11.5px; line-height: 1.6; color: var(--body-text); }
+  .p5-using-section { margin-top: 14px; }
+  .p5-using-list { margin: 6px 0 0; padding: 0; list-style: none; }
+  .p5-using-list li { position: relative; margin-top: 6px; padding-left: 14px; font-size: 11.5px; line-height: 1.45; color: var(--body-text); }
+  .p5-using-list li:first-child { margin-top: 0; }
+  .p5-using-list li::before { content: "●"; position: absolute; left: 0; top: 0; font-size: 7px; line-height: 2.05; color: var(--hive-blue); }
   .p5-res-card { margin-top: 13px; border: 1px solid var(--card-border); border-radius: 6px; padding: 12px 13px; }
   .p5-res-head { display: flex; align-items: center; gap: 8px; }
   .p5-res-dot { width: 20px; height: 20px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
