@@ -2021,11 +2021,11 @@ function _clP7Strengths(m) {
 
   <div class="p7-sc-cards">
     <div class="p7-sc-card p7-str">
-      <div class="p7-sc-head"><span class="p7-sc-icon">&#10004;</span><span class="p7-sc-title">STRENGTHS</span></div>
+      <div class="p7-sc-head"><span class="p7-sc-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span class="p7-sc-title">STRENGTHS</span></div>
       <div class="p7-sc-list">${scItems(s.strengths)}</div>
     </div>
     <div class="p7-sc-card p7-chal">
-      <div class="p7-sc-head"><span class="p7-sc-icon">&#10006;</span><span class="p7-sc-title">CHALLENGES</span></div>
+      <div class="p7-sc-head"><span class="p7-sc-icon"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></span><span class="p7-sc-title">CHALLENGES</span></div>
       <div class="p7-sc-list">${scItems(s.challenges)}</div>
     </div>
   </div>
@@ -2375,6 +2375,7 @@ function clientReportStyles() {
   .p7-sc-icon { width: 24px; height: 24px; border-radius: 50%; color: #fff; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
   .p7-sc-card.p7-str .p7-sc-icon { background: #4F845C; }
   .p7-sc-card.p7-chal .p7-sc-icon { background: #C0504D; }
+  .p7-sc-icon svg, .p8-sec-icon svg { display: block; }
   .p7-sc-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--section-title); }
   .p7-sc-list { margin-top: 14px; }
   .p7-sc-item { display: flex; gap: 9px; font-size: 12px; line-height: 1.5; color: var(--body-text); margin: 11px 0; }
