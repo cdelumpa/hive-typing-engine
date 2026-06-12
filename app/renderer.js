@@ -2059,6 +2059,19 @@ function _clP7Strengths(m) {
 // framework is dropped (no template slot). Intro is static with a type-name interpolation
 // (m.hero.name) — no model field. Legacy classes now dead (left for cleanup PR): app-cols,
 // app-sec, app-subhead, app-fw, app-sub-t, and the cl-9pt page modifier.
+//
+// Section-title icons are inline SVG (white-on-circle), not Unicode glyphs: the
+// former ◎/💬/⚡ depended on system fonts that headless Chromium lacks in
+// production, so they rendered as empty circles. SVG renders identically
+// everywhere (same approach as HIVE_LOGO_SVG). Drawn on a 24-unit viewBox.
+const P8_ICON = {
+  // Getting Re-Centered — concentric target: outer ring + solid center.
+  center:   `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="#fff" stroke="none"/></svg>`,
+  // Communications — rounded speech bubble with a tail at the lower left.
+  comms:    `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 16h-7.5L7 19.5V16H5a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 5 5z"/></svg>`,
+  // Conflict — solid lightning bolt.
+  conflict: `<svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M13 2L4.5 13.2H10l-1.4 8.3 9-12.1H11.7L13 2z"/></svg>`,
+};
 function _clP8Application(m) {
   const a = m.pages.application;
   const stripPrefix = s => { const p = String(s || '').split(/\s*—\s*/); return p.length > 1 ? p.slice(1).join(' — ') : String(s || ''); };
@@ -2082,9 +2095,9 @@ function _clP8Application(m) {
   <div class="p8-title-rule"></div>
   <div class="p8-intro">${intro}</div>
 
-  ${section('p8-body', '&#9678;', 'GETTING RE-CENTERED AND PRESENT', a.center.subhead, 'YOUR CENTER OF INTELLIGENCE', a.center.bullets, 'WHEN YOU&#39;RE OFF-CENTER', a.center.off_center)}
-  ${section('p8-comms', '&#128172;', 'COMMUNICATIONS STYLE', a.communication.subhead, 'HOW YOU NATURALLY COMMUNICATE', a.communication.bullets, 'WHAT TO WATCH FOR', a.communication.watch_for)}
-  ${section('p8-conflict', '&#9889;', 'CONFLICT STYLE', a.conflict.subhead, 'HOW CONFLICT SHOWS UP FOR YOU', a.conflict.bullets, 'WORKING WITH IT', a.conflict.working_with)}
+  ${section('p8-body', P8_ICON.center, 'GETTING RE-CENTERED AND PRESENT', a.center.subhead, 'YOUR CENTER OF INTELLIGENCE', a.center.bullets, 'WHEN YOU&#39;RE OFF-CENTER', a.center.off_center)}
+  ${section('p8-comms', P8_ICON.comms, 'COMMUNICATIONS STYLE', a.communication.subhead, 'HOW YOU NATURALLY COMMUNICATE', a.communication.bullets, 'WHAT TO WATCH FOR', a.communication.watch_for)}
+  ${section('p8-conflict', P8_ICON.conflict, 'CONFLICT STYLE', a.conflict.subhead, 'HOW CONFLICT SHOWS UP FOR YOU', a.conflict.bullets, 'WORKING WITH IT', a.conflict.working_with)}
 
   </div>
   <div class="p8-footer">
