@@ -189,6 +189,7 @@ body {
   .chrome-divider { display: none; }            /* stacked brand → no divider */
   .chrome-logo svg { height: 30px; }
   .chrome-product { font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .chrome-logo { padding: 6px 0; }                /* breathing room around the logo */
 
   .global-progress { padding: 8px 14px; }
   .gp-track { height: 2px; }                     /* §3.2 2px bar */
@@ -203,16 +204,22 @@ body {
 
   /* Collapse on scroll (>20px): brand header + Save row hide; sub-progress and
      the global bar stay pinned. JS toggles .chrome-collapsed on .chrome-top.
-     Smooth measured-height collapse (Fix A): attachChromeScroll() measures each
-     element's exact expanded height on mount and animates inline max-height
-     (px → 0px) + opacity over 180ms with direction-specific easing. CSS only
-     supplies overflow:hidden (to clip during the height animation) and the
-     padding/border SNAP for the collapsed state (not transitioned, so they don't
-     contribute to per-frame layout thrash). */
-  .chrome-topbar, .chrome-save-row { overflow: hidden; }
+     Compositor-only collapse (Issues 1 + 3): ONLY transform + opacity transition
+     (220ms ease-in-out, symmetric both directions) — both composite off the main
+     thread, so there is no per-frame layout during scroll. The space reclaim
+     (max-height: 0) and padding/border are NOT in the transition list, so they
+     snap in a single frame (the accepted jitter-free tradeoff). Never transition
+     max-height / padding / height here. */
+  .chrome-topbar, .chrome-save-row {
+    overflow: hidden;
+    max-height: 140px;
+    transform-origin: top;
+    transition: transform 220ms ease-in-out, opacity 220ms ease-in-out;
+  }
   .chrome-top.chrome-collapsed .chrome-topbar,
   .chrome-top.chrome-collapsed .chrome-save-row {
-    padding-top: 0; padding-bottom: 0; border: none;
+    transform: translateY(-100%); opacity: 0;
+    max-height: 0; padding-top: 0; padding-bottom: 0; border: none;
   }
 }
 

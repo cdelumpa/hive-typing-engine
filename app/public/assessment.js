@@ -1546,74 +1546,41 @@ function renderChromeShell(chrome, bodyHtml) {
 
 // Mobile scroll-collapse (spec §3.3): collapse the brand header + Save row once
 // the user scrolls past 20px; restore at the top (≤4px). The sub-progress strip
-// stays pinned (CSS excludes it from the collapse). Desktop is a no-op (gated on
-// the mobile media query). The handler is deduped across renders.
+// stays pinned (CSS excludes it from the collapse). Desktop is a no-op (the
+// collapse CSS lives inside the mobile media query). The handler is deduped
+// across renders.
 //
-// Fix A — smooth (non-snap) collapse: we measure each collapsible's exact
-// rendered height on mount (the chrome always mounts expanded at scrollY 0) and
-// animate inline max-height (px → 0px) + opacity over 180ms with direction-
-// specific easing (ease-in collapse / ease-out expand). A precise pixel-to-pixel
-// height transition is smooth and avoids the per-frame layout thrash that the old
-// arbitrary 140px max-height transition caused. Padding + border SNAP via the
-// .chrome-collapsed class (not transitioned) so they don't add layout thrash.
+// Compositor-only collapse (Issues 1 + 3): the handler does nothing but toggle
+// the .chrome-collapsed class. CSS animates ONLY transform + opacity (220ms
+// ease-in-out, symmetric) — both composited, so no per-frame layout. The space
+// reclaim (max-height: 0) and padding/border are NOT transitioned, so they snap
+// in a single frame. We deliberately do NOT touch max-height (or any layout
+// property) from JS here — animating layout during scroll is what caused the
+// jitter regression.
 let _chromeScrollHandler = null;
 function attachChromeScroll() {
   if (_chromeScrollHandler) window.removeEventListener('scroll', _chromeScrollHandler);
   const top = document.getElementById('chrome-top');
   if (!top) { _chromeScrollHandler = null; return; }
 
-  const topbar  = top.querySelector('.chrome-topbar');
-  const saveRow = top.querySelector('.chrome-save-row'); // absent when Save is hidden
-
-  // Measure natural expanded heights now, while expanded (scrollY 0 post-mount).
-  const collapsible = [];
-  if (topbar)  collapsible.push({ el: topbar,  h: topbar.offsetHeight });
-  if (saveRow) collapsible.push({ el: saveRow, h: saveRow.offsetHeight });
-
-  const isMobile = function () {
-    return !window.matchMedia || window.matchMedia('(max-width: 600px)').matches;
-  };
-
-  // Drive the collapse via inline styles so the expanded target is each element's
-  // measured px height. On desktop this is a no-op — we strip any inline collapse
-  // styles and never add the class.
-  const setCollapsed = function (collapsed, animate) {
-    if (!isMobile()) {
-      top.classList.remove('chrome-collapsed');
-      collapsible.forEach(function (c) {
-        c.el.style.transition = '';
-        c.el.style.maxHeight  = '';
-        c.el.style.opacity    = '';
-      });
-      return;
-    }
-    const ease = collapsed ? 'ease-in' : 'ease-out';
-    collapsible.forEach(function (c) {
-      c.el.style.transition = animate
-        ? ('max-height 180ms ' + ease + ', opacity 180ms ' + ease)
-        : 'none';
-      c.el.style.maxHeight = collapsed ? '0px' : (c.h + 'px');
-      c.el.style.opacity   = collapsed ? '0' : '1';
-    });
-    // Class snaps padding + border to 0 (not transitioned) per spec.
-    top.classList.toggle('chrome-collapsed', collapsed);
-  };
-
-  // Seed the baseline (no animation) to match the current scroll position.
+  // Seed the baseline to match the current scroll position. mountScreen resets
+  // scroll to 0 before this runs, so on a fresh mount this is a no-op (expanded)
+  // and never produces a transition flash.
   let ticking = false;
-  let collapsed = (window.scrollY || window.pageYOffset || 0) > 20;
-  setCollapsed(collapsed, false);
+  let collapsed = top.classList.contains('chrome-collapsed');
+  const shouldCollapse = (window.scrollY || window.pageYOffset || 0) > 20;
+  if (shouldCollapse !== collapsed) { collapsed = shouldCollapse; top.classList.toggle('chrome-collapsed', collapsed); }
 
-  // rAF-gated handler (Fix 2): coalesce scroll bursts into one read+write per
-  // frame, and only act on an actual state change so momentum scrolling can't
-  // re-trigger the transition every event.
+  // rAF-gated handler: coalesce scroll bursts into one read+write per frame, and
+  // only act on an actual state change so momentum scrolling can't re-trigger the
+  // transition every event.
   _chromeScrollHandler = function () {
     if (ticking) return;
     ticking = true;
     requestAnimationFrame(function () {
       const y = window.scrollY || window.pageYOffset || 0;
-      if (y > 20 && !collapsed)      { collapsed = true;  setCollapsed(true,  true); }
-      else if (y <= 4 && collapsed)  { collapsed = false; setCollapsed(false, true); }
+      if (y > 20 && !collapsed)      { collapsed = true;  top.classList.add('chrome-collapsed'); }
+      else if (y <= 4 && collapsed)  { collapsed = false; top.classList.remove('chrome-collapsed'); }
       ticking = false;
     });
   };
@@ -1650,9 +1617,15 @@ function mountScreen() {
 
   app.innerHTML = renderChromeShell(chromeFor(state.phase), body);
 
-  // Reset scroll BEFORE wiring the collapse listener so its initial measurement
-  // happens at scrollY 0 (chrome expanded) and the seeded state is correct.
-  window.scrollTo({ top: 0, behavior: 'auto' });
+  // Reset scroll BEFORE wiring the collapse listener so its seeded state is
+  // correct (chrome expanded at scrollY 0). Belt-and-suspenders (Issue 2): the
+  // options-object scrollTo is unreliable on iOS Safari, so zero the scrolling
+  // element directly AND use the two-arg form, then re-assert on the next frame
+  // to defeat scroll-anchoring / residual momentum after the DOM swap.
+  const se = document.scrollingElement || document.documentElement;
+  se.scrollTop = 0;
+  window.scrollTo(0, 0);
+  requestAnimationFrame(function () { window.scrollTo(0, 0); });
 
   updateProgress();        // reaffirm the global bar width after mount
   attachHandlers();        // Save (#btn-save-later) + per-screen gates bound here
