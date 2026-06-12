@@ -1704,7 +1704,7 @@ window.openClientProfile = async function(clientId){
 
 function _renderClientView(data){
   var c=data.client; var a=data.assessment||{}; var hist=data.history||[];
-  var TN={1:'The Improver',2:'The Giver',3:'The Performer',4:'The Idealist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'};
+  var TN={1:'The Improver',2:'The Giver',3:'The Performer',4:'The Individualist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'};
   var typeLabel=a.confirmed_type?('Type '+a.confirmed_type+' — '+(TN[a.confirmed_type]||'')):null;
   var conf=a.confidence_level?a.confidence_level.replace(/_/g,'-'):null;
   var SM={complete:'Complete',in_progress:'In Progress',not_started:'Not Started',processing:'Processing',failed:'Failed'};
@@ -1724,6 +1724,7 @@ function _renderClientView(data){
   h+=_profileRow('Status',statusStr);
   h+='</table>';
   h+=lu;
+  h+='<div id="coach-debrief-section">'+_coachDebriefReadonlyHTML(data)+'</div>';
   h+='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">';
   h+='<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Edit History</p>';
   h+=_renderHistory(hist);
@@ -1738,7 +1739,7 @@ function _renderClientView(data){
 window._editClientMode = function(){
   var data=_hiveRec; if(!data)return;
   var c=data.client;
-  var TN={1:'The Improver',2:'The Giver',3:'The Performer',4:'The Idealist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'};
+  var TN={1:'The Improver',2:'The Giver',3:'The Performer',4:'The Individualist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'};
   var a=data.assessment||{};
   var typeLabel=a.confirmed_type?('Type '+a.confirmed_type+' — '+(TN[a.confirmed_type]||'')):'—';
   var conf=a.confidence_level?a.confidence_level.replace(/_/g,'-'):'—';
@@ -1794,6 +1795,114 @@ window._saveClientProfile = async function(){
     if(data.historyEntry) (_hiveRec.history=_hiveRec.history||[]).unshift(data.historyEntry);
     _hideModal(); _showToast('Profile updated.');
   }catch(e){errDiv.textContent='Request failed: '+e.message;errDiv.style.display='';saveBtn.disabled=false;saveBtn.textContent='Save Changes';}
+};
+
+// ── Coach Debrief Confirmation (assessment annotation sub-editor) ────────────
+
+var _CD_TYPE_NAMES={1:'The Improver',2:'The Giver',3:'The Performer',4:'The Individualist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'};
+var _CD_INSTINCTS=[['SP','SP – Self-Preservation'],['SO','SO – Social'],['SX','SX – One-to-One']];
+function _cdInstinctLabel(v){for(var i=0;i<_CD_INSTINCTS.length;i++){if(_CD_INSTINCTS[i][0]===String(v).toUpperCase())return _CD_INSTINCTS[i][1];}return _esc(v);}
+function _cdBadge(){return ' <span style="color:#F68625;font-size:11px;">⚠ Differs from engine hypothesis</span>';}
+
+function _coachDebriefReadonlyHTML(data){
+  var a=data.assessment;
+  var hasAsm=!!(a&&a.assessment_id!=null);
+  var html='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">';
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;margin:0;">';
+  html+='<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0;">Coach Debrief Confirmation</p>';
+  if(hasAsm){
+    html+='<button onclick="window._editCoachDebriefMode()" style="background:none;border:none;color:#00B2D9;font-family:Georgia,serif;font-size:12px;font-weight:700;cursor:pointer;padding:0;">✎ Edit</button>';
+  }else{
+    html+='<button disabled title="No assessment to annotate yet." style="background:none;border:none;color:#B8C4CC;font-family:Georgia,serif;font-size:12px;font-weight:700;cursor:not-allowed;padding:0;">✎ Edit</button>';
+  }
+  html+='</div>';
+  html+='<p style="font-size:12px;color:#7A96A6;margin:2px 0 8px;">Filled in after debrief session.</p>';
+  html+='<table style="width:100%;border-collapse:collapse;">';
+  // Confirmed Type
+  var ct=a?a.coach_confirmed_type:null;
+  var typeVal='—';
+  if(ct!=null&&ct!==''){
+    typeVal=_esc(ct+' – '+(_CD_TYPE_NAMES[Number(ct)]||''));
+    if(a.confirmed_type!=null&&Number(ct)!==Number(a.confirmed_type)) typeVal+=_cdBadge();
+  }
+  html+=_profileRowRaw('Confirmed Type',typeVal);
+  // Confirmed Instinct
+  var ci=a?a.coach_confirmed_instinct:null;
+  var instVal='—';
+  if(ci!=null&&ci!==''){
+    instVal=_esc(_cdInstinctLabel(ci));
+    var dih=a.dominant_instinct_hypothesis;
+    if(dih!=null&&dih!==''&&String(ci).toUpperCase()!==String(dih).toUpperCase()) instVal+=_cdBadge();
+  }
+  html+=_profileRowRaw('Confirmed Instinct',instVal);
+  // Clarification Notes
+  var notes=a?a.type_clarification_notes:null;
+  html+=_profileRowRaw('Clarification Notes',(notes!=null&&notes!=='')?_esc(notes):'—');
+  html+='</table>';
+  html+='</div>';
+  return html;
+}
+
+function _coachDebriefEditHTML(data){
+  var a=data.assessment||{};
+  var ct=a.coach_confirmed_type, ci=a.coach_confirmed_instinct, notes=a.type_clarification_notes||'';
+  var lbl='display:block;font-size:11px;color:#7A96A6;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:5px;';
+  var fld='width:100%;padding:9px 11px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;color:#1A2B33;outline:none;box-sizing:border-box;';
+  var html='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">';
+  html+='<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 2px;">Coach Debrief Confirmation</p>';
+  html+='<p style="font-size:12px;color:#7A96A6;margin:0 0 10px;">Filled in after debrief session.</p>';
+  html+='<div id="cd-err" style="display:none;background:#fdecea;color:#c0392b;border-radius:4px;padding:10px 14px;font-size:13px;margin-bottom:12px;"></div>';
+  // Type dropdown
+  html+='<div style="margin-bottom:12px;"><label for="cd_type" style="'+lbl+'">Confirmed Type</label>';
+  html+='<select id="cd_type" style="'+fld+'background:#fff;"><option value="">— Not set —</option>';
+  for(var i=1;i<=9;i++){ html+='<option value="'+i+'"'+(Number(ct)===i?' selected':'')+'>'+i+' – '+_CD_TYPE_NAMES[i]+'</option>'; }
+  html+='</select></div>';
+  // Instinct dropdown
+  html+='<div style="margin-bottom:12px;"><label for="cd_inst" style="'+lbl+'">Confirmed Instinct</label>';
+  html+='<select id="cd_inst" style="'+fld+'background:#fff;"><option value="">— Not set —</option>';
+  for(var j=0;j<_CD_INSTINCTS.length;j++){ html+='<option value="'+_CD_INSTINCTS[j][0]+'"'+(String(ci).toUpperCase()===_CD_INSTINCTS[j][0]?' selected':'')+'>'+_CD_INSTINCTS[j][1]+'</option>'; }
+  html+='</select></div>';
+  // Notes
+  html+='<div style="margin-bottom:14px;"><label for="cd_notes" style="'+lbl+'">Clarification Notes</label>';
+  html+='<textarea id="cd_notes" rows="4" style="'+fld+'resize:vertical;">'+_esc(notes)+'</textarea></div>';
+  // Buttons
+  html+='<div style="display:flex;gap:10px;justify-content:flex-end;">';
+  html+='<button id="cd-save-btn" onclick="window._saveCoachDebrief()" style="background:#00B2D9;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Save</button>';
+  html+='<button onclick="window._cancelCoachDebrief()" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Cancel</button>';
+  html+='</div></div>';
+  return html;
+}
+
+window._editCoachDebriefMode=function(){
+  var el=document.getElementById('coach-debrief-section'); if(!el||!_hiveRec)return;
+  el.innerHTML=_coachDebriefEditHTML(_hiveRec);
+};
+window._cancelCoachDebrief=function(){
+  var el=document.getElementById('coach-debrief-section'); if(!el||!_hiveRec)return;
+  el.innerHTML=_coachDebriefReadonlyHTML(_hiveRec);
+};
+window._saveCoachDebrief=async function(){
+  var errDiv=document.getElementById('cd-err');
+  var saveBtn=document.getElementById('cd-save-btn');
+  var a=(_hiveRec&&_hiveRec.assessment)||{};
+  var assessmentId=a.assessment_id;
+  var typeVal=document.getElementById('cd_type').value||null;
+  var instVal=document.getElementById('cd_inst').value||null;
+  var notesVal=(document.getElementById('cd_notes').value||'').trim()||null;
+  errDiv.style.display='none';
+  saveBtn.disabled=true; saveBtn.textContent='Saving…';
+  try{
+    var resp=await fetch('/admin/assessments/'+assessmentId+'/coach-debrief',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({coach_confirmed_type:typeVal,coach_confirmed_instinct:instVal,type_clarification_notes:notesVal})});
+    var data=await resp.json();
+    if(!resp.ok||!data.success){ errDiv.textContent=data.error||'Save failed.'; errDiv.style.display=''; saveBtn.disabled=false; saveBtn.textContent='Save'; return; }
+    _hiveRec.assessment=Object.assign({},_hiveRec.assessment,{
+      coach_confirmed_type:data.updated.coach_confirmed_type,
+      coach_confirmed_instinct:data.updated.coach_confirmed_instinct,
+      type_clarification_notes:data.updated.type_clarification_notes,
+    });
+    var el=document.getElementById('coach-debrief-section'); if(el) el.innerHTML=_coachDebriefReadonlyHTML(_hiveRec);
+    _showToast('Coach debrief saved.');
+  }catch(e){ errDiv.textContent='Request failed: '+e.message; errDiv.style.display=''; saveBtn.disabled=false; saveBtn.textContent='Save'; }
 };
 
 // ── Coach profile ───────────────────────────────────────────────────────────
@@ -3903,7 +4012,9 @@ app.get('/admin/clients/:client_id/profile', requireAdminSession, async (req, re
 
   // Latest assessment summary
   const asmR = await db.query(
-    `SELECT confirmed_type, confirmed_instinct, confidence_level, status
+    `SELECT id AS assessment_id, confirmed_type, confirmed_instinct, confidence_level, status,
+            dominant_instinct_hypothesis,
+            coach_confirmed_type, coach_confirmed_instinct, type_clarification_notes
      FROM assessments WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1`,
     [clientId]
   );
@@ -3973,6 +4084,59 @@ app.post('/admin/clients/:client_id/update', requireAdminSession, async (req, re
 
   console.log(`[admin/clients/update] updated client #${clientId}: ${changeSummary}`);
   return res.json({ success: true, updated: after, historyEntry });
+});
+
+// Coach Debrief Confirmation — coach-verified type/instinct recorded post-debrief.
+// Mirrors the auth/owner-check pattern of POST /admin/clients/:client_id/update.
+app.post('/admin/assessments/:assessment_id/coach-debrief', requireAdminSession, async (req, res) => {
+  const assessmentId = parseInt(req.params.assessment_id, 10);
+  if (!assessmentId || isNaN(assessmentId)) return res.status(400).json({ error: 'Invalid assessment ID' });
+
+  const ownerCoachId = await db.getAssessmentOwnerCoachId(assessmentId);
+  if (ownerCoachId === null) return res.status(404).json({ error: 'Assessment not found.' });
+  const isSuperAdmin = req.session.coach_is_admin === true;
+  if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
+
+  const body = req.body || {};
+
+  // coach_confirmed_type: null/''/absent → NULL; integer 1–9 → store; else 400.
+  let coachType = null;
+  const rawType = body.coach_confirmed_type;
+  if (rawType !== null && rawType !== undefined && String(rawType).trim() !== '') {
+    const n = Number(rawType);
+    if (!Number.isInteger(n) || n < 1 || n > 9) {
+      return res.status(400).json({ error: 'Confirmed type must be 1–9 or blank.' });
+    }
+    coachType = n;
+  }
+
+  // coach_confirmed_instinct: null/''/absent → NULL; SP/SO/SX (case-insensitive) → uppercased; else 400.
+  let coachInstinct = null;
+  const rawInstinct = body.coach_confirmed_instinct;
+  if (rawInstinct !== null && rawInstinct !== undefined && String(rawInstinct).trim() !== '') {
+    const v = String(rawInstinct).trim().toUpperCase();
+    if (!['SP', 'SO', 'SX'].includes(v)) {
+      return res.status(400).json({ error: 'Instinct must be SP, SO, or SX.' });
+    }
+    coachInstinct = v;
+  }
+
+  // type_clarification_notes: trim; empty → NULL.
+  let notes = null;
+  const rawNotes = body.type_clarification_notes;
+  if (rawNotes !== null && rawNotes !== undefined && String(rawNotes).trim() !== '') {
+    notes = String(rawNotes).trim();
+  }
+
+  const updated = await db.updateCoachDebrief(assessmentId, {
+    coach_confirmed_type:     coachType,
+    coach_confirmed_instinct: coachInstinct,
+    type_clarification_notes: notes,
+  });
+  if (!updated) return res.status(404).json({ error: 'Assessment not found.' });
+
+  console.log(`[admin/assessments/coach-debrief] updated assessment #${assessmentId}: type=${coachType}, instinct=${coachInstinct}`);
+  return res.json({ success: true, updated });
 });
 
 app.post('/admin/clients/:client_id/reassign', requireAdmin, async (req, res) => {

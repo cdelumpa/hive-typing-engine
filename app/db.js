@@ -91,6 +91,13 @@ ALTER TABLE assessments ADD COLUMN IF NOT EXISTS assessment_completed_at TIMESTA
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS elapsed_seconds         INTEGER;
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS session_days            INTEGER;
 
+-- Coach Debrief Confirmation: coach-verified type/instinct recorded
+-- post-debrief, layered on top of the engine's hypothesis fields.
+-- All NULL until a coach fills them in.
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS coach_confirmed_type     INTEGER;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS coach_confirmed_instinct VARCHAR(20);
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS type_clarification_notes TEXT;
+
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage0_signal JSONB;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS ct_adjustment JSONB;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS responses_snapshot JSONB;
@@ -551,6 +558,33 @@ async function getAssessmentPayload(clientId) {
   return r && r.rows.length > 0 ? r.rows[0] : null;
 }
 
+// ─── Coach Debrief Confirmation ────────────────────────────────────────────────
+
+async function getAssessmentOwnerCoachId(assessmentId) {
+  const r = await query(
+    `SELECT c.coach_id
+     FROM assessments a
+     JOIN clients c ON c.id = a.client_id
+     WHERE a.id = $1
+     LIMIT 1`,
+    [assessmentId]
+  );
+  return r && r.rows.length > 0 ? r.rows[0].coach_id : null;
+}
+
+async function updateCoachDebrief(assessmentId, { coach_confirmed_type, coach_confirmed_instinct, type_clarification_notes }) {
+  const r = await query(
+    `UPDATE assessments
+       SET coach_confirmed_type     = $1,
+           coach_confirmed_instinct = $2,
+           type_clarification_notes = $3
+     WHERE id = $4
+     RETURNING coach_confirmed_type, coach_confirmed_instinct, type_clarification_notes`,
+    [coach_confirmed_type, coach_confirmed_instinct, type_clarification_notes, assessmentId]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
 async function getClientWithCoach(clientId) {
   const r = await query(`
     SELECT c.first_name, c.last_name, c.email, c.organization, co.name AS coach_name
@@ -704,6 +738,8 @@ module.exports = {
   updateClientStatus,
   resendInviteTransaction,
   getAssessmentPayload,
+  getAssessmentOwnerCoachId,
+  updateCoachDebrief,
   getClientWithCoach,
   getAssessmentReports,
   deleteReportsByAssessmentId,
