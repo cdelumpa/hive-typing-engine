@@ -1546,33 +1546,84 @@ function renderChromeShell(chrome, bodyHtml) {
 
 // Mobile scroll-collapse (spec §3.3): collapse the brand header + Save row once
 // the user scrolls past 20px; restore at the top (≤4px). The sub-progress strip
-// stays pinned (CSS excludes it from the collapse). Desktop is a CSS no-op. The
-// handler is deduped across renders, mirroring _stage1ResizeHandler.
+// stays pinned (CSS excludes it from the collapse). Desktop is a no-op (gated on
+// the mobile media query). The handler is deduped across renders.
+//
+// Fix A — smooth (non-snap) collapse: we measure each collapsible's exact
+// rendered height on mount (the chrome always mounts expanded at scrollY 0) and
+// animate inline max-height (px → 0px) + opacity over 180ms with direction-
+// specific easing (ease-in collapse / ease-out expand). A precise pixel-to-pixel
+// height transition is smooth and avoids the per-frame layout thrash that the old
+// arbitrary 140px max-height transition caused. Padding + border SNAP via the
+// .chrome-collapsed class (not transitioned) so they don't add layout thrash.
 let _chromeScrollHandler = null;
 function attachChromeScroll() {
   if (_chromeScrollHandler) window.removeEventListener('scroll', _chromeScrollHandler);
   const top = document.getElementById('chrome-top');
   if (!top) { _chromeScrollHandler = null; return; }
-  // rAF-gated scroll handler (Fix 2): coalesce bursts of scroll events into one
-  // DOM read+write per frame, and only touch classList on an actual state change
-  // so momentum scrolling can't re-trigger the collapse transition every event.
+
+  const topbar  = top.querySelector('.chrome-topbar');
+  const saveRow = top.querySelector('.chrome-save-row'); // absent when Save is hidden
+
+  // Measure natural expanded heights now, while expanded (scrollY 0 post-mount).
+  const collapsible = [];
+  if (topbar)  collapsible.push({ el: topbar,  h: topbar.offsetHeight });
+  if (saveRow) collapsible.push({ el: saveRow, h: saveRow.offsetHeight });
+
+  const isMobile = function () {
+    return !window.matchMedia || window.matchMedia('(max-width: 600px)').matches;
+  };
+
+  // Drive the collapse via inline styles so the expanded target is each element's
+  // measured px height. On desktop this is a no-op — we strip any inline collapse
+  // styles and never add the class.
+  const setCollapsed = function (collapsed, animate) {
+    if (!isMobile()) {
+      top.classList.remove('chrome-collapsed');
+      collapsible.forEach(function (c) {
+        c.el.style.transition = '';
+        c.el.style.maxHeight  = '';
+        c.el.style.opacity    = '';
+      });
+      return;
+    }
+    const ease = collapsed ? 'ease-in' : 'ease-out';
+    collapsible.forEach(function (c) {
+      c.el.style.transition = animate
+        ? ('max-height 180ms ' + ease + ', opacity 180ms ' + ease)
+        : 'none';
+      c.el.style.maxHeight = collapsed ? '0px' : (c.h + 'px');
+      c.el.style.opacity   = collapsed ? '0' : '1';
+    });
+    // Class snaps padding + border to 0 (not transitioned) per spec.
+    top.classList.toggle('chrome-collapsed', collapsed);
+  };
+
+  // Seed the baseline (no animation) to match the current scroll position.
   let ticking = false;
-  let collapsed = top.classList.contains('chrome-collapsed');
+  let collapsed = (window.scrollY || window.pageYOffset || 0) > 20;
+  setCollapsed(collapsed, false);
+
+  // rAF-gated handler (Fix 2): coalesce scroll bursts into one read+write per
+  // frame, and only act on an actual state change so momentum scrolling can't
+  // re-trigger the transition every event.
   _chromeScrollHandler = function () {
     if (ticking) return;
     ticking = true;
     requestAnimationFrame(function () {
       const y = window.scrollY || window.pageYOffset || 0;
-      if (y > 20 && !collapsed) { collapsed = true; top.classList.add('chrome-collapsed'); }
-      else if (y <= 4 && collapsed) { collapsed = false; top.classList.remove('chrome-collapsed'); }
+      if (y > 20 && !collapsed)      { collapsed = true;  setCollapsed(true,  true); }
+      else if (y <= 4 && collapsed)  { collapsed = false; setCollapsed(false, true); }
       ticking = false;
     });
   };
   window.addEventListener('scroll', _chromeScrollHandler, { passive: true });
-  _chromeScrollHandler();
 }
 
-function render() {
+// Build + mount the full chrome shell for the current phase, reset scroll to the
+// top, and (re)wire all handlers. Called directly for instant renders and from
+// inside the cross-fade gap for animated screen transitions.
+function mountScreen() {
   const app = document.getElementById('app');
 
   let body = '';
@@ -1599,13 +1650,55 @@ function render() {
 
   app.innerHTML = renderChromeShell(chromeFor(state.phase), body);
 
-  updateProgress();        // reaffirm the global bar width after mount
-  attachHandlers();        // Save (#btn-save-later) is bound here as before
-  attachChromeScroll();    // mobile collapse listener (deduped per render)
-  // Instant (not smooth) scroll-to-top (Fix 4): a smooth scroll on every render
-  // animates the scroll position, which re-fires the collapse scroll handler on
-  // each render (e.g. slider nudges) and fed the jitter loop on mobile.
+  // Reset scroll BEFORE wiring the collapse listener so its initial measurement
+  // happens at scrollY 0 (chrome expanded) and the seeded state is correct.
   window.scrollTo({ top: 0, behavior: 'auto' });
+
+  updateProgress();        // reaffirm the global bar width after mount
+  attachHandlers();        // Save (#btn-save-later) + per-screen gates bound here
+  attachChromeScroll();    // measure heights + bind mobile collapse (deduped)
+}
+
+// Fix B — cross-fade screen transitions. On a real phase change we fade the
+// current content area out (150ms), swap the HTML and reset scroll to the top in
+// the invisible gap, then fade the new content in (150ms). Only .chrome-content
+// fades; the chrome (topbar / progress / sub-progress) stays put for continuity.
+// In-phase re-renders and the initial mount render instantly (no fade), and
+// prefers-reduced-motion falls back to an instant render that still resets scroll.
+let _lastPhase = null;
+let _contentFadeTimer = null;
+const CONTENT_FADE_MS = 150;
+
+function render() {
+  const app = document.getElementById('app');
+  const prev = app ? app.querySelector('.chrome-content') : null;
+  const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const animate = !!prev && _lastPhase !== null && _lastPhase !== state.phase && !reduceMotion;
+
+  if (_contentFadeTimer) { clearTimeout(_contentFadeTimer); _contentFadeTimer = null; }
+
+  if (!animate) {
+    mountScreen();
+    _lastPhase = state.phase;
+    return;
+  }
+
+  // 1. Fade the current content out (pointer-events:none blocks double-taps).
+  prev.classList.add('content-leaving');
+
+  // 2. In the invisible gap: swap content + reset scroll to top (CRITICAL — must
+  //    happen here, after fade-out and before fade-in, on every transition).
+  _contentFadeTimer = setTimeout(function () {
+    mountScreen();
+    const next = document.querySelector('.chrome-content');
+    if (next) {
+      next.classList.add('content-entering'); // start hidden, no transition jump
+      void next.offsetHeight;                 // force reflow to commit opacity:0
+      next.classList.remove('content-entering'); // 3. fade in to opacity 1 (150ms)
+    }
+    _lastPhase = state.phase;
+    _contentFadeTimer = null;
+  }, CONTENT_FADE_MS);
 }
 
 // ---- Welcome ----

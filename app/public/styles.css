@@ -158,7 +158,16 @@ body {
   justify-content: center;
   padding: 28px 28px 32px;
   background: var(--content-bg);
+  /* Screen cross-fade (Fix B): only the content area fades on screen changes —
+     the chrome (topbar / progress / sub-progress) stays put for continuity. */
+  transition: opacity 150ms ease;
 }
+/* Fade the outgoing screen out; block taps so a fast double-click can't fire a
+   second transition during the invisible gap. */
+.chrome-content.content-leaving { opacity: 0; pointer-events: none; }
+/* Incoming screen starts hidden (committed via a forced reflow) before the class
+   is removed to trigger the 150ms fade-in to full opacity. */
+.chrome-content.content-entering { opacity: 0; }
 
 /* ---- Footer (sticky bottom, clears the iOS home indicator) ---- */
 .chrome-footer {
@@ -194,16 +203,16 @@ body {
 
   /* Collapse on scroll (>20px): brand header + Save row hide; sub-progress and
      the global bar stay pinned. JS toggles .chrome-collapsed on .chrome-top.
-     Compositor-only collapse (Fix 1): ONLY transform + opacity transition. The
-     space-reclaiming properties (max-height, padding, border) are NOT in the
-     transition list, so they snap in a single frame — the content reflows once
-     instead of every animation frame — while the 0.3s opacity fade masks the
-     snap. Never transition max-height / padding / height here. */
-  .chrome-topbar, .chrome-save-row { transition: transform 0.3s ease, opacity 0.3s ease; transform-origin: top; max-height: 140px; overflow: hidden; }
+     Smooth measured-height collapse (Fix A): attachChromeScroll() measures each
+     element's exact expanded height on mount and animates inline max-height
+     (px → 0px) + opacity over 180ms with direction-specific easing. CSS only
+     supplies overflow:hidden (to clip during the height animation) and the
+     padding/border SNAP for the collapsed state (not transitioned, so they don't
+     contribute to per-frame layout thrash). */
+  .chrome-topbar, .chrome-save-row { overflow: hidden; }
   .chrome-top.chrome-collapsed .chrome-topbar,
   .chrome-top.chrome-collapsed .chrome-save-row {
-    max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; border: none;
-    transform: translateY(-100%);
+    padding-top: 0; padding-bottom: 0; border: none;
   }
 }
 
