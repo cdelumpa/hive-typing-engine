@@ -1773,7 +1773,7 @@ function _clP3Hypotheses(m) {
         <div><span class="p3-dot" style="background:#4F845C"></span> Type ${sm.security} – Security Point</div>
       </div>
       <div class="p3-disclaimer">
-        <b>Remember:</b> This is a hypothesis, not a verdict. The Enneagram works from the inside out — you are the final authority on which description captures the deeper pattern of your inner life.
+        <b>Remember:</b> This is the hypothesis, not a verdict. The Enneagram works from the inside out — you are the final authority on which description captures the deeper pattern of your inner life.
       </div>
     </div>
   </div>
@@ -1785,8 +1785,8 @@ function _clP3Hypotheses(m) {
     <thead>
       <tr>
         <th class="p3-corner"></th>
-        <th class="p3-th-leading">Type ${m.hero.number} - ${esc(m.hero.name)}<span class="p3-badge p3-leading">LEADING</span></th>
-        <th class="p3-th-alternate">Type ${m.alternate.number} - ${esc(m.alternate.name)}<span class="p3-badge p3-alternate">ALTERNATE</span></th>
+        <th class="p3-th-leading">Type ${m.hero.number} – ${esc(m.hero.name)}<span class="p3-badge p3-leading">LEADING</span></th>
+        <th class="p3-th-alternate">Type ${m.alternate.number} – ${esc(m.alternate.name)}<span class="p3-badge p3-alternate">ALTERNATE</span></th>
       </tr>
     </thead>
     <tbody>
@@ -1853,11 +1853,6 @@ function _clP4Patterns(m) {
 function _clP5WingsLines(m) {
   const w = m.pages.wings_lines;
   const wl = w.wing_low, wh = w.wing_high, ls = w.line_stress, lsec = w.line_security;
-  const resCard = (x, kind, label) => `
-      <div class="p5-res-card">
-        <div class="p5-res-head"><span class="p5-res-dot p5-${kind}">${x.toward}</span><div><div class="p5-res-title">Type ${x.toward} – ${esc(x.name)}</div><div class="p5-res-sub">${label} · ${m.hero.number} → ${x.toward}</div></div></div>
-        <div class="p5-res-body">${esc(x.resource)}</div>
-      </div>`;
   return `<div class="p5-page">
   <div class="p5-page-body">
   <div class="p5-masthead">${HIVE_LOGO_SVG}<div style="text-align:right">
@@ -1903,8 +1898,19 @@ function _clP5WingsLines(m) {
         <div class="p5-about-label">ABOUT STRESS &amp; SECURITY POINTS</div>
         <div class="p5-about-body">${esc(w.lines_primer)}</div>
       </div>
-      ${resCard(ls, 'stress', 'Stress Point')}
-      ${resCard(lsec, 'security', 'Security Point')}
+      <!-- USING-YOUR-WINGS-PLACEHOLDER (GROUP 3): static placeholder copy. Mo will
+           replace these 4 bullets with final static content from the content docx
+           in the full content editing pass. Replaced the two redundant stress/
+           security resource pills that duplicated the left-column line content. -->
+      <div class="p5-about p5-using-section">
+        <div class="p5-about-label">USING YOUR WINGS AND LINES</div>
+        <ul class="p5-using-list">
+          <li>Notice which wing is more active this week. You don’t need to pick one permanently — just observe where the texture is coming from right now.</li>
+          <li>Use your stress point as an early warning system. When you notice yourself moving into that pattern, something important has been pushed aside.</li>
+          <li>Your security point is a resource, not just a destination. You can consciously move toward those qualities before you need them.</li>
+          <li>Wings and lines aren’t fixed. They’re dynamic — the texture of your type shifts with context, stress, and growth.</li>
+        </ul>
+      </div>
     </div>
   </div>
 
@@ -2015,11 +2021,11 @@ function _clP7Strengths(m) {
 
   <div class="p7-sc-cards">
     <div class="p7-sc-card p7-str">
-      <div class="p7-sc-head"><span class="p7-sc-icon">&#10004;</span><span class="p7-sc-title">STRENGTHS</span></div>
+      <div class="p7-sc-head"><span class="p7-sc-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span class="p7-sc-title">STRENGTHS</span></div>
       <div class="p7-sc-list">${scItems(s.strengths)}</div>
     </div>
     <div class="p7-sc-card p7-chal">
-      <div class="p7-sc-head"><span class="p7-sc-icon">&#10006;</span><span class="p7-sc-title">CHALLENGES</span></div>
+      <div class="p7-sc-head"><span class="p7-sc-icon"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></span><span class="p7-sc-title">CHALLENGES</span></div>
       <div class="p7-sc-list">${scItems(s.challenges)}</div>
     </div>
   </div>
@@ -2053,6 +2059,19 @@ function _clP7Strengths(m) {
 // framework is dropped (no template slot). Intro is static with a type-name interpolation
 // (m.hero.name) — no model field. Legacy classes now dead (left for cleanup PR): app-cols,
 // app-sec, app-subhead, app-fw, app-sub-t, and the cl-9pt page modifier.
+//
+// Section-title icons are inline SVG (white-on-circle), not Unicode glyphs: the
+// former ◎/💬/⚡ depended on system fonts that headless Chromium lacks in
+// production, so they rendered as empty circles. SVG renders identically
+// everywhere (same approach as HIVE_LOGO_SVG). Drawn on a 24-unit viewBox.
+const P8_ICON = {
+  // Getting Re-Centered — concentric target: outer ring + solid center.
+  center:   `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="#fff" stroke="none"/></svg>`,
+  // Communications — rounded speech bubble with a tail at the lower left.
+  comms:    `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 16h-7.5L7 19.5V16H5a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 5 5z"/></svg>`,
+  // Conflict — solid lightning bolt.
+  conflict: `<svg viewBox="0 0 24 24" width="16" height="16" fill="#fff"><path d="M13 2L4.5 13.2H10l-1.4 8.3 9-12.1H11.7L13 2z"/></svg>`,
+};
 function _clP8Application(m) {
   const a = m.pages.application;
   const stripPrefix = s => { const p = String(s || '').split(/\s*—\s*/); return p.length > 1 ? p.slice(1).join(' — ') : String(s || ''); };
@@ -2076,9 +2095,9 @@ function _clP8Application(m) {
   <div class="p8-title-rule"></div>
   <div class="p8-intro">${intro}</div>
 
-  ${section('p8-body', '&#9678;', 'GETTING RE-CENTERED AND PRESENT', a.center.subhead, 'YOUR CENTER OF INTELLIGENCE', a.center.bullets, 'WHEN YOU&#39;RE OFF-CENTER', a.center.off_center)}
-  ${section('p8-comms', '&#128172;', 'COMMUNICATIONS STYLE', a.communication.subhead, 'HOW YOU NATURALLY COMMUNICATE', a.communication.bullets, 'WHAT TO WATCH FOR', a.communication.watch_for)}
-  ${section('p8-conflict', '&#9889;', 'CONFLICT STYLE', a.conflict.subhead, 'HOW CONFLICT SHOWS UP FOR YOU', a.conflict.bullets, 'WORKING WITH IT', a.conflict.working_with)}
+  ${section('p8-body', P8_ICON.center, 'GETTING RE-CENTERED AND PRESENT', a.center.subhead, 'YOUR CENTER OF INTELLIGENCE', a.center.bullets, 'WHEN YOU&#39;RE OFF-CENTER', a.center.off_center)}
+  ${section('p8-comms', P8_ICON.comms, 'COMMUNICATIONS STYLE', a.communication.subhead, 'HOW YOU NATURALLY COMMUNICATE', a.communication.bullets, 'WHAT TO WATCH FOR', a.communication.watch_for)}
+  ${section('p8-conflict', P8_ICON.conflict, 'CONFLICT STYLE', a.conflict.subhead, 'HOW CONFLICT SHOWS UP FOR YOU', a.conflict.bullets, 'WORKING WITH IT', a.conflict.working_with)}
 
   </div>
   <div class="p8-footer">
@@ -2127,7 +2146,7 @@ function clientReportStyles() {
   .tcard .tgifts { margin-top: 6px; font-size: 10.5px; font-weight: 700; color: var(--hive-orange); }
   .closing { margin: 12px var(--margin-x) 0; background: var(--p2-callout-bg); border-left: 5px solid var(--hive-orange); border-radius: 0 5px 5px 0; padding: 12px 18px; font-size: 12.5px; font-style: italic; line-height: 1.55; color: var(--body-text); }
   .footer { margin: 12px var(--margin-x) 24px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .footer .center { color: var(--hive-blue); }
+  .footer .center { color: var(--footer-gray); }
   /* ===== client global resets (client report only: @page / box-sizing / body) ===== */
   @page { size: 8.5in 11in; margin: 0; }
   * { box-sizing: border-box; }
@@ -2173,7 +2192,7 @@ function clientReportStyles() {
   .cv-entry-desc { margin-top: 4px; font-size: 12.5px; color: var(--section-title); line-height: 1.4; }
   /* --- Welcome (cover-family, wider 64px margin; reuses .cv-masthead/.cv-header-rule/.cv-footer) --- */
   .cover-welcome { --margin-x: 64px; }
-  .cv-footer .center { color: var(--hive-blue); }
+  .cv-footer .center { color: var(--footer-gray); }
   .cw-body { position: absolute; top: 150px; left: var(--margin-x); right: var(--margin-x); }
   .cw-greeting { text-align: center; font-size: 40px; font-weight: 400; color: var(--section-title); }
   .cw-subhead { margin-top: 6px; text-align: center; font-size: 19px; font-style: italic; color: var(--section-title); }
@@ -2215,7 +2234,7 @@ function clientReportStyles() {
   .p3-ow-label { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--hive-orange); }
   .p3-ow-quote { margin-top: 6px; font-size: 12.5px; font-style: italic; line-height: 1.55; color: var(--section-title); }
   .p3-compare-title { margin: 26px var(--margin-x) 0; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; color: var(--hive-blue); }
-  .p3-compare-wrap { margin: 8px var(--margin-x) 0; }
+  .p3-compare-wrap { margin: 14px var(--margin-x) 0; }
   table.p3-compare { border-collapse: collapse; table-layout: fixed; width: 100%; }
   table.p3-compare col.p3-c-label { width: 18%; }
   table.p3-compare col.p3-c-side { width: 41%; }
@@ -2237,7 +2256,7 @@ function clientReportStyles() {
   .p3-disclaimer { margin-top: 18px; text-align: left; font-size: 11px; font-style: italic; line-height: 1.5; color: var(--body-text); }
   .p3-disclaimer b { color: var(--hive-blue); font-style: italic; }
   .p3-footer { position: absolute; left: var(--margin-x); right: var(--margin-x); bottom: var(--margin-y); display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p3-footer .center { color: var(--hive-blue); }
+  .p3-footer .center { color: var(--footer-gray); }
   /* ===== P4 How Your Type Shows Up — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
   .p4-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
   .p4-page-body { flex: 1 1 auto; }
@@ -2257,7 +2276,7 @@ function clientReportStyles() {
   .p4-bullet::before { content: "■"; color: #9AA6B8; font-size: 9px; line-height: 1.6; flex: 0 0 auto; }
   .p4-inquiry { margin-top: 12px; border-left: 4px solid var(--hive-blue); padding-left: 12px; font-size: 12.5px; font-style: italic; color: var(--hive-blue); }
   .p4-footer { margin: 22px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p4-footer .center { color: var(--hive-blue); }
+  .p4-footer .center { color: var(--footer-gray); }
   /* ===== P5 Wings & Lines — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
   .p5-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
   .p5-page-body { flex: 1 1 auto; }
@@ -2291,6 +2310,11 @@ function clientReportStyles() {
   .p5-about { margin-top: 22px; }
   .p5-about-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--hive-blue); }
   .p5-about-body { margin-top: 7px; font-size: 11.5px; line-height: 1.6; color: var(--body-text); }
+  .p5-using-section { margin-top: 14px; }
+  .p5-using-list { margin: 6px 0 0; padding: 0; list-style: none; }
+  .p5-using-list li { position: relative; margin-top: 6px; padding-left: 14px; font-size: 11.5px; line-height: 1.45; color: var(--body-text); }
+  .p5-using-list li:first-child { margin-top: 0; }
+  .p5-using-list li::before { content: "●"; position: absolute; left: 0; top: 0; font-size: 7px; line-height: 2.05; color: var(--hive-blue); }
   .p5-res-card { margin-top: 13px; border: 1px solid var(--card-border); border-radius: 6px; padding: 12px 13px; }
   .p5-res-head { display: flex; align-items: center; gap: 8px; }
   .p5-res-dot { width: 20px; height: 20px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
@@ -2300,7 +2324,7 @@ function clientReportStyles() {
   .p5-res-sub { font-size: 9.5px; color: var(--section-title); }
   .p5-res-body { margin-top: 7px; font-size: 10.5px; line-height: 1.55; color: var(--body-text); }
   .p5-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p5-footer .center { color: var(--hive-blue); }
+  .p5-footer .center { color: var(--footer-gray); }
   /* ===== P6 Instinct & Subtype — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
   .p6-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
   .p6-page-body { flex: 1 1 auto; }
@@ -2347,7 +2371,7 @@ function clientReportStyles() {
   .p6-stack-inst { font-size: 12.5px; font-weight: 700; color: var(--leading-text); }
   .p6-stack-row:last-child .p6-stack-inst { color: var(--section-title); }
   .p6-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p6-footer .center { color: var(--hive-blue); }
+  .p6-footer .center { color: var(--footer-gray); }
   /* ===== P7 Strengths, Challenges & Growth — V2 template-ported. Body page, flex-column flow + margin footer. ===== */
   .p7-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
   .p7-page-body { flex: 1 1 auto; }
@@ -2364,6 +2388,7 @@ function clientReportStyles() {
   .p7-sc-icon { width: 24px; height: 24px; border-radius: 50%; color: #fff; font-size: 13px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
   .p7-sc-card.p7-str .p7-sc-icon { background: #4F845C; }
   .p7-sc-card.p7-chal .p7-sc-icon { background: #C0504D; }
+  .p7-sc-icon svg, .p8-sec-icon svg { display: block; }
   .p7-sc-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--section-title); }
   .p7-sc-list { margin-top: 14px; }
   .p7-sc-item { display: flex; gap: 9px; font-size: 12px; line-height: 1.5; color: var(--body-text); margin: 11px 0; }
@@ -2382,7 +2407,7 @@ function clientReportStyles() {
   .p7-remember { margin: 24px var(--margin-x) 0; font-size: 12px; font-style: italic; line-height: 1.55; color: var(--body-text); }
   .p7-remember b { color: var(--hive-blue); font-style: italic; }
   .p7-footer { margin: 20px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p7-footer .center { color: var(--hive-blue); }
+  .p7-footer .center { color: var(--footer-gray); }
   /* ===== P8 Putting It All Together — V2 template-ported. Densest body page, flex-column flow + margin footer. ===== */
   .p8-page { position: relative; width: var(--page-w); min-height: var(--page-h); background: #fff; margin: 0 auto; display: flex; flex-direction: column; page-break-after: always; }
   .p8-page-body { flex: 1 1 auto; }
@@ -2405,7 +2430,7 @@ function clientReportStyles() {
   .p8-bullet { display: flex; gap: 8px; font-size: 11px; line-height: 1.45; color: var(--body-text); margin: 6px 0; }
   .p8-bullet::before { content: "●"; color: var(--hive-blue); font-size: 7px; line-height: 1.7; flex: 0 0 auto; }
   .p8-footer { margin: 16px var(--margin-x) 40px; display: flex; justify-content: space-between; font-size: 9px; color: var(--footer-gray); border-top: 1px solid #F0D9C4; padding-top: 7px; }
-  .p8-footer .center { color: var(--hive-blue); }
+  .p8-footer .center { color: var(--footer-gray); }
   </style>`;
 }
 

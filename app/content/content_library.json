@@ -185,7 +185,7 @@
     "lines": {
       "stress": {
         "target_type": 5,
-        "narrative": "Under significant pressure, Eights can shift toward Five energy — becoming more withdrawn, cerebral, and detached. The usual forward-moving force goes quiet; instead there's retreat into the mind and a preference for observation over action. Noticed early, it's a signal to slow down and tend to what's happening underneath.",
+        "narrative": "Under significant pressure, Eights can shift toward Five energy — becoming more withdrawn, cerebral, and detached. The usual forward-moving force goes quiet; instead there's retreat into the mind and a preference for observation over action. When noticed early, it's a signal to slow down and tend to what's happening underneath.",
         "resource_card": "Under pressure: withdrawal, detachment, retreat into the mind. Consciously accessed: strategic thinking, careful observation, the ability to step back before acting."
       },
       "security": {
@@ -435,7 +435,7 @@
     "lines": {
       "stress": {
         "target_type": 6,
-        "narrative": "Under significant pressure, Nines can shift toward Six energy — becoming more anxious, doubting, and worst-case-focused. The easy calm gives way to worry and a search for what could go wrong. Noticed early, it's a signal that something important has been pushed down and needs attention.",
+        "narrative": "Under significant pressure, Nines can shift toward Six energy — becoming more anxious, doubting, and worst-case-focused. The easy calm gives way to worry and a search for what could go wrong. When noticed early, it's a signal that something important has been pushed down and needs attention.",
         "resource_card": "Under pressure: anxiety, doubt, scanning for what could go wrong. Consciously accessed: useful vigilance, commitment, and loyalty to what matters."
       },
       "security": {
@@ -551,7 +551,7 @@
         "The essential task can get crowded out by comfortable, non-essential \"busy-ness\"."
       ],
       "feeling": [
-        "The emotional baseline is steady and content — strong feeling gets smoothed over \\[through habit.\\].",
+        "The emotional baseline is steady and content — strong feeling gets smoothed over through habit.",
         "Anger and discontent are numbed early, often through the body before they’re fully felt.",
         "Underneath the calm can be resistance to anything that disrupts the familiar."
       ],
@@ -685,7 +685,7 @@
     "lines": {
       "stress": {
         "target_type": 4,
-        "narrative": "Under significant pressure, Ones can shift toward Four energy — becoming more emotional, melancholic, and focused on what's missing. The composed surface cracks, and feelings that were held down come flooding up, often with a sense of being uniquely flawed or hard done by. Noticed early, it's a signal that the suppression has reached its limit.",
+        "narrative": "Under significant pressure, Ones can shift toward Four energy — becoming more emotional, melancholic, and focused on what's missing. The composed surface cracks, and feelings that were held down come flooding up, often with a sense of being uniquely flawed or hard done by. When noticed early, it's a signal that the suppression has reached its limit.",
         "resource_card": "Under pressure: melancholy, emotional flooding, focus on what's lacking. Consciously accessed: emotional depth, authenticity, and creative self-expression."
       },
       "security": {
@@ -936,7 +936,7 @@
     "lines": {
       "stress": {
         "target_type": 8,
-        "narrative": "Under significant pressure, Twos can shift toward Eight energy — becoming more demanding, forceful, and confrontational. The warmth gives way to a harder edge, often when the giving has gone unreturned for too long. Noticed early, it's a signal that real needs have been suppressed past their limit.",
+        "narrative": "Under significant pressure, Twos can shift toward Eight energy — becoming more demanding, forceful, and confrontational. The warmth gives way to a harder edge, often when the giving has gone unreturned for too long. When noticed early, it's a signal that real needs have been suppressed past their limit.",
         "resource_card": "Under pressure: demanding, forceful, confrontational. Consciously accessed: directness, healthy assertion, the ability to name your own needs."
       },
       "security": {
@@ -1187,7 +1187,7 @@
     "lines": {
       "stress": {
         "target_type": 9,
-        "narrative": "Under significant pressure, Threes can shift toward Nine energy — becoming disengaged, diffuse, and unable to mobilize. The usual drive stalls out into procrastination, distraction, and a checked-out numbness. Noticed early, it's a signal that the engine has been running too hard for too long.",
+        "narrative": "Under significant pressure, Threes can shift toward Nine energy — becoming disengaged, diffuse, and unable to mobilize. The usual drive stalls out into procrastination, distraction, and a checked-out numbness. When noticed early, it's a signal that the engine has been running too hard for too long.",
         "resource_card": "Under pressure: disengagement, procrastination, numbness. Consciously accessed: ease, presence, the ability to rest without performing."
       },
       "security": {
@@ -1438,7 +1438,7 @@
     "lines": {
       "stress": {
         "target_type": 2,
-        "narrative": "Under significant pressure, Fours can shift toward Two energy — becoming more focused on others, over-giving, and seeking connection by being needed. The inward focus turns outward, sometimes losing the self in attending to someone else. Noticed early, it's a signal that the longing has gone looking for relief in the wrong place.",
+        "narrative": "Under significant pressure, Fours can shift toward Two energy — becoming more focused on others, over-giving, and seeking connection by being needed. The inward focus turns outward, sometimes losing the self in attending to someone else. When noticed early, it's a signal that the longing has gone looking for relief in the wrong place.",
         "resource_card": "Under pressure: over-giving, clinging, losing self in others. Consciously accessed: generosity, warmth, and genuine care for others' needs."
       },
       "security": {
@@ -1689,7 +1689,7 @@
     "lines": {
       "stress": {
         "target_type": 7,
-        "narrative": "Under significant pressure, Fives can shift toward Seven energy — becoming scattered, restless, and prone to mental escape into multiple ideas and possibilities. The careful focus fragments into distraction. Noticed early, it's a signal that the demands have outpaced the available resources.",
+        "narrative": "Under significant pressure, Fives can shift toward Seven energy — becoming scattered, restless, and prone to mental escape into multiple ideas and possibilities. The careful focus fragments into distraction. When noticed early, it's a signal that the demands have outpaced the available resources.",
         "resource_card": "Under pressure: scattered, restless, escaping into possibility. Consciously accessed: spontaneity, breadth, and engagement with life's options."
       },
       "security": {
@@ -1940,7 +1940,7 @@
     "lines": {
       "stress": {
         "target_type": 3,
-        "narrative": "Under significant pressure, Sixes can shift toward Three energy — becoming driven, image-focused, and busy as a way to outrun the anxiety. Activity substitutes for security; productivity becomes a defense. Noticed early, it's a signal that the underlying fear is being managed by doing rather than addressed.",
+        "narrative": "Under significant pressure, Sixes can shift toward Three energy — becoming driven, image-focused, and busy as a way to outrun the anxiety. Activity substitutes for security; productivity becomes a defense. When noticed early, it's a signal that the underlying fear is being managed by doing rather than addressed.",
         "resource_card": "Under pressure: overdrive, image-management, busyness as defense. Consciously accessed: confidence, efficiency, and the ability to act decisively."
       },
       "security": {
@@ -2191,7 +2191,7 @@
     "lines": {
       "stress": {
         "target_type": 1,
-        "narrative": "Under significant pressure, Sevens can shift toward One energy — becoming critical, rigid, and perfectionistic. The easy optimism narrows into frustration, judgment, and a sharp focus on what's wrong. Noticed early, it's a signal that the avoidance of pain has finally caught up.",
+        "narrative": "Under significant pressure, Sevens can shift toward One energy — becoming critical, rigid, and perfectionistic. The easy optimism narrows into frustration, judgment, and a sharp focus on what's wrong. When noticed early, it's a signal that the avoidance of pain has finally caught up.",
         "resource_card": "Under pressure: criticism, rigidity, frustration. Consciously accessed: discernment, focus, and the discipline to finish what matters."
       },
       "security": {
