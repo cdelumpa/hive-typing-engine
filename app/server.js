@@ -1704,7 +1704,7 @@ window.openClientProfile = async function(clientId){
 
 function _renderClientView(data){
   var c=data.client; var a=data.assessment||{}; var hist=data.history||[];
-  var TN={1:'The Improver',2:'The Giver',3:'The Performer',4:'The Idealist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'};
+  var TN={1:'The Improver',2:'The Giver',3:'The Performer',4:'The Individualist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'};
   var typeLabel=a.confirmed_type?('Type '+a.confirmed_type+' — '+(TN[a.confirmed_type]||'')):null;
   var conf=a.confidence_level?a.confidence_level.replace(/_/g,'-'):null;
   var SM={complete:'Complete',in_progress:'In Progress',not_started:'Not Started',processing:'Processing',failed:'Failed'};
@@ -1739,7 +1739,7 @@ function _renderClientView(data){
 window._editClientMode = function(){
   var data=_hiveRec; if(!data)return;
   var c=data.client;
-  var TN={1:'The Improver',2:'The Giver',3:'The Performer',4:'The Idealist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'};
+  var TN={1:'The Improver',2:'The Giver',3:'The Performer',4:'The Individualist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'};
   var a=data.assessment||{};
   var typeLabel=a.confirmed_type?('Type '+a.confirmed_type+' — '+(TN[a.confirmed_type]||'')):'—';
   var conf=a.confidence_level?a.confidence_level.replace(/_/g,'-'):'—';
