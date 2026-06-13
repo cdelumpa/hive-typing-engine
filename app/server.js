@@ -3291,6 +3291,46 @@ const CMS_DROPDOWN_CSS = `
   .cmenu-disabled { color: #B7C2C9; cursor: not-allowed; }
 `;
 
+// Editor JS shared byte-identically across all three /admin/content pages (PR: cms-shared-js).
+// Injected via ${CMS_SHARED_JS} at the top of each page's <script>. Only functions that were
+// byte-identical across the global/subtypes/types copies live here; functions that differ
+// (cmsSave, cmsRevert, cmsCollect, cmsWc, cmsInput, cmsRefresh, cmsBadge, cmsMsg,
+// cmsResetToBaseline, cmsSetPath) or are page-specific (cmsShowSubtype, cmsUpdateNav,
+// cmsToggleGroup, cmsCountWords) stay per-page. cmsPreview→cmsCollect, cmsSetStatus→cmsBadge/
+// cmsRefresh resolve at runtime: per-page functions share the same <script> scope (hoisted).
+const CMS_SHARED_JS = `  function cmsCardEl(key) { return document.querySelector('[data-card-key="' + key + '"]'); }
+  function cmsPreview(key) {
+    var card = cmsCardEl(key); if (!card) return;
+    var btn = card.querySelector('[data-role="preview"]'); var orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Rendering…'; }
+    var value = cmsCollect(key);
+    fetch('/admin/content/preview', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key, value: value }) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (btn) { btn.disabled = false; btn.textContent = orig; }
+        if (res.ok) { cmsShowPreview(res.png, res.page); } else { alert(res.error || 'Preview failed'); }
+      })
+      .catch(function () { if (btn) { btn.disabled = false; btn.textContent = orig; } alert('Preview request failed'); });
+  }
+  function cmsShowPreview(png, label) {
+    var m = document.getElementById('cms-preview-modal'); if (!m) return;
+    m.querySelector('.cmpv-cap').textContent = label || 'Preview';
+    m.querySelector('.cmpv-img').src = png;
+    m.style.display = 'flex';
+  }
+  function cmsClosePreview() {
+    var m = document.getElementById('cms-preview-modal'); if (!m) return;
+    m.style.display = 'none'; m.querySelector('.cmpv-img').src = '';
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cmsClosePreview(); });
+  function cmsGetPath(obj, path) {
+    if (path === '') return obj;
+    var segs = path.split('.'), cur = obj;
+    for (var i = 0; i < segs.length; i++) { if (cur == null) return undefined; var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s]; }
+    return cur;
+  }
+  function cmsSetStatus(card, status) { card.setAttribute('data-status', status); cmsBadge(card, status); cmsRefresh(card); }`;
+
 // Total words across all string leaves of a value (object/array/string). Server-side
 // authority for the word_count column.
 function cmsWordCount(v) {
@@ -3559,31 +3599,7 @@ function renderContentPage(overrides, req) {
   var CMS_STATUS = ${statusJson};
 </script>
 <script>
-  function cmsCardEl(key) { return document.querySelector('[data-card-key="' + key + '"]'); }
-  function cmsPreview(key) {
-    var card = cmsCardEl(key); if (!card) return;
-    var btn = card.querySelector('[data-role="preview"]'); var orig = btn ? btn.textContent : '';
-    if (btn) { btn.disabled = true; btn.textContent = 'Rendering…'; }
-    var value = cmsCollect(key);
-    fetch('/admin/content/preview', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key, value: value }) })
-      .then(function (r) { return r.json(); })
-      .then(function (res) {
-        if (btn) { btn.disabled = false; btn.textContent = orig; }
-        if (res.ok) { cmsShowPreview(res.png, res.page); } else { alert(res.error || 'Preview failed'); }
-      })
-      .catch(function () { if (btn) { btn.disabled = false; btn.textContent = orig; } alert('Preview request failed'); });
-  }
-  function cmsShowPreview(png, label) {
-    var m = document.getElementById('cms-preview-modal'); if (!m) return;
-    m.querySelector('.cmpv-cap').textContent = label || 'Preview';
-    m.querySelector('.cmpv-img').src = png;
-    m.style.display = 'flex';
-  }
-  function cmsClosePreview() {
-    var m = document.getElementById('cms-preview-modal'); if (!m) return;
-    m.style.display = 'none'; m.querySelector('.cmpv-img').src = '';
-  }
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cmsClosePreview(); });
+${CMS_SHARED_JS}
   function cmsSetPath(obj, path, val) {
     if (path === '') return;
     var segs = path.split('.'), cur = obj;
@@ -3593,12 +3609,6 @@ function renderContentPage(overrides, req) {
     }
     var last = segs[segs.length - 1];
     cur[/^\\d+$/.test(last) ? parseInt(last, 10) : last] = val;
-  }
-  function cmsGetPath(obj, path) {
-    if (path === '') return obj;
-    var segs = path.split('.'), cur = obj;
-    for (var i = 0; i < segs.length; i++) { if (cur == null) return undefined; var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s]; }
-    return cur;
   }
   function cmsCollect(key) {
     var tpl = CMS_TEMPLATE[key];
@@ -3643,7 +3653,6 @@ function renderContentPage(overrides, req) {
     b.className = 'badge ' + (status === 'published' ? 'pub' : status === 'draft' ? 'draft' : 'unmod');
     b.textContent = status === 'published' ? 'Published' : status === 'draft' ? 'Draft' : 'Unmodified';
   }
-  function cmsSetStatus(card, status) { card.setAttribute('data-status', status); cmsBadge(card, status); cmsRefresh(card); }
   function cmsMsg(card, text, isError) {
     var m = card.querySelector('[data-role="msg"]'); if (!m) return;
     if (m._t) { clearTimeout(m._t); m._t = null; }
@@ -3893,43 +3902,13 @@ function renderSubtypesPage(overrides, req) {
   var CMS_STATUS = ${statusJson};
 </script>
 <script>
-  function cmsCardEl(key) { return document.querySelector('[data-card-key="' + key + '"]'); }
-  function cmsPreview(key) {
-    var card = cmsCardEl(key); if (!card) return;
-    var btn = card.querySelector('[data-role="preview"]'); var orig = btn ? btn.textContent : '';
-    if (btn) { btn.disabled = true; btn.textContent = 'Rendering…'; }
-    var value = cmsCollect(key);
-    fetch('/admin/content/preview', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key, value: value }) })
-      .then(function (r) { return r.json(); })
-      .then(function (res) {
-        if (btn) { btn.disabled = false; btn.textContent = orig; }
-        if (res.ok) { cmsShowPreview(res.png, res.page); } else { alert(res.error || 'Preview failed'); }
-      })
-      .catch(function () { if (btn) { btn.disabled = false; btn.textContent = orig; } alert('Preview request failed'); });
-  }
-  function cmsShowPreview(png, label) {
-    var m = document.getElementById('cms-preview-modal'); if (!m) return;
-    m.querySelector('.cmpv-cap').textContent = label || 'Preview';
-    m.querySelector('.cmpv-img').src = png;
-    m.style.display = 'flex';
-  }
-  function cmsClosePreview() {
-    var m = document.getElementById('cms-preview-modal'); if (!m) return;
-    m.style.display = 'none'; m.querySelector('.cmpv-img').src = '';
-  }
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cmsClosePreview(); });
+${CMS_SHARED_JS}
   function cmsSetPath(obj, path, val) {
     if (path === '') return;
     var segs = path.split('.'), cur = obj;
     for (var i = 0; i < segs.length - 1; i++) { var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s]; if (cur == null) return; }
     var last = segs[segs.length - 1];
     cur[/^\\d+$/.test(last) ? parseInt(last, 10) : last] = val;
-  }
-  function cmsGetPath(obj, path) {
-    if (path === '') return obj;
-    var segs = path.split('.'), cur = obj;
-    for (var i = 0; i < segs.length; i++) { if (cur == null) return undefined; var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s]; }
-    return cur;
   }
   function cmsCollect(key) {
     var tpl = CMS_TEMPLATE[key];
@@ -3966,7 +3945,6 @@ function renderSubtypesPage(overrides, req) {
     b.className = 'badge ' + (status === 'published' ? 'pub' : status === 'draft' ? 'draft' : 'unmod');
     b.textContent = status === 'published' ? 'Published' : status === 'draft' ? 'Draft' : 'Unmodified';
   }
-  function cmsSetStatus(card, status) { card.setAttribute('data-status', status); cmsBadge(card, status); cmsRefresh(card); }
   function cmsMsg(card, text, isError) {
     var m = card.querySelector('[data-role="msg"]'); if (!m) return;
     if (m._t) { clearTimeout(m._t); m._t = null; }
@@ -4210,43 +4188,13 @@ function renderTypesPage(overrides, req) {
   var CMS_STATUS = ${statusJson};
 </script>
 <script>
-  function cmsCardEl(key) { return document.querySelector('[data-card-key="' + key + '"]'); }
-  function cmsPreview(key) {
-    var card = cmsCardEl(key); if (!card) return;
-    var btn = card.querySelector('[data-role="preview"]'); var orig = btn ? btn.textContent : '';
-    if (btn) { btn.disabled = true; btn.textContent = 'Rendering…'; }
-    var value = cmsCollect(key);
-    fetch('/admin/content/preview', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key, value: value }) })
-      .then(function (r) { return r.json(); })
-      .then(function (res) {
-        if (btn) { btn.disabled = false; btn.textContent = orig; }
-        if (res.ok) { cmsShowPreview(res.png, res.page); } else { alert(res.error || 'Preview failed'); }
-      })
-      .catch(function () { if (btn) { btn.disabled = false; btn.textContent = orig; } alert('Preview request failed'); });
-  }
-  function cmsShowPreview(png, label) {
-    var m = document.getElementById('cms-preview-modal'); if (!m) return;
-    m.querySelector('.cmpv-cap').textContent = label || 'Preview';
-    m.querySelector('.cmpv-img').src = png;
-    m.style.display = 'flex';
-  }
-  function cmsClosePreview() {
-    var m = document.getElementById('cms-preview-modal'); if (!m) return;
-    m.style.display = 'none'; m.querySelector('.cmpv-img').src = '';
-  }
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cmsClosePreview(); });
+${CMS_SHARED_JS}
   function cmsSetPath(obj, path, val) {
     if (path === '') return;
     var segs = path.split('.'), cur = obj;
     for (var i = 0; i < segs.length - 1; i++) { var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s]; if (cur == null) return; }
     var last = segs[segs.length - 1];
     cur[/^\\d+$/.test(last) ? parseInt(last, 10) : last] = val;
-  }
-  function cmsGetPath(obj, path) {
-    if (path === '') return obj;
-    var segs = path.split('.'), cur = obj;
-    for (var i = 0; i < segs.length; i++) { if (cur == null) return undefined; var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s]; }
-    return cur;
   }
   function cmsCollect(key) {
     var tpl = CMS_TEMPLATE[key];
@@ -4276,7 +4224,6 @@ function renderTypesPage(overrides, req) {
     b.className = 'badge ' + (status === 'published' ? 'pub' : status === 'draft' ? 'draft' : 'unmod');
     b.textContent = status === 'published' ? 'Published' : status === 'draft' ? 'Draft' : 'Unmodified';
   }
-  function cmsSetStatus(card, status) { card.setAttribute('data-status', status); cmsBadge(card, status); cmsRefresh(card); }
   function cmsMsg(card, text, isError) {
     var m = card.querySelector('[data-role="msg"]'); if (!m) return;
     if (m._t) { clearTimeout(m._t); m._t = null; }
