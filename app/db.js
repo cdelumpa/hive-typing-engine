@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS coaches (
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT FALSE;
 
 CREATE TABLE IF NOT EXISTS clients (
   id SERIAL PRIMARY KEY,
@@ -143,6 +144,33 @@ CREATE TABLE IF NOT EXISTS pdf_tokens (
   expires_at TIMESTAMPTZ NOT NULL,
   redeemed_at TIMESTAMPTZ
 );
+
+-- CMS content overrides: per-field-group replacements for baseline content_library.json /
+-- type_library.json values. content_key is a field-group id (e.g. 'subtype_sp9.narrative',
+-- 'static.welcome', 'type_9.wings'). value is a plain string or JSON-serialized object matching
+-- the baseline shape for that key; the renderer JSON.parses it as a drop-in replacement.
+-- word_count is computed by the server at save time (nullable). previous_value snapshots the
+-- value at the most recent publish to enable one-click revert.
+CREATE TABLE IF NOT EXISTS content_overrides (
+  content_key     TEXT PRIMARY KEY,
+  value           TEXT NOT NULL,
+  word_count      INTEGER,
+  updated_by      INTEGER REFERENCES coaches(id),
+  updated_at      TIMESTAMPTZ DEFAULT NOW(),
+  status          TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+  previous_value  TEXT
+);
+
+-- Prompt version history (stub — no logic yet). call_number identifies which engine call
+-- the prompt belongs to (1 or 2). No indexes / startup snapshot logic in this PR.
+CREATE TABLE IF NOT EXISTS prompt_versions (
+  id            SERIAL PRIMARY KEY,
+  call_number   INTEGER NOT NULL CHECK (call_number IN (1, 2)),
+  prompt_text   TEXT NOT NULL,
+  deployed_at   TIMESTAMPTZ DEFAULT NOW(),
+  deployed_by   TEXT,
+  notes         TEXT
+);
 `;
 
 const SEED_SQL = `
@@ -158,6 +186,9 @@ UPDATE coaches SET password_hash = '$2b$12$j76FBdX8jQoB4agtmjXpGOfhVevkpi1jnkwZM
 WHERE email = 'monique@hiveleadership.com' AND password_hash IS NULL;
 
 UPDATE coaches SET is_admin = TRUE, is_active = TRUE
+WHERE email IN ('cai@hiveleadership.com', 'monique@hiveleadership.com');
+
+UPDATE coaches SET is_super_admin = TRUE
 WHERE email IN ('cai@hiveleadership.com', 'monique@hiveleadership.com');
 
 -- Remove temporary test coaches created during access-control verification
