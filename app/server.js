@@ -893,7 +893,8 @@ async function generateReportPDFs(result, scores, intake, assessmentId) {
   let coachPdfPath  = null;
 
   try {
-    const { html } = renderClientReport({ apiResult: result, client, coach });
+    // await required: render pipeline loads content_overrides from DB
+    const { html } = await renderClientReport({ apiResult: result, client, coach });
     clientPdfPath = await generatePDF(html, `client_${intake.firstName}_${intake.lastName}`, pdfOpts);
     console.log(`[pdf] client PDF generated: ${clientPdfPath}`);
     if (assessmentId) await db.createReport(assessmentId, 'client', clientPdfPath);
@@ -902,7 +903,8 @@ async function generateReportPDFs(result, scores, intake, assessmentId) {
   }
 
   try {
-    const { html } = renderCoachReport({ apiResult: result, client, coach });
+    // await required: render pipeline loads content_overrides from DB
+    const { html } = await renderCoachReport({ apiResult: result, client, coach });
     coachPdfPath = await generatePDF(html, `coach_${intake.firstName}_${intake.lastName}`, pdfOpts);
     console.log(`[pdf] coach PDF generated: ${coachPdfPath}`);
     if (assessmentId) await db.createReport(assessmentId, 'coach', coachPdfPath);
