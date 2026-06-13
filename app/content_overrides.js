@@ -77,4 +77,90 @@ function resolveLibObject(overrides, topKey, baseObj) {
   return out || baseObj;
 }
 
-module.exports = { loadPublishedOverrides, resolveContent, resolveLibObject };
+// ─── CMS admin DB helpers (PR 3) ───────────────────────────────────────────────
+// Read/write access for the /admin/content editor. This module is the domain home
+// for all content_overrides table logic. `value` is always stored as a JSON string
+// (JSON.stringify of the field's full value) so loadPublishedOverrides' JSON.parse
+// returns the correct shape — string, object, or array — for every key.
+
+/**
+ * Returns all override rows (any status) keyed by content_key:
+ *   { [content_key]: { value, parsed, word_count, updated_by, updated_at, status, previous_value } }
+ * `parsed` is the JSON.parsed value (falls back to raw string). Empty object when
+ * the DB is unavailable or the query fails — never throws.
+ */
+async function getAllOverrides() {
+  try {
+    const result = await db.query(
+      `SELECT content_key, value, word_count, updated_by, updated_at, status, previous_value
+       FROM content_overrides`
+    );
+    const out = {};
+    if (!result || !result.rows) return out;
+    for (const row of result.rows) {
+      let parsed;
+      try { parsed = JSON.parse(row.value); } catch { parsed = row.value; }
+      out[row.content_key] = { ...row, parsed };
+    }
+    return out;
+  } catch (err) {
+    console.error('[content_overrides] getAllOverrides failed:', err.message);
+    return {};
+  }
+}
+
+/**
+ * Upsert a draft override. Sets status='draft'; never touches previous_value.
+ * `value` is the field's full JS value (object/array/string); stored JSON-stringified.
+ * Returns true on success, false otherwise.
+ */
+async function saveDraftOverride(contentKey, value, wordCount, coachId) {
+  const json = JSON.stringify(value);
+  const r = await db.query(
+    `INSERT INTO content_overrides (content_key, value, word_count, updated_by, updated_at, status)
+     VALUES ($1, $2, $3, $4, NOW(), 'draft')
+     ON CONFLICT (content_key) DO UPDATE
+       SET value = EXCLUDED.value, word_count = EXCLUDED.word_count,
+           updated_by = EXCLUDED.updated_by, updated_at = NOW(), status = 'draft'`,
+    [contentKey, json, wordCount, coachId]
+  );
+  return r !== null;
+}
+
+/**
+ * Upsert a published override. Snapshots the currently-published value (if any)
+ * into previous_value before overwriting, preserving a future undo-last-publish
+ * path. Sets status='published'. Returns true on success, false otherwise.
+ */
+async function publishOverride(contentKey, value, wordCount, coachId) {
+  const json = JSON.stringify(value);
+  const prev = await db.query(
+    `SELECT value FROM content_overrides WHERE content_key = $1 AND status = 'published' LIMIT 1`,
+    [contentKey]
+  );
+  const previousValue = prev && prev.rows.length > 0 ? prev.rows[0].value : null;
+  const r = await db.query(
+    `INSERT INTO content_overrides (content_key, value, word_count, updated_by, updated_at, status, previous_value)
+     VALUES ($1, $2, $3, $4, NOW(), 'published', $5)
+     ON CONFLICT (content_key) DO UPDATE
+       SET value = EXCLUDED.value, word_count = EXCLUDED.word_count,
+           updated_by = EXCLUDED.updated_by, updated_at = NOW(), status = 'published',
+           previous_value = EXCLUDED.previous_value`,
+    [contentKey, json, wordCount, coachId, previousValue]
+  );
+  return r !== null;
+}
+
+/**
+ * Revert to baseline: delete the override row so the renderer falls back to the
+ * content_library.json baseline. Returns true on success, false otherwise.
+ */
+async function revertOverride(contentKey) {
+  const r = await db.query('DELETE FROM content_overrides WHERE content_key = $1', [contentKey]);
+  return r !== null;
+}
+
+module.exports = {
+  loadPublishedOverrides, resolveContent, resolveLibObject,
+  getAllOverrides, saveDraftOverride, publishOverride, revertOverride,
+};
