@@ -3226,6 +3226,61 @@ const CMS_FIELD_META = {
 };
 const cmsCardId = (key) => 'card-' + key.replace(/\./g, '-');
 
+// ── Subtype editor (PR 4a) ──────────────────────────────────────────────────────
+const CMS_INSTINCTS = [
+  { code: 'sp', label: 'SP', name: 'Self-Preservation' },
+  { code: 'so', label: 'SO', name: 'Social' },
+  { code: 'sx', label: 'SX', name: 'One-to-One' },
+];
+const CMS_TYPE_WORD = { 1: 'One', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine' };
+// The four editable subtype fields (code/name stay read-only context). Each is its own
+// content_key (subtype_{inst}{N}.{field}) — matching report_prep's resolveLibObject lookup.
+const CMS_SUBTYPE_FIELDS = [
+  { field: 'tagline',   label: 'Tagline' },
+  { field: 'narrative', label: 'Narrative' },
+  { field: 'patterns',  label: 'Patterns' },
+  { field: 'shifts',    label: 'Shifts' },
+];
+function cmsIsValidSubtypeKey(k) {
+  return typeof k === 'string' && /^subtype_(sp|so|sx)[1-9]\.(tagline|narrative|patterns|shifts)$/.test(k);
+}
+// Combined gate for the POST routes: 6 static + 108 subtype keys; rejects type_*.* (PR5)
+// and subtype_*.{code,name}.
+function cmsIsValidContentKey(k) { return cmsIsValidStaticKey(k) || cmsIsValidSubtypeKey(k); }
+const cmsStatusWord = (s) => (s === 'published' ? 'Published' : s === 'draft' ? 'Draft' : 'Unmodified');
+const cmsStatusClass = (s) => (s === 'published' ? 'pub' : s === 'draft' ? 'draft' : 'unmod');
+// Worst status across a subtype's fields: any draft -> draft; else any published -> published.
+function cmsWorstStatus(statuses) {
+  if (statuses.indexOf('draft') >= 0) return 'draft';
+  if (statuses.indexOf('published') >= 0) return 'published';
+  return 'unmodified';
+}
+
+// Super-admin "Content" dropdown for admin topbars. `active` ∈ global|subtypes|types|''.
+function cmsContentMenu(active) {
+  const item = (href, label, key, disabled) => disabled
+    ? `<span class="cmenu-item cmenu-disabled">${label}</span>`
+    : `<a class="cmenu-item${active === key ? ' cmenu-active' : ''}" href="${href}">${label}</a>`;
+  return `<details class="cmenu">
+      <summary class="nav-link">Content ▾</summary>
+      <div class="cmenu-list">
+        ${item('/admin/content/global',   'Client Report — Global Content',  'global',   false)}
+        ${item('/admin/content/subtypes', 'Client Report — Subtype Content', 'subtypes', false)}
+        ${item('/admin/content/types',    'Client Report — Type Content',    'types',    true)}
+      </div>
+    </details>`;
+}
+const CMS_DROPDOWN_CSS = `
+  .cmenu { position: relative; display: inline-block; }
+  .cmenu > summary { list-style: none; cursor: pointer; }
+  .cmenu > summary::-webkit-details-marker { display: none; }
+  .cmenu-list { position: absolute; right: 0; top: 100%; margin-top: 8px; background: #fff; border: 1px solid #E2E6EA; border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.16); min-width: 244px; padding: 6px 0; z-index: 40; }
+  .cmenu-item { display: block; padding: 9px 16px; font-family: Georgia, serif; font-size: 13px; color: #1A2B33; text-decoration: none; white-space: nowrap; }
+  a.cmenu-item:hover { background: #F2F7F9; color: #00859f; }
+  .cmenu-item.cmenu-active { color: #00859f; font-weight: 700; }
+  .cmenu-disabled { color: #B7C2C9; cursor: not-allowed; }
+`;
+
 // Total words across all string leaves of a value (object/array/string). Server-side
 // authority for the word_count column.
 function cmsWordCount(v) {
@@ -3260,6 +3315,13 @@ function cmsBudgetFor(key, path) {
     if (/^\d+\.name$/.test(path)) return 6;
     if (/^\d+\.body$/.test(path)) return 45;
   }
+  // Subtype fields (PR 4a): budget keys off the field suffix (all leaves of a unit share it).
+  if (/^subtype_/.test(key)) {
+    if (key.endsWith('.tagline')) return 15;     // P6 name+tagline zone
+    if (key.endsWith('.narrative')) return 130;  // P6 left column, 2 paragraphs
+    if (key.endsWith('.patterns')) return 25;    // each T/F/B bullet (~3-line proxy)
+    if (key.endsWith('.shifts')) return 25;      // each P7 "What Shifts" tip
+  }
   return 0;
 }
 
@@ -3272,6 +3334,10 @@ function cmsHumanize(seg) {
   return String(seg).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 function cmsArrayHeading(key, parentPath, item, i) {
+  if (/\.shifts$/.test(key)) return 'Shift ' + (i + 1);                 // subtype shifts (root array)
+  if (parentPath === 'thinking') return 'Thinking ' + (i + 1);         // subtype patterns
+  if (parentPath === 'feeling') return 'Feeling ' + (i + 1);
+  if (parentPath === 'behaving') return 'Behaving ' + (i + 1);
   if (parentPath === 'letters') return 'Letter ' + (i + 1);
   if (parentPath === 'pillars') return 'Pillar ' + (i + 1);
   if (parentPath === 'nine_types') return 'Type ' + (item && item.number != null ? item.number : i + 1) + (item && item.center ? ' (' + item.center + ')' : '');
@@ -3420,6 +3486,7 @@ function renderContentPage(overrides, req) {
   .field-msg .msg-ok { color: #1a7a4a; }
   .field-msg .msg-err { color: #c0392b; }
   .field-msg .msg-dismiss { font-family: Georgia, serif; font-size: 11px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 3px; padding: 2px 8px; cursor: pointer; }
+  ${CMS_DROPDOWN_CSS}
   @media (max-width: 768px) {
     .sidebar { display: none; }
     .container { margin-left: 0; }
@@ -3428,9 +3495,9 @@ function renderContentPage(overrides, req) {
 <body>
 <div class="top-bar">
   <div>${HIVE_LOGO_SVG}<h1>Global Static Content</h1></div>
-  <div style="display:flex;align-items:center;gap:8px;">
-    <a href="/admin" class="nav-link">← Dashboard</a>
-    <span class="nav-sep">|</span>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <a href="/admin" class="nav-link">← Dashboard</a><span class="nav-sep">|</span>
+    ${cmsContentMenu('global')}<span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
@@ -3590,15 +3657,341 @@ function renderContentPage(overrides, req) {
 </body></html>`;
 }
 
-app.get('/admin/content', requireSuperAdmin, async (req, res) => {
+// One independently-saveable subtype field unit (tagline / narrative / patterns / shifts).
+// Reuses the same data-card-key / data-role machinery as the static cards.
+function cmsSubtypeUnit(key, value, status, label) {
+  const badgeClass = status === 'published' ? 'pub' : status === 'draft' ? 'draft' : 'unmod';
+  const pubDisabled = status !== 'draft';
+  const revHidden = status === 'unmodified';
+  return `<div class="card unit" data-card-key="${esc(key)}" data-status="${status}" data-dirty="0">
+      <div class="unit-head">
+        <span class="unit-label">${esc(label)}</span>
+        <span class="badge ${badgeClass}" data-role="badge">${cmsStatusWord(status)}</span>
+      </div>
+      <div class="field-body">${cmsRenderInputs(key, value, '')}</div>
+      <div class="field-actions">
+        <button class="btn-draft" type="button" data-role="draft" disabled onclick="cmsSave('${key}','draft')">Save as Draft</button>
+        <button class="btn-pub" type="button" data-role="publish"${pubDisabled ? ' disabled' : ''} onclick="cmsSave('${key}','publish')">Publish</button>
+        <button class="btn-revert" type="button" data-role="revert"${revHidden ? ' style="display:none"' : ''} onclick="cmsRevert('${key}')">Revert to baseline</button>
+      </div>
+      <div class="field-msg" data-role="msg" style="display:none"></div>
+    </div>`;
+}
+
+function renderSubtypesPage(overrides, req) {
+  const template = {}, baselineMap = {}, statusMap = {};
+  let nPub = 0, nDraft = 0, nUnmod = 0, subtypesWithPub = 0;
+  let firstId = null;
+  const groups = [], cards = [];
+
+  for (const inst of CMS_INSTINCTS) {
+    const links = [];
+    for (let n = 1; n <= 9; n++) {
+      const subKey = `subtype_${inst.code}${n}`;
+      const baseObj = contentLibrary[subKey] || {};
+      const subId = cmsCardId(subKey);                 // card-subtype-sp1
+      if (!firstId) firstId = subId;
+      const fieldStatuses = [];
+      const units = CMS_SUBTYPE_FIELDS.map(f => {
+        const key = `${subKey}.${f.field}`;
+        const ov = overrides[key];
+        const status = ov ? ov.status : 'unmodified';
+        if (status === 'published') nPub++; else if (status === 'draft') nDraft++; else nUnmod++;
+        const value = ov ? ov.parsed : baseObj[f.field];
+        template[key] = value;
+        baselineMap[key] = baseObj[f.field];
+        statusMap[key] = status;
+        fieldStatuses.push(status);
+        return cmsSubtypeUnit(key, value, status, f.label);
+      }).join('');
+      const worst = cmsWorstStatus(fieldStatuses);
+      if (fieldStatuses.indexOf('published') >= 0) subtypesWithPub++;
+      const label = `${inst.label} ${CMS_TYPE_WORD[n]}`;
+      links.push(`<a class="sub-link" href="#${subId}" data-subtype="${subId}" onclick="cmsShowSubtype('${subId}');return false;"><span>${esc(label)}</span><span class="sub-stat ${cmsStatusClass(worst)}" data-role="navstat">${cmsStatusWord(worst)}</span></a>`);
+      cards.push(`<div class="subtype-card" id="${subId}" style="display:none">
+        <div class="subtype-head"><span class="st-code">${esc(baseObj.code || (inst.label + n))}</span><span class="st-name">${esc(baseObj.name || label)}</span></div>
+        ${units}
+      </div>`);
+    }
+    // Only the group containing the default selection (SP) starts expanded.
+    const open = inst.code === 'sp' ? ' open' : '';
+    groups.push(`<div class="nav-group${open}" data-group="${inst.code}">
+      <div class="nav-group-h" onclick="cmsToggleGroup('${inst.code}')"><span class="ng-caret">▸</span>${esc(inst.name)}</div>
+      <div class="nav-group-items">${links.join('')}</div>
+    </div>`);
+  }
+
+  const templateJson = JSON.stringify(template).replace(/</g, '\\u003c');
+  const baselineJson = JSON.stringify(baselineMap).replace(/</g, '\\u003c');
+  const statusJson = JSON.stringify(statusMap).replace(/</g, '\\u003c');
+
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Hive Admin — Subtype Content</title>
+<style>
+  * { box-sizing: border-box; }
+  :root { --topbar-h: 60px; --sidebar-w: 230px; }
+  body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
+  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; min-height: var(--topbar-h); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
+  .top-bar h1 { font-size: 18px; margin: 4px 0 0; font-weight: 700; }
+  .top-bar svg.logo { height: 26px; width: auto; vertical-align: middle; }
+  .top-bar .nav-link { color: #9FB4C0; font-size: 12px; text-decoration: none; }
+  .top-bar .nav-link:hover { color: #fff; }
+  .nav-sep { color: #4A5E68; margin: 0 4px; }
+  .sidebar { position: fixed; top: var(--topbar-h); left: 0; bottom: 0; width: var(--sidebar-w); background: #fff; border-right: 1px solid #E2E6EA; overflow-y: auto; padding: 14px 0; z-index: 10; }
+  .nav-group-h { font-size: 12px; font-weight: 700; letter-spacing: 0.03em; color: #1A2B33; padding: 9px 16px; cursor: pointer; user-select: none; }
+  .nav-group-h:hover { background: #F7F8F9; }
+  .ng-caret { display: inline-block; width: 14px; color: #9FB0B9; transition: transform .12s; }
+  .nav-group.open .ng-caret { transform: rotate(90deg); }
+  .nav-group-items { display: none; }
+  .nav-group.open .nav-group-items { display: block; }
+  .sub-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 16px 7px 30px; font-size: 13px; color: #5A6472; text-decoration: none; border-left: 3px solid transparent; }
+  .sub-link:hover { background: #F7F8F9; }
+  .sub-link.active { color: #00B2D9; border-left-color: #00B2D9; font-weight: 700; }
+  .sub-stat { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; }
+  .sub-stat.pub { background: #e6f7ee; color: #1a7a4a; }
+  .sub-stat.draft { background: #fef6e0; color: #9a6a00; }
+  .sub-stat.unmod { background: #f1f1ee; color: #8A969C; }
+  .container { max-width: 860px; margin: 0 0 0 var(--sidebar-w); padding: 28px 24px; }
+  .summary { font-size: 13px; color: #5A6E78; margin-bottom: 20px; }
+  .summary b { color: #1A2B33; }
+  .subtype-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+  .subtype-head .st-code { font-family: Menlo, monospace; font-size: 12px; font-weight: 700; color: #fff; background: #00859f; padding: 3px 8px; border-radius: 3px; }
+  .subtype-head .st-name { font-size: 20px; font-weight: 700; color: #1A2B33; }
+  .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; margin-bottom: 18px; }
+  .unit-head { padding: 12px 18px; border-bottom: 1px solid #EFE8E0; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .unit-label { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: #1A2B33; text-transform: uppercase; }
+  .badge { flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 3px; letter-spacing: 0.04em; }
+  .badge.pub { background: #e6f7ee; color: #1a7a4a; }
+  .badge.draft { background: #fef6e0; color: #9a6a00; }
+  .badge.unmod { background: #f1f1ee; color: #7A8A92; }
+  .field-body { padding: 16px 18px; }
+  .leaf { margin-bottom: 14px; }
+  .leaf label { display: block; font-size: 11px; color: #7A96A6; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
+  .cms-input { width: 100%; padding: 9px 11px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 14px; line-height: 1.5; color: #1A2B33; outline: none; resize: vertical; }
+  .cms-input:focus { border-color: #00b1d7; }
+  .ro { font-size: 13px; color: #5A6E78; background: #f7f7f4; border: 1px solid #ECECE6; border-radius: 4px; padding: 7px 10px; }
+  .wc { font-size: 11px; color: #7A96A6; margin-top: 3px; }
+  .group { border-left: 3px solid #EFE8E0; padding-left: 14px; margin-bottom: 16px; }
+  .group-h { font-size: 12px; font-weight: 700; color: #00859f; margin-bottom: 8px; letter-spacing: 0.03em; }
+  .field-actions { padding: 12px 18px; border-top: 1px solid #EFE8E0; background: #fbfaf7; display: flex; gap: 10px; align-items: center; }
+  .field-actions button { font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; }
+  .field-actions button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-draft { background: #eef2f4; color: #1A2B33; }
+  .btn-draft:not(:disabled):hover { background: #e2e8eb; }
+  .btn-pub { background: #00b1d7; color: #fff; }
+  .btn-pub:not(:disabled):hover { background: #009bbf; }
+  .btn-revert { background: transparent; color: #c0392b; margin-left: auto; }
+  .btn-revert:not(:disabled):hover { text-decoration: underline; }
+  .field-msg { padding: 0 18px 12px; font-size: 13px; align-items: center; gap: 12px; }
+  .field-msg .msg-ok { color: #1a7a4a; }
+  .field-msg .msg-err { color: #c0392b; }
+  .field-msg .msg-dismiss { font-family: Georgia, serif; font-size: 11px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 3px; padding: 2px 8px; cursor: pointer; }
+  ${CMS_DROPDOWN_CSS}
+  @media (max-width: 768px) { .sidebar { display: none; } .container { margin-left: 0; } }
+</style></head>
+<body>
+<div class="top-bar">
+  <div>${HIVE_LOGO_SVG}<h1>Subtype Content</h1></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <a href="/admin" class="nav-link">← Dashboard</a><span class="nav-sep">|</span>
+    ${cmsContentMenu('subtypes')}<span class="nav-sep">|</span>
+    <a href="/admin/logout" class="nav-link">Sign out</a>
+  </div>
+</div>
+<nav class="sidebar">${groups.join('')}</nav>
+<div class="container">
+  <div class="summary">Editing subtype content (<b>subtype_*.*</b>). Published edits go live on the next report render; drafts do not. Status — <b>${nPub}</b> published · <b>${nDraft}</b> draft · <b>${nUnmod}</b> unmodified (of 108 fields across 27 subtypes). <b>${subtypesWithPub}</b>/27 subtypes have at least one published edit.</div>
+  ${cards.join('')}
+</div>
+<script>
+  var CMS_TEMPLATE = ${templateJson};
+  var CMS_BASELINE = ${baselineJson};
+  var CMS_STATUS = ${statusJson};
+</script>
+<script>
+  function cmsCardEl(key) { return document.querySelector('[data-card-key="' + key + '"]'); }
+  function cmsSetPath(obj, path, val) {
+    if (path === '') return;
+    var segs = path.split('.'), cur = obj;
+    for (var i = 0; i < segs.length - 1; i++) { var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s]; if (cur == null) return; }
+    var last = segs[segs.length - 1];
+    cur[/^\\d+$/.test(last) ? parseInt(last, 10) : last] = val;
+  }
+  function cmsGetPath(obj, path) {
+    if (path === '') return obj;
+    var segs = path.split('.'), cur = obj;
+    for (var i = 0; i < segs.length; i++) { if (cur == null) return undefined; var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s]; }
+    return cur;
+  }
+  function cmsCollect(key) {
+    var tpl = CMS_TEMPLATE[key];
+    if (typeof tpl === 'string') { var one = document.querySelector('[data-field="' + key + '"]'); return one ? one.value : tpl; }
+    var out = JSON.parse(JSON.stringify(tpl));
+    var els = document.querySelectorAll('[data-field="' + key + '"]');
+    for (var i = 0; i < els.length; i++) cmsSetPath(out, els[i].getAttribute('data-path'), els[i].value);
+    return out;
+  }
+  function cmsCountWords(v) {
+    if (v == null) return 0;
+    if (typeof v === 'string') { var t = v.trim(); return t ? t.split(/\\s+/).length : 0; }
+    if (Array.isArray(v)) { var s = 0; for (var i = 0; i < v.length; i++) s += cmsCountWords(v[i]); return s; }
+    if (typeof v === 'object') { var s2 = 0; for (var k in v) s2 += cmsCountWords(v[k]); return s2; }
+    return 0;
+  }
+  function cmsWc(el) {
+    var t = el.value.trim(); var n = t ? t.split(/\\s+/).length : 0;
+    var box = el.parentNode.querySelector('.wc-now'); if (box) box.textContent = n;
+    var bud = parseInt(el.getAttribute('data-budget'), 10);
+    var wrap = el.parentNode.querySelector('.wc');
+    if (bud && wrap) wrap.style.color = n > bud ? '#c0392b' : '#7A96A6';
+  }
+  function cmsInput(el) { cmsWc(el); var card = el.closest('[data-card-key]'); if (card) { card.setAttribute('data-dirty', '1'); cmsRefresh(card); } }
+  function cmsRefresh(card) {
+    var status = card.getAttribute('data-status'); var dirty = card.getAttribute('data-dirty') === '1';
+    var d = card.querySelector('[data-role="draft"]'), p = card.querySelector('[data-role="publish"]'), r = card.querySelector('[data-role="revert"]');
+    if (d) d.disabled = !dirty;
+    if (p) p.disabled = !(status === 'draft' && !dirty);
+    if (r) r.style.display = (status === 'unmodified') ? 'none' : '';
+  }
+  function cmsBadge(card, status) {
+    var b = card.querySelector('[data-role="badge"]'); if (!b) return;
+    b.className = 'badge ' + (status === 'published' ? 'pub' : status === 'draft' ? 'draft' : 'unmod');
+    b.textContent = status === 'published' ? 'Published' : status === 'draft' ? 'Draft' : 'Unmodified';
+  }
+  function cmsSetStatus(card, status) { card.setAttribute('data-status', status); cmsBadge(card, status); cmsRefresh(card); }
+  function cmsMsg(card, text, isError) {
+    var m = card.querySelector('[data-role="msg"]'); if (!m) return;
+    if (m._t) { clearTimeout(m._t); m._t = null; }
+    m.innerHTML = ''; m.style.display = 'flex';
+    var s = document.createElement('span'); s.textContent = text; s.className = isError ? 'msg-err' : 'msg-ok'; m.appendChild(s);
+    if (isError) { var x = document.createElement('button'); x.type = 'button'; x.className = 'msg-dismiss'; x.textContent = 'Dismiss'; x.onclick = function () { m.style.display = 'none'; m.innerHTML = ''; }; m.appendChild(x); }
+    else { m._t = setTimeout(function () { m.style.display = 'none'; m.innerHTML = ''; }, 3000); }
+  }
+  function cmsResetToBaseline(card, key) {
+    var base = CMS_BASELINE[key];
+    CMS_TEMPLATE[key] = (typeof base === 'string') ? base : JSON.parse(JSON.stringify(base));
+    var els = card.querySelectorAll('.cms-input');
+    for (var i = 0; i < els.length; i++) { var p = els[i].getAttribute('data-path'); var v = (typeof base === 'string') ? base : cmsGetPath(base, p); els[i].value = (v == null ? '' : v); cmsWc(els[i]); }
+  }
+  // Update the sidebar status indicator for the subtype a unit belongs to.
+  function cmsUpdateNav(key) {
+    var m = /^(subtype_(?:sp|so|sx)[1-9])\\./.exec(key); if (!m) return;
+    var subId = 'card-' + m[1].replace(/\\./g, '-');
+    var card = document.getElementById(subId); if (!card) return;
+    var units = card.querySelectorAll('[data-card-key]'), statuses = [];
+    for (var i = 0; i < units.length; i++) statuses.push(units[i].getAttribute('data-status'));
+    var worst = statuses.indexOf('draft') >= 0 ? 'draft' : statuses.indexOf('published') >= 0 ? 'published' : 'unmodified';
+    var cls = worst === 'published' ? 'pub' : worst === 'draft' ? 'draft' : 'unmod';
+    var st = document.querySelector('.sub-link[data-subtype="' + subId + '"] [data-role="navstat"]');
+    if (st) { st.className = 'sub-stat ' + cls; st.textContent = worst === 'published' ? 'Published' : worst === 'draft' ? 'Draft' : 'Unmodified'; }
+  }
+  function cmsSave(key, action) {
+    var card = cmsCardEl(key); if (!card) return;
+    var value = cmsCollect(key);
+    if (action === 'publish') {                                  // P6 overflow guard
+      var n = cmsCountWords(value), over = null;
+      if (/\\.narrative$/.test(key) && n > 130) over = 'narrative is ' + n + ' words (P6 budget ~130)';
+      else if (/\\.patterns$/.test(key) && n > 135) over = 'pattern bullets total ' + n + ' words (P6 budget ~135)';
+      if (over && !confirm('This ' + over + '. The P6 page layout may overflow. Publish anyway?')) return;
+    }
+    var d = card.querySelector('[data-role="draft"]'), p = card.querySelector('[data-role="publish"]');
+    var btn = action === 'draft' ? d : p; var orig = btn.textContent;
+    d.disabled = true; p.disabled = true; btn.textContent = action === 'draft' ? 'Saving…' : 'Publishing…';
+    fetch('/admin/content/' + action, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key, value: value }) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        btn.textContent = orig;
+        if (res.ok) {
+          CMS_TEMPLATE[key] = value; CMS_STATUS[key] = (action === 'draft') ? 'draft' : 'published';
+          card.setAttribute('data-dirty', '0');
+          cmsSetStatus(card, action === 'draft' ? 'draft' : 'published');
+          cmsMsg(card, action === 'draft' ? 'Saved as draft' : 'Published', false);
+          cmsUpdateNav(key);
+        } else { cmsRefresh(card); cmsMsg(card, res.error || 'Save failed', true); }
+      })
+      .catch(function () { btn.textContent = orig; cmsRefresh(card); cmsMsg(card, 'Request failed', true); });
+  }
+  function cmsRevert(key) {
+    if (!confirm('Revert ' + key + ' to baseline? This deletes any draft or published override for this field.')) return;
+    var card = cmsCardEl(key); if (!card) return;
+    var r = card.querySelector('[data-role="revert"]'); var orig = r.textContent;
+    r.disabled = true; r.textContent = 'Reverting…';
+    fetch('/admin/content/revert', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key }) })
+      .then(function (rp) { return rp.json(); })
+      .then(function (res) {
+        r.disabled = false; r.textContent = orig;
+        if (res.ok) { cmsResetToBaseline(card, key); card.setAttribute('data-dirty', '0'); cmsSetStatus(card, 'unmodified'); cmsUpdateNav(key); }
+        else { cmsMsg(card, res.error || 'Revert failed', true); }
+      })
+      .catch(function () { r.disabled = false; r.textContent = orig; cmsMsg(card, 'Request failed', true); });
+  }
+  function cmsShowSubtype(subId) {
+    var cards = document.querySelectorAll('.subtype-card');
+    for (var i = 0; i < cards.length; i++) cards[i].style.display = (cards[i].id === subId) ? '' : 'none';
+    var links = document.querySelectorAll('.sub-link');
+    for (var j = 0; j < links.length; j++) links[j].classList.toggle('active', links[j].getAttribute('data-subtype') === subId);
+  }
+  function cmsToggleGroup(code) { var g = document.querySelector('.nav-group[data-group="' + code + '"]'); if (g) g.classList.toggle('open'); }
+  document.addEventListener('DOMContentLoaded', function () {
+    var units = document.querySelectorAll('[data-card-key]');
+    for (var i = 0; i < units.length; i++) { units[i].setAttribute('data-dirty', '0'); cmsRefresh(units[i]); }
+    var inputs = document.querySelectorAll('.cms-input');
+    for (var j = 0; j < inputs.length; j++) cmsWc(inputs[j]);
+    cmsShowSubtype('${firstId}');
+  });
+</script>
+</body></html>`;
+}
+
+function renderTypesStubPage(req) {
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Hive Admin — Type Content</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
+  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; min-height: 60px; display: flex; align-items: center; justify-content: space-between; }
+  .top-bar h1 { font-size: 18px; margin: 4px 0 0; font-weight: 700; }
+  .top-bar svg.logo { height: 26px; width: auto; vertical-align: middle; }
+  .top-bar .nav-link { color: #9FB4C0; font-size: 12px; text-decoration: none; }
+  .nav-sep { color: #4A5E68; margin: 0 4px; }
+  .container { max-width: 700px; margin: 0 auto; padding: 60px 24px; text-align: center; color: #5A6E78; }
+  ${CMS_DROPDOWN_CSS}
+</style></head>
+<body>
+<div class="top-bar">
+  <div>${HIVE_LOGO_SVG}<h1>Type Content</h1></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <a href="/admin" class="nav-link">← Dashboard</a><span class="nav-sep">|</span>
+    ${cmsContentMenu('types')}<span class="nav-sep">|</span>
+    <a href="/admin/logout" class="nav-link">Sign out</a>
+  </div>
+</div>
+<div class="container"><h2>Type Content editor</h2><p>The per-type content editor (type_*.*) is coming in a later PR. This route is a placeholder.</p></div>
+</body></html>`;
+}
+
+app.get('/admin/content', requireSuperAdmin, (req, res) => res.redirect('/admin/content/global'));
+
+app.get('/admin/content/global', requireSuperAdmin, async (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   const overrides = await contentOverrides.getAllOverrides();
   res.send(renderContentPage(overrides, req));
 });
 
+app.get('/admin/content/subtypes', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const overrides = await contentOverrides.getAllOverrides();
+  res.send(renderSubtypesPage(overrides, req));
+});
+
+app.get('/admin/content/types', requireSuperAdmin, (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(renderTypesStubPage(req));
+});
+
 app.post('/admin/content/draft', requireSuperAdmin, async (req, res) => {
   const { content_key, value } = req.body || {};
-  if (!cmsIsValidStaticKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
+  if (!cmsIsValidContentKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
   if (value === undefined) return res.status(400).json({ ok: false, error: 'missing value' });
   const ok = await contentOverrides.saveDraftOverride(content_key, value, cmsWordCount(value), req.session.coach_id);
   res.json({ ok, error: ok ? undefined : 'database unavailable' });
@@ -3606,7 +3999,7 @@ app.post('/admin/content/draft', requireSuperAdmin, async (req, res) => {
 
 app.post('/admin/content/publish', requireSuperAdmin, async (req, res) => {
   const { content_key, value } = req.body || {};
-  if (!cmsIsValidStaticKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
+  if (!cmsIsValidContentKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
   if (value === undefined) return res.status(400).json({ ok: false, error: 'missing value' });
   const ok = await contentOverrides.publishOverride(content_key, value, cmsWordCount(value), req.session.coach_id);
   res.json({ ok, error: ok ? undefined : 'database unavailable' });
@@ -3614,7 +4007,7 @@ app.post('/admin/content/publish', requireSuperAdmin, async (req, res) => {
 
 app.post('/admin/content/revert', requireSuperAdmin, async (req, res) => {
   const { content_key } = req.body || {};
-  if (!cmsIsValidStaticKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
+  if (!cmsIsValidContentKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
   const ok = await contentOverrides.revertOverride(content_key);
   res.json({ ok, error: ok ? undefined : 'database unavailable' });
 });
@@ -3947,6 +4340,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     tbody td { border: none; padding: 4px 0; font-size: 13px; }
     tbody td::before { content: attr(data-label) ': '; font-weight: 700; color: #7A96A6; font-size: 11px; text-transform: uppercase; }
   }
+  ${CMS_DROPDOWN_CSS}
 </style>
 </head>
 <body>
@@ -3958,7 +4352,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   <div style="display:flex;align-items:center;gap:16px;">
     <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
     ${req.session.coach_is_admin ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
-    ${req.session.coach_is_super_admin ? `<a href="/admin/content" class="nav-link">Content</a><span class="nav-sep">|</span>` : ''}
+    ${req.session.coach_is_super_admin ? `${cmsContentMenu('')}<span class="nav-sep">|</span>` : ''}
     <a href="/admin/password" class="nav-link">Change password</a>
     <span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>
