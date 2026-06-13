@@ -18,6 +18,7 @@
 
 const library = require('./content/content_library.json');
 const { TYPE_NAMES, TYPE_META, INSTINCT_NAME } = require('./type_meta');
+const { loadPublishedOverrides, resolveLibObject } = require('./content_overrides');
 
 // Bar-fill per Center (A5/A2): Gut/Heart use one value; Head fill is lighter than its text.
 const CENTER_FILL = { Gut: '#5271B7', Heart: '#D38481', Head: '#BED6A8' };
@@ -111,8 +112,11 @@ function assertName(flags, label, derivedName, aiString, typeNum) {
 }
 
 // ---------- coach view-model ----------
-function buildCoachModel({ apiResult, client, coach, tighten = 0 }) {
+async function buildCoachModel({ apiResult, client, coach, tighten = 0 }) {
   const flags = [], warnings = [];
+  // CMS: load published content_overrides once per render; resolveLibObject below
+  // applies any "<topKey>.<field>" override over the content_library baseline.
+  const overrides = await loadPublishedOverrides();
   const capW = 130;   // PR-4: single 130w/band budget (verified ceiling at 48px band spacing). Was [80,62,48,40] tighten ladder — inert since the measurement gate was removed.
   const h = apiResult.hypothesis;
   const cr = apiResult.coach_report || {};
@@ -127,8 +131,8 @@ function buildCoachModel({ apiResult, client, coach, tighten = 0 }) {
   if (cr.section6 && cr.section6.pushes_back)
     assertName(flags, 'alternate', TYPE_NAMES[altN], cr.section6.pushes_back.alt_type_name, altN);
 
-  const t = lib(`type_${heroN}`);
-  const alt = lib(`type_${altN}`);
+  const t = resolveLibObject(overrides, `type_${heroN}`, lib(`type_${heroN}`));
+  const alt = resolveLibObject(overrides, `type_${altN}`, lib(`type_${altN}`));
   const s2 = cr.section2 || {}, s4 = cr.section4 || {}, s5 = cr.section5 || {}, s6 = cr.section6 || {};
   const pb = s6.pushes_back || {};
 
@@ -175,9 +179,12 @@ function buildCoachModel({ apiResult, client, coach, tighten = 0 }) {
 }
 
 // ---------- client view-model ----------
-function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  // tighten: renderer-side compaction (self-heal)
+async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  // tighten: renderer-side compaction (self-heal)
   const flags = [], warnings = [];
   void tighten;
+  // CMS: load published content_overrides once per render; resolveLibObject below
+  // applies any "<topKey>.<field>" override over the content_library baseline.
+  const overrides = await loadPublishedOverrides();
   const h = apiResult.hypothesis;
   const cf = apiResult.client_facing || {};
   const cw = apiResult.client_words || {};
@@ -187,10 +194,10 @@ function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  // tight
   const meta = resolveTypeMeta(heroN);
   assertName(flags, 'hero', meta.name, h.confirmed_type_name, heroN);
 
-  const t = lib(`type_${heroN}`);
-  const alt = lib(`type_${altN}`);                 // P3: alternate candidate's EXISTING comparison rows
-  const st = lib(subtypeKey(instinct, heroN));
-  const stat = lib('static');
+  const t = resolveLibObject(overrides, `type_${heroN}`, lib(`type_${heroN}`));
+  const alt = resolveLibObject(overrides, `type_${altN}`, lib(`type_${altN}`));   // P3: alternate candidate's EXISTING comparison rows
+  const st = resolveLibObject(overrides, subtypeKey(instinct, heroN), lib(subtypeKey(instinct, heroN)));
+  const stat = resolveLibObject(overrides, 'static', lib('static'));
 
   // P5 remap (store untouched): wings keyed by NUMBER -> wing_low/wing_high; lines -> line_stress/line_security.
   const wingPair = [t.wings.wing_a, t.wings.wing_b].slice().sort((a, b) => a.target_type - b.target_type);

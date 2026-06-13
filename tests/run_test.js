@@ -287,7 +287,7 @@ async function runAssert() {
   const coach = { full_name: intake.coach || 'Cai Delumpa', type: null, instinct: null };
   for (const [kind, fn] of [['coach', renderReport.renderCoachReport], ['client', renderReport.renderClientReport]]) {
     try {
-      const r = fn({ apiResult: result, client, coach });
+      const r = await fn({ apiResult: result, client, coach });
       const pageCount = (r.html.match(/class="report-page/g) || []).length;
       checkTrue(`${kind} report renders (${pageCount} pages)`, typeof r.html === 'string' && r.html.length > 0);
     } catch (e) {

@@ -14,13 +14,14 @@
 const prep = require('./report_prep');
 const R = require('./renderer');
 
-function renderCoachReport({ apiResult, client, coach }) {
-  const model = prep.buildCoachModel({ apiResult, client, coach });
+// async: buildCoachModel/buildClientModel load published content_overrides from the DB.
+async function renderCoachReport({ apiResult, client, coach }) {
+  const model = await prep.buildCoachModel({ apiResult, client, coach });
   return { html: R.buildCoachReportHTML(model), model };
 }
 
-function renderClientReport({ apiResult, client, coach }) {
-  const model = prep.buildClientModel({ apiResult, client, coach });
+async function renderClientReport({ apiResult, client, coach }) {
+  const model = await prep.buildClientModel({ apiResult, client, coach });
   return { html: R.buildClientReportHTML(model), model };
 }
 
