@@ -3546,6 +3546,8 @@ function renderContentPage(overrides, req) {
       .then(function (res) {
         btn.textContent = orig;
         if (res.ok) {
+          CMS_TEMPLATE[key] = value;
+          CMS_STATUS[key]   = (action === 'draft') ? 'draft' : 'published';
           card.setAttribute('data-dirty', '0');
           cmsSetStatus(card, action === 'draft' ? 'draft' : 'published');
           cmsMsg(card, action === 'draft' ? 'Saved as draft' : 'Published', false);
