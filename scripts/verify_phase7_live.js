@@ -22,12 +22,12 @@ const check = (label, cond) => { console.log(`  ${cond ? 'PASS' : '*** FAIL'} â€
 const renders = (r) => typeof r.html === 'string' && r.html.length > 0;
 const pageCount = (r) => (r.html.match(/class="report-page/g) || []).length;
 
-(() => {
+(async () => {
   console.log('Both reports render (non-empty HTML) for sp4/sx7:');
   for (const fx of ['sp4', 'sx7']) {
     const apiResult = load(fx);
-    const cr = renderCoachReport({ apiResult, client, coach });
-    const cl = renderClientReport({ apiResult, client, coach });
+    const cr = await renderCoachReport({ apiResult, client, coach });
+    const cl = await renderClientReport({ apiResult, client, coach });
     check(`${fx} coach report renders (${pageCount(cr)} pages)`, renders(cr));
     check(`${fx} client report renders (${pageCount(cl)} pages)`, renders(cl));
   }

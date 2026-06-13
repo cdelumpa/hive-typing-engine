@@ -228,7 +228,7 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
     charts: { instincts: instinctBars(h.instinct_score_profile) },
     instinct_stack: instinctStack(h.instinct_score_profile),
     pages: {
-      welcome: { greeting_name: client.first_name || '', body: stat.welcome_body,             // body kept (additive); structured fields added for V2 port
+      welcome: { greeting_name: client.first_name || '',
         subhead: stat.welcome.subhead, letters: stat.welcome.letters, callout: stat.welcome.callout },
       primer: stat.primer,                                                                      // static PENDING
       type_hypotheses: {                                                                        // P3

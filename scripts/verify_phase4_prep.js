@@ -19,15 +19,16 @@ const check = (label, cond) => { console.log(`    ${cond ? 'PASS' : '*** FAIL'} 
 const client = { first_name: 'Test', last_name: 'Client', organization: 'Acme Co', date: 'June 2026' };
 const coach = { full_name: 'Cai Delumpa', type: 5, instinct: 'SP' };
 
+(async () => {
 for (const fx of ['sp4', 'sx7']) {
   console.log(`\nFIXTURE ${fx}:`);
   const apiResult = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
   const h = apiResult.hypothesis;
 
   let coachModel, clientModel;
-  try { coachModel = prep.buildCoachModel({ apiResult, client, coach }); check('buildCoachModel populated + validated (no throw)', true); }
+  try { coachModel = await prep.buildCoachModel({ apiResult, client, coach }); check('buildCoachModel populated + validated (no throw)', true); }
   catch (e) { check('buildCoachModel: ' + e.message, false); continue; }
-  try { clientModel = prep.buildClientModel({ apiResult, client, coach }); check('buildClientModel populated + validated (no throw)', true); }
+  try { clientModel = await prep.buildClientModel({ apiResult, client, coach }); check('buildClientModel populated + validated (no throw)', true); }
   catch (e) { check('buildClientModel: ' + e.message, false); continue; }
 
   // Name authority
@@ -59,8 +60,8 @@ for (const fx of ['sp4', 'sx7']) {
   check('client P8 application.center has bullets', (clientModel.pages.application.center.bullets || []).length >= 1);
 
   // static.* now populated from the docx GLOBAL STATIC CONTENT section (post static-globals commit)
-  const staticOk = !!clientModel.pages.welcome.body && !!clientModel.pages.primer && !!clientModel.pages.instinct_subtype.instinct_primer;
-  check('static.* populated (welcome/primer/instinct_primer)', staticOk);
+  const staticOk = !!clientModel.pages.primer && !!clientModel.pages.instinct_subtype.instinct_primer;
+  check('static.* populated (primer/instinct_primer)', staticOk);
 
   const warns = (coachModel._warnings || []).concat(clientModel._warnings || []);
   if (warns.length) console.log('    (warnings: ' + warns.join('; ') + ')');
@@ -69,3 +70,4 @@ for (const fx of ['sp4', 'sx7']) {
 console.log('');
 if (failures) { console.log(`RESULT: ${failures} FAILURE(S)`); process.exit(1); }
 console.log('RESULT: ALL PHASE 4 CHECKS PASSED.');
+})();

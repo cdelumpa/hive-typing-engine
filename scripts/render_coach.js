@@ -63,7 +63,7 @@ async function measureLayout(page) {
     for (const fx of ['sp4', 'sx7']) {
       console.log(`\n=== ${fx} ===`);
       const apiResult = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
-      const model = prep.buildCoachModel({ apiResult, client, coach });
+      const model = await prep.buildCoachModel({ apiResult, client, coach });
       if (model._flags && model._flags.length) console.log('  prep flags:', model._flags.join('; '));
       if (model._warnings && model._warnings.length) console.log('  prep warnings:', model._warnings.join('; '));
 
