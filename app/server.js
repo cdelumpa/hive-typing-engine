@@ -3437,7 +3437,7 @@ function renderContentPage(overrides, req) {
 <html lang="en"><head><meta charset="utf-8"><title>Hive Admin — Global Static Content</title>
 <style>
   * { box-sizing: border-box; }
-  :root { --topbar-h: 60px; --sidebar-w: 200px; }
+  :root { --topbar-h: 84px; --sidebar-w: 200px; }  /* topbar renders ~83px (logo + title row); clears overlap */
   body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
   .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; min-height: var(--topbar-h); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
   .top-bar h1 { font-size: 18px; margin: 4px 0 0; font-weight: 700; }
@@ -3729,7 +3729,7 @@ function renderSubtypesPage(overrides, req) {
 <html lang="en"><head><meta charset="utf-8"><title>Hive Admin — Subtype Content</title>
 <style>
   * { box-sizing: border-box; }
-  :root { --topbar-h: 60px; --sidebar-w: 230px; }
+  :root { --topbar-h: 84px; --sidebar-w: 230px; }  /* topbar renders ~83px (logo + title row); clears overlap */
   body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
   .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; min-height: var(--topbar-h); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
   .top-bar h1 { font-size: 18px; margin: 4px 0 0; font-weight: 700; }
