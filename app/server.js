@@ -3214,6 +3214,18 @@ function cmsIsValidStaticKey(k) {
   return typeof k === 'string' && k.indexOf('static.') === 0 && CMS_STATIC_FIELDS.indexOf(k.slice(7)) >= 0;
 }
 
+// Friendly display name + report-page reference per key. The raw key still drives the
+// POST routes (carried in data-card-key); these are presentation-only.
+const CMS_FIELD_META = {
+  'static.welcome':              { name: 'Welcome Page',         page: 'P1 — Welcome from Cai & Monique' },
+  'static.primer':               { name: 'Enneagram Primer',     page: 'P2 — What Is the Enneagram?' },
+  'static.wings_primer':         { name: 'Wings Sidebar',        page: 'P5 — Wings & Lines' },
+  'static.lines_primer':         { name: 'Lines Sidebar',        page: 'P5 — Wings & Lines' },
+  'static.instinct_primer':      { name: 'Instinct Sidebar',     page: 'P6 — Instinct & Subtype' },
+  'static.instinct_definitions': { name: 'Instinct Definitions', page: 'P6 — Instinct & Subtype' },
+};
+const cmsCardId = (key) => 'card-' + key.replace(/\./g, '-');
+
 // Total words across all string leaves of a value (object/array/string). Server-side
 // authority for the word_count column.
 function cmsWordCount(v) {
@@ -3284,7 +3296,7 @@ function cmsRenderInputs(key, value, path) {
     const rows = value.length > 140 ? 4 : 2;
     return `<div class="leaf">`
       + (leafLabel ? `<label>${esc(leafLabel)}</label>` : '')
-      + `<textarea class="cms-input" data-field="${esc(key)}" data-path="${esc(path)}" data-budget="${budget}" oninput="cmsWc(this)" rows="${rows}">${esc(value)}</textarea>`
+      + `<textarea class="cms-input" data-field="${esc(key)}" data-path="${esc(path)}" data-budget="${budget}" oninput="cmsInput(this)" rows="${rows}">${esc(value)}</textarea>`
       + `<div class="wc"><span class="wc-now">${wcNow}</span>${budget ? ` / <span class="wc-bud">${budget}</span> words` : ' words'}</div>`
       + `</div>`;
   }
@@ -3304,25 +3316,36 @@ function cmsRenderInputs(key, value, path) {
 }
 
 function cmsFieldCard(key, currentValue, status) {
-  const badge = status === 'published' ? '<span class="badge pub">Published</span>'
-    : status === 'draft' ? '<span class="badge draft">Draft</span>'
-    : '<span class="badge unmod">Unmodified</span>';
-  return `<div class="card">
-    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-      <span>${esc(key)}</span>${badge}
+  const meta = CMS_FIELD_META[key] || { name: key, page: '' };
+  const badgeClass = status === 'published' ? 'pub' : status === 'draft' ? 'draft' : 'unmod';
+  const badgeLabel = status === 'published' ? 'Published' : status === 'draft' ? 'Draft' : 'Unmodified';
+  // Initial button states (JS re-affirms on load; rendered here to avoid a flash):
+  // draft always disabled at load; publish enabled only for an existing draft;
+  // revert hidden only when unmodified.
+  const pubDisabled = status !== 'draft';
+  const revHidden = status === 'unmodified';
+  return `<div class="card" id="${cmsCardId(key)}" data-card-key="${esc(key)}" data-status="${status}" data-dirty="0">
+    <div class="card-header">
+      <div class="ch-titles">
+        <div class="ch-name">${esc(meta.name)}</div>
+        ${meta.page ? `<div class="ch-page">${esc(meta.page)}</div>` : ''}
+        <div class="ch-key">${esc(key)}</div>
+      </div>
+      <span class="badge ${badgeClass}" data-role="badge">${badgeLabel}</span>
     </div>
     <div class="field-body">${cmsRenderInputs(key, currentValue, '')}</div>
     <div class="field-actions">
-      <button class="btn-draft" onclick="cmsSave('${key}','draft')">Save as Draft</button>
-      <button class="btn-pub" onclick="cmsSave('${key}','publish')">Publish</button>
-      <button class="btn-revert" onclick="cmsRevert('${key}')">Revert to baseline</button>
+      <button class="btn-draft" type="button" data-role="draft" disabled onclick="cmsSave('${key}','draft')">Save as Draft</button>
+      <button class="btn-pub" type="button" data-role="publish"${pubDisabled ? ' disabled' : ''} onclick="cmsSave('${key}','publish')">Publish</button>
+      <button class="btn-revert" type="button" data-role="revert"${revHidden ? ' style="display:none"' : ''} onclick="cmsRevert('${key}')">Revert to baseline</button>
     </div>
+    <div class="field-msg" data-role="msg" style="display:none"></div>
   </div>`;
 }
 
 function renderContentPage(overrides, req) {
   const baseline = contentLibrary.static || {};
-  const template = {};
+  const template = {}, baselineMap = {}, statusMap = {};
   let nPub = 0, nDraft = 0, nUnmod = 0;
   const cards = CMS_STATIC_FIELDS.map(name => {
     const key = 'static.' + name;
@@ -3331,28 +3354,47 @@ function renderContentPage(overrides, req) {
     if (status === 'published') nPub++; else if (status === 'draft') nDraft++; else nUnmod++;
     const currentValue = ov ? ov.parsed : baseline[name];
     template[key] = currentValue;
+    baselineMap[key] = baseline[name];   // for client-side revert-to-baseline reset
+    statusMap[key] = status;
     return cmsFieldCard(key, currentValue, status);
+  }).join('');
+  const sidebar = CMS_STATIC_FIELDS.map(name => {
+    const key = 'static.' + name;
+    const meta = CMS_FIELD_META[key] || { name: key };
+    return `<a href="#${cmsCardId(key)}" class="spy-link" data-target="${cmsCardId(key)}">${esc(meta.name)}</a>`;
   }).join('');
   // Embed editor state as data (server interpolation); escape < to keep JSON inside <script> safe.
   const templateJson = JSON.stringify(template).replace(/</g, '\\u003c');
+  const baselineJson = JSON.stringify(baselineMap).replace(/</g, '\\u003c');
+  const statusJson = JSON.stringify(statusMap).replace(/</g, '\\u003c');
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>Hive Admin — Global Static Content</title>
 <style>
   * { box-sizing: border-box; }
+  :root { --topbar-h: 60px; --sidebar-w: 200px; }
   body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
-  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; min-height: var(--topbar-h); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
   .top-bar h1 { font-size: 18px; margin: 4px 0 0; font-weight: 700; }
   .top-bar span { font-size: 12px; color: #9FB4C0; }
   .top-bar svg.logo { height: 26px; width: auto; vertical-align: middle; }
   .top-bar .nav-link { color: #9FB4C0; font-size: 12px; text-decoration: none; }
   .top-bar .nav-link:hover { color: #fff; }
   .nav-sep { color: #4A5E68; margin: 0 4px; }
-  .container { max-width: 900px; margin: 0 auto; padding: 28px 24px; }
+  /* Scrollspy sidebar */
+  .sidebar { position: fixed; top: var(--topbar-h); left: 0; bottom: 0; width: var(--sidebar-w); background: #fff; border-right: 1px solid #E2E6EA; overflow-y: auto; padding: 18px 0; z-index: 10; }
+  .sidebar .spy-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #9FB0B9; font-weight: 700; padding: 0 18px 10px; }
+  .spy-link { display: block; padding: 8px 18px; font-size: 13px; color: #5A6472; text-decoration: none; border-left: 3px solid transparent; }
+  .spy-link:hover { background: #F7F8F9; }
+  .spy-link.active { color: #00B2D9; border-left-color: #00B2D9; font-weight: 700; }
+  .container { max-width: 900px; margin: 0 0 0 var(--sidebar-w); padding: 28px 24px; }
   .summary { font-size: 13px; color: #5A6E78; margin-bottom: 20px; }
   .summary b { color: #1A2B33; }
-  .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; margin-bottom: 24px; }
-  .card-header { padding: 14px 18px; border-bottom: 1px solid #EFE8E0; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; font-family: Menlo, monospace; color: #1A2B33; }
-  .badge { font-family: Georgia, serif; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 3px; letter-spacing: 0.04em; }
+  .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; margin-bottom: 24px; scroll-margin-top: calc(var(--topbar-h) + 16px); }
+  .card-header { padding: 14px 18px; border-bottom: 1px solid #EFE8E0; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .ch-name { font-size: 15px; font-weight: 700; color: #1A2B33; }
+  .ch-page { font-size: 12px; color: #7A8A92; margin-top: 2px; }
+  .ch-key { font-size: 11px; color: #9FB0B9; font-family: Menlo, monospace; margin-top: 5px; }
+  .badge { flex-shrink: 0; font-family: Georgia, serif; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 3px; letter-spacing: 0.04em; }
   .badge.pub { background: #e6f7ee; color: #1a7a4a; }
   .badge.draft { background: #fef6e0; color: #9a6a00; }
   .badge.unmod { background: #f1f1ee; color: #7A8A92; }
@@ -3367,12 +3409,21 @@ function renderContentPage(overrides, req) {
   .group-h { font-size: 12px; font-weight: 700; color: #00859f; margin-bottom: 8px; letter-spacing: 0.03em; }
   .field-actions { padding: 12px 18px; border-top: 1px solid #EFE8E0; background: #fbfaf7; display: flex; gap: 10px; align-items: center; }
   .field-actions button { font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; }
+  .field-actions button:disabled { opacity: 0.45; cursor: not-allowed; }
   .btn-draft { background: #eef2f4; color: #1A2B33; }
-  .btn-draft:hover { background: #e2e8eb; }
+  .btn-draft:not(:disabled):hover { background: #e2e8eb; }
   .btn-pub { background: #00b1d7; color: #fff; }
-  .btn-pub:hover { background: #009bbf; }
+  .btn-pub:not(:disabled):hover { background: #009bbf; }
   .btn-revert { background: transparent; color: #c0392b; margin-left: auto; }
-  .btn-revert:hover { text-decoration: underline; }
+  .btn-revert:not(:disabled):hover { text-decoration: underline; }
+  .field-msg { padding: 0 18px 12px; font-size: 13px; align-items: center; gap: 12px; }
+  .field-msg .msg-ok { color: #1a7a4a; }
+  .field-msg .msg-err { color: #c0392b; }
+  .field-msg .msg-dismiss { font-family: Georgia, serif; font-size: 11px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 3px; padding: 2px 8px; cursor: pointer; }
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .container { margin-left: 0; }
+  }
 </style></head>
 <body>
 <div class="top-bar">
@@ -3383,12 +3434,21 @@ function renderContentPage(overrides, req) {
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
+<nav class="sidebar">
+  <div class="spy-title">Fields</div>
+  ${sidebar}
+</nav>
 <div class="container">
   <div class="summary">Editing global static fields (<b>static.*</b>). Published edits go live on the next report render; drafts do not. Status — <b>${nPub}</b> published · <b>${nDraft}</b> draft · <b>${nUnmod}</b> unmodified.</div>
   ${cards}
 </div>
-<script>var CMS_TEMPLATE = ${templateJson};</script>
 <script>
+  var CMS_TEMPLATE = ${templateJson};
+  var CMS_BASELINE = ${baselineJson};
+  var CMS_STATUS = ${statusJson};
+</script>
+<script>
+  function cmsCardEl(key) { return document.querySelector('[data-card-key="' + key + '"]'); }
   function cmsSetPath(obj, path, val) {
     if (path === '') return;
     var segs = path.split('.'), cur = obj;
@@ -3398,6 +3458,12 @@ function renderContentPage(overrides, req) {
     }
     var last = segs[segs.length - 1];
     cur[/^\\d+$/.test(last) ? parseInt(last, 10) : last] = val;
+  }
+  function cmsGetPath(obj, path) {
+    if (path === '') return obj;
+    var segs = path.split('.'), cur = obj;
+    for (var i = 0; i < segs.length; i++) { if (cur == null) return undefined; var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s]; }
+    return cur;
   }
   function cmsCollect(key) {
     var tpl = CMS_TEMPLATE[key];
@@ -3418,23 +3484,105 @@ function renderContentPage(overrides, req) {
     var wrap = el.parentNode.querySelector('.wc');
     if (bud && wrap) wrap.style.color = n > bud ? '#c0392b' : '#7A96A6';
   }
+  // Edit handler: live word count + mark the card dirty.
+  function cmsInput(el) {
+    cmsWc(el);
+    var card = el.closest('.card');
+    if (card) { card.setAttribute('data-dirty', '1'); cmsRefresh(card); }
+  }
+  // Derive button states from (status, dirty). Draft enabled only when dirty; Publish
+  // enabled only for a saved draft that is not dirty; Revert hidden only when unmodified.
+  function cmsRefresh(card) {
+    var status = card.getAttribute('data-status');
+    var dirty = card.getAttribute('data-dirty') === '1';
+    var d = card.querySelector('[data-role="draft"]');
+    var p = card.querySelector('[data-role="publish"]');
+    var r = card.querySelector('[data-role="revert"]');
+    if (d) d.disabled = !dirty;
+    if (p) p.disabled = !(status === 'draft' && !dirty);
+    if (r) r.style.display = (status === 'unmodified') ? 'none' : '';
+  }
+  function cmsBadge(card, status) {
+    var b = card.querySelector('[data-role="badge"]');
+    if (!b) return;
+    b.className = 'badge ' + (status === 'published' ? 'pub' : status === 'draft' ? 'draft' : 'unmod');
+    b.textContent = status === 'published' ? 'Published' : status === 'draft' ? 'Draft' : 'Unmodified';
+  }
+  function cmsSetStatus(card, status) { card.setAttribute('data-status', status); cmsBadge(card, status); cmsRefresh(card); }
+  function cmsMsg(card, text, isError) {
+    var m = card.querySelector('[data-role="msg"]'); if (!m) return;
+    if (m._t) { clearTimeout(m._t); m._t = null; }
+    m.innerHTML = ''; m.style.display = 'flex';
+    var s = document.createElement('span'); s.textContent = text; s.className = isError ? 'msg-err' : 'msg-ok';
+    m.appendChild(s);
+    if (isError) {
+      var x = document.createElement('button'); x.type = 'button'; x.className = 'msg-dismiss'; x.textContent = 'Dismiss';
+      x.onclick = function () { m.style.display = 'none'; m.innerHTML = ''; };
+      m.appendChild(x);
+    } else {
+      m._t = setTimeout(function () { m.style.display = 'none'; m.innerHTML = ''; }, 3000);
+    }
+  }
+  function cmsResetToBaseline(card, key) {
+    var base = CMS_BASELINE[key];
+    CMS_TEMPLATE[key] = (typeof base === 'string') ? base : JSON.parse(JSON.stringify(base));
+    var els = card.querySelectorAll('.cms-input');
+    for (var i = 0; i < els.length; i++) {
+      var p = els[i].getAttribute('data-path');
+      var v = (typeof base === 'string') ? base : cmsGetPath(base, p);
+      els[i].value = (v == null ? '' : v);
+      cmsWc(els[i]);
+    }
+  }
   function cmsSave(key, action) {
+    var card = cmsCardEl(key); if (!card) return;
+    var d = card.querySelector('[data-role="draft"]'), p = card.querySelector('[data-role="publish"]');
+    var btn = action === 'draft' ? d : p; var orig = btn.textContent;
+    d.disabled = true; p.disabled = true;
+    btn.textContent = action === 'draft' ? 'Saving…' : 'Publishing…';
     var value = cmsCollect(key);
     fetch('/admin/content/' + action, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key, value: value }) })
       .then(function (r) { return r.json(); })
-      .then(function (d) { if (d.ok) location.reload(); else alert(d.error || 'Save failed'); })
-      .catch(function () { alert('Request failed'); });
+      .then(function (res) {
+        btn.textContent = orig;
+        if (res.ok) {
+          card.setAttribute('data-dirty', '0');
+          cmsSetStatus(card, action === 'draft' ? 'draft' : 'published');
+          cmsMsg(card, action === 'draft' ? 'Saved as draft' : 'Published', false);
+        } else { cmsRefresh(card); cmsMsg(card, res.error || 'Save failed', true); }
+      })
+      .catch(function () { btn.textContent = orig; cmsRefresh(card); cmsMsg(card, 'Request failed', true); });
   }
   function cmsRevert(key) {
     if (!confirm('Revert ' + key + ' to baseline? This deletes any draft or published override for this field.')) return;
+    var card = cmsCardEl(key); if (!card) return;
+    var r = card.querySelector('[data-role="revert"]'); var orig = r.textContent;
+    r.disabled = true; r.textContent = 'Reverting…';
     fetch('/admin/content/revert', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key }) })
-      .then(function (r) { return r.json(); })
-      .then(function (d) { if (d.ok) location.reload(); else alert(d.error || 'Revert failed'); })
-      .catch(function () { alert('Request failed'); });
+      .then(function (rp) { return rp.json(); })
+      .then(function (res) {
+        r.disabled = false; r.textContent = orig;
+        if (res.ok) { cmsResetToBaseline(card, key); card.setAttribute('data-dirty', '0'); cmsSetStatus(card, 'unmodified'); }
+        else { cmsMsg(card, res.error || 'Revert failed', true); }
+      })
+      .catch(function () { r.disabled = false; r.textContent = orig; cmsMsg(card, 'Request failed', true); });
   }
   document.addEventListener('DOMContentLoaded', function () {
-    var els = document.querySelectorAll('.cms-input');
-    for (var i = 0; i < els.length; i++) cmsWc(els[i]);
+    var cards = document.querySelectorAll('.card');
+    for (var i = 0; i < cards.length; i++) { cards[i].setAttribute('data-dirty', '0'); cmsRefresh(cards[i]); }
+    var inputs = document.querySelectorAll('.cms-input');
+    for (var j = 0; j < inputs.length; j++) cmsWc(inputs[j]);
+    // Scrollspy — highlight the sidebar link for the card nearest the top of the viewport.
+    var links = {}, ls = document.querySelectorAll('.spy-link');
+    for (var k = 0; k < ls.length; k++) links[ls[k].getAttribute('data-target')] = ls[k];
+    function setActive(id) { for (var t in links) links[t].classList.toggle('active', t === id); }
+    if (ls.length) setActive(ls[0].getAttribute('data-target'));
+    if ('IntersectionObserver' in window) {
+      var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { if (e.isIntersecting) setActive(e.target.id); });
+      }, { rootMargin: '-15% 0px -75% 0px', threshold: 0 });
+      for (var m = 0; m < cards.length; m++) obs.observe(cards[m]);
+    }
   });
 </script>
 </body></html>`;
