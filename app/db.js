@@ -383,7 +383,7 @@ async function getAdminRowsByCoach(coachId) {
 }
 
 async function getCoachByEmail(email) {
-  const r = await query('SELECT id, name, email, password_hash, is_admin, is_active FROM coaches WHERE email = $1 LIMIT 1', [email]);
+  const r = await query('SELECT id, name, email, password_hash, is_admin, is_active, is_super_admin FROM coaches WHERE email = $1 LIMIT 1', [email]);
   return r && r.rows.length > 0 ? r.rows[0] : null;
 }
 

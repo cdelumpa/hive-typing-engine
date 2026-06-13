@@ -30,6 +30,10 @@ const { buildCoachPdfOptions, HIVE_LOGO_SVG } = require('./renderer');
 const { renderClientReport, renderCoachReport } = require('./render_report');
 const { generateBetaReport } = require('./generate_report');
 const db = require('./db');
+const contentOverrides = require('./content_overrides');
+// Baseline static content for the /admin/content editor (read-only). The renderer
+// reads the same file via report_prep; the editor shows these as the fallback values.
+const contentLibrary = require('./content/content_library.json');
 
 const TYPE_LIBRARY_PATH = path.join(__dirname, 'type_library.json');
 let typeLibrary = null;
@@ -153,6 +157,17 @@ function requireAdmin(req, res, next) {
   if (!req.session || !req.session.coach_id) return res.redirect('/admin/login');
   if (req.session.coach_is_admin !== true) {
     return res.redirect('/admin?error=admin_required');
+  }
+  next();
+}
+
+// Super-admin guard — requires is_super_admin flag in session (a strict subset of
+// admins; only cai@/monique@ are seeded super). Used for the /admin/content editor.
+// Existing sessions gain the flag on next login (same pattern as coach_is_admin).
+function requireSuperAdmin(req, res, next) {
+  if (!req.session || !req.session.coach_id) return res.redirect('/admin/login');
+  if (req.session.coach_is_super_admin !== true) {
+    return res.redirect('/admin?error=super_admin_required');
   }
   next();
 }
@@ -2169,9 +2184,10 @@ app.post('/admin/login', async (req, res) => {
       console.error('[admin/login] session regenerate error:', err.message);
       return res.send(renderLoginPage('Sign-in failed — please try again.'));
     }
-    req.session.coach_id       = coach.id;
-    req.session.coach_name     = coach.name;
-    req.session.coach_is_admin = coach.is_admin === true;
+    req.session.coach_id             = coach.id;
+    req.session.coach_name           = coach.name;
+    req.session.coach_is_admin       = coach.is_admin === true;
+    req.session.coach_is_super_admin = coach.is_super_admin === true;
     res.redirect('/admin');
   });
 });
@@ -3188,6 +3204,271 @@ ${sharedModalHTML(true)}
 </html>`;
 }
 
+// =================== /admin/content — GLOBAL STATIC EDITOR (super-admin) ===================
+// Scoped to the 6 static.* keys from content_library.json. Subtype/type content and
+// prompt editing are later PRs. Overrides are keyed "static.<field>" (matching PR2's
+// resolveLibObject('static', ...)); the value column stores JSON.stringify(value).
+
+const CMS_STATIC_FIELDS = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'instinct_primer', 'instinct_definitions'];
+function cmsIsValidStaticKey(k) {
+  return typeof k === 'string' && k.indexOf('static.') === 0 && CMS_STATIC_FIELDS.indexOf(k.slice(7)) >= 0;
+}
+
+// Total words across all string leaves of a value (object/array/string). Server-side
+// authority for the word_count column.
+function cmsWordCount(v) {
+  if (v == null) return 0;
+  if (typeof v === 'string') return v.trim() ? v.trim().split(/\s+/).filter(Boolean).length : 0;
+  if (Array.isArray(v)) return v.reduce((a, x) => a + cmsWordCount(x), 0);
+  if (typeof v === 'object') return Object.values(v).reduce((a, x) => a + cmsWordCount(x), 0);
+  return 0;
+}
+
+// Advisory word budget per leaf path (0 = no budget shown). Derived from baseline + headroom.
+function cmsBudgetFor(key, path) {
+  if (key === 'static.welcome') {
+    if (path === 'subhead') return 15;
+    if (/^letters\./.test(path)) return 60;
+    if (path === 'callout') return 55;
+  }
+  if (key === 'static.primer') {
+    if (path === 'intro') return 95;
+    if (path === 'scan_line') return 25;
+    if (path === 'footer') return 45;
+    if (/^pillars\.\d+\.title$/.test(path)) return 6;
+    if (/^pillars\.\d+\.body$/.test(path)) return 20;
+    if (/^nine_types\.\d+\.name$/.test(path)) return 6;
+    if (/^nine_types\.\d+\.description$/.test(path)) return 35;
+    if (/^nine_types\.\d+\.gifts$/.test(path)) return 25;
+  }
+  if (key === 'static.wings_primer') return 55;
+  if (key === 'static.lines_primer') return 75;
+  if (key === 'static.instinct_primer') return 75;
+  if (key === 'static.instinct_definitions') {
+    if (/^\d+\.name$/.test(path)) return 6;
+    if (/^\d+\.body$/.test(path)) return 45;
+  }
+  return 0;
+}
+
+// Structural identifiers are read-only (never edited as prose).
+function cmsIsIdentifierLeaf(path) {
+  const last = path.split('.').pop();
+  return last === 'number' || last === 'center' || last === 'code';
+}
+function cmsHumanize(seg) {
+  return String(seg).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+function cmsArrayHeading(key, parentPath, item, i) {
+  if (parentPath === 'letters') return 'Letter ' + (i + 1);
+  if (parentPath === 'pillars') return 'Pillar ' + (i + 1);
+  if (parentPath === 'nine_types') return 'Type ' + (item && item.number != null ? item.number : i + 1) + (item && item.center ? ' (' + item.center + ')' : '');
+  if ((parentPath === '' || parentPath === 'instinct_definitions') && item && item.code) return String(item.code);
+  return 'Item ' + (i + 1);
+}
+
+// Recursively render structured inputs for a field value. Editable text leaves get a
+// textarea (data-field/data-path drive client-side reassembly) + a live word-count box;
+// identifier leaves render read-only.
+function cmsRenderInputs(key, value, path) {
+  if (typeof value === 'string') {
+    // Suppress the label for the field root ('') and for numeric array indices
+    // (e.g. welcome.letters.0) — the enclosing group heading already labels those.
+    const lastSeg = path.split('.').pop();
+    const leafLabel = (path === '' || /^\d+$/.test(lastSeg)) ? '' : cmsHumanize(lastSeg);
+    if (cmsIsIdentifierLeaf(path)) {
+      return `<div class="leaf"><label>${esc(leafLabel)}</label><div class="ro">${esc(value)}</div></div>`;
+    }
+    const budget = cmsBudgetFor(key, path);
+    const wcNow = value.trim() ? value.trim().split(/\s+/).filter(Boolean).length : 0;
+    const rows = value.length > 140 ? 4 : 2;
+    return `<div class="leaf">`
+      + (leafLabel ? `<label>${esc(leafLabel)}</label>` : '')
+      + `<textarea class="cms-input" data-field="${esc(key)}" data-path="${esc(path)}" data-budget="${budget}" oninput="cmsWc(this)" rows="${rows}">${esc(value)}</textarea>`
+      + `<div class="wc"><span class="wc-now">${wcNow}</span>${budget ? ` / <span class="wc-bud">${budget}</span> words` : ' words'}</div>`
+      + `</div>`;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return `<div class="leaf"><label>${esc(cmsHumanize(path.split('.').pop()))}</label><div class="ro">${esc(String(value))}</div></div>`;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item, i) =>
+      `<div class="group"><div class="group-h">${esc(cmsArrayHeading(key, path, item, i))}</div>`
+      + cmsRenderInputs(key, item, path === '' ? String(i) : path + '.' + i)
+      + `</div>`).join('');
+  }
+  if (value && typeof value === 'object') {
+    return Object.keys(value).map(k => cmsRenderInputs(key, value[k], path === '' ? k : path + '.' + k)).join('');
+  }
+  return '';
+}
+
+function cmsFieldCard(key, currentValue, status) {
+  const badge = status === 'published' ? '<span class="badge pub">Published</span>'
+    : status === 'draft' ? '<span class="badge draft">Draft</span>'
+    : '<span class="badge unmod">Unmodified</span>';
+  return `<div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>${esc(key)}</span>${badge}
+    </div>
+    <div class="field-body">${cmsRenderInputs(key, currentValue, '')}</div>
+    <div class="field-actions">
+      <button class="btn-draft" onclick="cmsSave('${key}','draft')">Save as Draft</button>
+      <button class="btn-pub" onclick="cmsSave('${key}','publish')">Publish</button>
+      <button class="btn-revert" onclick="cmsRevert('${key}')">Revert to baseline</button>
+    </div>
+  </div>`;
+}
+
+function renderContentPage(overrides, req) {
+  const baseline = contentLibrary.static || {};
+  const template = {};
+  let nPub = 0, nDraft = 0, nUnmod = 0;
+  const cards = CMS_STATIC_FIELDS.map(name => {
+    const key = 'static.' + name;
+    const ov = overrides[key];
+    const status = ov ? ov.status : 'unmodified';
+    if (status === 'published') nPub++; else if (status === 'draft') nDraft++; else nUnmod++;
+    const currentValue = ov ? ov.parsed : baseline[name];
+    template[key] = currentValue;
+    return cmsFieldCard(key, currentValue, status);
+  }).join('');
+  // Embed editor state as data (server interpolation); escape < to keep JSON inside <script> safe.
+  const templateJson = JSON.stringify(template).replace(/</g, '\\u003c');
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Hive Admin — Global Static Content</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
+  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .top-bar h1 { font-size: 18px; margin: 4px 0 0; font-weight: 700; }
+  .top-bar span { font-size: 12px; color: #9FB4C0; }
+  .top-bar svg.logo { height: 26px; width: auto; vertical-align: middle; }
+  .top-bar .nav-link { color: #9FB4C0; font-size: 12px; text-decoration: none; }
+  .top-bar .nav-link:hover { color: #fff; }
+  .nav-sep { color: #4A5E68; margin: 0 4px; }
+  .container { max-width: 900px; margin: 0 auto; padding: 28px 24px; }
+  .summary { font-size: 13px; color: #5A6E78; margin-bottom: 20px; }
+  .summary b { color: #1A2B33; }
+  .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; margin-bottom: 24px; }
+  .card-header { padding: 14px 18px; border-bottom: 1px solid #EFE8E0; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; font-family: Menlo, monospace; color: #1A2B33; }
+  .badge { font-family: Georgia, serif; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 3px; letter-spacing: 0.04em; }
+  .badge.pub { background: #e6f7ee; color: #1a7a4a; }
+  .badge.draft { background: #fef6e0; color: #9a6a00; }
+  .badge.unmod { background: #f1f1ee; color: #7A8A92; }
+  .field-body { padding: 16px 18px; }
+  .leaf { margin-bottom: 14px; }
+  .leaf label { display: block; font-size: 11px; color: #7A96A6; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
+  .cms-input { width: 100%; padding: 9px 11px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 14px; line-height: 1.5; color: #1A2B33; outline: none; resize: vertical; }
+  .cms-input:focus { border-color: #00b1d7; }
+  .ro { font-size: 13px; color: #5A6E78; background: #f7f7f4; border: 1px solid #ECECE6; border-radius: 4px; padding: 7px 10px; }
+  .wc { font-size: 11px; color: #7A96A6; margin-top: 3px; }
+  .group { border-left: 3px solid #EFE8E0; padding-left: 14px; margin-bottom: 16px; }
+  .group-h { font-size: 12px; font-weight: 700; color: #00859f; margin-bottom: 8px; letter-spacing: 0.03em; }
+  .field-actions { padding: 12px 18px; border-top: 1px solid #EFE8E0; background: #fbfaf7; display: flex; gap: 10px; align-items: center; }
+  .field-actions button { font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; }
+  .btn-draft { background: #eef2f4; color: #1A2B33; }
+  .btn-draft:hover { background: #e2e8eb; }
+  .btn-pub { background: #00b1d7; color: #fff; }
+  .btn-pub:hover { background: #009bbf; }
+  .btn-revert { background: transparent; color: #c0392b; margin-left: auto; }
+  .btn-revert:hover { text-decoration: underline; }
+</style></head>
+<body>
+<div class="top-bar">
+  <div>${HIVE_LOGO_SVG}<h1>Global Static Content</h1></div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <a href="/admin" class="nav-link">← Dashboard</a>
+    <span class="nav-sep">|</span>
+    <a href="/admin/logout" class="nav-link">Sign out</a>
+  </div>
+</div>
+<div class="container">
+  <div class="summary">Editing global static fields (<b>static.*</b>). Published edits go live on the next report render; drafts do not. Status — <b>${nPub}</b> published · <b>${nDraft}</b> draft · <b>${nUnmod}</b> unmodified.</div>
+  ${cards}
+</div>
+<script>var CMS_TEMPLATE = ${templateJson};</script>
+<script>
+  function cmsSetPath(obj, path, val) {
+    if (path === '') return;
+    var segs = path.split('.'), cur = obj;
+    for (var i = 0; i < segs.length - 1; i++) {
+      var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s];
+      if (cur == null) return;
+    }
+    var last = segs[segs.length - 1];
+    cur[/^\\d+$/.test(last) ? parseInt(last, 10) : last] = val;
+  }
+  function cmsCollect(key) {
+    var tpl = CMS_TEMPLATE[key];
+    if (typeof tpl === 'string') {
+      var one = document.querySelector('[data-field="' + key + '"]');
+      return one ? one.value : tpl;
+    }
+    var out = JSON.parse(JSON.stringify(tpl));
+    var els = document.querySelectorAll('[data-field="' + key + '"]');
+    for (var i = 0; i < els.length; i++) cmsSetPath(out, els[i].getAttribute('data-path'), els[i].value);
+    return out;
+  }
+  function cmsWc(el) {
+    var t = el.value.trim();
+    var n = t ? t.split(/\\s+/).length : 0;
+    var box = el.parentNode.querySelector('.wc-now'); if (box) box.textContent = n;
+    var bud = parseInt(el.getAttribute('data-budget'), 10);
+    var wrap = el.parentNode.querySelector('.wc');
+    if (bud && wrap) wrap.style.color = n > bud ? '#c0392b' : '#7A96A6';
+  }
+  function cmsSave(key, action) {
+    var value = cmsCollect(key);
+    fetch('/admin/content/' + action, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key, value: value }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d.ok) location.reload(); else alert(d.error || 'Save failed'); })
+      .catch(function () { alert('Request failed'); });
+  }
+  function cmsRevert(key) {
+    if (!confirm('Revert ' + key + ' to baseline? This deletes any draft or published override for this field.')) return;
+    fetch('/admin/content/revert', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d.ok) location.reload(); else alert(d.error || 'Revert failed'); })
+      .catch(function () { alert('Request failed'); });
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    var els = document.querySelectorAll('.cms-input');
+    for (var i = 0; i < els.length; i++) cmsWc(els[i]);
+  });
+</script>
+</body></html>`;
+}
+
+app.get('/admin/content', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const overrides = await contentOverrides.getAllOverrides();
+  res.send(renderContentPage(overrides, req));
+});
+
+app.post('/admin/content/draft', requireSuperAdmin, async (req, res) => {
+  const { content_key, value } = req.body || {};
+  if (!cmsIsValidStaticKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
+  if (value === undefined) return res.status(400).json({ ok: false, error: 'missing value' });
+  const ok = await contentOverrides.saveDraftOverride(content_key, value, cmsWordCount(value), req.session.coach_id);
+  res.json({ ok, error: ok ? undefined : 'database unavailable' });
+});
+
+app.post('/admin/content/publish', requireSuperAdmin, async (req, res) => {
+  const { content_key, value } = req.body || {};
+  if (!cmsIsValidStaticKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
+  if (value === undefined) return res.status(400).json({ ok: false, error: 'missing value' });
+  const ok = await contentOverrides.publishOverride(content_key, value, cmsWordCount(value), req.session.coach_id);
+  res.json({ ok, error: ok ? undefined : 'database unavailable' });
+});
+
+app.post('/admin/content/revert', requireSuperAdmin, async (req, res) => {
+  const { content_key } = req.body || {};
+  if (!cmsIsValidStaticKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
+  const ok = await contentOverrides.revertOverride(content_key);
+  res.json({ ok, error: ok ? undefined : 'database unavailable' });
+});
+
 app.get('/admin/coaches', requireAdmin, async (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   let flashMsg = null;
@@ -3527,6 +3808,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   <div style="display:flex;align-items:center;gap:16px;">
     <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
     ${req.session.coach_is_admin ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
+    ${req.session.coach_is_super_admin ? `<a href="/admin/content" class="nav-link">Content</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/password" class="nav-link">Change password</a>
     <span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>
