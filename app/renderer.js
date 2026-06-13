@@ -1626,11 +1626,37 @@ const HIVE_LOGO_SVG = `<svg class="logo" xmlns="http://www.w3.org/2000/svg" xmln
 <path fill-rule="nonzero" fill="rgb(95.883179%, 45.910645%, 10.510254%)" fill-opacity="1" d="M 125.523438 41.101562 L 151.605469 25.332031 L 189.234375 46.816406 L 189.234375 86.683594 L 151.730469 107.671875 L 113.601562 86.1875 L 113.601562 73.519531 L 119.6875 69.792969 L 119.6875 82.832031 L 151.730469 100.71875 L 183.152344 82.957031 L 183.152344 50.542969 L 151.605469 32.410156 L 125.523438 48.058594 Z M 125.523438 41.101562 "/>
 </svg>`;
 
-// P2 "What Is the Enneagram?" — fully static (template-ported, V2). Full template chrome
-// (masthead + header-rule + 3-span footer). Content is byte-static; the only dynamic
-// element is the Enneagram symbol, which is authored by buildEnneagramSVG(m.svg.base)
-// (single SVG source — the template's inline copy is preview-only and is NOT used here).
+// P2 "What Is the Enneagram?" — template-ported chrome (masthead + header-rule + 3-span
+// footer) with content sourced from content_library via m.pages.primer (intro / scan_line /
+// pillars / nine_types / footer). The only other dynamic element is the Enneagram symbol,
+// authored by buildEnneagramSVG(m.svg.base) (single SVG source — the template's inline copy
+// is preview-only and is NOT used here). The badge-label, grid-head, and bottom page footer
+// (© / Page 2 / confidential) are chrome with no content_library key and stay literal.
+//
+// nine_types display order is fixed at P2_TYPE_ORDER (center-banded rows: body / heart / head)
+// and is decoupled from the content_library array order — cards are looked up by `number`, and
+// the center CSS class + thead label derive from each type's own `center` field. This preserves
+// the layout regardless of how nine_types is ordered in the JSON.
+const P2_TYPE_ORDER = [8, 9, 1, 2, 3, 4, 5, 6, 7];
 function _clP2Primer(m) {
+  const pr = m.pages.primer;
+  const introParas = String(pr.intro || '').split('\n\n')
+    .map(p => `<p>${esc(p)}</p>`).join('\n      ');
+  const pillarCards = (pr.pillars || [])
+    .map(pl => `<div class="fcard"><div class="ft">${esc(pl.title)}</div><div class="fd">${esc(pl.body)}</div></div>`)
+    .join('\n    ');
+  const byNum = {};
+  for (const t of (pr.nine_types || [])) byNum[t.number] = t;
+  const typeCards = P2_TYPE_ORDER.map(n => {
+    const t = byNum[n];
+    const cls = String(t.center || '').toLowerCase();
+    return `<div class="tcard ${cls}">
+      <div class="thead">TYPE ${t.number} · ${String(t.center || '').toUpperCase()} CENTER</div>
+      <div class="tname">${esc(t.name)}</div>
+      <div class="tdesc">${esc(t.description)}</div>
+      <div class="tgifts">Gifts: ${esc(t.gifts)}</div>
+    </div>`;
+  }).join('\n    ');
   return `<div class="page">
   <div class="page-body">
   <div class="masthead">${HIVE_LOGO_SVG}<div></div></div>
@@ -1638,77 +1664,21 @@ function _clP2Primer(m) {
   <div class="intro">
     <div class="intro-left">
       <span class="badge-label">WHAT IS THE ENNEAGRAM?</span>
-      <p>The Enneagram is a dynamic system that describes nine distinct ways of being in the world — nine strategies, shaped early in life, for how to get what we need, stay safe, and belong. Each type is anchored by a core worldview and a deep motivational drive that shapes everything: how we think, what we feel, and how we act.</p>
-      <p>Understanding your type isn't about putting yourself in a box. It's about seeing the pattern clearly enough that you have a choice about it.</p>
+      ${introParas}
     </div>
     <div class="intro-right">
       <div class="intro-symbol">${buildEnneagramSVG(m.svg.base)}</div>
     </div>
   </div>
   <div class="feature-cards">
-    <div class="fcard"><div class="ft">Dynamic</div><div class="fd">A map of how you move, not just where you sit.</div></div>
-    <div class="fcard"><div class="ft">Motivational</div><div class="fd">Driven by your deeper "why," not just what you do.</div></div>
-    <div class="fcard"><div class="ft">Relational</div><div class="fd">A lens to see yourself and everyone around you.</div></div>
+    ${pillarCards}
   </div>
   <div class="grid-head">THE NINE ENNEAGRAM TYPES – SCAN EACH ONE</div>
-  <div class="grid-instr">As you read, notice which descriptions pull at you – even slightly. That's the Enneagram beginning to work.</div>
+  <div class="grid-instr">${esc(pr.scan_line)}</div>
   <div class="grid">
-    <div class="tcard body">
-      <div class="thead">TYPE 8 · BODY CENTER</div>
-      <div class="tname">The Protector</div>
-      <div class="tdesc">Sees a world where only the strong protect the weak. Motivated to assert strength and guard against injustice. Attention goes to power dynamics and who needs protecting.</div>
-      <div class="tgifts">Gifts: Strength, advocacy, courage</div>
-    </div>
-    <div class="tcard body">
-      <div class="thead">TYPE 9 · BODY CENTER</div>
-      <div class="tname">The Peacemaker</div>
-      <div class="tdesc">Sees a world with underlying unity that conflict threatens. Motivated to maintain harmony and avoid disconnection. Attention goes to others' perspectives and seeking common ground.</div>
-      <div class="tgifts">Gifts: Inclusion, steadiness, presence</div>
-    </div>
-    <div class="tcard body">
-      <div class="thead">TYPE 1 · BODY CENTER</div>
-      <div class="tname">The Improver</div>
-      <div class="tdesc">Sees a world that falls short of what it could be. Motivated to be good, principled, and beyond criticism. Attention goes to what's wrong or is broken.</div>
-      <div class="tgifts">Gifts: Integrity, discernment, high standards</div>
-    </div>
-    <div class="tcard heart">
-      <div class="thead">TYPE 2 · HEART CENTER</div>
-      <div class="tname">The Giver</div>
-      <div class="tdesc">Sees a world where love is earned through service. Motivated to be needed and seen as caring. Attention goes to others' needs and relationship dynamics.</div>
-      <div class="tgifts">Gifts: Warmth, attunement, deep care</div>
-    </div>
-    <div class="tcard heart">
-      <div class="thead">TYPE 3 · HEART CENTER</div>
-      <div class="tname">The Performer</div>
-      <div class="tdesc">Sees a world that rewards results. Motivated to achieve and be recognized as valuable. Attention goes to goals, image, and how others perceive them.</div>
-      <div class="tgifts">Gifts: Drive, adaptability, inspiring</div>
-    </div>
-    <div class="tcard heart">
-      <div class="thead">TYPE 4 · HEART CENTER</div>
-      <div class="tname">The Individualist</div>
-      <div class="tdesc">Sees a world with infinite depth but always something missing. Motivated to be authentic and deeply known. Attention goes to what's absent or lacking.</div>
-      <div class="tgifts">Gifts: Depth, originality, emotional honesty</div>
-    </div>
-    <div class="tcard head">
-      <div class="thead">TYPE 5 · HEAD CENTER</div>
-      <div class="tname">The Observer</div>
-      <div class="tdesc">Sees a world that is overwhelming and intrusive. Motivated to be competent and self-sufficient. Attention goes to ideas, concepts, and conserving energy.</div>
-      <div class="tgifts">Gifts: Clarity, insight, objectivity</div>
-    </div>
-    <div class="tcard head">
-      <div class="thead">TYPE 6 · HEAD CENTER</div>
-      <div class="tname">The Questioner</div>
-      <div class="tdesc">Sees a world that is unpredictable and unsafe. Motivated by security, trust, and preparedness. Attention goes to potential threats and who can be counted on.</div>
-      <div class="tgifts">Gifts: Loyalty, foresight, fierce commitment</div>
-    </div>
-    <div class="tcard head">
-      <div class="thead">TYPE 7 · HEAD CENTER</div>
-      <div class="tname">The Enthusiast</div>
-      <div class="tdesc">Sees a world full of possibility, threatened by limitation and pain. Motivated to stay free and experience life fully. Attention goes to options and what's next.</div>
-      <div class="tgifts">Gifts: Possibility, joy, generative energy</div>
-    </div>
+    ${typeCards}
   </div>
-  <div class="closing">We each have access to all Enneagram types — and one of these nine patterns is your home base. Keep reading to find out which type your responses pointed to most clearly.</div>
+  <div class="closing">${esc(pr.footer)}</div>
   </div>
   <div class="footer">
     <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
