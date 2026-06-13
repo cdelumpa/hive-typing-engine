@@ -26,9 +26,11 @@ if (process.env.SENDGRID_API_KEY) {
 }
 
 // Load renderer and type library
-const { buildCoachPdfOptions, HIVE_LOGO_SVG } = require('./renderer');
+const { buildCoachPdfOptions, HIVE_LOGO_SVG, buildClientReportHTML } = require('./renderer');
 const { renderClientReport, renderCoachReport } = require('./render_report');
 const { generateBetaReport } = require('./generate_report');
+const reportPrep = require('./report_prep');          // buildClientModel — for /admin/content preview
+const { TYPE_NAMES: CMS_TYPE_NAMES } = require('./type_meta');  // canonical type names for preview wing/line remap (distinct from the dashboard's local TYPE_NAMES)
 const db = require('./db');
 const contentOverrides = require('./content_overrides');
 // Baseline static content for the /admin/content editor (read-only). The renderer
@@ -3247,6 +3249,14 @@ function cmsIsValidSubtypeKey(k) {
 // Combined gate for the POST routes: 6 static + 108 subtype keys; rejects type_*.* (PR5)
 // and subtype_*.{code,name}.
 function cmsIsValidContentKey(k) { return cmsIsValidStaticKey(k) || cmsIsValidSubtypeKey(k); }
+// Type keys are accepted by the PREVIEW route only (PR 4b). The draft/publish/revert routes
+// keep using cmsIsValidContentKey, so they still reject type_*.* until the PR 5 type editor
+// lands. A widened cmsIsValidContentKey would have leaked type writes into those routes, so
+// preview gets its own validator instead.
+function cmsIsValidTypeKey(k) {
+  return typeof k === 'string' && /^type_[1-9]\.(description|comparison|patterns|inquiry_lines|wings|lines|strengths|challenges|practices|communication|conflict|center)$/.test(k);
+}
+function cmsIsValidPreviewKey(k) { return cmsIsValidContentKey(k) || cmsIsValidTypeKey(k); }
 const cmsStatusWord = (s) => (s === 'published' ? 'Published' : s === 'draft' ? 'Draft' : 'Unmodified');
 const cmsStatusClass = (s) => (s === 'published' ? 'pub' : s === 'draft' ? 'draft' : 'unmod');
 // Worst status across a subtype's fields: any draft -> draft; else any published -> published.
@@ -3403,6 +3413,7 @@ function cmsFieldCard(key, currentValue, status) {
     <div class="field-actions">
       <button class="btn-draft" type="button" data-role="draft" disabled onclick="cmsSave('${key}','draft')">Save as Draft</button>
       <button class="btn-pub" type="button" data-role="publish"${pubDisabled ? ' disabled' : ''} onclick="cmsSave('${key}','publish')">Publish</button>
+      <button class="btn-preview" type="button" data-role="preview" onclick="cmsPreview('${key}')">Preview</button>
       <button class="btn-revert" type="button" data-role="revert"${revHidden ? ' style="display:none"' : ''} onclick="cmsRevert('${key}')">Revert to baseline</button>
     </div>
     <div class="field-msg" data-role="msg" style="display:none"></div>
@@ -3486,6 +3497,14 @@ function renderContentPage(overrides, req) {
   .field-msg .msg-ok { color: #1a7a4a; }
   .field-msg .msg-err { color: #c0392b; }
   .field-msg .msg-dismiss { font-family: Georgia, serif; font-size: 11px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 3px; padding: 2px 8px; cursor: pointer; }
+  .btn-preview { background: #e4eef2; color: #00859f; }
+  .btn-preview:not(:disabled):hover { background: #d4e6ec; }
+  .cmpv-overlay { position: fixed; inset: 0; background: rgba(20,30,40,.72); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .cmpv-panel { background: #fff; border-radius: 8px; padding: 14px; max-height: 94vh; display: flex; flex-direction: column; box-shadow: 0 12px 48px rgba(0,0,0,.4); }
+  .cmpv-head { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 10px; }
+  .cmpv-cap { font-size: 13px; font-weight: 700; color: #1A2B33; }
+  .cmpv-close { font-family: Georgia, serif; font-size: 12px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+  .cmpv-img { max-height: 86vh; max-width: 86vw; width: auto; height: auto; border: 1px solid #E2E6EA; }
   ${CMS_DROPDOWN_CSS}
   @media (max-width: 768px) {
     .sidebar { display: none; }
@@ -3509,6 +3528,12 @@ function renderContentPage(overrides, req) {
   <div class="summary">Editing global static fields (<b>static.*</b>). Published edits go live on the next report render; drafts do not. Status — <b>${nPub}</b> published · <b>${nDraft}</b> draft · <b>${nUnmod}</b> unmodified.</div>
   ${cards}
 </div>
+<div id="cms-preview-modal" class="cmpv-overlay" style="display:none" onclick="if(event.target===this)cmsClosePreview()">
+  <div class="cmpv-panel">
+    <div class="cmpv-head"><span class="cmpv-cap"></span><button type="button" class="cmpv-close" onclick="cmsClosePreview()">✕ Close</button></div>
+    <img class="cmpv-img" alt="page preview">
+  </div>
+</div>
 <script>
   var CMS_TEMPLATE = ${templateJson};
   var CMS_BASELINE = ${baselineJson};
@@ -3516,6 +3541,30 @@ function renderContentPage(overrides, req) {
 </script>
 <script>
   function cmsCardEl(key) { return document.querySelector('[data-card-key="' + key + '"]'); }
+  function cmsPreview(key) {
+    var card = cmsCardEl(key); if (!card) return;
+    var btn = card.querySelector('[data-role="preview"]'); var orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Rendering…'; }
+    var value = cmsCollect(key);
+    fetch('/admin/content/preview', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key, value: value }) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (btn) { btn.disabled = false; btn.textContent = orig; }
+        if (res.ok) { cmsShowPreview(res.png, res.page); } else { alert(res.error || 'Preview failed'); }
+      })
+      .catch(function () { if (btn) { btn.disabled = false; btn.textContent = orig; } alert('Preview request failed'); });
+  }
+  function cmsShowPreview(png, label) {
+    var m = document.getElementById('cms-preview-modal'); if (!m) return;
+    m.querySelector('.cmpv-cap').textContent = label || 'Preview';
+    m.querySelector('.cmpv-img').src = png;
+    m.style.display = 'flex';
+  }
+  function cmsClosePreview() {
+    var m = document.getElementById('cms-preview-modal'); if (!m) return;
+    m.style.display = 'none'; m.querySelector('.cmpv-img').src = '';
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cmsClosePreview(); });
   function cmsSetPath(obj, path, val) {
     if (path === '') return;
     var segs = path.split('.'), cur = obj;
@@ -3672,6 +3721,7 @@ function cmsSubtypeUnit(key, value, status, label) {
       <div class="field-actions">
         <button class="btn-draft" type="button" data-role="draft" disabled onclick="cmsSave('${key}','draft')">Save as Draft</button>
         <button class="btn-pub" type="button" data-role="publish"${pubDisabled ? ' disabled' : ''} onclick="cmsSave('${key}','publish')">Publish</button>
+        <button class="btn-preview" type="button" data-role="preview" onclick="cmsPreview('${key}')">Preview</button>
         <button class="btn-revert" type="button" data-role="revert"${revHidden ? ' style="display:none"' : ''} onclick="cmsRevert('${key}')">Revert to baseline</button>
       </div>
       <div class="field-msg" data-role="msg" style="display:none"></div>
@@ -3786,6 +3836,14 @@ function renderSubtypesPage(overrides, req) {
   .field-msg .msg-ok { color: #1a7a4a; }
   .field-msg .msg-err { color: #c0392b; }
   .field-msg .msg-dismiss { font-family: Georgia, serif; font-size: 11px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 3px; padding: 2px 8px; cursor: pointer; }
+  .btn-preview { background: #e4eef2; color: #00859f; }
+  .btn-preview:not(:disabled):hover { background: #d4e6ec; }
+  .cmpv-overlay { position: fixed; inset: 0; background: rgba(20,30,40,.72); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .cmpv-panel { background: #fff; border-radius: 8px; padding: 14px; max-height: 94vh; display: flex; flex-direction: column; box-shadow: 0 12px 48px rgba(0,0,0,.4); }
+  .cmpv-head { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 10px; }
+  .cmpv-cap { font-size: 13px; font-weight: 700; color: #1A2B33; }
+  .cmpv-close { font-family: Georgia, serif; font-size: 12px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+  .cmpv-img { max-height: 86vh; max-width: 86vw; width: auto; height: auto; border: 1px solid #E2E6EA; }
   ${CMS_DROPDOWN_CSS}
   @media (max-width: 768px) { .sidebar { display: none; } .container { margin-left: 0; } }
 </style></head>
@@ -3803,6 +3861,12 @@ function renderSubtypesPage(overrides, req) {
   <div class="summary">Editing subtype content (<b>subtype_*.*</b>). Published edits go live on the next report render; drafts do not. Status — <b>${nPub}</b> published · <b>${nDraft}</b> draft · <b>${nUnmod}</b> unmodified (of 108 fields across 27 subtypes). <b>${subtypesWithPub}</b>/27 subtypes have at least one published edit.</div>
   ${cards.join('')}
 </div>
+<div id="cms-preview-modal" class="cmpv-overlay" style="display:none" onclick="if(event.target===this)cmsClosePreview()">
+  <div class="cmpv-panel">
+    <div class="cmpv-head"><span class="cmpv-cap"></span><button type="button" class="cmpv-close" onclick="cmsClosePreview()">✕ Close</button></div>
+    <img class="cmpv-img" alt="page preview">
+  </div>
+</div>
 <script>
   var CMS_TEMPLATE = ${templateJson};
   var CMS_BASELINE = ${baselineJson};
@@ -3810,6 +3874,30 @@ function renderSubtypesPage(overrides, req) {
 </script>
 <script>
   function cmsCardEl(key) { return document.querySelector('[data-card-key="' + key + '"]'); }
+  function cmsPreview(key) {
+    var card = cmsCardEl(key); if (!card) return;
+    var btn = card.querySelector('[data-role="preview"]'); var orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Rendering…'; }
+    var value = cmsCollect(key);
+    fetch('/admin/content/preview', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key, value: value }) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (btn) { btn.disabled = false; btn.textContent = orig; }
+        if (res.ok) { cmsShowPreview(res.png, res.page); } else { alert(res.error || 'Preview failed'); }
+      })
+      .catch(function () { if (btn) { btn.disabled = false; btn.textContent = orig; } alert('Preview request failed'); });
+  }
+  function cmsShowPreview(png, label) {
+    var m = document.getElementById('cms-preview-modal'); if (!m) return;
+    m.querySelector('.cmpv-cap').textContent = label || 'Preview';
+    m.querySelector('.cmpv-img').src = png;
+    m.style.display = 'flex';
+  }
+  function cmsClosePreview() {
+    var m = document.getElementById('cms-preview-modal'); if (!m) return;
+    m.style.display = 'none'; m.querySelector('.cmpv-img').src = '';
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cmsClosePreview(); });
   function cmsSetPath(obj, path, val) {
     if (path === '') return;
     var segs = path.split('.'), cur = obj;
@@ -4010,6 +4098,136 @@ app.post('/admin/content/revert', requireSuperAdmin, async (req, res) => {
   if (!cmsIsValidContentKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
   const ok = await contentOverrides.revertOverride(content_key);
   res.json({ ok, error: ok ? undefined : 'database unavailable' });
+});
+
+// =================== /admin/content — SINGLE-PAGE PNG PREVIEW (PR 4b) ===================
+// Renders one client-report PDF page as a PNG so a super-admin sees a draft edit in context
+// before publishing. The draft value is injected onto a synthetic model (never the DB), the
+// full client report is rendered, and only the target page element is screenshotted.
+
+// Worst-case "In Your Responses" evidence (3 bullets ~25 words each) injected on P6 previews
+// so the orange box is shown at maximum size — exposing overflow risk, not a best case.
+const CMS_PREVIEW_WORST_EVIDENCE = [
+  'Across several of your responses you returned to maintaining comfort, protecting your energy, and keeping daily life steady and predictable, which is the clearest available signal here.',
+  'You repeatedly described scanning your environment for what could go wrong and quietly securing resources ahead of time, a pattern that points strongly toward this instinctual focus showing up.',
+  'When asked about stress you emphasized withdrawing to conserve, tending to practical needs first, and restoring your baseline before re-engaging with the people and demands around you again.',
+];
+
+// splitWingBest / wing+line remap mirror report_prep (kept in sync manually; report_prep is
+// out of scope for this PR). Used only to overlay draft type_*.wings / type_*.lines values,
+// which report_prep transforms into wing_low/wing_high and line_stress/line_security.
+function cmsPreviewSplitWingBest(text) {
+  const s = String(text || '');
+  const m = s.match(/\n+\s*At their best:\s*/i);
+  if (!m) return { body: s.trim(), best: '' };
+  return { body: s.slice(0, m.index).trim(), best: s.slice(m.index + m[0].length).trim() };
+}
+
+// content_key -> { page (label), selector (page wrapper class), type N, instinct, apply(model,value) }.
+// apply() overlays the draft onto the already-built model at the same path report_prep populates.
+function cmsPreviewSpec(key) {
+  const P6 = 'P6 — Instinct & Subtype', P5 = 'P5 — Wings & Lines';
+  const STATIC = {
+    'static.welcome':              { page: 'P1 — Welcome',            selector: '.cover-welcome', apply: (m, v) => { Object.assign(m.pages.welcome, v); } },
+    'static.primer':               { page: 'P2 — Enneagram Primer',   selector: '.page',          apply: (m, v) => { m.pages.primer = v; } },
+    'static.wings_primer':         { page: P5,                        selector: '.p5-page',       apply: (m, v) => { m.pages.wings_lines.wings_primer = v; } },
+    'static.lines_primer':         { page: P5,                        selector: '.p5-page',       apply: (m, v) => { m.pages.wings_lines.lines_primer = v; } },
+    'static.instinct_primer':      { page: P6,                        selector: '.p6-page',       apply: (m, v) => { m.pages.instinct_subtype.instinct_primer = v; } },
+    'static.instinct_definitions': { page: P6,                        selector: '.p6-page',       apply: (m, v) => { m.pages.instinct_subtype.instinct_definitions = v; } },
+  };
+  if (STATIC[key]) return { ...STATIC[key], type: 9, instinct: 'SP' };
+
+  let mm = /^subtype_(sp|so|sx)([1-9])\.(tagline|narrative|patterns|shifts)$/.exec(key);
+  if (mm) {
+    const instinct = mm[1].toUpperCase(), N = +mm[2], field = mm[3];
+    const SUB = {
+      tagline:   { page: P6, selector: '.p6-page', apply: (m, v) => { m.pages.instinct_subtype.subtype.tagline = v; } },
+      narrative: { page: P6, selector: '.p6-page', apply: (m, v) => { m.pages.instinct_subtype.subtype.narrative = v; } },
+      patterns:  { page: P6, selector: '.p6-page', apply: (m, v) => { m.pages.instinct_subtype.subtype.patterns = v; } },
+      shifts:    { page: 'P7 — Strengths & Growth', selector: '.p7-page', apply: (m, v) => { m.pages.strengths_challenges.shifts = v; } },
+    };
+    return { ...SUB[field], type: N, instinct };
+  }
+
+  mm = /^type_([1-9])\.(description|comparison|patterns|inquiry_lines|wings|lines|strengths|challenges|practices|communication|conflict|center)$/.exec(key);
+  if (mm) {
+    const N = +mm[1], field = mm[2];
+    const remapWing = (w) => { const s = cmsPreviewSplitWingBest(w.body); return { number: w.target_type, name: CMS_TYPE_NAMES[w.target_type], body: s.body, best: s.best }; };
+    const remapLine = (l) => ({ name: CMS_TYPE_NAMES[l.target_type], body: l.narrative, resource: l.resource_card, toward: l.target_type });
+    const TYP = {
+      description:   { page: 'P3 — Type Hypotheses', selector: '.p3-page', apply: (m, v) => { if (v && v.core_motivation != null) m.pages.type_hypotheses.core_motivation = v.core_motivation; } },
+      comparison:    { page: 'P3 — Type Hypotheses', selector: '.p3-page', apply: (m, v) => { m.pages.type_hypotheses.comparison_rows = v; } },
+      patterns:      { page: 'P4 — Patterns',        selector: '.p4-page', apply: (m, v) => { if (v) { m.pages.patterns.thinking = v.thinking; m.pages.patterns.feeling = v.feeling; m.pages.patterns.behaving = v.behaving; } } },
+      inquiry_lines: { page: 'P4 — Patterns',        selector: '.p4-page', apply: (m, v) => { m.pages.patterns.inquiry_lines = v; } },
+      wings:         { page: 'P5 — Wings & Lines',   selector: '.p5-page', apply: (m, v) => { const pair = [v.wing_a, v.wing_b].slice().sort((a, b) => a.target_type - b.target_type); m.pages.wings_lines.wings = v; m.pages.wings_lines.wing_low = remapWing(pair[0]); m.pages.wings_lines.wing_high = remapWing(pair[1]); } },
+      lines:         { page: 'P5 — Wings & Lines',   selector: '.p5-page', apply: (m, v) => { m.pages.wings_lines.lines = v; m.pages.wings_lines.line_stress = remapLine(v.stress); m.pages.wings_lines.line_security = remapLine(v.security); } },
+      strengths:     { page: 'P7 — Strengths & Growth', selector: '.p7-page', apply: (m, v) => { m.pages.strengths_challenges.strengths = v; } },
+      challenges:    { page: 'P7 — Strengths & Growth', selector: '.p7-page', apply: (m, v) => { m.pages.strengths_challenges.challenges = v; } },
+      practices:     { page: 'P7 — Strengths & Growth', selector: '.p7-page', apply: (m, v) => { m.pages.strengths_challenges.practices = v; } },
+      communication: { page: 'P8 — Application',     selector: '.p8-page', apply: (m, v) => { m.pages.application.communication = v; } },
+      conflict:      { page: 'P8 — Application',     selector: '.p8-page', apply: (m, v) => { m.pages.application.conflict = v; } },
+      center:        { page: 'P8 — Application',     selector: '.p8-page', apply: (m, v) => { m.pages.application.center = v; } },
+    };
+    return { ...TYP[field], type: N, instinct: 'SP' };
+  }
+  return null;
+}
+
+// Minimal valid Call #2 result for the target type/instinct. buildClientModel derives every
+// CLIENT_SPEC-required field from content_library + type_meta; empty AI objects fall through
+// to the model's null/[] defaults (no AI field is required, so they render in their natural
+// empty state — see the P3 quote box and P6 orange box).
+function cmsPreviewApiResult(N, instinct) {
+  const alt = N === 9 ? 1 : N + 1;
+  const others = ['SP', 'SO', 'SX'].filter(x => x !== instinct);
+  const prof = {}; prof[instinct] = 80; prof[others[0]] = 55; prof[others[1]] = 30;
+  return {
+    hypothesis: {
+      confirmed_type: N, alternate_candidate: alt, dominant_instinct_hypothesis: instinct,
+      confidence_level: 'HIGH', stage4_outcome: 'CONFIRM',
+      call1_ranking: [{ type: N, score: 85 }, { type: alt, score: 60 }],
+      instinct_score_profile: prof,
+    },
+    coach_report: {}, client_facing: {}, client_words: {},
+  };
+}
+
+async function cmsRenderPreviewPng(spec, value) {
+  const apiResult = cmsPreviewApiResult(spec.type, spec.instinct);
+  const client = { first_name: 'Preview', last_name: 'Sample', date: 'June 2026' };
+  const coach = { full_name: '', type: null, instinct: null };
+  const model = await reportPrep.buildClientModel({ apiResult, client, coach });
+  spec.apply(model, value);
+  if (spec.selector === '.p6-page') model.pages.instinct_subtype.instinct_evidence = CMS_PREVIEW_WORST_EVIDENCE.slice();
+  const html = buildClientReportHTML(model);
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 900, height: 1400, deviceScaleFactor: 2 });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
+    const el = await page.$(spec.selector);
+    if (!el) throw new Error('preview page element not found: ' + spec.selector);
+    const buf = await el.screenshot({ type: 'png' });
+    return 'data:image/png;base64,' + buf.toString('base64');
+  } finally {
+    await browser.close();
+  }
+}
+
+app.post('/admin/content/preview', requireSuperAdmin, async (req, res) => {
+  const { content_key, value } = req.body || {};
+  if (!cmsIsValidPreviewKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
+  if (value === undefined) return res.status(400).json({ ok: false, error: 'missing value' });
+  const spec = cmsPreviewSpec(content_key);
+  if (!spec) return res.status(400).json({ ok: false, error: 'no preview mapping for key' });
+  try {
+    const png = await cmsRenderPreviewPng(spec, value);
+    res.json({ ok: true, png, page: spec.page });
+  } catch (e) {
+    console.error('[admin/content/preview] failed:', e.message);
+    res.json({ ok: false, error: 'Preview render failed: ' + e.message });
+  }
 });
 
 app.get('/admin/coaches', requireAdmin, async (req, res) => {
