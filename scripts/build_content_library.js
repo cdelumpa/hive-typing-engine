@@ -229,8 +229,7 @@ function parseStatics(toks) {
     footer: linesOf('ENNEAGRAM PRIMER FOOTER')[0] || '',
   };
   return {
-    welcome_body: text('WELCOME BODY'),
-    welcome: INTERIM_WELCOME,   // INTERIM (see top): structured welcome; welcome_body kept additively
+    welcome: INTERIM_WELCOME,   // INTERIM (see top): structured welcome
     primer,
     wings_primer: text('WINGS PRIMER'),
     lines_primer: text('LINES PRIMER'),
@@ -285,7 +284,7 @@ function validateSubtype(key, st) {
   // Split into type regions by H1; within each, the H2 begins the subtype region.
   const h1idx = toks.map((t, i) => ({ t, i })).filter(x => x.t.style === 'Heading1');
   const lib = { _meta: { source: path.basename(DOCX), built_at: new Date().toISOString(), version: 'v1_060526' }, static: {
-    primer: null, welcome_body: null, welcome: null, instinct_primer: null, instinct_definitions: null, wings_primer: null, lines_primer: null,
+    primer: null, welcome: null, instinct_primer: null, instinct_definitions: null, wings_primer: null, lines_primer: null,
   } };
   const seenTypes = [];
 
@@ -328,7 +327,7 @@ function validateSubtype(key, st) {
 
   // static.* coverage — now sourced from the docx GLOBAL STATIC CONTENT section (hard gate)
   const S = lib.static || {};
-  for (const k of ['welcome_body', 'wings_primer', 'lines_primer', 'instinct_primer']) need(S[k], `static.${k} empty`);
+  for (const k of ['wings_primer', 'lines_primer', 'instinct_primer']) need(S[k], `static.${k} empty`);
   need(S.welcome && S.welcome.subhead && Array.isArray(S.welcome.letters) && S.welcome.letters.length === 5 && S.welcome.letters.every(Boolean) && S.welcome.callout,
     'static.welcome shape invalid (want { subhead, letters[5], callout })');
   need(S.primer && S.primer.intro, 'static.primer.intro empty');
@@ -341,7 +340,7 @@ function validateSubtype(key, st) {
   console.log('=== Content library build ===');
   console.log(`Types parsed:    ${seenTypes.sort((a, b) => a - b).join(', ')} (${seenTypes.length}/9)`);
   console.log(`Subtypes parsed: ${subCount}/27`);
-  const staticKeys = ['welcome_body', 'welcome', 'primer', 'wings_primer', 'lines_primer', 'instinct_primer', 'instinct_definitions'];
+  const staticKeys = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'instinct_primer', 'instinct_definitions'];
   const pending = staticKeys.filter(k => lib.static[k] == null);
   console.log(`Static globals:  ${staticKeys.length - pending.length}/${staticKeys.length} populated` + (pending.length ? ` — PENDING: ${pending.join(', ')}` : ' (zero PENDING)'));
 
