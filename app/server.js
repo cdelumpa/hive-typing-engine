@@ -3248,15 +3248,15 @@ function cmsIsValidSubtypeKey(k) {
 }
 // Combined gate for the POST routes: 6 static + 108 subtype keys; rejects type_*.* (PR5)
 // and subtype_*.{code,name}.
-function cmsIsValidContentKey(k) { return cmsIsValidStaticKey(k) || cmsIsValidSubtypeKey(k); }
-// Type keys are accepted by the PREVIEW route only (PR 4b). The draft/publish/revert routes
-// keep using cmsIsValidContentKey, so they still reject type_*.* until the PR 5 type editor
-// lands. A widened cmsIsValidContentKey would have leaked type writes into those routes, so
-// preview gets its own validator instead.
+// Type keys (PR 5): all 12 editable type_{N} fields. Editable across the same 4 routes as
+// static/subtype now that the type editor exists.
 function cmsIsValidTypeKey(k) {
   return typeof k === 'string' && /^type_[1-9]\.(description|comparison|patterns|inquiry_lines|wings|lines|strengths|challenges|practices|communication|conflict|center)$/.test(k);
 }
-function cmsIsValidPreviewKey(k) { return cmsIsValidContentKey(k) || cmsIsValidTypeKey(k); }
+function cmsIsValidContentKey(k) { return cmsIsValidStaticKey(k) || cmsIsValidSubtypeKey(k) || cmsIsValidTypeKey(k); }
+// Preview accepts the same keys as the write routes (type keys folded into cmsIsValidContentKey
+// in PR 5; kept as an alias for the preview route's call site).
+function cmsIsValidPreviewKey(k) { return cmsIsValidContentKey(k); }
 const cmsStatusWord = (s) => (s === 'published' ? 'Published' : s === 'draft' ? 'Draft' : 'Unmodified');
 const cmsStatusClass = (s) => (s === 'published' ? 'pub' : s === 'draft' ? 'draft' : 'unmod');
 // Worst status across a subtype's fields: any draft -> draft; else any published -> published.
@@ -3276,7 +3276,7 @@ function cmsContentMenu(active) {
       <div class="cmenu-list">
         ${item('/admin/content/global',   'Client Report — Global Content',  'global',   false)}
         ${item('/admin/content/subtypes', 'Client Report — Subtype Content', 'subtypes', false)}
-        ${item('/admin/content/types',    'Client Report — Type Content',    'types',    true)}
+        ${item('/admin/content/types',    'Client Report — Type Content',    'types',    false)}
       </div>
     </details>`;
 }
@@ -3332,6 +3332,18 @@ function cmsBudgetFor(key, path) {
     if (key.endsWith('.patterns')) return 25;    // each T/F/B bullet (~3-line proxy)
     if (key.endsWith('.shifts')) return 25;      // each P7 "What Shifts" tip
   }
+  // Type fields (PR 5): budget per leaf path within each field's value (design §C8–C12 + proxy).
+  if (/^type_/.test(key)) {
+    if (key.endsWith('.description')) return path === 'core_motivation' ? 30 : 50;  // worldview not client-rendered
+    if (key.endsWith('.comparison')) return 20;                                     // P3 table cells
+    if (key.endsWith('.patterns')) { if (/\.intro$/.test(path)) return 40; if (/\.inquiry$/.test(path)) return 15; return 20; }  // bullets
+    if (key.endsWith('.inquiry_lines')) return 15;
+    if (key.endsWith('.wings')) return 70;        // wing narrative ≤70 (target_type renders read-only)
+    if (key.endsWith('.lines')) return /\.resource_card$/.test(path) ? 25 : 60;     // line narrative ≤60
+    if (key.endsWith('.strengths') || key.endsWith('.challenges')) return /\.title$/.test(path) ? 5 : 30;
+    if (key.endsWith('.practices')) return path === 'intro' ? 25 : 30;
+    if (/\.(communication|conflict|center)$/.test(key)) { if (path === 'subhead' || path === 'framework') return 10; return 25; }
+  }
   return 0;
 }
 
@@ -3345,9 +3357,16 @@ function cmsHumanize(seg) {
 }
 function cmsArrayHeading(key, parentPath, item, i) {
   if (/\.shifts$/.test(key)) return 'Shift ' + (i + 1);                 // subtype shifts (root array)
-  if (parentPath === 'thinking') return 'Thinking ' + (i + 1);         // subtype patterns
+  if (/\.inquiry_lines$/.test(key)) return 'Inquiry ' + (i + 1);       // type inquiry_lines (root array)
+  if (/\.strengths$/.test(key)) return 'Strength ' + (i + 1);          // type strengths (root array)
+  if (/\.challenges$/.test(key)) return 'Challenge ' + (i + 1);        // type challenges (root array)
+  if (parentPath === 'thinking') return 'Thinking ' + (i + 1);         // subtype + type patterns
   if (parentPath === 'feeling') return 'Feeling ' + (i + 1);
   if (parentPath === 'behaving') return 'Behaving ' + (i + 1);
+  if (parentPath === 'bullets') return 'Bullet ' + (i + 1);            // type practices / communication / conflict / center
+  if (parentPath === 'watch_for') return 'Watch-For ' + (i + 1);
+  if (parentPath === 'working_with') return 'Working-With ' + (i + 1);
+  if (parentPath === 'off_center') return 'Off-Center ' + (i + 1);
   if (parentPath === 'letters') return 'Letter ' + (i + 1);
   if (parentPath === 'pillars') return 'Pillar ' + (i + 1);
   if (parentPath === 'nine_types') return 'Type ' + (item && item.number != null ? item.number : i + 1) + (item && item.center ? ' (' + item.center + ')' : '');
@@ -3708,7 +3727,7 @@ function renderContentPage(overrides, req) {
 
 // One independently-saveable subtype field unit (tagline / narrative / patterns / shifts).
 // Reuses the same data-card-key / data-role machinery as the static cards.
-function cmsSubtypeUnit(key, value, status, label) {
+function cmsSubtypeUnit(key, value, status, label, note) {
   const badgeClass = status === 'published' ? 'pub' : status === 'draft' ? 'draft' : 'unmod';
   const pubDisabled = status !== 'draft';
   const revHidden = status === 'unmodified';
@@ -3717,6 +3736,7 @@ function cmsSubtypeUnit(key, value, status, label) {
         <span class="unit-label">${esc(label)}</span>
         <span class="badge ${badgeClass}" data-role="badge">${cmsStatusWord(status)}</span>
       </div>
+      ${note ? `<div class="unit-note">${esc(note)}</div>` : ''}
       <div class="field-body">${cmsRenderInputs(key, value, '')}</div>
       <div class="field-actions">
         <button class="btn-draft" type="button" data-role="draft" disabled onclick="cmsSave('${key}','draft')">Save as Draft</button>
@@ -4031,19 +4051,138 @@ function renderSubtypesPage(overrides, req) {
 </body></html>`;
 }
 
-function renderTypesStubPage(req) {
+// The 12 editable type fields, grouped by the report page they affect (PR 5).
+const CMS_TYPE_PAGES = [
+  { page: 'PAGE 3 — Type Hypotheses', fields: [
+      { field: 'description', label: 'Description', note: "Heads up: the “Worldview” text below is not shown in the client report — only “Core Motivation” renders (P3). Preview reflects Core Motivation edits only." },
+      { field: 'comparison', label: 'Comparison Rows' } ] },
+  { page: 'PAGE 4 — Patterns', fields: [
+      { field: 'patterns', label: 'Patterns' },
+      { field: 'inquiry_lines', label: 'Inquiry Lines', note: 'This field is not currently rendered in the client report preview.' } ] },
+  { page: 'PAGE 5 — Wings & Lines', fields: [
+      { field: 'wings', label: 'Wings' },
+      { field: 'lines', label: 'Lines' } ] },
+  { page: 'PAGE 7 — Strengths & Growth', fields: [
+      { field: 'strengths', label: 'Strengths' },
+      { field: 'challenges', label: 'Challenges' },
+      { field: 'practices', label: 'Practices' } ] },
+  { page: 'PAGE 8 — Application', fields: [
+      { field: 'communication', label: 'Communication' },
+      { field: 'conflict', label: 'Conflict' },
+      { field: 'center', label: 'Center' } ] },
+];
+
+function renderTypesPage(overrides, req) {
+  const template = {}, baselineMap = {}, statusMap = {};
+  let nPub = 0, nDraft = 0, nUnmod = 0, typesWithPub = 0;
+  let firstId = null;
+  const links = [], cards = [];
+
+  for (let n = 1; n <= 9; n++) {
+    const typeKey = `type_${n}`;
+    const baseObj = contentLibrary[typeKey] || {};
+    const cardId = cmsCardId(typeKey);             // card-type_9
+    if (!firstId) firstId = cardId;
+    const fieldStatuses = [];
+    const groupHtml = CMS_TYPE_PAGES.map(grp => {
+      const units = grp.fields.map(f => {
+        const key = `${typeKey}.${f.field}`;
+        const ov = overrides[key];
+        const status = ov ? ov.status : 'unmodified';
+        if (status === 'published') nPub++; else if (status === 'draft') nDraft++; else nUnmod++;
+        const value = ov ? ov.parsed : baseObj[f.field];
+        template[key] = value;
+        baselineMap[key] = baseObj[f.field];
+        statusMap[key] = status;
+        fieldStatuses.push(status);
+        return cmsSubtypeUnit(key, value, status, f.label, f.note);
+      }).join('');
+      return `<div class="page-group"><div class="page-group-h">${esc(grp.page)}</div>${units}</div>`;
+    }).join('');
+    const worst = cmsWorstStatus(fieldStatuses);
+    if (fieldStatuses.indexOf('published') >= 0) typesWithPub++;
+    const label = `Type ${n} — ${esc(baseObj.name || ('Type ' + n))}`;
+    links.push(`<a class="sub-link" href="#${cardId}" data-subtype="${cardId}" onclick="cmsShowSubtype('${cardId}');return false;"><span>${label}</span><span class="sub-stat ${cmsStatusClass(worst)}" data-role="navstat">${cmsStatusWord(worst)}</span></a>`);
+    cards.push(`<div class="subtype-card" id="${cardId}" style="display:none">
+      <div class="subtype-head"><span class="st-code">Type ${n}</span><span class="st-name">${esc(baseObj.name || ('Type ' + n))}</span>${baseObj.center_label ? `<span class="st-center">${esc(baseObj.center_label)}</span>` : ''}</div>
+      ${groupHtml}
+    </div>`);
+  }
+
+  const templateJson = JSON.stringify(template).replace(/</g, '\\u003c');
+  const baselineJson = JSON.stringify(baselineMap).replace(/</g, '\\u003c');
+  const statusJson = JSON.stringify(statusMap).replace(/</g, '\\u003c');
+
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>Hive Admin — Type Content</title>
 <style>
   * { box-sizing: border-box; }
+  :root { --topbar-h: 84px; --sidebar-w: 230px; }
   body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
-  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; min-height: 60px; display: flex; align-items: center; justify-content: space-between; }
+  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; min-height: var(--topbar-h); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
   .top-bar h1 { font-size: 18px; margin: 4px 0 0; font-weight: 700; }
   .top-bar svg.logo { height: 26px; width: auto; vertical-align: middle; }
   .top-bar .nav-link { color: #9FB4C0; font-size: 12px; text-decoration: none; }
+  .top-bar .nav-link:hover { color: #fff; }
   .nav-sep { color: #4A5E68; margin: 0 4px; }
-  .container { max-width: 700px; margin: 0 auto; padding: 60px 24px; text-align: center; color: #5A6E78; }
+  .sidebar { position: fixed; top: var(--topbar-h); left: 0; bottom: 0; width: var(--sidebar-w); background: #fff; border-right: 1px solid #E2E6EA; overflow-y: auto; padding: 14px 0; z-index: 10; }
+  .spy-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #9FB0B9; font-weight: 700; padding: 0 16px 8px; }
+  .sub-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 16px; font-size: 13px; color: #5A6472; text-decoration: none; border-left: 3px solid transparent; }
+  .sub-link:hover { background: #F7F8F9; }
+  .sub-link.active { color: #00B2D9; border-left-color: #00B2D9; font-weight: 700; }
+  .sub-stat { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; flex-shrink: 0; }
+  .sub-stat.pub { background: #e6f7ee; color: #1a7a4a; }
+  .sub-stat.draft { background: #fef6e0; color: #9a6a00; }
+  .sub-stat.unmod { background: #f1f1ee; color: #8A969C; }
+  .container { max-width: 860px; margin: 0 0 0 var(--sidebar-w); padding: 28px 24px; }
+  .summary { font-size: 13px; color: #5A6E78; margin-bottom: 20px; }
+  .summary b { color: #1A2B33; }
+  .subtype-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .subtype-head .st-code { font-family: Menlo, monospace; font-size: 12px; font-weight: 700; color: #fff; background: #00859f; padding: 3px 8px; border-radius: 3px; }
+  .subtype-head .st-name { font-size: 20px; font-weight: 700; color: #1A2B33; }
+  .subtype-head .st-center { font-size: 12px; color: #7A8A92; }
+  .page-group { margin-bottom: 26px; }
+  .page-group-h { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #00859f; border-bottom: 2px solid #d8eef2; padding-bottom: 5px; margin: 22px 0 12px; }
+  .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; margin-bottom: 14px; }
+  .unit-head { padding: 12px 18px; border-bottom: 1px solid #EFE8E0; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .unit-label { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: #1A2B33; text-transform: uppercase; }
+  .unit-note { padding: 9px 18px; font-size: 12px; font-style: italic; color: #8A6d00; background: #fef9ec; border-bottom: 1px solid #f0e6cf; }
+  .badge { flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 3px; letter-spacing: 0.04em; }
+  .badge.pub { background: #e6f7ee; color: #1a7a4a; }
+  .badge.draft { background: #fef6e0; color: #9a6a00; }
+  .badge.unmod { background: #f1f1ee; color: #7A8A92; }
+  .field-body { padding: 16px 18px; }
+  .leaf { margin-bottom: 14px; }
+  .leaf label { display: block; font-size: 11px; color: #7A96A6; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; }
+  .cms-input { width: 100%; padding: 9px 11px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 14px; line-height: 1.5; color: #1A2B33; outline: none; resize: vertical; }
+  .cms-input:focus { border-color: #00b1d7; }
+  .ro { font-size: 13px; color: #5A6E78; background: #f7f7f4; border: 1px solid #ECECE6; border-radius: 4px; padding: 7px 10px; }
+  .wc { font-size: 11px; color: #7A96A6; margin-top: 3px; }
+  .group { border-left: 3px solid #EFE8E0; padding-left: 14px; margin-bottom: 16px; }
+  .group-h { font-size: 12px; font-weight: 700; color: #00859f; margin-bottom: 8px; letter-spacing: 0.03em; }
+  .field-actions { padding: 12px 18px; border-top: 1px solid #EFE8E0; background: #fbfaf7; display: flex; gap: 10px; align-items: center; }
+  .field-actions button { font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; }
+  .field-actions button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-draft { background: #eef2f4; color: #1A2B33; }
+  .btn-draft:not(:disabled):hover { background: #e2e8eb; }
+  .btn-pub { background: #00b1d7; color: #fff; }
+  .btn-pub:not(:disabled):hover { background: #009bbf; }
+  .btn-preview { background: #e4eef2; color: #00859f; }
+  .btn-preview:not(:disabled):hover { background: #d4e6ec; }
+  .btn-revert { background: transparent; color: #c0392b; margin-left: auto; }
+  .btn-revert:not(:disabled):hover { text-decoration: underline; }
+  .field-msg { padding: 0 18px 12px; font-size: 13px; align-items: center; gap: 12px; }
+  .field-msg .msg-ok { color: #1a7a4a; }
+  .field-msg .msg-err { color: #c0392b; }
+  .field-msg .msg-dismiss { font-family: Georgia, serif; font-size: 11px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 3px; padding: 2px 8px; cursor: pointer; }
+  .cmpv-overlay { position: fixed; inset: 0; background: rgba(20,30,40,.72); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .cmpv-panel { background: #fff; border-radius: 8px; padding: 14px; max-height: 94vh; display: flex; flex-direction: column; box-shadow: 0 12px 48px rgba(0,0,0,.4); }
+  .cmpv-head { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 10px; }
+  .cmpv-cap { font-size: 13px; font-weight: 700; color: #1A2B33; }
+  .cmpv-close { font-family: Georgia, serif; font-size: 12px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+  .cmpv-img { max-height: 86vh; max-width: 86vw; width: auto; height: auto; border: 1px solid #E2E6EA; }
   ${CMS_DROPDOWN_CSS}
+  @media (max-width: 768px) { .sidebar { display: none; } .container { margin-left: 0; } }
 </style></head>
 <body>
 <div class="top-bar">
@@ -4054,7 +4193,164 @@ function renderTypesStubPage(req) {
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
-<div class="container"><h2>Type Content editor</h2><p>The per-type content editor (type_*.*) is coming in a later PR. This route is a placeholder.</p></div>
+<nav class="sidebar"><div class="spy-title">Types</div>${links.join('')}</nav>
+<div class="container">
+  <div class="summary">Editing type content (<b>type_*.*</b>). Published edits go live on the next report render; drafts do not. Status — <b>${nPub}</b> published · <b>${nDraft}</b> draft · <b>${nUnmod}</b> unmodified (of 108 fields across 9 types). <b>${typesWithPub}</b>/9 types have at least one published edit.</div>
+  ${cards.join('')}
+</div>
+<div id="cms-preview-modal" class="cmpv-overlay" style="display:none" onclick="if(event.target===this)cmsClosePreview()">
+  <div class="cmpv-panel">
+    <div class="cmpv-head"><span class="cmpv-cap"></span><button type="button" class="cmpv-close" onclick="cmsClosePreview()">✕ Close</button></div>
+    <img class="cmpv-img" alt="page preview">
+  </div>
+</div>
+<script>
+  var CMS_TEMPLATE = ${templateJson};
+  var CMS_BASELINE = ${baselineJson};
+  var CMS_STATUS = ${statusJson};
+</script>
+<script>
+  function cmsCardEl(key) { return document.querySelector('[data-card-key="' + key + '"]'); }
+  function cmsPreview(key) {
+    var card = cmsCardEl(key); if (!card) return;
+    var btn = card.querySelector('[data-role="preview"]'); var orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Rendering…'; }
+    var value = cmsCollect(key);
+    fetch('/admin/content/preview', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key, value: value }) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (btn) { btn.disabled = false; btn.textContent = orig; }
+        if (res.ok) { cmsShowPreview(res.png, res.page); } else { alert(res.error || 'Preview failed'); }
+      })
+      .catch(function () { if (btn) { btn.disabled = false; btn.textContent = orig; } alert('Preview request failed'); });
+  }
+  function cmsShowPreview(png, label) {
+    var m = document.getElementById('cms-preview-modal'); if (!m) return;
+    m.querySelector('.cmpv-cap').textContent = label || 'Preview';
+    m.querySelector('.cmpv-img').src = png;
+    m.style.display = 'flex';
+  }
+  function cmsClosePreview() {
+    var m = document.getElementById('cms-preview-modal'); if (!m) return;
+    m.style.display = 'none'; m.querySelector('.cmpv-img').src = '';
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cmsClosePreview(); });
+  function cmsSetPath(obj, path, val) {
+    if (path === '') return;
+    var segs = path.split('.'), cur = obj;
+    for (var i = 0; i < segs.length - 1; i++) { var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s]; if (cur == null) return; }
+    var last = segs[segs.length - 1];
+    cur[/^\\d+$/.test(last) ? parseInt(last, 10) : last] = val;
+  }
+  function cmsGetPath(obj, path) {
+    if (path === '') return obj;
+    var segs = path.split('.'), cur = obj;
+    for (var i = 0; i < segs.length; i++) { if (cur == null) return undefined; var s = segs[i]; cur = cur[/^\\d+$/.test(s) ? parseInt(s, 10) : s]; }
+    return cur;
+  }
+  function cmsCollect(key) {
+    var tpl = CMS_TEMPLATE[key];
+    if (typeof tpl === 'string') { var one = document.querySelector('[data-field="' + key + '"]'); return one ? one.value : tpl; }
+    var out = JSON.parse(JSON.stringify(tpl));
+    var els = document.querySelectorAll('[data-field="' + key + '"]');
+    for (var i = 0; i < els.length; i++) cmsSetPath(out, els[i].getAttribute('data-path'), els[i].value);
+    return out;
+  }
+  function cmsWc(el) {
+    var t = el.value.trim(); var n = t ? t.split(/\\s+/).length : 0;
+    var box = el.parentNode.querySelector('.wc-now'); if (box) box.textContent = n;
+    var bud = parseInt(el.getAttribute('data-budget'), 10);
+    var wrap = el.parentNode.querySelector('.wc');
+    if (bud && wrap) wrap.style.color = n > bud ? '#c0392b' : '#7A96A6';
+  }
+  function cmsInput(el) { cmsWc(el); var card = el.closest('[data-card-key]'); if (card) { card.setAttribute('data-dirty', '1'); cmsRefresh(card); } }
+  function cmsRefresh(card) {
+    var status = card.getAttribute('data-status'); var dirty = card.getAttribute('data-dirty') === '1';
+    var d = card.querySelector('[data-role="draft"]'), p = card.querySelector('[data-role="publish"]'), r = card.querySelector('[data-role="revert"]');
+    if (d) d.disabled = !dirty;
+    if (p) p.disabled = !(status === 'draft' && !dirty);
+    if (r) r.style.display = (status === 'unmodified') ? 'none' : '';
+  }
+  function cmsBadge(card, status) {
+    var b = card.querySelector('[data-role="badge"]'); if (!b) return;
+    b.className = 'badge ' + (status === 'published' ? 'pub' : status === 'draft' ? 'draft' : 'unmod');
+    b.textContent = status === 'published' ? 'Published' : status === 'draft' ? 'Draft' : 'Unmodified';
+  }
+  function cmsSetStatus(card, status) { card.setAttribute('data-status', status); cmsBadge(card, status); cmsRefresh(card); }
+  function cmsMsg(card, text, isError) {
+    var m = card.querySelector('[data-role="msg"]'); if (!m) return;
+    if (m._t) { clearTimeout(m._t); m._t = null; }
+    m.innerHTML = ''; m.style.display = 'flex';
+    var s = document.createElement('span'); s.textContent = text; s.className = isError ? 'msg-err' : 'msg-ok'; m.appendChild(s);
+    if (isError) { var x = document.createElement('button'); x.type = 'button'; x.className = 'msg-dismiss'; x.textContent = 'Dismiss'; x.onclick = function () { m.style.display = 'none'; m.innerHTML = ''; }; m.appendChild(x); }
+    else { m._t = setTimeout(function () { m.style.display = 'none'; m.innerHTML = ''; }, 3000); }
+  }
+  function cmsResetToBaseline(card, key) {
+    var base = CMS_BASELINE[key];
+    CMS_TEMPLATE[key] = (typeof base === 'string') ? base : JSON.parse(JSON.stringify(base));
+    var els = card.querySelectorAll('.cms-input');
+    for (var i = 0; i < els.length; i++) { var p = els[i].getAttribute('data-path'); var v = (typeof base === 'string') ? base : cmsGetPath(base, p); els[i].value = (v == null ? '' : v); cmsWc(els[i]); }
+  }
+  // Update the sidebar status indicator for the type a unit belongs to.
+  function cmsUpdateNav(key) {
+    var m = /^(type_[1-9])\\./.exec(key); if (!m) return;
+    var cardId = 'card-' + m[1].replace(/\\./g, '-');
+    var card = document.getElementById(cardId); if (!card) return;
+    var units = card.querySelectorAll('[data-card-key]'), statuses = [];
+    for (var i = 0; i < units.length; i++) statuses.push(units[i].getAttribute('data-status'));
+    var worst = statuses.indexOf('draft') >= 0 ? 'draft' : statuses.indexOf('published') >= 0 ? 'published' : 'unmodified';
+    var cls = worst === 'published' ? 'pub' : worst === 'draft' ? 'draft' : 'unmod';
+    var st = document.querySelector('.sub-link[data-subtype="' + cardId + '"] [data-role="navstat"]');
+    if (st) { st.className = 'sub-stat ' + cls; st.textContent = worst === 'published' ? 'Published' : worst === 'draft' ? 'Draft' : 'Unmodified'; }
+  }
+  function cmsSave(key, action) {
+    var card = cmsCardEl(key); if (!card) return;
+    var value = cmsCollect(key);
+    var d = card.querySelector('[data-role="draft"]'), p = card.querySelector('[data-role="publish"]');
+    var btn = action === 'draft' ? d : p; var orig = btn.textContent;
+    d.disabled = true; p.disabled = true; btn.textContent = action === 'draft' ? 'Saving…' : 'Publishing…';
+    fetch('/admin/content/' + action, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key, value: value }) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        btn.textContent = orig;
+        if (res.ok) {
+          CMS_TEMPLATE[key] = value; CMS_STATUS[key] = (action === 'draft') ? 'draft' : 'published';
+          card.setAttribute('data-dirty', '0');
+          cmsSetStatus(card, action === 'draft' ? 'draft' : 'published');
+          cmsMsg(card, action === 'draft' ? 'Saved as draft' : 'Published', false);
+          cmsUpdateNav(key);
+        } else { cmsRefresh(card); cmsMsg(card, res.error || 'Save failed', true); }
+      })
+      .catch(function () { btn.textContent = orig; cmsRefresh(card); cmsMsg(card, 'Request failed', true); });
+  }
+  function cmsRevert(key) {
+    if (!confirm('Revert ' + key + ' to baseline? This deletes any draft or published override for this field.')) return;
+    var card = cmsCardEl(key); if (!card) return;
+    var r = card.querySelector('[data-role="revert"]'); var orig = r.textContent;
+    r.disabled = true; r.textContent = 'Reverting…';
+    fetch('/admin/content/revert', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ content_key: key }) })
+      .then(function (rp) { return rp.json(); })
+      .then(function (res) {
+        r.disabled = false; r.textContent = orig;
+        if (res.ok) { cmsResetToBaseline(card, key); card.setAttribute('data-dirty', '0'); cmsSetStatus(card, 'unmodified'); cmsUpdateNav(key); }
+        else { cmsMsg(card, res.error || 'Revert failed', true); }
+      })
+      .catch(function () { r.disabled = false; r.textContent = orig; cmsMsg(card, 'Request failed', true); });
+  }
+  function cmsShowSubtype(cardId) {
+    var cards = document.querySelectorAll('.subtype-card');
+    for (var i = 0; i < cards.length; i++) cards[i].style.display = (cards[i].id === cardId) ? '' : 'none';
+    var links = document.querySelectorAll('.sub-link');
+    for (var j = 0; j < links.length; j++) links[j].classList.toggle('active', links[j].getAttribute('data-subtype') === cardId);
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    var units = document.querySelectorAll('[data-card-key]');
+    for (var i = 0; i < units.length; i++) { units[i].setAttribute('data-dirty', '0'); cmsRefresh(units[i]); }
+    var inputs = document.querySelectorAll('.cms-input');
+    for (var j = 0; j < inputs.length; j++) cmsWc(inputs[j]);
+    cmsShowSubtype('${firstId}');
+  });
+</script>
 </body></html>`;
 }
 
@@ -4072,9 +4368,10 @@ app.get('/admin/content/subtypes', requireSuperAdmin, async (req, res) => {
   res.send(renderSubtypesPage(overrides, req));
 });
 
-app.get('/admin/content/types', requireSuperAdmin, (req, res) => {
+app.get('/admin/content/types', requireSuperAdmin, async (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(renderTypesStubPage(req));
+  const overrides = await contentOverrides.getAllOverrides();
+  res.send(renderTypesPage(overrides, req));
 });
 
 app.post('/admin/content/draft', requireSuperAdmin, async (req, res) => {
