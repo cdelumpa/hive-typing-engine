@@ -17,13 +17,13 @@
       {
         "id": "q3",
         "title": "STRENGTH",
-        "text": "Which of the words or phrases you listed is your greatest strength?",
+        "text": "Which of the words or phrases you listed is your greatest strength, and why?",
         "showRef": true
       },
       {
         "id": "q4",
         "title": "SHADOW",
-        "text": "Which of the words or phrases you listed tends to be most problematic for you?",
+        "text": "Which of the words or phrases you listed tends to be most problematic for you, and why?",
         "showRef": true
       }
     ],
@@ -177,7 +177,7 @@
         {
           "id": "S6-2b",
           "dimension": "Resulting preoccupation",
-          "text": "I find myself running through worst-case scenarios figuring out how to be prepared for what might happen."
+          "text": "I find myself running through worst-case scenarios and figuring out how to be prepared for what might happen."
         },
         {
           "id": "S6-3",
@@ -204,7 +204,7 @@
         {
           "id": "S7-2b",
           "dimension": "Resulting preoccupation",
-          "text": "I find myself planning for pleasurable possibilities, generating new options, and reframing whatever feels limiting or painful."
+          "text": "I find myself imagining enjoyable possibilities, generating new options, and reframing negatives into positives."
         },
         {
           "id": "S7-3",
@@ -263,7 +263,7 @@
         {
           "id": "S9-3",
           "dimension": "Energy",
-          "text": "I put a lot of energy into accommodating others, staying comfortable, and avoiding friction."
+          "text": "I put a lot of energy into accommodating others, staying comfortable, and keeping the peace."
         },
         {
           "id": "S9-4",
@@ -282,7 +282,7 @@
         {
           "id": "I1-SP-2",
           "dimension": "Enough / resources",
-          "text": "I keep track of whether I have enough resources (money, supplies, energy, time, etc) to ensure comfort and survival."
+          "text": "I keep track of whether I have enough resources (money, supplies, energy, time, etc.) to ensure comfort and survival."
         },
         {
           "id": "I1-SP-3",
@@ -314,12 +314,12 @@
         {
           "id": "I1-SO-3",
           "dimension": "Social landscape",
-          "text": "I notice the social landscape — who’s connected to whom, who’s in, who’s on the outside."
+          "text": "I notice the social landscape — who’s connected to whom, who’s in, and who’s out."
         },
         {
           "id": "I1-SO-4",
           "dimension": "Larger belonging",
-          "text": "I am pulled toward something larger than myself: a cause, a community, a group I want to be part of."
+          "text": "I am pulled toward something larger than myself: a cause, a community, or a group I want to be part of."
         },
         {
           "id": "I1-SO-5",
@@ -520,7 +520,7 @@
       },
       "2-9": {
         "label": "Being Unloved vs. Disrupted Peace",
-        "personA": "Feeling disconnected or unappreciated by people who matter to me, like my presence doesn’t make a difference to them.",
+        "personA": "Feeling disconnected or unappreciated by people who matter to me, like my help doesn’t make a difference to them.",
         "personB": "Feeling pulled into conflict or tension I didn’t create. Having my sense of inner peace disrupted by other people’s agendas is hard to take."
       },
       "3-7": {
@@ -546,7 +546,7 @@
       "5-9": {
         "label": "Energy Conservation vs. Tension Avoidance",
         "personA": "Feeling depleted by too much engagement or contact. When people need too much from me, I feel my resources running out and I need to withdraw to recover.",
-        "personB": "Feeling pressured to assert myself or take a strong position. When there’s conflict or expectation, I find it easier to go along or disengage than to push back."
+        "personB": "Feeling pressured to assert myself or take a strong position. When there’s potential conflict, I find it easier to go along or disengage than to push back."
       },
       "6-8": {
         "label": "Managed Fear vs. Denied Vulnerability",
@@ -606,7 +606,7 @@
       "2-8": {
         "label": "Being Unappreciated vs. Being Overpowered",
         "personA": "Giving myself to people and feeling like it didn’t matter to them. Being taken for granted by someone I’ve supported is genuinely hard to take.",
-        "personB": "Being put in a position where someone else holds power over me. I’d far rather take charge than risk being dependent or controlled."
+        "personB": "Being put in a position where someone else holds power over me. I’d much rather take charge than risk being dependent or controlled."
       },
       "3-6": {
         "label": "Results vs. Planning",
@@ -620,12 +620,12 @@
       },
       "5-7": {
         "label": "Depletion vs. Constraint",
-        "personA": "Having too much asked of me before I’m ready, draining my energy and space. When that happens, I pull back to protect what I have left.",
+        "personA": "Having too much asked of me before I’m ready, draining my energy. When that happens, I pull back to protect what I have left.",
         "personB": "Being limited to too few options, or stuck in something that’s gone flat. I keep my options open so I never feel cornered."
       },
       "5-8": {
         "label": "Intrusion vs. Vulnerability",
-        "personA": "Being intruded upon, or having more asked of me than I can give. My instinct is to withdraw and make myself small until I feel ready.",
+        "personA": "Being intruded upon, or having more asked of me than I can give. My instinct is to withdraw until I feel ready to connect.",
         "personB": "Being made to feel weak or dependent on anyone. My instinct is to take up space and make sure I’m not in a position to be controlled."
       },
       "6-9": {
@@ -641,7 +641,7 @@
         "counterType": 7,
         "lookalike": 2,
         "personA": "I am sharing what I love with the people around me. I feel engaged, generous, and genuinely happy, and I want others to experience that same aliveness I feel.",
-        "personB": "I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected, and I need to feel that my presence matters to them."
+        "personB": "I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected, and I need to feel that my help matters to them."
       },
       "SX-6": {
         "ctId": "CT-2",
@@ -656,7 +656,7 @@
         "label": "SP 3 vs. Type 1",
         "counterType": 3,
         "lookalike": 1,
-        "personA": "I am getting things done and building something solid. I feel capable and self-sufficient, and I don’t need recognition, just to know I’ve made it on my own terms.",
+        "personA": "I am getting things done and building something solid. I feel capable and self-sufficient, and I don’t need recognition. It is enough for me to know I’ve made it on my own terms.",
         "personB": "I am doing things the right way. I feel principled and in integrity, and anything less than my own standard would feel like a betrayal of who I am."
       },
       "SP-4": {
@@ -664,7 +664,7 @@
         "label": "SP 4 vs. Type 3",
         "counterType": 4,
         "lookalike": 3,
-        "personA": "I am proving something, to myself more than anyone else. I feel driven and resilient, like I’m refusing to be defeated by a sense of not being enough.",
+        "personA": "I am proving something to myself more than anyone else. I feel driven and resilient, like I’m refusing to be defeated by a sense of not being enough.",
         "personB": "I am achieving something meaningful. I feel capable, successful, and recognized, and I want the people who matter to see that I’ve done well."
       },
       "SX-1": {
@@ -672,7 +672,7 @@
         "label": "SX 1 vs. Type 8",
         "counterType": 1,
         "lookalike": 8,
-        "personA": "I am fighting for something that genuinely matters. I feel intensely alive when I’m up against something wrong, with a standard at stake I won’t back down from.",
+        "personA": "I am fighting for something that genuinely matters. I feel intensely alive when I’m up against something wrong, with a standard at stake that I won’t back down from.",
         "personB": "I am fully in control and unbothered. I feel powerful and clear, and I push hard because I won’t be limited or told what I can’t do."
       }
     },
@@ -681,71 +681,71 @@
     "STAGE4_HABIT_STEM": "Without trying to control it, where does your attention tend to go first in most situations?",
     "STAGE4_STRESS": {
       "1": [
-        "I become weighed down with emotion. I start dwelling on what others have naturally that I don’t and I long to be whole.",
-        "I become more anxious and suspicious. I start worrying about what could go wrong and need reassurance that things will be okay.",
+        "I become weighed down with sadness. I start dwelling on what others have naturally that I don’t and I long to be whole.",
+        "I throw myself into achieving something. I push distractions aside, focus on what I can accomplish, and measure my worth by what I can visibly produce.",
         "I go numb and withdraw. I go along to get along, hoping that will restore the peace both internally and externally."
       ],
       "2": [
         "I get angry, forceful, and confrontational. My usual warm and giving self disappears and I become demanding, blunt, or even aggressive about what I need.",
         "I become hypervigilant about who I can trust. I get suspicious and start needing reassurance that the people in my life are actually there for me.",
-        "I turn inward and become absorbed in how I’m feeling. I pull away from others and get lost in my own emotional world."
+        "I detach and go quiet. I stop engaging with people’s needs entirely and retreat into my own head, needing to think things through on my own before I can face anyone."
       ],
       "3": [
-        "I shut down. The drive and ambition that usually feel effortless just vanish and I find myself checked out and disengaged.",
-        "I become anxious and start second-guessing myself. I lose confidence in my own judgment and need others to tell me I’m on the right track.",
-        "I become overly focused on others and what they need. I shift into caretaking mode as a way to feel needed and connected."
+        "I shut down. The drive and ambition that usually feel effortless vanish and I find myself checked out and disengaged.",
+        "I lose focus and start jumping between things. Nothing holds my attention and I find myself chasing whatever feels stimulating, unable to settle on any one thing.",
+        "I become combative and start pushing hard. I stop being strategic about how I come across and just start forcing things, needing to feel like I’m in control of something."
       ],
       "4": [
         "I become overly helpful and acutely aware of what others need. I set my own needs aside and seek the appreciation of others.",
-        "I become self-critical and rigid. I get fixated on what I’ve done wrong and feel a strong pull to correct myself.",
+        "I become hypervigilant and start looking for what could go wrong. I get caught up in worst-case scenarios and find myself needing to know that things are going to be okay.",
         "I go into overdrive seeking stimulation. I start filling my schedule and looking for the next thing that will make me feel alive again."
       ],
       "5": [
         "I become scattered and overextended. I start taking on too much, chasing new ideas, and lose the focused stillness that usually grounds me.",
-        "I become reactive and forceful. I lose my usual calm detachment and feel an intense need to push back and take control.",
-        "I become more anxious and catastrophizing. I lose my objective detachment and start spiraling into what could go wrong."
+        "I become preoccupied with how others are doing. I find myself checking in, offering help, and seeking connection — almost as if staying close to people will quiet something that’s unsettled inside me.",
+        "I go foggy and check out. I lose my own thread entirely, drift into whatever’s easiest, and stop being able to tell what I actually think."
       ],
       "6": [
         "I become hyper-focused on getting after my own goals. I get driven and image-conscious and start pushing hard to make things happen and be seen as capable.",
-        "I become forceful and combative. I stop hesitating and start pushing hard — I need to feel powerful and in control.",
-        "I check out and go numb. I stop engaging with the anxiety and just try to get through it by not feeling anything."
+        "I become domineering and start bulldozing through things. I stop second-guessing and just act — needing to feel like I’m the one calling the shots.",
+        "I become rigid and critical, fixating on everything that isn’t being done correctly and feeling a hard edge of irritation when it isn’t."
       ],
       "7": [
         "I become critical and perfectionistic. I lose my lightness and get fixated on what’s wrong, what’s not good enough, and what needs to be corrected.",
         "I become emotionally flooded and self-absorbed. I get lost in longing for what’s missing and find it hard to focus on anything else.",
-        "I withdraw and go quiet. I stop engaging and start retreating into my own world, needing a lot of alone time to recover."
+        "I become preoccupied with keeping everyone around me happy. I throw myself into smoothing things over and meeting others’ needs, anxious about the connections feeling shaky."
       ],
       "8": [
         "I disengage and go silent. I pull back, observe from a distance, and become protective of my space and privacy.",
-        "I become more giving and focused on others. I move toward people and shift into support mode, wanting to feel needed.",
-        "I become more driven and performance-focused. I push myself harder to stay productive and appear capable under pressure."
+        "I sink into my own feelings and pull away. I get caught up in a sense that something’s missing or that I’ve been let down, and I dwell on it more than I’d like to admit.",
+        "I lose my certainty and start second-guessing every move. I hesitate, look for input before acting, and feel uneasy committing to a decision on my own."
       ],
       "9": [
         "I become anxious and hypervigilant. The usual peace disappears and I start worrying about what could go wrong and whether I’m prepared.",
-        "I become emotionally flooded and withdrawn. I get absorbed in my feelings and pull away from people and obligations.",
-        "I become driven and task-focused. I throw myself into productivity to avoid feeling what’s happening under the surface."
+        "I get analytical and detached. I start dissecting the problem from a distance, wanting to understand exactly how it works before I’ll let myself act.",
+        "I quickly reframe everything in a positive light and start brainstorming options. I get excited about all the ways things could work out and want to keep my choices open."
       ]
     },
     "STAGE4_SECURITY": {
       "1": [
         "I become lighter, more playful, and spontaneous. I stop being so hard on myself and find it easier to enjoy things without worrying about doing them perfectly.",
-        "I become warmer and more focused on others. I want to give more and feel more connected to the people I care about.",
+        "I feel powerful and ready to take charge. Nothing intimidates me — I push forward hard, take up space, and make things happen on my terms.",
         "I become more reflective and emotionally open. I drop the doing and let myself just feel and be for a while."
       ],
       "2": [
         "I turn inward and become introspective. I stop trying to take care of others and allow myself to focus on how I’m feeling and what I need.",
-        "I become easier to be around and less agenda-driven. I stop pushing so hard to be needed and let myself just relax and enjoy things.",
+        "I become more self-contained and reflective. I step back, conserve my energy, and feel content with my own company.",
         "I become more playful and spontaneous. I stop focusing on what others need and let myself just explore and enjoy things freely."
       ],
       "3": [
         "I care more about the people around me and feel a stronger sense of loyalty to them. I realize I don’t need to go it alone and actually want us to win together.",
-        "I slow down and become more easygoing. I stop needing to achieve and just let myself be present without an agenda.",
-        "I become more spontaneous and curious. I stop focusing on goals and let myself just explore and enjoy what’s in front of me."
+        "I get more direct and unfiltered. I stop managing how I come across and just say what I really think, without worrying about the impression I’m making.",
+        "I become more self-contained and clear-headed. I stop performing and step back to think things through on my own, content without the audience."
       ],
       "4": [
         "I become more grounded, disciplined, and action-oriented. I stop dwelling on what’s missing and start doing, with a clearer sense of what’s right and what needs to happen.",
         "I become lighter and more optimistic. I stop focusing on what’s wrong and let myself enjoy what’s actually good in my life.",
-        "I become more outward-focused and giving. I stop dwelling on myself and feel genuinely energized by helping and connecting with others."
+        "I become more at peace and accepting. The longing quiets down and I settle into an easy contentment with things just as they are."
       ],
       "5": [
         "I become more present, decisive, and action-oriented. I step into the world with confidence and feel energized by direct engagement rather than observation.",
@@ -759,7 +759,7 @@
       ],
       "7": [
         "I become quieter, more focused, and genuinely still. I stop needing to share and stimulate and find deep satisfaction in solitude and going deep on one thing.",
-        "I become more easygoing and present. I stop planning ahead and let myself just be where I am without needing something else to be happening.",
+        "I become more attuned to the people around me. My energy shifts toward caring for others and I feel fulfilled by making them feel seen and supported.",
         "I become more focused and goal-oriented. I channel my energy into building something and feel grounded by the progress I’m making."
       ],
       "8": [
@@ -770,18 +770,18 @@
       "9": [
         "I become more focused, energized, and directed. I connect with what I actually want and feel a pull to make things happen rather than just going along.",
         "I become lighter and more playful. I stop worrying about keeping the peace and let myself just enjoy what’s in front of me.",
-        "I become warmer and more attuned. I feel a pull toward the people around me and genuinely enjoy caring for them."
+        "I become more principled and discerning. I get clearer about what actually matters to me and hold a firmer line on it."
       ]
     },
     "STAGE4_HABIT": {
       "1": [
         "To what’s wrong, imprecise, or could be improved. I notice errors, inconsistencies, and what needs fixing almost before I notice anything else.",
-        "To what could go wrong or what I might not be prepared for. I’m scanning for potential problems and threats before they materialize.",
+        "To what’s absent and the longing it stirs — a sense that something deeper or more meaningful is missing from this.",
         "To what needs to be done and how to do it efficiently. I’m already thinking about tasks, goals, and getting things moving."
       ],
       "2": [
         "To how other people are feeling and what they might need. I’m reading the room emotionally and sensing who needs something before they ask.",
-        "To the overall atmosphere and whether everyone feels comfortable. I’m aware of the group energy and pulled toward making sure things feel settled.",
+        "To gathering information and understanding how things work. I’m observing from a step back, taking in data and figuring out the underlying logic.",
         "To whether things are going to be okay and who I can rely on. I’m scanning for reliability and trying to anticipate what might go sideways."
       ],
       "3": [
@@ -796,27 +796,27 @@
       ],
       "5": [
         "To understanding the situation fully before engaging. I want to gather enough information to feel confident about what’s happening before I say or do anything.",
-        "To what could go wrong and whether I’m prepared. I find myself anticipating problems and wanting to have a plan before I’m in over my head.",
+        "To who has the upper hand and how much force is in play. I size people up fast — strong or weak, straight or evasive — and brace to assert myself if I need to.",
         "To what’s not quite right. I notice inconsistencies and gaps quickly and feel a pull to correct or clarify."
       ],
       "6": [
         "To what could go wrong or what I might not be prepared for. I’m scanning for potential problems and threats before they materialize.",
-        "To understanding the situation fully before engaging. I want enough information to feel confident before I commit to anything.",
+        "To what’s not right and needs correcting. I notice mistakes and the gap between how things are and how they should be, and I feel pulled to fix it.",
         "To the overall atmosphere and whether things feel stable. I’m drawn to keeping things easy and avoiding unnecessary disruption."
       ],
       "7": [
         "To what’s next, what’s possible, and what else is available. My mind is already moving toward new ideas, options, and what could be exciting about what’s ahead.",
         "To what needs to happen and how to make it happen quickly. I’m already thinking about goals, tasks, and getting things moving.",
-        "To the people in the room and what might make this more enjoyable for everyone. I want to create energy and connection."
+        "To what could go wrong and what I’m not prepared for. I’m scanning for problems and potential threats before they have a chance to materialize."
       ],
       "8": [
         "To the power dynamics in the room and whether power is being used fairly. I step up and take charge if I start feeling controlled or manipulated.",
-        "To what needs to happen and who’s going to make it happen. I’m assessing quickly and feel a pull to take charge if no one else is.",
+        "To gathering information and figuring out how things actually work. I observe from a step back, take in the details, and want to understand the whole picture before I’d weigh in.",
         "To potential threats and whether I can trust what’s happening. I’m scanning for danger and assessing who’s reliable."
       ],
       "9": [
         "To the overall atmosphere and whether everyone feels included and comfortable. I’m aware of the whole room and pulled toward making sure things feel settled and okay for everyone.",
-        "To who might need something. I notice quickly if someone seems left out or uncomfortable and feel a pull to help.",
+        "To what needs to get done and the most efficient way to do it. My mind goes straight to goals, next steps, and making visible progress.",
         "To what might make this more enjoyable or interesting. I’m looking for the positive angle and what could make the situation feel lighter."
       ]
     },
@@ -854,8 +854,8 @@
       "SP-3": {
         "label": "SP 3 vs. Type 1",
         "stress": {
-          "personA": "I shut down. The drive and ambition that usually feel effortless just vanish and I find myself checked out and disengaged.",
-          "personB": "I become weighed down with emotion. I start dwelling on what others have naturally that I don’t and I long to be whole."
+          "personA": "I shut down. The drive and ambition that usually feel effortless vanish and I find myself checked out and disengaged.",
+          "personB": "I become weighed down with sadness. I start dwelling on what others have naturally that I don’t and I long to be whole."
         },
         "security": {
           "personA": "I care more about the people around me and feel a stronger sense of loyalty to them. I realize I don’t need to go it alone and actually want us to win together.",
@@ -870,7 +870,7 @@
         "label": "SP 4 vs. Type 3",
         "stress": {
           "personA": "I become overly helpful and acutely aware of what others need. I set my own needs aside and seek the appreciation of others.",
-          "personB": "I shut down. The drive and ambition that usually feel effortless just vanish and I find myself checked out and disengaged."
+          "personB": "I shut down. The drive and ambition that usually feel effortless vanish and I find myself checked out and disengaged."
         },
         "security": {
           "personA": "I become more grounded, disciplined, and action-oriented. I stop dwelling on what’s missing and start doing, with a clearer sense of what’s right and what needs to happen.",
@@ -884,11 +884,11 @@
       "SX-1": {
         "label": "SX 1 vs. Type 8",
         "stress": {
-          "personA": "I become weighed down with emotion. I start dwelling on what others have naturally that I don’t and I long to be whole.",
+          "personA": "I become weighed down with sadness. I start dwelling on what others have naturally that I don’t and I long to be whole.",
           "personB": "I disengage and go silent. I pull back, observe from a distance, and become protective of my space and privacy."
         },
         "security": {
-          "personA": "I become more loyal, collaborative, and questioning. I want to check in with people I trust and think things through more carefully, and I feel less need to prove myself.",
+          "personA": "I become lighter, more playful, and spontaneous. I stop being so hard on myself and find it easier to enjoy things without worrying about doing them perfectly.",
           "personB": "I become magnanimous and open to connection. I put the armor down and allow myself to show my care and support for others."
         },
         "habit": {
@@ -923,8 +923,8 @@
       "From here it should take you no longer than 20–25 minutes. If it’s taking longer, that could mean you’re overthinking things. Trust your gut when this happens.",
       "Now, take a deep breath, hit “Continue” and have fun!"
     ],
-    "typeOpenPrompt": "Is there anything about what drives you that those statements didn’t capture? (Optional)",
-    "instinctOpenPrompt": "Is there anything about where your attention and energy naturally go that you’d like to add? (Optional)",
+    "typeOpenPrompt": "Our core motivations are often hard to pin down. If there’s something about what drives you that the previous statements didn’t capture, add it here.",
+    "instinctOpenPrompt": "Instinct patterns can be subtle. If there’s something about where your attention and energy naturally go that the statements didn’t quite land on, add it here.",
     "finalOpenQuestion": "Is there anything about how you experience the world — what drives you, what you tend to avoid, or what you’ve learned about yourself — that the assessment didn’t quite capture?",
     "finalOpenNote": "Optional — skip if nothing comes to mind.",
     "ctHeading": "Analyzing your responses…",
@@ -1012,98 +1012,98 @@
     "instinct:I1-SX-3": 278,
     "instinct:I1-SX-4": 279,
     "instinct:I1-SX-5": 280,
-    "stage2:xref-q1": 381,
-    "stage2:xref-q2": 393,
-    "stage2:xref-q3": 405,
-    "motivation:1": 444,
-    "motivation:2": 445,
-    "motivation:3": 446,
-    "motivation:4": 447,
-    "motivation:5": 448,
-    "motivation:6": 449,
-    "motivation:7": 450,
-    "motivation:8": 451,
-    "motivation:9": 452,
-    "q2pair:1-6": 462,
-    "q2pair:1-9": 463,
-    "q2pair:2-6": 464,
-    "q2pair:2-9": 465,
-    "q2pair:3-7": 466,
-    "q2pair:3-8": 467,
-    "q2pair:4-5": 468,
-    "q2pair:4-9": 469,
-    "q2pair:5-9": 470,
-    "q2pair:6-8": 471,
-    "q2pair:1-2": 473,
-    "q2pair:2-3": 474,
-    "q2pair:3-4": 475,
-    "q2pair:5-6": 476,
-    "q2pair:6-7": 477,
-    "q2pair:7-8": 478,
-    "q2pair:8-9": 479,
-    "q2pair:1-4": 481,
-    "q2pair:1-7": 482,
-    "q2pair:2-4": 483,
-    "q2pair:2-8": 484,
-    "q2pair:3-6": 485,
-    "q2pair:3-9": 486,
-    "q2pair:5-7": 487,
-    "q2pair:5-8": 488,
-    "q2pair:6-9": 489,
-    "ctpair:SO-7": 497,
-    "ctpair:SX-6": 498,
-    "ctpair:SP-3": 499,
-    "ctpair:SP-4": 500,
-    "ctpair:SX-1": 501,
-    "stage3:q1stem": 438,
-    "stage3:q2stem": 439,
-    "stage4:stressStem": 530,
-    "stage4:securityStem": 531,
-    "stage4:habitStem": 532,
-    "stress:1": 541,
-    "stress:2": 546,
-    "stress:3": 551,
-    "stress:4": 556,
-    "stress:5": 561,
-    "stress:6": 566,
-    "stress:7": 571,
-    "stress:8": 576,
-    "stress:9": 581,
-    "security:1": 589,
-    "security:2": 594,
-    "security:3": 599,
-    "security:4": 604,
-    "security:5": 609,
-    "security:6": 614,
-    "security:7": 619,
-    "security:8": 624,
-    "security:9": 629,
-    "habit:1": 637,
-    "habit:2": 642,
-    "habit:3": 647,
-    "habit:4": 652,
-    "habit:5": 657,
-    "habit:6": 662,
-    "habit:7": 667,
-    "habit:8": 672,
-    "habit:9": 677,
-    "s4ct:SO-7": 690,
-    "s4ct:SX-6": 705,
-    "s4ct:SP-3": 720,
-    "s4ct:SP-4": 735,
-    "s4ct:SX-1": 750,
-    "prose:welcomeHeading": 1476,
-    "prose:welcomeBody": 1478,
-    "prose:mid": 1615,
-    "prose:typeOpenPrompt": 1699,
-    "prose:instinctOpenPrompt": 1700,
-    "prose:finalOpenQuestion": 1566,
-    "prose:ct": 1646,
-    "prose:call1": 1661,
-    "prose:call1Done": 1658,
-    "prose:processing": 2209,
-    "prose:confirmation": 1547,
-    "prose:error": 2220,
-    "prose:fourWay": 1984
+    "stage2:xref-q1": 382,
+    "stage2:xref-q2": 394,
+    "stage2:xref-q3": 406,
+    "motivation:1": 445,
+    "motivation:2": 446,
+    "motivation:3": 447,
+    "motivation:4": 448,
+    "motivation:5": 449,
+    "motivation:6": 450,
+    "motivation:7": 451,
+    "motivation:8": 452,
+    "motivation:9": 453,
+    "q2pair:1-6": 463,
+    "q2pair:1-9": 464,
+    "q2pair:2-6": 465,
+    "q2pair:2-9": 466,
+    "q2pair:3-7": 467,
+    "q2pair:3-8": 468,
+    "q2pair:4-5": 469,
+    "q2pair:4-9": 470,
+    "q2pair:5-9": 471,
+    "q2pair:6-8": 472,
+    "q2pair:1-2": 474,
+    "q2pair:2-3": 475,
+    "q2pair:3-4": 476,
+    "q2pair:5-6": 477,
+    "q2pair:6-7": 478,
+    "q2pair:7-8": 479,
+    "q2pair:8-9": 480,
+    "q2pair:1-4": 482,
+    "q2pair:1-7": 483,
+    "q2pair:2-4": 484,
+    "q2pair:2-8": 485,
+    "q2pair:3-6": 486,
+    "q2pair:3-9": 487,
+    "q2pair:5-7": 488,
+    "q2pair:5-8": 489,
+    "q2pair:6-9": 490,
+    "ctpair:SO-7": 498,
+    "ctpair:SX-6": 499,
+    "ctpair:SP-3": 500,
+    "ctpair:SP-4": 501,
+    "ctpair:SX-1": 502,
+    "stage3:q1stem": 439,
+    "stage3:q2stem": 440,
+    "stage4:stressStem": 531,
+    "stage4:securityStem": 532,
+    "stage4:habitStem": 533,
+    "stress:1": 542,
+    "stress:2": 547,
+    "stress:3": 552,
+    "stress:4": 557,
+    "stress:5": 562,
+    "stress:6": 567,
+    "stress:7": 572,
+    "stress:8": 577,
+    "stress:9": 582,
+    "security:1": 590,
+    "security:2": 595,
+    "security:3": 600,
+    "security:4": 605,
+    "security:5": 610,
+    "security:6": 615,
+    "security:7": 620,
+    "security:8": 625,
+    "security:9": 630,
+    "habit:1": 638,
+    "habit:2": 643,
+    "habit:3": 648,
+    "habit:4": 653,
+    "habit:5": 658,
+    "habit:6": 663,
+    "habit:7": 668,
+    "habit:8": 673,
+    "habit:9": 678,
+    "s4ct:SO-7": 691,
+    "s4ct:SX-6": 706,
+    "s4ct:SP-3": 721,
+    "s4ct:SP-4": 736,
+    "s4ct:SX-1": 751,
+    "prose:welcomeHeading": 1683,
+    "prose:welcomeBody": null,
+    "prose:mid": 2002,
+    "prose:typeOpenPrompt": 2078,
+    "prose:instinctOpenPrompt": 2079,
+    "prose:finalOpenQuestion": 1947,
+    "prose:ct": null,
+    "prose:call1": null,
+    "prose:call1Done": null,
+    "prose:processing": 2361,
+    "prose:confirmation": null,
+    "prose:error": 2372,
+    "prose:fourWay": 2047
   }
 }
