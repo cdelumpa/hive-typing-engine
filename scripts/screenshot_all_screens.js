@@ -54,11 +54,6 @@
  *     'confirmation' screen ("Your report is on its way"). Captured as such.
  *   - 'finalopen' (final optional open question) and 'error' screens exist in
  *     code but aren't in the brief — captured as extras.
- *   - 'stage1complete' is a STALE dev/debug screen. Its render reads legacy
- *     fields (identifiedCenter, typeHypotheses, etc.) that v2 scoreStage1Profile
- *     no longer produces, so it would throw under real v2 scores and is
- *     UNREACHABLE in the live flow. Captured with synthesized legacy scores and
- *     clearly labelled, for completeness only.
  *
  * CONDITIONAL BRANCHES — standard branch captured; alternates noted as TODO:
  *   - Stage 3: captured STANDARD pairwise (Q1 core-motivation, single question).
@@ -286,19 +281,6 @@ function applyScreen(spec) {
       app.innerHTML = renderError();
       break;
 
-    case 'stage1complete':
-      // STALE dev screen — synthesize the legacy v1-shaped scores it still reads
-      // so it renders instead of throwing. Not reachable in the live v2 flow.
-      state.scores = {
-        identifiedCenter: 'Head', secondCenter: 'Heart', centerGap: 4, centerConfidence: 'moderate',
-        identifiedInstinct: 'SP', instinctGap: 6, instinctConfidence: 'high',
-        typeHypotheses: [6, 3, 9], counterTypeFlag: 'NO', counterTypeCombination: '',
-        head: 13, heart: 9, body: 7, sp: 15, so: 8, sx: 5,
-        stage2: null, stage3: null, stage4: null,
-      };
-      app.innerHTML = renderStage1Complete();
-      break;
-
     default:
       throw new Error('unknown screen kind: ' + spec.kind);
   }
@@ -343,7 +325,6 @@ const SCREENS = [
   { n: 29, slug: 'processing_call2',             spec: { kind: 'processing' } },
   { n: 30, slug: 'confirmation_client_end',      spec: { kind: 'confirmation' } },
   { n: 31, slug: 'error',                        spec: { kind: 'error' } },
-  { n: 32, slug: 'stage1complete_stale_debug',   spec: { kind: 'stage1complete' } },
 ];
 
 const pad2 = (n) => String(n).padStart(2, '0');
