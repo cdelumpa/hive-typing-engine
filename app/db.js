@@ -118,6 +118,13 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_by TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS beta_report_generated_at TIMESTAMPTZ;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS beta_report_filename TEXT;
 
+-- Per-assessment beta-tester flag. Set on the client via the admin profile modal
+-- and mirrored onto each assessment row at creation (see createAssessment), so a
+-- retake by a beta tester inherits is_beta = TRUE from the client row. This
+-- supersedes the global app_settings.beta_mode_enabled switch (retired in a later PR).
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_beta BOOLEAN DEFAULT FALSE;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS is_beta BOOLEAN DEFAULT FALSE;
+
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS session_state JSONB DEFAULT NULL;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS reminder_sent_at JSONB DEFAULT NULL;
 
@@ -142,6 +149,19 @@ CREATE TABLE IF NOT EXISTS app_settings (
 INSERT INTO app_settings (id, beta_mode_enabled)
 VALUES (1, FALSE)
 ON CONFLICT (id) DO NOTHING;
+
+-- Beta feedback: one row per beta tester's post-submit feedback submission.
+-- Cascades on assessment delete so feedback never outlives its assessment.
+CREATE TABLE IF NOT EXISTS beta_feedback (
+  id SERIAL PRIMARY KEY,
+  assessment_id INTEGER REFERENCES assessments(id) ON DELETE CASCADE,
+  self_hypothesis_types JSONB,
+  self_hypothesis_instincts JSONB,
+  flagged_keys JSONB,
+  block_b_answers JSONB,
+  overall_notes TEXT,
+  submitted_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS edit_history (
   id             SERIAL PRIMARY KEY,
@@ -254,9 +274,14 @@ async function createClient(intake, coachId) {
 }
 
 async function createAssessment(clientId, responses, retakeOfAssessmentId = null) {
+  // is_beta is mirrored from the client row at creation via subselect, so the
+  // mirror is atomic with the insert and a beta tester's retake inherits the flag
+  // without a separate round-trip. COALESCE guards a null/missing client row.
   const r = await query(
-    `INSERT INTO assessments (client_id, status, responses, retake_of_assessment_id)
-     VALUES ($1, 'processing', $2, $3) RETURNING id`,
+    `INSERT INTO assessments (client_id, status, responses, retake_of_assessment_id, is_beta)
+     VALUES ($1, 'processing', $2, $3,
+             COALESCE((SELECT is_beta FROM clients WHERE id = $1), FALSE))
+     RETURNING id`,
     [clientId, JSON.stringify(responses), retakeOfAssessmentId]
   );
   return r && r.rows.length > 0 ? r.rows[0].id : null;
@@ -530,7 +555,7 @@ async function getTokenWithClient(token) {
     SELECT ct.id AS token_id, ct.client_id, ct.expires_at, ct.used_at,
            c.first_name, c.last_name, c.email, c.organization, c.status AS client_status,
            c.stage0_signal, c.ct_adjustment, c.responses_snapshot,
-           c.session_state,
+           c.session_state, c.is_beta,
            co.name AS coach_name, co.id AS coach_id, co.email AS coach_email
     FROM client_tokens ct
     JOIN clients c ON c.id = ct.client_id
@@ -735,6 +760,51 @@ async function stampBetaReport(clientId) {
   );
 }
 
+// ─── Beta feedback (per-assessment is_beta flow) ───────────────────────────────
+
+// Set/clear the beta-tester flag on a client. The assessment row inherits this
+// at creation (see createAssessment), so toggling here governs future assessments.
+async function setClientBeta(clientId, isBeta) {
+  await query('UPDATE clients SET is_beta = $1 WHERE id = $2', [!!isBeta, clientId]);
+}
+
+// Insert a beta tester's post-submit feedback. JSONB columns are stringified; the
+// pg driver also accepts objects for JSONB, but we stringify to match the rest of
+// this file's insert style (e.g. createAssessment, saveClientSessionState).
+async function insertBetaFeedback({ assessmentId, selfHypothesisTypes, selfHypothesisInstincts, flaggedKeys, blockBAnswers, overallNotes }) {
+  const r = await query(
+    `INSERT INTO beta_feedback
+       (assessment_id, self_hypothesis_types, self_hypothesis_instincts, flagged_keys, block_b_answers, overall_notes)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id`,
+    [
+      assessmentId,
+      JSON.stringify(selfHypothesisTypes ?? null),
+      JSON.stringify(selfHypothesisInstincts ?? null),
+      JSON.stringify(flaggedKeys ?? null),
+      JSON.stringify(blockBAnswers ?? null),
+      overallNotes ?? null,
+    ]
+  );
+  return r && r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// Latest feedback row for one assessment, or null if none.
+async function getBetaFeedback(assessmentId) {
+  const r = await query(
+    'SELECT * FROM beta_feedback WHERE assessment_id = $1 ORDER BY submitted_at DESC LIMIT 1',
+    [assessmentId]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// All feedback rows, newest first — backs the /admin/beta-review list and the
+// cross-record re-analyze pass.
+async function getAllBetaFeedback() {
+  const r = await query('SELECT * FROM beta_feedback ORDER BY submitted_at DESC');
+  return r ? r.rows : [];
+}
+
 async function saveClientSessionState(clientId, sessionState) {
   await query(
     'UPDATE clients SET session_state = $1 WHERE id = $2',
@@ -848,6 +918,10 @@ module.exports = {
   getBetaModeEnabled,
   setBetaModeEnabled,
   stampBetaReport,
+  setClientBeta,
+  insertBetaFeedback,
+  getBetaFeedback,
+  getAllBetaFeedback,
   saveClientSessionState,
   clearClientSessionState,
   getAbandonedClients,

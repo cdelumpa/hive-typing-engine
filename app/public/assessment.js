@@ -532,6 +532,22 @@ const STAGE4_STRESS_STEM = 'When you\u2019re under significant and prolonged str
 const STAGE4_SECURITY_STEM = 'When you feel genuinely safe, relaxed, and at ease \u2014 when the pressure is off \u2014 which of these feels most like how you show up?';
 const STAGE4_HABIT_STEM = 'Without trying to control it, where does your attention tend to go first in most situations?';
 
+// =================== BETA FLAG KEYS — STAGE 3/4 SYNTHETIC STEM KEYS ===================
+
+// Stages 0/1/2 expose stable per-item ids that the beta flag store keys on directly
+// (Stage 0 q1-q4; Stage 1 S{type}-N and I1-{instinct}-N; Stage 2 xref-qN). Stage 3
+// and Stage 4 stems, however, are shared `const` strings with no per-item id, so the
+// beta feature mints stable synthetic keys for them here. This map is the single
+// source of truth shared by the flag store, the post-submit review screen, and the
+// /admin/beta-review Tab 1 frequency table — do not inline these key strings elsewhere.
+const BETA_STEM_KEYS = {
+  'S3-Q1':       STAGE3_Q1_STEM,
+  'S3-Q2':       STAGE3_Q2_STEM,
+  'S4-stress':   STAGE4_STRESS_STEM,
+  'S4-security': STAGE4_SECURITY_STEM,
+  'S4-habit':    STAGE4_HABIT_STEM,
+};
+
 // For each type, a three-option question. Index 0 is the CORRECT answer
 // (the canonical stress/security/habit pattern for that type). Indexes 1 and 2
 // are alternative energies (annotated in comments) used as distractors.
