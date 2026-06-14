@@ -253,10 +253,22 @@ async function createClient(intake, coachId) {
   return r && r.rows.length > 0 ? r.rows[0].id : null;
 }
 
-async function createAssessment(clientId, responses) {
+async function createAssessment(clientId, responses, retakeOfAssessmentId = null) {
   const r = await query(
-    `INSERT INTO assessments (client_id, status, responses) VALUES ($1, 'processing', $2) RETURNING id`,
-    [clientId, JSON.stringify(responses)]
+    `INSERT INTO assessments (client_id, status, responses, retake_of_assessment_id)
+     VALUES ($1, 'processing', $2, $3) RETURNING id`,
+    [clientId, JSON.stringify(responses), retakeOfAssessmentId]
+  );
+  return r && r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// Latest assessment id for a client (by created_at), or null if none. Used by
+// /api/submit to stamp retake_of_assessment_id: a client who already has an
+// assessment is taking a retake, so the new row points at the prior one.
+async function getLatestAssessmentId(clientId) {
+  const r = await query(
+    'SELECT id FROM assessments WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1',
+    [clientId]
   );
   return r && r.rows.length > 0 ? r.rows[0].id : null;
 }
@@ -319,29 +331,52 @@ async function createReport(assessmentId, reportType, pdfPath) {
   );
 }
 
-async function getAdminRows() {
-  const r = await query(`
-    SELECT
-      c.id            AS client_id,
-      c.first_name,
-      c.last_name,
-      a.id            AS assessment_id,
-      a.confirmed_type,
-      a.confirmed_instinct,
-      a.instinct_confidence,
-      a.confidence_level,
-      co.name         AS coach_name,
-      a.created_at,
-      a.status,
-      r_cl.pdf_path   AS client_pdf,
-      r_co.pdf_path   AS coach_pdf
-    FROM clients c
-    LEFT JOIN assessments a  ON a.client_id = c.id
-    LEFT JOIN coaches co      ON co.id = c.coach_id
-    LEFT JOIN reports r_cl    ON r_cl.assessment_id = a.id AND r_cl.report_type = 'client'
-    LEFT JOIN reports r_co    ON r_co.assessment_id = a.id AND r_co.report_type = 'coach'
-    ORDER BY a.created_at DESC NULLS LAST
-  `);
+// Shared SELECT for the admin dashboard rows. One row per (client, assessment) —
+// a client with a retake yields multiple rows. retake_of_assessment_id drives the
+// "Retake" badge in the renderer. getAdminRowsByCoach appends a coach filter;
+// getAllAdminRows (super-admin all-clients view) does not.
+const ADMIN_ROWS_SELECT = `
+  SELECT
+    c.id            AS client_id,
+    c.first_name,
+    c.last_name,
+    c.email,
+    c.status        AS client_status,
+    a.id            AS assessment_id,
+    a.confirmed_type,
+    a.confirmed_instinct,
+    a.instinct_confidence,
+    a.confidence_level,
+    a.retake_of_assessment_id,
+    co.name         AS coach_name,
+    COALESCE(a.created_at, c.created_at) AS created_at,
+    COALESCE(a.status, c.status, 'unknown') AS status,
+    r_cl.pdf_path   AS client_pdf,
+    r_co.pdf_path   AS coach_pdf,
+    a.pdf_generated_at,
+    a.email_sent_at,
+    (a.scores_snapshot IS NOT NULL) AS has_scores_snapshot,
+    (a.api_result IS NOT NULL)      AS has_api_result,
+    a.elapsed_seconds,
+    a.session_days,
+    a.assessment_started_at,
+    a.assessment_completed_at,
+    c.beta_report_generated_at,
+    c.beta_report_filename
+  FROM clients c
+  LEFT JOIN assessments a  ON a.client_id = c.id
+  LEFT JOIN coaches co      ON co.id = c.coach_id
+  LEFT JOIN reports r_cl    ON r_cl.assessment_id = a.id AND r_cl.report_type = 'client'
+  LEFT JOIN reports r_co    ON r_co.assessment_id = a.id AND r_co.report_type = 'coach'
+`;
+
+// Super-admin all-clients view: every client across every coach. Coaches who are
+// not super-admins use getAdminRowsByCoach (coach-scoped) instead.
+async function getAllAdminRows() {
+  const r = await query(
+    `${ADMIN_ROWS_SELECT}
+     ORDER BY COALESCE(a.created_at, c.created_at) DESC NULLS LAST`
+  );
   return r ? r.rows : [];
 }
 
@@ -362,41 +397,12 @@ async function deleteClientCascade(clientId) {
 }
 
 async function getAdminRowsByCoach(coachId) {
-  const r = await query(`
-    SELECT
-      c.id            AS client_id,
-      c.first_name,
-      c.last_name,
-      c.email,
-      c.status        AS client_status,
-      a.id            AS assessment_id,
-      a.confirmed_type,
-      a.confirmed_instinct,
-      a.instinct_confidence,
-      a.confidence_level,
-      co.name         AS coach_name,
-      COALESCE(a.created_at, c.created_at) AS created_at,
-      COALESCE(a.status, c.status, 'unknown') AS status,
-      r_cl.pdf_path   AS client_pdf,
-      r_co.pdf_path   AS coach_pdf,
-      a.pdf_generated_at,
-      a.email_sent_at,
-      (a.scores_snapshot IS NOT NULL) AS has_scores_snapshot,
-      (a.api_result IS NOT NULL)      AS has_api_result,
-      a.elapsed_seconds,
-      a.session_days,
-      a.assessment_started_at,
-      a.assessment_completed_at,
-      c.beta_report_generated_at,
-      c.beta_report_filename
-    FROM clients c
-    LEFT JOIN assessments a  ON a.client_id = c.id
-    LEFT JOIN coaches co      ON co.id = c.coach_id
-    LEFT JOIN reports r_cl    ON r_cl.assessment_id = a.id AND r_cl.report_type = 'client'
-    LEFT JOIN reports r_co    ON r_co.assessment_id = a.id AND r_co.report_type = 'coach'
-    WHERE c.coach_id = $1
-    ORDER BY COALESCE(a.created_at, c.created_at) DESC NULLS LAST
-  `, [coachId]);
+  const r = await query(
+    `${ADMIN_ROWS_SELECT}
+     WHERE c.coach_id = $1
+     ORDER BY COALESCE(a.created_at, c.created_at) DESC NULLS LAST`,
+    [coachId]
+  );
   return r ? r.rows : [];
 }
 
@@ -598,6 +604,35 @@ async function resendInviteTransaction(clientId, newToken, expiresAt) {
   }
 }
 
+// Retake (super-admin): reopen a completed client for a fresh assessment without
+// touching their prior assessment rows. Mirrors resendInviteTransaction (one live
+// token at a time) and additionally clears session_state/reminder_sent_at so the
+// client lands on Welcome, not Resume. The new assessment row is created later by
+// /api/submit, which stamps retake_of_assessment_id at that point.
+async function retakeTransaction(clientId, newToken, expiresAt) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`DELETE FROM client_tokens WHERE client_id = $1`, [clientId]);
+    await client.query(
+      `INSERT INTO client_tokens (client_id, token, expires_at) VALUES ($1, $2, $3)`,
+      [clientId, newToken, expiresAt]
+    );
+    await client.query(
+      `UPDATE clients SET status = 'not_started', session_state = NULL, reminder_sent_at = NULL WHERE id = $1`,
+      [clientId]
+    );
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('[db] retakeTransaction failed:', e.message);
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 async function getAssessmentPayload(clientId) {
   const r = await query(
     `SELECT id AS assessment_id, api_result, scores_snapshot, responses, pdf_generated_at, email_sent_at
@@ -758,11 +793,12 @@ module.exports = {
   findOrCreateCoach,
   createClient,
   createAssessment,
+  getLatestAssessmentId,
   completeAssessment,
   failAssessment,
   updateAssessmentTiming,
   createReport,
-  getAdminRows,
+  getAllAdminRows,
   getAdminRowsByCoach,
   getCoachByEmail,
   getCoachById,
@@ -786,6 +822,7 @@ module.exports = {
   updateTokenUsedAt,
   updateClientStatus,
   resendInviteTransaction,
+  retakeTransaction,
   getAssessmentPayload,
   getAssessmentOwnerCoachId,
   updateCoachDebrief,
