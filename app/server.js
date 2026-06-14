@@ -4768,7 +4768,10 @@ app.get('/admin', requireAdminSession, async (req, res) => {
 
     // Retake (super-admin only, completed clients only): issue a fresh assessment
     // while preserving the prior results. Hidden entirely for non-super-admins.
-    const retakeAction = (req.session.coach_is_super_admin === true && status === 'complete')
+    // Gated on client status (not assessment status): issuing a retake resets
+    // client status to 'not_started', so this button hands off to "Resend invite"
+    // until the new assessment completes.
+    const retakeAction = (req.session.coach_is_super_admin === true && clientStatus === 'complete')
       ? `<button onclick="adminRetake(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#7c3aed;padding:0;text-decoration:underline;margin-right:6px;">Retake</button>`
       : '';
 
