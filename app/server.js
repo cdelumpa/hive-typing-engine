@@ -1640,7 +1640,7 @@ function buildChangeSummary(recordType, before, after) {
 }
 
 // Shared modal overlay HTML + JS injected into every admin page
-function sharedModalHTML(isAdmin) {
+function sharedModalHTML(isAdmin, isSuperAdmin) {
   return `
 <div id="hive-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(26,43,51,0.55);z-index:9000;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;">
   <div style="background:#fff;width:100%;max-width:580px;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.2);font-family:Georgia,serif;">
@@ -1651,6 +1651,7 @@ function sharedModalHTML(isAdmin) {
 <script>
 (function(){
 var _IS_ADMIN = ${isAdmin ? 'true' : 'false'};
+var _IS_SUPER_ADMIN = ${isSuperAdmin ? 'true' : 'false'};
 var _hiveRec  = null; // current profile data
 var _hiveType = null; // 'client' | 'coach'
 var _reassignState = null; // { clientId, currentCoachId, currentCoachName, fromAccordion, accordionCoachId }
@@ -1753,6 +1754,19 @@ function _renderClientView(data){
   h+=_profileRow('Status',statusStr);
   h+='</table>';
   h+=lu;
+  // Beta Tester toggle — super-admin only. Bound to clients.is_beta (the field the
+  // beta-toggle endpoint writes via db.setClientBeta), not the assessment's mirrored
+  // snapshot, so the checked state survives reopening the modal.
+  if(_IS_SUPER_ADMIN){
+    var betaChecked=c.is_beta?' checked':'';
+    h+='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:16px;">';
+    h+='<div id="beta-toggle-err" style="display:none;background:#fdecea;color:#c0392b;border-radius:4px;padding:8px 12px;font-size:12px;margin-bottom:10px;"></div>';
+    h+='<label style="display:flex;align-items:center;gap:10px;cursor:pointer;">';
+    h+='<input type="checkbox" id="beta-toggle"'+betaChecked+' onchange="window._toggleClientBeta(this)" style="width:16px;height:16px;cursor:pointer;">';
+    h+='<span style="font-size:11px;color:#7A96A6;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;">Beta Tester</span>';
+    h+='</label>';
+    h+='</div>';
+  }
   h+='<div id="coach-debrief-section">'+_coachDebriefReadonlyHTML(data)+'</div>';
   h+='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">';
   h+='<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Edit History</p>';
@@ -1824,6 +1838,29 @@ window._saveClientProfile = async function(){
     if(data.historyEntry) (_hiveRec.history=_hiveRec.history||[]).unshift(data.historyEntry);
     _hideModal(); _showToast('Profile updated.');
   }catch(e){errDiv.textContent='Request failed: '+e.message;errDiv.style.display='';saveBtn.disabled=false;saveBtn.textContent='Save Changes';}
+};
+
+// Beta Tester toggle — super-admin only. Optimistic: flips clients.is_beta server-
+// side, updates the cached record without a page reload, and rolls the checkbox back
+// on error (showing an inline message).
+window._toggleClientBeta = async function(cb){
+  var errDiv=document.getElementById('beta-toggle-err');
+  if(errDiv) errDiv.style.display='none';
+  var clientId=_hiveRec.client.id;
+  var want=cb.checked;
+  cb.disabled=true;
+  try{
+    var resp=await fetch('/admin/clients/'+clientId+'/beta-toggle',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({isBeta:want})});
+    var data=await resp.json();
+    if(!resp.ok||!data.ok){ throw new Error(data.error||'Toggle failed.'); }
+    _hiveRec.client.is_beta=want;
+    _showToast('Beta tester '+(want?'enabled':'disabled')+'.');
+  }catch(e){
+    cb.checked=!want;
+    if(errDiv){ errDiv.textContent=e.message; errDiv.style.display=''; }
+  }finally{
+    cb.disabled=false;
+  }
 };
 
 // ── Coach Debrief Confirmation (assessment annotation sub-editor) ────────────
@@ -3244,7 +3281,7 @@ async function adminResend(clientId, email, btn) {
   btn.disabled = false; btn.textContent = orig;
 }
 </script>
-${sharedModalHTML(true)}
+${sharedModalHTML(true, true)}
 </body>
 </html>`;
 }
@@ -5001,7 +5038,7 @@ async function adminGenBetaReport(clientId, name, btn) {
   } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
 }
 </script>
-${sharedModalHTML(req.session.coach_is_admin === true)}
+${sharedModalHTML(req.session.coach_is_admin === true, req.session.coach_is_super_admin === true)}
 </body>
 </html>`);
 });
@@ -5387,7 +5424,7 @@ app.get('/admin/clients/:client_id/profile', requireAdminSession, async (req, re
   const asmR = await db.query(
     `SELECT id AS assessment_id, confirmed_type, confirmed_instinct, confidence_level, status,
             dominant_instinct_hypothesis,
-            coach_confirmed_type, coach_confirmed_instinct, type_clarification_notes
+            coach_confirmed_type, coach_confirmed_instinct, type_clarification_notes, is_beta
      FROM assessments WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1`,
     [clientId]
   );
@@ -5510,6 +5547,21 @@ app.post('/admin/assessments/:assessment_id/coach-debrief', requireAdminSession,
 
   console.log(`[admin/assessments/coach-debrief] updated assessment #${assessmentId}: type=${coachType}, instinct=${coachInstinct}`);
   return res.json({ success: true, updated });
+});
+
+// Beta-tester flag toggle — super-admin only (requireSuperAdmin is the strongest
+// gate, so no per-coach owner check is needed). Sets clients.is_beta; future
+// assessments inherit it at creation (see db.createAssessment).
+app.post('/admin/clients/:client_id/beta-toggle', requireSuperAdmin, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
+
+  const body = req.body || {};
+  const isBeta = body.isBeta === true || body.isBeta === 'true';
+
+  await db.setClientBeta(clientId, isBeta);
+  console.log(`[admin/clients/beta-toggle] client #${clientId} is_beta=${isBeta}`);
+  return res.json({ ok: true });
 });
 
 app.post('/admin/clients/:client_id/reassign', requireAdmin, async (req, res) => {
