@@ -4770,8 +4770,10 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     // while preserving the prior results. Hidden entirely for non-super-admins.
     // Gated on client status (not assessment status): issuing a retake resets
     // client status to 'not_started', so this button hands off to "Resend invite"
-    // until the new assessment completes.
-    const retakeAction = (req.session.coach_is_super_admin === true && clientStatus === 'complete')
+    // until the new assessment completes. Also gated on is_latest_complete so that
+    // a client with multiple complete rows (original + retake) shows exactly one
+    // Retake button — on the most recent complete assessment.
+    const retakeAction = (req.session.coach_is_super_admin === true && clientStatus === 'complete' && r.is_latest_complete)
       ? `<button onclick="adminRetake(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#7c3aed;padding:0;text-decoration:underline;margin-right:6px;">Retake</button>`
       : '';
 
@@ -4805,6 +4807,13 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       ? ` <span title="Issued as a retake" style="background:#ede9fe;color:#7c3aed;font-size:10px;font-weight:700;letter-spacing:0.04em;padding:1px 5px;border-radius:3px;vertical-align:middle;">RETAKE</span>`
       : '';
 
+    // Retake Pending: the client has reset to not_started for a retake but still
+    // has a prior completed assessment (is_latest_complete). Distinguishes a retake
+    // in progress from a brand-new client (not_started, no prior assessment).
+    const retakePendingBadge = (clientStatus === 'not_started' && r.is_latest_complete)
+      ? ` <span title="A retake has been issued and is awaiting completion" style="background:#fff3cd;color:#8b6914;font-size:10px;font-weight:700;letter-spacing:0.04em;padding:1px 6px;border-radius:3px;vertical-align:middle;white-space:nowrap;">Retake Pending</span>`
+      : '';
+
     return `<tr id="row-${clientId}">
       <td><a href="#" data-entity="client-${clientId}" onclick="openClientProfile(${clientId});return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle='solid'" onmouseout="this.style.textDecorationStyle='dotted'">${name}</a>${retakeBadge}</td>
       <td>${typeLabel}</td>
@@ -4812,7 +4821,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       <td>${conf}</td>
       <td id="coach-cell-${clientId}">${coach}</td>
       <td>${date}</td>
-      <td><span style="background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">${statusLabel}</span></td>
+      <td><span style="background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">${statusLabel}</span>${retakePendingBadge}</td>
       <td id="pdf-status-${clientId}" style="font-size:12px;">${pdfStatus}</td>
       <td id="email-status-${clientId}" style="font-size:12px;">${emailStatus}</td>
       <td>${pdfLinks}</td>

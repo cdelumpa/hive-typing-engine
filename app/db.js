@@ -333,8 +333,11 @@ async function createReport(assessmentId, reportType, pdfPath) {
 
 // Shared SELECT for the admin dashboard rows. One row per (client, assessment) —
 // a client with a retake yields multiple rows. retake_of_assessment_id drives the
-// "Retake" badge in the renderer. getAdminRowsByCoach appends a coach filter;
-// getAllAdminRows (super-admin all-clients view) does not.
+// "Retake" badge in the renderer. is_latest_complete flags the single newest
+// completed assessment per client — the renderer uses it to scope the Retake
+// button (newest complete row only) and the "Retake Pending" indicator (when the
+// client has reset to not_started for a retake). getAdminRowsByCoach appends a
+// coach filter; getAllAdminRows (super-admin all-clients view) does not.
 const ADMIN_ROWS_SELECT = `
   SELECT
     c.id            AS client_id,
@@ -348,6 +351,12 @@ const ADMIN_ROWS_SELECT = `
     a.instinct_confidence,
     a.confidence_level,
     a.retake_of_assessment_id,
+    COALESCE(
+      a.id = (SELECT a2.id FROM assessments a2
+              WHERE a2.client_id = c.id AND a2.status = 'complete'
+              ORDER BY a2.created_at DESC LIMIT 1),
+      FALSE
+    ) AS is_latest_complete,
     co.name         AS coach_name,
     COALESCE(a.created_at, c.created_at) AS created_at,
     COALESCE(a.status, c.status, 'unknown') AS status,
