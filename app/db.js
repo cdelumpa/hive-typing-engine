@@ -99,6 +99,11 @@ ALTER TABLE assessments ADD COLUMN IF NOT EXISTS coach_confirmed_type     INTEGE
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS coach_confirmed_instinct VARCHAR(20);
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS type_clarification_notes TEXT;
 
+-- Retake linkage: NULL on a first take; on a retake, points to the prior
+-- assessment row. Self-referencing FK; ON DELETE SET NULL so deleting the prior
+-- row nulls the link rather than orphaning/deleting the retake.
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS retake_of_assessment_id INTEGER REFERENCES assessments(id) ON DELETE SET NULL;
+
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage0_signal JSONB;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS ct_adjustment JSONB;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS responses_snapshot JSONB;
@@ -115,6 +120,19 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS beta_report_filename TEXT;
 
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS session_state JSONB DEFAULT NULL;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS reminder_sent_at JSONB DEFAULT NULL;
+
+-- Enforce one client per email. Unique INDEX (not ADD CONSTRAINT) so we can use
+-- IF NOT EXISTS, matching the idempotent-migration style used throughout this file.
+-- Case-sensitive by design for now; normalizing the /api/submit insert path to
+-- lowercase is a tracked follow-up, not part of this change.
+CREATE UNIQUE INDEX IF NOT EXISTS clients_email_key ON clients (email);
+
+-- Idempotent data fix: ensure the sole remaining client record carries the
+-- correct name. No-op once the name is already correct, so safe on every boot.
+UPDATE clients
+SET first_name = 'Cai', last_name = 'Delumpa'
+WHERE email = 'cdelumpa@gmail.com'
+  AND (first_name != 'Cai' OR last_name != 'Delumpa');
 
 CREATE TABLE IF NOT EXISTS app_settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
