@@ -20,13 +20,13 @@ const STAGE0_QUESTIONS = [
   {
     id: 'q3',
     title: 'STRENGTH',
-    text: 'Which of the words or phrases you listed is your greatest strength?',
+    text: 'Which of the words or phrases you listed is your greatest strength, and why?',
     showRef: true,
   },
   {
     id: 'q4',
     title: 'SHADOW',
-    text: 'Which of the words or phrases you listed tends to be most problematic for you?',
+    text: 'Which of the words or phrases you listed tends to be most problematic for you, and why?',
     showRef: true,
   },
 ];
@@ -202,7 +202,7 @@ const STAGE1_TYPE_STATEMENTS = {
   6: [
     { id: 'S6-1',  dimension: 'Core motivation',        text: 'I prioritize feeling safe, secure, and prepared for whatever might happen.' },
     { id: 'S6-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to what could go wrong, potential danger, and whether people and situations can really be trusted.' },
-    { id: 'S6-2b', dimension: 'Resulting preoccupation', text: 'I find myself running through worst-case scenarios figuring out how to be prepared for what might happen.' },
+    { id: 'S6-2b', dimension: 'Resulting preoccupation', text: 'I find myself running through worst-case scenarios and figuring out how to be prepared for what might happen.' },
     { id: 'S6-3',  dimension: 'Energy',                  text: 'I put a lot of energy into questioning, seeking reassurance, and making sure I’m ready for what could go wrong.' },
     { id: 'S6-4',  dimension: 'Avoidance',               text: 'I tend to avoid uncertainty, blindly trusting others, and being caught unprepared.' },
   ],
@@ -210,7 +210,7 @@ const STAGE1_TYPE_STATEMENTS = {
     { id: 'S9-1',  dimension: 'Core motivation',        text: 'I prioritize keeping the peace and maintaining harmony, inside myself and with others.' },
     { id: 'S9-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes outward to other people’s agendas, potential sources of conflict, and to what’s right in front of me.' },
     { id: 'S9-2b', dimension: 'Resulting preoccupation', text: 'I find myself going along with what others want, keeping things comfortable, and losing track of what matters most to me.' },
-    { id: 'S9-3',  dimension: 'Energy',                  text: 'I put a lot of energy into accommodating others, staying comfortable, and avoiding friction.' },
+    { id: 'S9-3',  dimension: 'Energy',                  text: 'I put a lot of energy into accommodating others, staying comfortable, and keeping the peace.' },
     { id: 'S9-4',  dimension: 'Avoidance',               text: 'I tend to avoid conflict, asserting my own position, and anything that disturbs my sense of peace.' },
   ],
   1: [
@@ -251,7 +251,7 @@ const STAGE1_TYPE_STATEMENTS = {
   7: [
     { id: 'S7-1',  dimension: 'Core motivation',        text: 'I prioritize living a life free from pain and constraints.' },
     { id: 'S7-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to anything that could potentially limit my options or cause me pain and suffering.' },
-    { id: 'S7-2b', dimension: 'Resulting preoccupation', text: 'I find myself planning for pleasurable possibilities, generating new options, and reframing whatever feels limiting or painful.' },
+    { id: 'S7-2b', dimension: 'Resulting preoccupation', text: 'I find myself imagining enjoyable possibilities, generating new options, and reframing negatives into positives.' },
     { id: 'S7-3',  dimension: 'Energy',                  text: 'I put a lot of energy into staying up and positive, planning for pleasurable possibilities, and keeping my options open.' },
     { id: 'S7-4',  dimension: 'Avoidance',               text: 'I tend to avoid people and situations that limit my options or require me to sit with pain or difficulty.' },
   ],
@@ -260,7 +260,7 @@ const STAGE1_TYPE_STATEMENTS = {
 const STAGE1_INSTINCT_STATEMENTS = {
   SP: [
     { id: 'I1-SP-1', dimension: 'Body & comfort',       text: 'I pay close attention to my physical comfort — things like temperature, hunger, rest, and whether my body feels okay.' },
-    { id: 'I1-SP-2', dimension: 'Enough / resources',   text: 'I keep track of whether I have enough resources (money, supplies, energy, time, etc) to ensure comfort and survival.' },
+    { id: 'I1-SP-2', dimension: 'Enough / resources',   text: 'I keep track of whether I have enough resources (money, supplies, energy, time, etc.) to ensure comfort and survival.' },
     { id: 'I1-SP-3', dimension: 'Security (protective)', text: 'I keep the people and things I depend on safe.' },
     { id: 'I1-SP-4', dimension: 'Self-reliance',        text: 'I prefer to handle things myself rather than counting on others.' },
     { id: 'I1-SP-5', dimension: 'Energy direction',     text: 'I recharge by being on my own, in my own space, with no demands on me.' },
@@ -268,8 +268,8 @@ const STAGE1_INSTINCT_STATEMENTS = {
   SO: [
     { id: 'I1-SO-1', dimension: 'Place in the group',   text: 'I pay attention to where I stand in a group and how I’m coming across to the people in it.' },
     { id: 'I1-SO-2', dimension: 'Trust / reciprocity',  text: 'I pay attention to who in a group is reliable and can be counted on, and who can’t.' },
-    { id: 'I1-SO-3', dimension: 'Social landscape',     text: 'I notice the social landscape — who’s connected to whom, who’s in, who’s on the outside.' },
-    { id: 'I1-SO-4', dimension: 'Larger belonging',     text: 'I am pulled toward something larger than myself: a cause, a community, a group I want to be part of.' },
+    { id: 'I1-SO-3', dimension: 'Social landscape',     text: 'I notice the social landscape — who’s connected to whom, who’s in, and who’s out.' },
+    { id: 'I1-SO-4', dimension: 'Larger belonging',     text: 'I am pulled toward something larger than myself: a cause, a community, or a group I want to be part of.' },
     { id: 'I1-SO-5', dimension: 'Energy direction',     text: 'I get my energy by being part of a community.' },
   ],
   SX: [
@@ -463,12 +463,12 @@ const STAGE3_Q2_PAIRS = {
   '1-6': { label: 'Inner Standards vs. External Certainty', personA: 'Realizing I\u2019ve done something wrong or fallen short of my own standards. The self-criticism that follows is hard to shake.', personB: 'Feeling unprepared or uncertain about what\u2019s coming. Not knowing who or what I can count on genuinely unsettles me.' },
   '1-9': { label: 'Inner Critic vs. Conflict Avoidance', personA: 'Knowing something is wrong and feeling unable to correct it. The gap between how things are and how they should be creates real internal tension.', personB: 'Feeling tension or conflict with people I care about. Disruption to harmony feels genuinely uncomfortable in my body.' },
   '2-6': { label: 'Rejection vs. Uncertainty', personA: 'Feeling unwanted, unneeded, or like my care isn\u2019t appreciated. The possibility of being rejected by someone I\u2019ve given myself to is hard to bear.', personB: 'Feeling like I don\u2019t know where things stand or who I can truly trust. Uncertainty about what\u2019s coming, or whether I\u2019m really supported, keeps me on edge.' },
-  '2-9': { label: 'Being Unloved vs. Disrupted Peace', personA: 'Feeling disconnected or unappreciated by people who matter to me, like my presence doesn\u2019t make a difference to them.', personB: 'Feeling pulled into conflict or tension I didn\u2019t create. Having my sense of inner peace disrupted by other people\u2019s agendas is hard to take.' },
+  '2-9': { label: 'Being Unloved vs. Disrupted Peace', personA: 'Feeling disconnected or unappreciated by people who matter to me, like my help doesn\u2019t make a difference to them.', personB: 'Feeling pulled into conflict or tension I didn\u2019t create. Having my sense of inner peace disrupted by other people\u2019s agendas is hard to take.' },
   '3-7': { label: 'Failure vs. Limitation', personA: 'Failing visibly or being seen as incompetent. The idea that people might think I\u2019m not capable or successful is genuinely hard to sit with.', personB: 'Feeling trapped, constrained, or stuck with no good options. When life starts to feel repetitive or limited, I feel a real urgency to find a way out.' },
   '3-8': { label: 'Image vs. Control', personA: 'Being seen in a way that doesn\u2019t reflect well on me. I\u2019m aware of how I\u2019m coming across, and it matters that the impression is a good one.', personB: 'Being controlled, overruled, or made to feel powerless. When someone tries to limit what I can do, something in me pushes back hard.' },
   '4-5': { label: 'Trusting the Heart vs. Trusting the Mind', personA: 'Having my emotional reality questioned, or being told that what I feel isn\u2019t accurate. My feelings are how I know what\u2019s true, and having that doubted cuts at something fundamental in me.', personB: 'Being flooded with emotion before I\u2019ve had time to think it through. Feelings that arrive fast and demand an immediate response feel unreliable, and I need to step back and reason before I trust them.' },
   '4-9': { label: 'Amplified Emotion vs. Muted Emotion', personA: 'Feeling emotionally flat or cut off from what\u2019s real. I\u2019d rather feel something intensely than feel nothing at all.', personB: 'Feeling overwhelmed by emotional intensity or conflict. When things get too charged, I find myself going numb or withdrawing until it passes.' },
-  '5-9': { label: 'Energy Conservation vs. Tension Avoidance', personA: 'Feeling depleted by too much engagement or contact. When people need too much from me, I feel my resources running out and I need to withdraw to recover.', personB: 'Feeling pressured to assert myself or take a strong position. When there\u2019s conflict or expectation, I find it easier to go along or disengage than to push back.' },
+  '5-9': { label: 'Energy Conservation vs. Tension Avoidance', personA: 'Feeling depleted by too much engagement or contact. When people need too much from me, I feel my resources running out and I need to withdraw to recover.', personB: 'Feeling pressured to assert myself or take a strong position. When there\u2019s potential conflict, I find it easier to go along or disengage than to push back.' },
   '6-8': { label: 'Managed Fear vs. Denied Vulnerability', personA: 'Feeling unprepared for something that could go wrong. There\u2019s an undercurrent of worry that I might not have what it takes to handle what\u2019s coming.', personB: 'Feeling weak, dependent, or like someone has gotten the upper hand. Vulnerability isn\u2019t something I show easily, and being in that position feels genuinely wrong.' },
   // Wing pairs.
   '1-2': { label: 'Falling Short vs. Being Unwanted', personA: 'Realizing I\u2019ve done something wrong or let my own standards slip. The self-correction that follows is hard to shake, even when others tell me it\u2019s fine.', personB: 'Sensing that I\u2019m not really wanted, or that the care I give isn\u2019t landing. The possibility that someone close to me doesn\u2019t actually need me is genuinely hard to sit with.' },
@@ -482,11 +482,11 @@ const STAGE3_Q2_PAIRS = {
   '1-4': { label: 'Correcting the Flaw vs. Feeling the Lack', personA: 'Knowing something is wrong and not being able to put it right. The gap between how things are and how they should be creates a tension I can\u2019t ignore.', personB: 'Feeling that something essential is missing from my life or from me. The longing for what I don\u2019t have colors how I experience almost everything.' },
   '1-7': { label: 'Doing It Right vs. Keeping It Open', personA: 'Cutting corners, or letting something be done the wrong way. Even when no one else would notice, doing it improperly sits badly with me.', personB: 'Being tied down to one rigid way when other options exist. Rules that seem to exist only to constrain feel like something to get around.' },
   '2-4': { label: 'Others\u2019 Pain vs. My Own Lack', personA: 'Seeing someone I care about in need and being unable to help them. My attention goes straight to their feelings, often before I notice my own.', personB: 'Sitting with the sense that I\u2019m deficient, or that others have what I\u2019m missing. My attention turns inward to what\u2019s lacking, not outward to who needs me.' },
-  '2-8': { label: 'Being Unappreciated vs. Being Overpowered', personA: 'Giving myself to people and feeling like it didn\u2019t matter to them. Being taken for granted by someone I\u2019ve supported is genuinely hard to take.', personB: 'Being put in a position where someone else holds power over me. I\u2019d far rather take charge than risk being dependent or controlled.' },
+  '2-8': { label: 'Being Unappreciated vs. Being Overpowered', personA: 'Giving myself to people and feeling like it didn\u2019t matter to them. Being taken for granted by someone I\u2019ve supported is genuinely hard to take.', personB: 'Being put in a position where someone else holds power over me. I\u2019d much rather take charge than risk being dependent or controlled.' },
   '3-6': { label: 'Results vs. Planning', personA: 'Failing to reach the goal, or being seen as unsuccessful. What matters most is the result, and falling short of it is what I most want to avoid.', personB: 'Being caught unprepared for what could go wrong. I\u2019m most uneasy when I haven\u2019t worked through the contingencies and mapped out what might happen.' },
   '3-9': { label: 'Stalling vs. Being Pressured', personA: 'Being idle or unproductive, with nothing to point to for my time. Slowing down with no result to show makes me genuinely restless.', personB: 'Being pushed to assert myself or move at someone else\u2019s pace. Pressure to take a hard stance feels more uncomfortable to me than just going along.' },
-  '5-7': { label: 'Depletion vs. Constraint', personA: 'Having too much asked of me before I\u2019m ready, draining my energy and space. When that happens, I pull back to protect what I have left.', personB: 'Being limited to too few options, or stuck in something that\u2019s gone flat. I keep my options open so I never feel cornered.' },
-  '5-8': { label: 'Intrusion vs. Vulnerability', personA: 'Being intruded upon, or having more asked of me than I can give. My instinct is to withdraw and make myself small until I feel ready.', personB: 'Being made to feel weak or dependent on anyone. My instinct is to take up space and make sure I\u2019m not in a position to be controlled.' },
+  '5-7': { label: 'Depletion vs. Constraint', personA: 'Having too much asked of me before I\u2019m ready, draining my energy. When that happens, I pull back to protect what I have left.', personB: 'Being limited to too few options, or stuck in something that\u2019s gone flat. I keep my options open so I never feel cornered.' },
+  '5-8': { label: 'Intrusion vs. Vulnerability', personA: 'Being intruded upon, or having more asked of me than I can give. My instinct is to withdraw until I feel ready to connect.', personB: 'Being made to feel weak or dependent on anyone. My instinct is to take up space and make sure I\u2019m not in a position to be controlled.' },
   '6-9': { label: 'Uncertainty vs. Disruption', personA: 'Not knowing what\u2019s coming, or who I can really count on. The uncertainty keeps me on alert until I feel genuinely prepared.', personB: 'Having my peace disturbed by tension or other people\u2019s demands. When conflict rises, I tend to disengage or go along rather than push back.' },
 };
 
@@ -495,11 +495,11 @@ const STAGE3_Q2_PAIRS = {
 // the "lower-numbered = Person A" rule is standard-mode only). One question,
 // same stem as Q1. Source: hive_stage3_question_bank_v2_052926.docx \u00a7"Counter-Type Mode".
 const STAGE3_CT_COMPARATIVES = {
-  'SO-7': { ctId: 'CT-1', label: 'SO 7 vs. Type 2', counterType: 7, lookalike: 2, personA: 'I am sharing what I love with the people around me. I feel engaged, generous, and genuinely happy, and I want others to experience that same aliveness I feel.', personB: 'I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected, and I need to feel that my presence matters to them.' },
+  'SO-7': { ctId: 'CT-1', label: 'SO 7 vs. Type 2', counterType: 7, lookalike: 2, personA: 'I am sharing what I love with the people around me. I feel engaged, generous, and genuinely happy, and I want others to experience that same aliveness I feel.', personB: 'I am tuned in to what others need. I feel genuinely helpful, warm, and deeply connected, and I need to feel that my help matters to them.' },
   'SX-6': { ctId: 'CT-2', label: 'SX 6 vs. Type 8', counterType: 6, lookalike: 8, personA: 'I am facing something head-on and not letting fear win. I feel courageous and alive, most myself when I\u2019m pushing toward the thing that scares me.', personB: 'I am fully in control and unbothered. I feel powerful and clear, with no fear underneath, just a certainty that I won\u2019t be controlled or pushed around.' },
-  'SP-3': { ctId: 'CT-3', label: 'SP 3 vs. Type 1', counterType: 3, lookalike: 1, personA: 'I am getting things done and building something solid. I feel capable and self-sufficient, and I don\u2019t need recognition, just to know I\u2019ve made it on my own terms.', personB: 'I am doing things the right way. I feel principled and in integrity, and anything less than my own standard would feel like a betrayal of who I am.' },
-  'SP-4': { ctId: 'CT-4', label: 'SP 4 vs. Type 3', counterType: 4, lookalike: 3, personA: 'I am proving something, to myself more than anyone else. I feel driven and resilient, like I\u2019m refusing to be defeated by a sense of not being enough.', personB: 'I am achieving something meaningful. I feel capable, successful, and recognized, and I want the people who matter to see that I\u2019ve done well.' },
-  'SX-1': { ctId: 'CT-5', label: 'SX 1 vs. Type 8', counterType: 1, lookalike: 8, personA: 'I am fighting for something that genuinely matters. I feel intensely alive when I\u2019m up against something wrong, with a standard at stake I won\u2019t back down from.', personB: 'I am fully in control and unbothered. I feel powerful and clear, and I push hard because I won\u2019t be limited or told what I can\u2019t do.' },
+  'SP-3': { ctId: 'CT-3', label: 'SP 3 vs. Type 1', counterType: 3, lookalike: 1, personA: 'I am getting things done and building something solid. I feel capable and self-sufficient, and I don\u2019t need recognition. It is enough for me to know I\u2019ve made it on my own terms.', personB: 'I am doing things the right way. I feel principled and in integrity, and anything less than my own standard would feel like a betrayal of who I am.' },
+  'SP-4': { ctId: 'CT-4', label: 'SP 4 vs. Type 3', counterType: 4, lookalike: 3, personA: 'I am proving something to myself more than anyone else. I feel driven and resilient, like I\u2019m refusing to be defeated by a sense of not being enough.', personB: 'I am achieving something meaningful. I feel capable, successful, and recognized, and I want the people who matter to see that I\u2019ve done well.' },
+  'SX-1': { ctId: 'CT-5', label: 'SX 1 vs. Type 8', counterType: 1, lookalike: 8, personA: 'I am fighting for something that genuinely matters. I feel intensely alive when I\u2019m up against something wrong, with a standard at stake that I won\u2019t back down from.', personB: 'I am fully in control and unbothered. I feel powerful and clear, and I push hard because I won\u2019t be limited or told what I can\u2019t do.' },
 };
 
 // Load-time guard: fail loudly if the question bank was truncated or mis-keyed.
@@ -539,72 +539,72 @@ const STAGE4_HABIT_STEM = 'Without trying to control it, where does your attenti
 
 const STAGE4_STRESS = {
   1: [
-    'I become weighed down with emotion. I start dwelling on what others have naturally that I don\u2019t and I long to be whole.', // correct (1\u21924)
-    'I become more anxious and suspicious. I start worrying about what could go wrong and need reassurance that things will be okay.', // 6 energy
+    'I become weighed down with sadness. I start dwelling on what others have naturally that I don\u2019t and I long to be whole.', // correct (1\u21924)
+    'I throw myself into achieving something. I push distractions aside, focus on what I can accomplish, and measure my worth by what I can visibly produce.', // 6 energy
     'I go numb and withdraw. I go along to get along, hoping that will restore the peace both internally and externally.', // 9 energy
   ],
   2: [
     'I get angry, forceful, and confrontational. My usual warm and giving self disappears and I become demanding, blunt, or even aggressive about what I need.', // correct (2\u21928)
     'I become hypervigilant about who I can trust. I get suspicious and start needing reassurance that the people in my life are actually there for me.', // 6 energy
-    'I turn inward and become absorbed in how I\u2019m feeling. I pull away from others and get lost in my own emotional world.', // 4 energy
+    'I detach and go quiet. I stop engaging with people\u2019s needs entirely and retreat into my own head, needing to think things through on my own before I can face anyone.', // 4 energy
   ],
   3: [
-    'I shut down. The drive and ambition that usually feel effortless just vanish and I find myself checked out and disengaged.', // correct (3\u21929)
-    'I become anxious and start second-guessing myself. I lose confidence in my own judgment and need others to tell me I\u2019m on the right track.', // 6 energy
-    'I become overly focused on others and what they need. I shift into caretaking mode as a way to feel needed and connected.', // 2 energy
+    'I shut down. The drive and ambition that usually feel effortless vanish and I find myself checked out and disengaged.', // correct (3\u21929)
+    'I lose focus and start jumping between things. Nothing holds my attention and I find myself chasing whatever feels stimulating, unable to settle on any one thing.', // 6 energy
+    'I become combative and start pushing hard. I stop being strategic about how I come across and just start forcing things, needing to feel like I\u2019m in control of something.', // 2 energy
   ],
   4: [
     'I become overly helpful and acutely aware of what others need. I set my own needs aside and seek the appreciation of others.', // correct (4\u21922)
-    'I become self-critical and rigid. I get fixated on what I\u2019ve done wrong and feel a strong pull to correct myself.', // 1 energy
+    'I become hypervigilant and start looking for what could go wrong. I get caught up in worst-case scenarios and find myself needing to know that things are going to be okay.', // 1 energy
     'I go into overdrive seeking stimulation. I start filling my schedule and looking for the next thing that will make me feel alive again.', // 7 energy
   ],
   5: [
     'I become scattered and overextended. I start taking on too much, chasing new ideas, and lose the focused stillness that usually grounds me.', // correct (5\u21927)
-    'I become reactive and forceful. I lose my usual calm detachment and feel an intense need to push back and take control.', // 8 energy
-    'I become more anxious and catastrophizing. I lose my objective detachment and start spiraling into what could go wrong.', // 6 energy
+    'I become preoccupied with how others are doing. I find myself checking in, offering help, and seeking connection \u2014 almost as if staying close to people will quiet something that\u2019s unsettled inside me.', // 8 energy
+    'I go foggy and check out. I lose my own thread entirely, drift into whatever\u2019s easiest, and stop being able to tell what I actually think.', // 6 energy
   ],
   6: [
     'I become hyper-focused on getting after my own goals. I get driven and image-conscious and start pushing hard to make things happen and be seen as capable.', // correct (6\u21923)
-    'I become forceful and combative. I stop hesitating and start pushing hard \u2014 I need to feel powerful and in control.', // 8 energy
-    'I check out and go numb. I stop engaging with the anxiety and just try to get through it by not feeling anything.', // 9 energy
+    'I become domineering and start bulldozing through things. I stop second-guessing and just act \u2014 needing to feel like I\u2019m the one calling the shots.', // 8 energy
+    'I become rigid and critical, fixating on everything that isn\u2019t being done correctly and feeling a hard edge of irritation when it isn\u2019t.', // 9 energy
   ],
   7: [
     'I become critical and perfectionistic. I lose my lightness and get fixated on what\u2019s wrong, what\u2019s not good enough, and what needs to be corrected.', // correct (7\u21921)
     'I become emotionally flooded and self-absorbed. I get lost in longing for what\u2019s missing and find it hard to focus on anything else.', // 4 energy
-    'I withdraw and go quiet. I stop engaging and start retreating into my own world, needing a lot of alone time to recover.', // 5 energy
+    'I become preoccupied with keeping everyone around me happy. I throw myself into smoothing things over and meeting others\u2019 needs, anxious about the connections feeling shaky.', // 5 energy
   ],
   8: [
     'I disengage and go silent. I pull back, observe from a distance, and become protective of my space and privacy.', // correct (8\u21925)
-    'I become more giving and focused on others. I move toward people and shift into support mode, wanting to feel needed.', // 2 energy
-    'I become more driven and performance-focused. I push myself harder to stay productive and appear capable under pressure.', // 3 energy
+    'I sink into my own feelings and pull away. I get caught up in a sense that something\u2019s missing or that I\u2019ve been let down, and I dwell on it more than I\u2019d like to admit.', // 2 energy
+    'I lose my certainty and start second-guessing every move. I hesitate, look for input before acting, and feel uneasy committing to a decision on my own.', // 3 energy
   ],
   9: [
     'I become anxious and hypervigilant. The usual peace disappears and I start worrying about what could go wrong and whether I\u2019m prepared.', // correct (9\u21926)
-    'I become emotionally flooded and withdrawn. I get absorbed in my feelings and pull away from people and obligations.', // 4 energy
-    'I become driven and task-focused. I throw myself into productivity to avoid feeling what\u2019s happening under the surface.', // 3 energy
+    'I get analytical and detached. I start dissecting the problem from a distance, wanting to understand exactly how it works before I\u2019ll let myself act.', // 4 energy
+    'I quickly reframe everything in a positive light and start brainstorming options. I get excited about all the ways things could work out and want to keep my choices open.', // 3 energy
   ],
 };
 
 const STAGE4_SECURITY = {
   1: [
     'I become lighter, more playful, and spontaneous. I stop being so hard on myself and find it easier to enjoy things without worrying about doing them perfectly.', // correct (1\u21927)
-    'I become warmer and more focused on others. I want to give more and feel more connected to the people I care about.', // 2 energy
+    'I feel powerful and ready to take charge. Nothing intimidates me \u2014 I push forward hard, take up space, and make things happen on my terms.', // 2 energy
     'I become more reflective and emotionally open. I drop the doing and let myself just feel and be for a while.', // 4 energy
   ],
   2: [
     'I turn inward and become introspective. I stop trying to take care of others and allow myself to focus on how I\u2019m feeling and what I need.', // correct (2\u21924)
-    'I become easier to be around and less agenda-driven. I stop pushing so hard to be needed and let myself just relax and enjoy things.', // 9 energy
+    'I become more self-contained and reflective. I step back, conserve my energy, and feel content with my own company.', // 9 energy
     'I become more playful and spontaneous. I stop focusing on what others need and let myself just explore and enjoy things freely.', // 7 energy
   ],
   3: [
     'I care more about the people around me and feel a stronger sense of loyalty to them. I realize I don\u2019t need to go it alone and actually want us to win together.', // correct (3\u21926)
-    'I slow down and become more easygoing. I stop needing to achieve and just let myself be present without an agenda.', // 9 energy
-    'I become more spontaneous and curious. I stop focusing on goals and let myself just explore and enjoy what\u2019s in front of me.', // 7 energy
+    'I get more direct and unfiltered. I stop managing how I come across and just say what I really think, without worrying about the impression I\u2019m making.', // 9 energy
+    'I become more self-contained and clear-headed. I stop performing and step back to think things through on my own, content without the audience.', // 7 energy
   ],
   4: [
     'I become more grounded, disciplined, and action-oriented. I stop dwelling on what\u2019s missing and start doing, with a clearer sense of what\u2019s right and what needs to happen.', // correct (4\u21921)
     'I become lighter and more optimistic. I stop focusing on what\u2019s wrong and let myself enjoy what\u2019s actually good in my life.', // 7 energy
-    'I become more outward-focused and giving. I stop dwelling on myself and feel genuinely energized by helping and connecting with others.', // 2 energy
+    'I become more at peace and accepting. The longing quiets down and I settle into an easy contentment with things just as they are.', // 2 energy
   ],
   5: [
     'I become more present, decisive, and action-oriented. I step into the world with confidence and feel energized by direct engagement rather than observation.', // correct (5\u21928)
@@ -618,7 +618,7 @@ const STAGE4_SECURITY = {
   ],
   7: [
     'I become quieter, more focused, and genuinely still. I stop needing to share and stimulate and find deep satisfaction in solitude and going deep on one thing.', // correct (7\u21925)
-    'I become more easygoing and present. I stop planning ahead and let myself just be where I am without needing something else to be happening.', // 9 energy
+    'I become more attuned to the people around me. My energy shifts toward caring for others and I feel fulfilled by making them feel seen and supported.', // 9 energy
     'I become more focused and goal-oriented. I channel my energy into building something and feel grounded by the progress I\u2019m making.', // 3 energy
   ],
   8: [
@@ -629,19 +629,19 @@ const STAGE4_SECURITY = {
   9: [
     'I become more focused, energized, and directed. I connect with what I actually want and feel a pull to make things happen rather than just going along.', // correct (9\u21923)
     'I become lighter and more playful. I stop worrying about keeping the peace and let myself just enjoy what\u2019s in front of me.', // 7 energy
-    'I become warmer and more attuned. I feel a pull toward the people around me and genuinely enjoy caring for them.', // 2 energy
+    'I become more principled and discerning. I get clearer about what actually matters to me and hold a firmer line on it.', // 2 energy
   ],
 };
 
 const STAGE4_HABIT = {
   1: [
     'To what\u2019s wrong, imprecise, or could be improved. I notice errors, inconsistencies, and what needs fixing almost before I notice anything else.', // correct
-    'To what could go wrong or what I might not be prepared for. I\u2019m scanning for potential problems and threats before they materialize.', // 6 attention
+    'To what\u2019s absent and the longing it stirs \u2014 a sense that something deeper or more meaningful is missing from this.', // 6 attention
     'To what needs to be done and how to do it efficiently. I\u2019m already thinking about tasks, goals, and getting things moving.', // 3 attention
   ],
   2: [
     'To how other people are feeling and what they might need. I\u2019m reading the room emotionally and sensing who needs something before they ask.', // correct
-    'To the overall atmosphere and whether everyone feels comfortable. I\u2019m aware of the group energy and pulled toward making sure things feel settled.', // 9 attention
+    'To gathering information and understanding how things work. I\u2019m observing from a step back, taking in data and figuring out the underlying logic.', // 9 attention
     'To whether things are going to be okay and who I can rely on. I\u2019m scanning for reliability and trying to anticipate what might go sideways.', // 6 attention
   ],
   3: [
@@ -656,27 +656,27 @@ const STAGE4_HABIT = {
   ],
   5: [
     'To understanding the situation fully before engaging. I want to gather enough information to feel confident about what\u2019s happening before I say or do anything.', // correct
-    'To what could go wrong and whether I\u2019m prepared. I find myself anticipating problems and wanting to have a plan before I\u2019m in over my head.', // 6 attention
+    'To who has the upper hand and how much force is in play. I size people up fast \u2014 strong or weak, straight or evasive \u2014 and brace to assert myself if I need to.', // 6 attention
     'To what\u2019s not quite right. I notice inconsistencies and gaps quickly and feel a pull to correct or clarify.', // 1 attention
   ],
   6: [
     'To what could go wrong or what I might not be prepared for. I\u2019m scanning for potential problems and threats before they materialize.', // correct
-    'To understanding the situation fully before engaging. I want enough information to feel confident before I commit to anything.', // 5 attention
+    'To what\u2019s not right and needs correcting. I notice mistakes and the gap between how things are and how they should be, and I feel pulled to fix it.', // 5 attention
     'To the overall atmosphere and whether things feel stable. I\u2019m drawn to keeping things easy and avoiding unnecessary disruption.', // 9 attention
   ],
   7: [
     'To what\u2019s next, what\u2019s possible, and what else is available. My mind is already moving toward new ideas, options, and what could be exciting about what\u2019s ahead.', // correct
     'To what needs to happen and how to make it happen quickly. I\u2019m already thinking about goals, tasks, and getting things moving.', // 3 attention
-    'To the people in the room and what might make this more enjoyable for everyone. I want to create energy and connection.', // 2 attention
+    'To what could go wrong and what I\u2019m not prepared for. I\u2019m scanning for problems and potential threats before they have a chance to materialize.', // 2 attention
   ],
   8: [
     'To the power dynamics in the room and whether power is being used fairly. I step up and take charge if I start feeling controlled or manipulated.', // correct
-    'To what needs to happen and who\u2019s going to make it happen. I\u2019m assessing quickly and feel a pull to take charge if no one else is.', // 3 attention
+    'To gathering information and figuring out how things actually work. I observe from a step back, take in the details, and want to understand the whole picture before I\u2019d weigh in.', // 3 attention
     'To potential threats and whether I can trust what\u2019s happening. I\u2019m scanning for danger and assessing who\u2019s reliable.', // 6 attention
   ],
   9: [
     'To the overall atmosphere and whether everyone feels included and comfortable. I\u2019m aware of the whole room and pulled toward making sure things feel settled and okay for everyone.', // correct
-    'To who might need something. I notice quickly if someone seems left out or uncomfortable and feel a pull to help.', // 2 attention
+    'To what needs to get done and the most efficient way to do it. My mind goes straight to goals, next steps, and making visible progress.', // 2 attention
     'To what might make this more enjoyable or interesting. I\u2019m looking for the positive angle and what could make the situation feel lighter.', // 7 attention
   ],
 };
@@ -718,8 +718,8 @@ const STAGE4_CT_COMPARATIVE = {
   'SP-3': {
     label: 'SP 3 vs. Type 1',
     stress: {
-      personA: 'I shut down. The drive and ambition that usually feel effortless just vanish and I find myself checked out and disengaged.',
-      personB: 'I become weighed down with emotion. I start dwelling on what others have naturally that I don\u2019t and I long to be whole.',
+      personA: 'I shut down. The drive and ambition that usually feel effortless vanish and I find myself checked out and disengaged.',
+      personB: 'I become weighed down with sadness. I start dwelling on what others have naturally that I don\u2019t and I long to be whole.',
     },
     security: {
       personA: 'I care more about the people around me and feel a stronger sense of loyalty to them. I realize I don\u2019t need to go it alone and actually want us to win together.',
@@ -734,7 +734,7 @@ const STAGE4_CT_COMPARATIVE = {
     label: 'SP 4 vs. Type 3',
     stress: {
       personA: 'I become overly helpful and acutely aware of what others need. I set my own needs aside and seek the appreciation of others.',
-      personB: 'I shut down. The drive and ambition that usually feel effortless just vanish and I find myself checked out and disengaged.',
+      personB: 'I shut down. The drive and ambition that usually feel effortless vanish and I find myself checked out and disengaged.',
     },
     security: {
       personA: 'I become more grounded, disciplined, and action-oriented. I stop dwelling on what\u2019s missing and start doing, with a clearer sense of what\u2019s right and what needs to happen.',
@@ -748,11 +748,11 @@ const STAGE4_CT_COMPARATIVE = {
   'SX-1': {
     label: 'SX 1 vs. Type 8',
     stress: {
-      personA: 'I become weighed down with emotion. I start dwelling on what others have naturally that I don\u2019t and I long to be whole.',
+      personA: 'I become weighed down with sadness. I start dwelling on what others have naturally that I don\u2019t and I long to be whole.',
       personB: 'I disengage and go silent. I pull back, observe from a distance, and become protective of my space and privacy.',
     },
     security: {
-      personA: 'I become more loyal, collaborative, and questioning. I want to check in with people I trust and think things through more carefully, and I feel less need to prove myself.',
+      personA: 'I become lighter, more playful, and spontaneous. I stop being so hard on myself and find it easier to enjoy things without worrying about doing them perfectly.',
       personB: 'I become magnanimous and open to connection. I put the armor down and allow myself to show my care and support for others.',
     },
     habit: {
@@ -2075,8 +2075,8 @@ function renderStage1() {
     const isType = screen.kind === 'type-open';
     const val = isType ? state.stage1TypeOpen : state.stage1InstinctOpen;
     const prompt = isType
-      ? 'Is there anything about what drives you that those statements didn’t capture? (Optional)'
-      : 'Is there anything about where your attention and energy naturally go that you’d like to add? (Optional)';
+      ? 'Our core motivations are often hard to pin down. If there’s something about what drives you that the previous statements didn’t capture, add it here.'
+      : 'Instinct patterns can be subtle. If there’s something about where your attention and energy naturally go that the statements didn’t quite land on, add it here.';
     return `<div class="screen">
       ${header}
       <div class="q-text">${prompt}</div>
