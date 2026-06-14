@@ -909,10 +909,15 @@ async function generateReportPDFs(result, scores, intake, assessmentId) {
   let clientPdfPath = null;
   let coachPdfPath  = null;
 
+  // Tie each PDF to its assessment row so retakes never collide on the Railway
+  // Volume — a same-day retake produces a distinct file (generatePDF also appends
+  // a millisecond timestamp). Skipped only if assessmentId is somehow absent.
+  const idSuffix = assessmentId ? `_${assessmentId}` : '';
+
   try {
     // await required: render pipeline loads content_overrides from DB
     const { html } = await renderClientReport({ apiResult: result, client, coach });
-    clientPdfPath = await generatePDF(html, `client_${intake.firstName}_${intake.lastName}`, pdfOpts);
+    clientPdfPath = await generatePDF(html, `client_${intake.firstName}_${intake.lastName}${idSuffix}`, pdfOpts);
     console.log(`[pdf] client PDF generated: ${clientPdfPath}`);
     if (assessmentId) await db.createReport(assessmentId, 'client', clientPdfPath);
   } catch (e) {
@@ -922,7 +927,7 @@ async function generateReportPDFs(result, scores, intake, assessmentId) {
   try {
     // await required: render pipeline loads content_overrides from DB
     const { html } = await renderCoachReport({ apiResult: result, client, coach });
-    coachPdfPath = await generatePDF(html, `coach_${intake.firstName}_${intake.lastName}`, pdfOpts);
+    coachPdfPath = await generatePDF(html, `coach_${intake.firstName}_${intake.lastName}${idSuffix}`, pdfOpts);
     console.log(`[pdf] coach PDF generated: ${coachPdfPath}`);
     if (assessmentId) await db.createReport(assessmentId, 'coach', coachPdfPath);
   } catch (e) {
@@ -1135,7 +1140,12 @@ app.post('/api/submit', async (req, res) => {
       const coachId = await db.findOrCreateCoach(intake?.coach || 'Cai Delumpa');
       resolvedClientId = await db.createClient(intake || {}, coachId);
     }
-    assessmentId = await db.createAssessment(resolvedClientId, { systemPrompt, userMessage, intake });
+    // Retake linkage: if this client already has an assessment, the row we're about
+    // to create is a retake — point retake_of_assessment_id at the most recent prior
+    // assessment. First-time clients have no prior row, so this stays null. (The retake
+    // flow is the only path that reopens a completed client, so "has a prior" == retake.)
+    const priorAssessmentId = resolvedClientId ? await db.getLatestAssessmentId(resolvedClientId) : null;
+    assessmentId = await db.createAssessment(resolvedClientId, { systemPrompt, userMessage, intake }, priorAssessmentId);
     if (assessmentId) console.log(`[submit] assessment #${assessmentId} created for client #${resolvedClientId}`);
     // §9 timing: write the computed metrics onto the fresh assessment row. Guarded
     // on a captured start time — if none (client never saved during Stage 0), skip
@@ -2392,6 +2402,39 @@ app.post('/admin/clients/resend/:client_id', requireAdminSession, async (req, re
   } catch (e) {
     console.error('[admin/clients/resend] error:', e.message);
     res.redirect('/admin');
+  }
+});
+
+// ── Retake (super-admin only) ──────────────────────────────────────────────────
+// Issue a fresh assessment to a completed client while preserving their prior
+// assessment row(s). requireSuperAdmin gates the route (defense-in-depth behind the
+// super-admin-only button). The new assessment row is created later by /api/submit,
+// which stamps retake_of_assessment_id; here we only reopen the invite.
+app.post('/admin/clients/:client_id/retake', requireSuperAdmin, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
+
+  try {
+    const client = await db.getClientById(clientId);
+    if (!client) return res.status(404).json({ error: 'Client not found.' });
+    if (client.status !== 'complete') {
+      return res.status(400).json({ error: 'Retake is only available for clients who have completed an assessment.' });
+    }
+
+    // Invite is sent from the client's own coach, not the acting super-admin.
+    const clientInfo = await db.getClientWithCoach(clientId);
+    const coachName = clientInfo ? clientInfo.coach_name : req.session.coach_name;
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await db.retakeTransaction(clientId, token, expiresAt);
+    await sendInviteEmail({ first_name: client.first_name, last_name: client.last_name, email: client.email }, token, coachName);
+
+    console.log(`[admin/clients/retake] retake issued for client #${clientId} by coach #${req.session.coach_id}`);
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('[admin/clients/retake] error:', e.message);
+    return res.status(500).json({ error: 'Retake failed — please try again.' });
   }
 });
 
@@ -4632,7 +4675,12 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   if (req.query.error === 'admin_required') flashError = 'Access denied — super-admin privileges required.';
 
   let rows = [];
-  try { rows = await db.getAdminRowsByCoach(req.session.coach_id); } catch (e) { console.error('[admin] query error:', e.message); }
+  try {
+    // Super-admins see every client across all coaches; other coaches see only their own.
+    rows = req.session.coach_is_super_admin === true
+      ? await db.getAllAdminRows()
+      : await db.getAdminRowsByCoach(req.session.coach_id);
+  } catch (e) { console.error('[admin] query error:', e.message); }
 
   const isAdmin = req.session.coach_is_admin === true;
   const betaModeEnabled = isAdmin ? await db.getBetaModeEnabled().catch(() => false) : false;
@@ -4718,6 +4766,15 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       ? `<button onclick="adminResend(${clientId},'${esc(rawEmail).replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;">Resend</button>`
       : '';
 
+    // Retake (super-admin only, completed clients only): issue a fresh assessment
+    // while preserving the prior results. Hidden entirely for non-super-admins.
+    // Gated on client status (not assessment status): issuing a retake resets
+    // client status to 'not_started', so this button hands off to "Resend invite"
+    // until the new assessment completes.
+    const retakeAction = (req.session.coach_is_super_admin === true && clientStatus === 'complete')
+      ? `<button onclick="adminRetake(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#7c3aed;padding:0;text-decoration:underline;margin-right:6px;">Retake</button>`
+      : '';
+
     // Beta Report cell (super admin only)
     let betaCell = '';
     if (isAdmin) {
@@ -4744,8 +4801,12 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       }
     }
 
+    const retakeBadge = r.retake_of_assessment_id
+      ? ` <span title="Issued as a retake" style="background:#ede9fe;color:#7c3aed;font-size:10px;font-weight:700;letter-spacing:0.04em;padding:1px 5px;border-radius:3px;vertical-align:middle;">RETAKE</span>`
+      : '';
+
     return `<tr id="row-${clientId}">
-      <td><a href="#" data-entity="client-${clientId}" onclick="openClientProfile(${clientId});return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle='solid'" onmouseout="this.style.textDecorationStyle='dotted'">${name}</a></td>
+      <td><a href="#" data-entity="client-${clientId}" onclick="openClientProfile(${clientId});return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle='solid'" onmouseout="this.style.textDecorationStyle='dotted'">${name}</a>${retakeBadge}</td>
       <td>${typeLabel}</td>
       <td>${instinct}</td>
       <td>${conf}</td>
@@ -4756,7 +4817,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       <td id="email-status-${clientId}" style="font-size:12px;">${emailStatus}</td>
       <td>${pdfLinks}</td>
       ${betaCell}
-      <td>${reassignAction}${retryAction}${regenAction}${resendAction}${inviteResendAction}${deleteAction}</td>
+      <td>${reassignAction}${retryAction}${regenAction}${resendAction}${retakeAction}${inviteResendAction}${deleteAction}</td>
     </tr>`;
   }).join('\n');
 
@@ -4899,6 +4960,19 @@ async function adminResend(clientId, email, btn) {
     } else { alert(d.error || 'Resend failed'); }
   } catch(e) { alert('Request failed'); }
   btn.disabled = false; btn.textContent = orig;
+}
+async function adminRetake(clientId, name, btn) {
+  if (!confirm('Issue a new assessment for ' + name + '? Their previous results will be preserved.')) return;
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch('/admin/clients/' + clientId + '/retake', {method:'POST', headers:{Accept:'application/json'}});
+    const d = await r.json();
+    if (d.success) {
+      showToast('Retake issued — a fresh invite has been sent.');
+      setTimeout(function(){ location.reload(); }, 1200);
+    } else { alert(d.error || 'Retake failed'); btn.disabled = false; btn.textContent = orig; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
 }
 async function adminGenBetaReport(clientId, name, btn) {
   if (!confirm('Generate beta report for ' + name + '?')) return;
