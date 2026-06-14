@@ -108,8 +108,8 @@ const prose = {
     'From here it should take you no longer than 20–25 minutes. If it’s taking longer, that could mean you’re overthinking things. Trust your gut when this happens.',
     'Now, take a deep breath, hit “Continue” and have fun!',
   ],
-  typeOpenPrompt: 'Is there anything about what drives you that those statements didn’t capture? (Optional)',
-  instinctOpenPrompt: 'Is there anything about where your attention and energy naturally go that you’d like to add? (Optional)',
+  typeOpenPrompt: 'Our core motivations are often hard to pin down. If there’s something about what drives you that the previous statements didn’t capture, add it here.',
+  instinctOpenPrompt: 'Instinct patterns can be subtle. If there’s something about where your attention and energy naturally go that the statements didn’t quite land on, add it here.',
   finalOpenQuestion: 'Is there anything about how you experience the world — what drives you, what you tend to avoid, or what you’ve learned about yourself — that the assessment didn’t quite capture?',
   finalOpenNote: 'Optional — skip if nothing comes to mind.',
   ctHeading: 'Analyzing your responses…',
@@ -174,8 +174,8 @@ Object.keys(data.STAGE4_CT_COMPARATIVE).forEach((k) => {
 lines['prose:welcomeHeading'] = lineOf('Discover your');
 lines['prose:welcomeBody'] = lineOf('This assessment guides you');
 lines['prose:mid'] = lineOf('Great work');
-lines['prose:typeOpenPrompt'] = lineOf('Is there anything about what drives you');
-lines['prose:instinctOpenPrompt'] = lineOf('Is there anything about where your attention');
+lines['prose:typeOpenPrompt'] = lineOf('Our core motivations are often hard to pin down');
+lines['prose:instinctOpenPrompt'] = lineOf('Instinct patterns can be subtle');
 lines['prose:finalOpenQuestion'] = lineOf('Is there anything about how you experience the world');
 lines['prose:ct'] = lineOf('we’re preparing your next set of questions');
 lines['prose:call1'] = lineOf('we’re weighing everything you’ve told us');
