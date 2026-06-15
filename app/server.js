@@ -28,7 +28,7 @@ if (process.env.SENDGRID_API_KEY) {
 // Load renderer and type library
 const { buildCoachPdfOptions, HIVE_LOGO_SVG, buildClientReportHTML, betaReportBodyHtml } = require('./renderer');
 const { renderClientReport, renderCoachReport } = require('./render_report');
-const { generateBetaReport, buildBetaData, BETA_QUESTION_TEXT } = require('./generate_report');
+const { buildBetaData, BETA_QUESTION_TEXT } = require('./generate_report');
 const reportPrep = require('./report_prep');          // buildClientModel — for /admin/content preview
 const { TYPE_NAMES: CMS_TYPE_NAMES } = require('./type_meta');  // canonical type names for preview wing/line remap (distinct from the dashboard's local TYPE_NAMES)
 const db = require('./db');
@@ -2802,7 +2802,7 @@ app.patch('/assessment/:token/profile', async (req, res) => {
 
 // ── Coach Management (super-admin only) ──────────────────────────────────────
 
-function renderCoachesPage(coaches, errorMsg, flashMsg, betaModeEnabled = false) {
+function renderCoachesPage(coaches, errorMsg, flashMsg, isSuperAdmin = false) {
   const TYPE_NAMES_LOCAL = {
     1: 'The Improver', 2: 'The Giver',   3: 'The Performer', 4: 'The Idealist',
     5: 'The Observer', 6: 'The Questioner', 7: 'The Enthusiast',
@@ -2917,26 +2917,7 @@ function renderCoachesPage(coaches, errorMsg, flashMsg, betaModeEnabled = false)
 </div>
 ${flashMsg   ? `<div class="flash-success">${flashMsg}</div>`   : ''}
 ${errorMsg   ? `<div class="flash-error">${errorMsg}</div>`     : ''}
-<div id="beta-flash" style="display:none;padding:12px 20px;font-size:13px;border-left:4px solid #1a7a4a;background:#e6f7ee;color:#1a7a4a;"></div>
 <div class="container">
-  <div class="card" style="margin-bottom:24px;border-left:4px solid ${betaModeEnabled ? '#7c3aed' : '#aaa'};">
-    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
-      <span>Beta Mode</span>
-      <span id="beta-mode-badge" style="background:${betaModeEnabled ? '#ede9fe' : '#f4f4f4'};color:${betaModeEnabled ? '#7c3aed' : '#666'};padding:3px 10px;border-radius:3px;font-size:12px;font-weight:700;letter-spacing:0.05em;">
-        ${betaModeEnabled ? 'ON' : 'OFF'}
-      </span>
-    </div>
-    <div style="padding:16px 20px;display:flex;align-items:center;gap:16px;">
-      <p style="margin:0;font-size:13px;color:#1A2B33;">
-        When Beta Mode is <strong>ON</strong>, super-admins can generate <code>.docx</code> beta review reports for completed clients directly from the Admin Dashboard.
-      </p>
-      <button id="beta-toggle-btn"
-        onclick="toggleBetaMode(${betaModeEnabled ? 'false' : 'true'})"
-        style="flex-shrink:0;background:${betaModeEnabled ? '#c0392b' : '#7c3aed'};color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 20px;cursor:pointer;white-space:nowrap;">
-        ${betaModeEnabled ? 'Turn Off' : 'Turn On'}
-      </button>
-    </div>
-  </div>
   <div class="card">
     <div class="card-header">All Coaches</div>
     <table>
@@ -2988,6 +2969,9 @@ ${errorMsg   ? `<div class="flash-error">${errorMsg}</div>`     : ''}
 </div>
 
 <script>
+// Super-admin flag for client-side gating (PR-F) — injected before the accordion
+// renderer so the trash-can delete button can be hidden for non-super-admins.
+window.__IS_SUPER_ADMIN = ${isSuperAdmin ? 'true' : 'false'};
 var _accordionCache = {};
 var _openCoachId = null;
 // §9.3 assessment timing: per-row timing payloads (keyed by clientId), populated as
@@ -2995,44 +2979,6 @@ var _openCoachId = null;
 var _timingData = {};
 var CLOCK_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="display:inline-block;vertical-align:middle;"><circle cx="12" cy="12" r="8.5" stroke="#00B2D9" stroke-width="2"/><path d="M12 7.5V12l3 2" stroke="#00B2D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 var _typeNames = ${JSON.stringify({1:'The Improver',2:'The Giver',3:'The Performer',4:'The Idealist',5:'The Observer',6:'The Questioner',7:'The Enthusiast',8:'The Protector',9:'The Peacemaker'})};
-
-async function toggleBetaMode(enable) {
-  var btn = document.getElementById('beta-toggle-btn');
-  var badge = document.getElementById('beta-mode-badge');
-  var card = btn.closest('.card');
-  var flashEl = document.getElementById('beta-flash');
-  var orig = btn.textContent;
-  btn.disabled = true; btn.textContent = '…';
-  try {
-    var r = await fetch('/admin/settings/beta-mode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ enabled: enable }),
-    });
-    var d = await r.json();
-    if (d.success) {
-      var on = d.beta_mode_enabled;
-      badge.textContent = on ? 'ON' : 'OFF';
-      badge.style.background = on ? '#ede9fe' : '#f4f4f4';
-      badge.style.color = on ? '#7c3aed' : '#666';
-      btn.textContent = on ? 'Turn Off' : 'Turn On';
-      btn.style.background = on ? '#c0392b' : '#7c3aed';
-      btn.onclick = function(){ toggleBetaMode(!on); };
-      card.style.borderLeftColor = on ? '#7c3aed' : '#aaa';
-      flashEl.textContent = 'Beta mode ' + (on ? 'enabled' : 'disabled') + '.';
-      flashEl.style.background = '#e6f7ee'; flashEl.style.color = '#1a7a4a';
-      flashEl.style.borderLeftColor = '#1a7a4a'; flashEl.style.display = '';
-      setTimeout(function(){ flashEl.style.display = 'none'; }, 4000);
-    } else {
-      alert(d.error || 'Failed to update beta mode');
-      btn.textContent = orig;
-    }
-  } catch(e) {
-    alert('Request failed');
-    btn.textContent = orig;
-  }
-  btn.disabled = false;
-}
 
 function _fmt(ts) {
   if (!ts) return '—';
@@ -3106,7 +3052,7 @@ function renderAccordionTable(coachId, rows) {
     var resendBtn = hasApiResult
       ? '<button onclick="accordionResend('+clientId+',\\''+clientEmail.replace(/'/g,"\\\\'")+'\\',this)" style="background:none;border:none;cursor:pointer;font-size:11px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:4px;">Resend</button>'
       : '';
-    var deleteBtn = '<button onclick="accordionDelete('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#c0392b;padding:0;">&#128465;</button>';
+    var deleteBtn = window.__IS_SUPER_ADMIN ? '<button onclick="accordionDelete('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#c0392b;padding:0;">&#128465;</button>' : '';
 
     // §9.3.1 clock icon — render only on Complete rows that captured timing. Stash the
     // per-row payload for the modal; the button sits inline-left of the date (5px gap).
@@ -4584,12 +4530,18 @@ function renderBetaTab2Html(row) {
 app.get('/admin/beta-review', requireSuperAdmin, async (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   let respondents = [];
+  let analysis = null;
   try {
     respondents = await db.getBetaReviewRespondents();
   } catch (e) {
     console.error('[beta-review] respondent fetch failed:', e.message);
   }
-  res.send(renderBetaReviewPage(req, respondents));
+  try {
+    analysis = await db.getBetaAnalysis();
+  } catch (e) {
+    console.error('[beta-review] analysis fetch failed:', e.message);
+  }
+  res.send(renderBetaReviewPage(req, respondents, analysis));
 });
 
 app.get('/admin/beta-review/tester/:client_id', requireSuperAdmin, async (req, res) => {
@@ -4608,14 +4560,216 @@ app.get('/admin/beta-review/tester/:client_id', requireSuperAdmin, async (req, r
   return res.json({ available: true, testerName, tab1Html, tab2Html });
 });
 
-// Re-analyze scaffold — PR-F will run the Claude synthesis across all beta_feedback
-// rows and persist the result. For now this just confirms the route is wired.
+// ── Re-analyze synthesis (PR-F) ───────────────────────────────────────────────
+// Hybrid design: the handler computes the counts/averages deterministically (never
+// trusting the LLM to do arithmetic); Opus 4.8 supplies interpretation — per-statement
+// comment synthesis, Likert narratives, subtype-accuracy clusters, Block C themes, and
+// recommended actions. The merged five-part result is stored in beta_analysis (overwrite
+// on re-run) and rendered on /admin/beta-review.
+
+const BETA_ANALYSIS_MODEL = 'claude-opus-4-8';
+
+const BETA_SYNTHESIS_SYSTEM = `You are a product researcher analyzing beta-tester feedback for the InsightOut Enneagram typing assessment. You are given (1) pre-computed aggregates and (2) the raw per-tester feedback. Your job is INTERPRETATION ONLY — never recompute or restate the provided counts or averages; treat them as ground truth and explain what they mean. Be concrete, specific, and concise. Ground every statement in the supplied data. Output strictly the requested JSON object and nothing else.`;
+
+const BETA_SYNTHESIS_OUTPUT_FORMAT = `Return ONLY a JSON object with exactly these keys:
+{
+  "flagged_comments": { "<statement key>": "<one-sentence synthesis of what testers said about this flagged statement>" },
+  "likert_narratives": { "clarity": "<one sentence>", "ease": "<one sentence>", "length": "<one sentence>", "navigation": "<one sentence>", "overall": "<one sentence>" },
+  "subtype_accuracy": { "summary": "<2-3 sentences on engine-vs-tester self-hypothesis agreement>", "clusters": [ { "pattern": "<short label>", "detail": "<1-2 sentences naming the misfire cluster>" } ] },
+  "block_c_themes": { "summary": "<1-2 sentences>", "themes": [ "<theme>", "..." ] },
+  "recommended_actions": [ "<action>", "... (3 to 5 total)" ]
+}
+Only include "flagged_comments" entries for statement keys that appear in the provided flagged data. Use the literal text provided; do not invent feedback. If a section has no data, return an empty object/array and say so in its summary.`;
+
+// Deterministic aggregation over the analysis rows. Returns flagged-key counts (live
+// flags only — reconsidered ones are excluded), Likert per-dimension averages, and the
+// respondent count. Defensive against string-vs-object JSONB.
+function brComputeAggregates(rows) {
+  const parse = (v) => {
+    if (v == null) return null;
+    if (typeof v === 'string') { try { return JSON.parse(v); } catch (_) { return null; } }
+    return v;
+  };
+  const flagMap = {}; // key -> { key, stageLabel, questionText, count }
+  const likertSums = {}; const likertN = {};
+  const dims = ['clarity', 'ease', 'length', 'navigation', 'overall'];
+  dims.forEach((d) => { likertSums[d] = 0; likertN[d] = 0; });
+
+  rows.forEach((row) => {
+    const flagged = parse(row.flagged_keys) || [];
+    (Array.isArray(flagged) ? flagged : []).forEach((f) => {
+      if (!f || f.reconsidered) return; // count only live flags
+      const key = f.key;
+      if (!flagMap[key]) {
+        flagMap[key] = { key, stageLabel: f.stageLabel || '', questionText: BETA_QUESTION_TEXT[key] || key, count: 0 };
+      }
+      flagMap[key].count += 1;
+    });
+    const likert = parse(row.block_b_answers) || {};
+    dims.forEach((d) => {
+      const v = likert[d];
+      if (typeof v === 'number') { likertSums[d] += v; likertN[d] += 1; }
+    });
+  });
+
+  const flaggedCounts = Object.values(flagMap).sort((a, b) => b.count - a.count);
+  const likertAvg = {};
+  dims.forEach((d) => { likertAvg[d] = likertN[d] ? Math.round((likertSums[d] / likertN[d]) * 10) / 10 : null; });
+  return { flaggedCounts, likertAvg, respondentCount: rows.length };
+}
+
+// Compact per-tester payload for the LLM (live flags only, with reconstructed text).
+function brBuildSynthesisInput(rows) {
+  const parse = (v) => {
+    if (v == null) return null;
+    if (typeof v === 'string') { try { return JSON.parse(v); } catch (_) { return null; } }
+    return v;
+  };
+  return rows.map((row) => {
+    const selfT = parse(row.self_hypothesis_types);
+    const selfI = parse(row.self_hypothesis_instincts);
+    const flagged = (parse(row.flagged_keys) || []).filter((f) => f && !f.reconsidered).map((f) => ({
+      key: f.key, stage: f.stageLabel || '', text: BETA_QUESTION_TEXT[f.key] || f.key, comment: f.comment || '',
+    }));
+    return {
+      engine: { type: row.confirmed_type, instinct: row.dominant_instinct_hypothesis || row.confirmed_instinct },
+      self: { types: selfT, instincts: selfI },
+      flagged,
+      likert: parse(row.block_b_answers) || {},
+      notes: row.overall_notes || '',
+    };
+  });
+}
+
 app.post('/admin/beta-review/analyze', requireSuperAdmin, async (req, res) => {
-  console.log('[beta-review/analyze] stub invoked (PR-F will implement the Claude synthesis)');
-  return res.json({ ok: true, stub: true });
+  let rows = [];
+  try {
+    rows = await db.getBetaFeedbackForAnalysis();
+  } catch (e) {
+    console.error('[beta-review/analyze] data fetch failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'Could not load feedback data.' });
+  }
+  if (!rows.length) {
+    return res.json({ ok: false, error: 'No feedback to analyze yet.' });
+  }
+
+  const agg = brComputeAggregates(rows);
+  const testers = brBuildSynthesisInput(rows);
+
+  const userMessage = `PRE-COMPUTED AGGREGATES (ground truth — do not recompute):
+- Respondents: ${agg.respondentCount}
+- Flagged-statement counts (live flags), ranked: ${JSON.stringify(agg.flaggedCounts)}
+- Likert averages (0–5) per dimension: ${JSON.stringify(agg.likertAvg)}
+
+RAW PER-TESTER FEEDBACK:
+${JSON.stringify(testers, null, 2)}
+
+${BETA_SYNTHESIS_OUTPUT_FORMAT}`;
+
+  let parsed = null;
+  let usage = null;
+  try {
+    const response = await client.messages.create({
+      model: BETA_ANALYSIS_MODEL,
+      max_tokens: 4000,
+      system: [{ type: 'text', text: BETA_SYNTHESIS_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: userMessage }],
+    });
+    usage = response.usage || null;
+    console.log(`[beta-review/analyze] usage — ${JSON.stringify(usage)}`);
+    const text = response.content[0].text;
+    const stripped = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+    parsed = JSON.parse(extractFirstJsonObject(stripped));
+  } catch (e) {
+    console.error('[beta-review/analyze] Claude call/parse failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'Analysis failed. Please try again.' });
+  }
+
+  // Merge deterministic aggregates with the LLM narrative into the stored shape.
+  const flaggedComments = (parsed && parsed.flagged_comments) || {};
+  const likertNarr = (parsed && parsed.likert_narratives) || {};
+  const analysisJson = {
+    flagged_frequency: agg.flaggedCounts.map((f) => ({ ...f, synthesized_comment: flaggedComments[f.key] || '' })),
+    likert: ['clarity', 'ease', 'length', 'navigation', 'overall'].reduce((o, d) => {
+      o[d] = { avg: agg.likertAvg[d], narrative: likertNarr[d] || '' };
+      return o;
+    }, {}),
+    subtype_accuracy: (parsed && parsed.subtype_accuracy) || { summary: '', clusters: [] },
+    block_c_themes: (parsed && parsed.block_c_themes) || { summary: '', themes: [] },
+    recommended_actions: (parsed && parsed.recommended_actions) || [],
+  };
+
+  try {
+    await db.saveBetaAnalysis({ analysisJson, model: BETA_ANALYSIS_MODEL, tokenUsage: usage, respondentCount: agg.respondentCount });
+  } catch (e) {
+    console.error('[beta-review/analyze] save failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'Analysis ran but could not be saved.' });
+  }
+
+  const saved = await db.getBetaAnalysis().catch(() => null);
+  return res.json({ ok: true, analysisHtml: renderBetaAnalysisHtml(saved) });
 });
 
-function renderBetaReviewPage(req, respondents) {
+// Render the stored beta_analysis row (or the empty state) for the analysis panel.
+// Shared by the page load (GET) and the Re-analyze refresh (POST).
+function renderBetaAnalysisHtml(analysis) {
+  const head = (stamp) => `<div class="ba-head"><h2>Cross-tester analysis</h2><span class="ba-stamp">${stamp}</span></div>`;
+  if (!analysis || !analysis.analysis_json) {
+    return head('Not yet analyzed') + `<div class="ba-empty">No analysis yet. Click <strong>Re-analyze</strong> to synthesize feedback across all testers.</div>`;
+  }
+  const a = typeof analysis.analysis_json === 'string' ? JSON.parse(analysis.analysis_json) : analysis.analysis_json;
+  let stampStr = 'Last analyzed: unknown';
+  try {
+    const dt = new Date(analysis.generated_at).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    stampStr = `Last analyzed: ${dt} · ${esc(analysis.model || '')} · ${analysis.respondent_count || 0} respondents`;
+  } catch (_) {}
+
+  // (1) Flagged frequency
+  const freq = a.flagged_frequency || [];
+  const freqHtml = freq.length ? `<table class="ba-tbl">
+    <thead><tr><th>Statement</th><th>Stage</th><th style="text-align:center;">Flags</th><th>Synthesized comment</th></tr></thead>
+    <tbody>${freq.map((f) => `<tr>
+      <td>${esc(f.questionText || f.key)}</td>
+      <td>${esc(f.stageLabel || '')}</td>
+      <td class="ba-count">${esc(String(f.count))}</td>
+      <td class="ba-narr">${f.synthesized_comment ? esc(f.synthesized_comment) : '<span class="ba-muted">—</span>'}</td>
+    </tr>`).join('')}</tbody></table>` : `<p class="ba-muted">No questions were flagged across testers.</p>`;
+
+  // (2) Likert
+  const lk = a.likert || {};
+  const lkLabels = { clarity: 'Clarity of questions', ease: 'Ease of answering', length: 'Length & pacing', navigation: 'Navigation and way-finding', overall: 'Overall experience' };
+  const lkHtml = `<table class="ba-tbl">
+    <thead><tr><th>Dimension</th><th style="text-align:center;">Avg</th><th>Interpretation</th></tr></thead>
+    <tbody>${Object.keys(lkLabels).map((d) => {
+      const row = lk[d] || {};
+      const avg = (row.avg == null) ? '—' : `${row.avg} / 5`;
+      return `<tr><td>${esc(lkLabels[d])}</td><td class="ba-avg">${esc(avg)}</td><td class="ba-narr">${row.narrative ? esc(row.narrative) : '<span class="ba-muted">—</span>'}</td></tr>`;
+    }).join('')}</tbody></table>`;
+
+  // (3) Subtype accuracy
+  const sa = a.subtype_accuracy || {};
+  const saClusters = (sa.clusters || []).map((c) => `<li><strong>${esc(c.pattern || '')}</strong> — ${esc(c.detail || '')}</li>`).join('');
+  const saHtml = `${sa.summary ? `<p class="ba-summary">${esc(sa.summary)}</p>` : ''}${saClusters ? `<ul class="ba-list">${saClusters}</ul>` : (sa.summary ? '' : '<p class="ba-muted">—</p>')}`;
+
+  // (4) Block C themes
+  const bc = a.block_c_themes || {};
+  const bcThemes = (bc.themes || []).map((t) => `<li>${esc(t)}</li>`).join('');
+  const bcHtml = `${bc.summary ? `<p class="ba-summary">${esc(bc.summary)}</p>` : ''}${bcThemes ? `<ul class="ba-list">${bcThemes}</ul>` : (bc.summary ? '' : '<p class="ba-muted">—</p>')}`;
+
+  // (5) Recommended actions
+  const acts = a.recommended_actions || [];
+  const actsHtml = acts.length ? `<ul class="ba-list ba-actions">${acts.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="ba-muted">—</p>';
+
+  return head(stampStr) + `<div class="ba-body">
+    <div class="ba-section"><div class="ba-h">Flagged statement frequency</div>${freqHtml}</div>
+    <div class="ba-section"><div class="ba-h">Experience ratings</div>${lkHtml}</div>
+    <div class="ba-section"><div class="ba-h">Subtype accuracy pattern</div>${saHtml}</div>
+    <div class="ba-section"><div class="ba-h">Open-comment themes</div>${bcHtml}</div>
+    <div class="ba-section"><div class="ba-h">Recommended actions</div>${actsHtml}</div>
+  </div>`;
+}
+
+function renderBetaReviewPage(req, respondents, analysis) {
   const fmtDate = (ts) => {
     if (!ts) return '—';
     try { return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
@@ -4704,6 +4858,25 @@ function renderBetaReviewPage(req, respondents) {
   .br-modal-foot { display: flex; justify-content: flex-end; padding: 0 22px 22px; }
   .br-close { background: #fff; color: #7A96A6; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; padding: 9px 18px; cursor: pointer; }
   #br-toast { display: none; position: fixed; bottom: 24px; right: 24px; background: #1a7a4a; color: #fff; padding: 12px 20px; border-radius: 6px; font-size: 13px; z-index: 9500; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+  /* Analysis panel */
+  .ba-head { display: flex; justify-content: space-between; align-items: baseline; padding: 16px 18px; border-bottom: 1px solid #EFEAE3; }
+  .ba-head h2 { font-size: 16px; margin: 0; }
+  .ba-stamp { font-size: 12px; color: #7A96A6; }
+  .ba-body { padding: 4px 18px 18px; }
+  .ba-empty { padding: 24px 18px; color: #7A96A6; }
+  .ba-section { margin-top: 18px; }
+  .ba-h { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #5C4080; margin: 0 0 8px; padding-bottom: 4px; border-bottom: 1px solid #EFEAF6; }
+  table.ba-tbl { width: 100%; border-collapse: collapse; }
+  table.ba-tbl th { text-align: left; font-size: 11px; color: #7A96A6; text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px; border-bottom: 1px solid #EFEAE3; }
+  table.ba-tbl td { padding: 7px 10px; font-size: 13px; color: #1A2B33; border-bottom: 1px solid #F2EEE9; vertical-align: top; }
+  .ba-count { font-weight: 700; color: #00859f; text-align: center; }
+  .ba-avg { font-weight: 700; color: #00859f; text-align: center; width: 60px; }
+  .ba-narr { color: #4A6070; }
+  .ba-list { margin: 0; padding-left: 20px; }
+  .ba-list li { font-size: 14px; color: #1A2B33; margin-bottom: 6px; line-height: 1.5; }
+  .ba-actions li { font-weight: 700; }
+  .ba-summary { font-size: 14px; color: #1A2B33; margin: 0 0 8px; line-height: 1.55; }
+  .ba-muted { color: #9FB0B9; font-style: italic; }
 </style></head>
 <body>
 <div class="top-bar">
@@ -4724,6 +4897,7 @@ function renderBetaReviewPage(req, respondents) {
       <tbody>${rowsHtml}</tbody>
     </table>` : emptyState}
   </div>
+  <div class="panel" id="br-analysis-panel" style="margin-top:24px;">${renderBetaAnalysisHtml(analysis)}</div>
 </div>
 
 <div id="br-overlay" class="br-overlay" onclick="if(event.target===this)closeBetaTester()">
@@ -4772,9 +4946,13 @@ async function reanalyzeBeta(btn){
   try{
     var r=await fetch('/admin/beta-review/analyze',{method:'POST',headers:{Accept:'application/json'}});
     var d=await r.json();
-    if(d.ok && d.stub){ _brToast('Re-analyze is coming in a future update.'); }
-    else if(d.ok){ _brToast('Analysis complete.'); }
-    else { _brToast('Analysis failed.'); }
+    if(d.ok && d.analysisHtml){
+      var panel=document.getElementById('br-analysis-panel');
+      if(panel) panel.innerHTML=d.analysisHtml;
+      _brToast('Analysis complete.');
+    } else {
+      _brToast(d.error || 'Analysis failed.');
+    }
   }catch(e){ _brToast('Request failed.'); }
   btn.disabled=false; btn.textContent=orig;
 }
@@ -4946,8 +5124,7 @@ app.get('/admin/coaches', requireAdmin, async (req, res) => {
   let coaches = [];
   try { coaches = await db.getAllCoaches(); } catch (e) { console.error('[admin/coaches] query error:', e.message); }
 
-  const betaModeEnabled = await db.getBetaModeEnabled().catch(() => false);
-  res.send(renderCoachesPage(coaches, null, flashMsg, betaModeEnabled));
+  res.send(renderCoachesPage(coaches, null, flashMsg, req.session.coach_is_super_admin === true));
 });
 
 app.get('/admin/coaches/active', requireAdmin, async (req, res) => {
@@ -5027,45 +5204,13 @@ app.post('/admin/coaches/:coach_id/reassign', requireAdmin, async (req, res) => 
   res.redirect('/admin/coaches?flash=clients_reassigned');
 });
 
-// ── Beta Report generation ────────────────────────────────────────────────────
-
-app.post('/admin/beta-report/:client_id', requireAdmin, async (req, res) => {
-  const clientId = parseInt(req.params.client_id, 10);
-  if (!clientId || isNaN(clientId)) {
-    return res.status(400).json({ success: false, error: 'Invalid client ID' });
-  }
-
-  const betaModeEnabled = await db.getBetaModeEnabled().catch(() => false);
-  if (!betaModeEnabled) {
-    return res.status(403).json({ success: false, error: 'Beta mode is currently disabled. Enable it on the Manage Coaches page.' });
-  }
-
-  try {
-    const result = await generateBetaReport(clientId, {
-      queryFn:    db.query.bind(db),
-      reportsDir: REPORTS_DIR,
-      force:      true,
-    });
-    return res.json({ success: true, filename: result.filename, generated_at: result.generated_at });
-  } catch (e) {
-    console.error(`[admin/beta-report] error for client #${clientId}:`, e.message);
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// ── Beta mode settings ────────────────────────────────────────────────────────
-
-app.post('/admin/settings/beta-mode', requireAdmin, async (req, res) => {
-  const enabled = req.body.enabled === true || req.body.enabled === 'true';
-  try {
-    await db.setBetaModeEnabled(enabled);
-    console.log(`[admin/settings] beta_mode_enabled set to ${enabled} by coach #${req.session.coach_id}`);
-    return res.json({ success: true, beta_mode_enabled: enabled });
-  } catch (e) {
-    console.error('[admin/settings/beta-mode] error:', e.message);
-    return res.status(500).json({ success: false, error: e.message });
-  }
-});
+// ── Beta diagnostic report + global beta-mode toggle: RETIRED (PR-F) ───────────
+// The old per-client beta .docx report (POST /admin/beta-report/:client_id) and the
+// global Beta Mode toggle (POST /admin/settings/beta-mode) were removed when
+// /admin/beta-review replaced them. The app_settings.beta_mode_enabled column and the
+// clients.beta_report_* columns are intentionally NOT dropped here — flagged for a
+// future cleanup migration. db.getBetaModeEnabled/setBetaModeEnabled remain exported
+// but unused.
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
@@ -5101,7 +5246,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   } catch (e) { console.error('[admin] query error:', e.message); }
 
   const isAdmin = req.session.coach_is_admin === true;
-  const betaModeEnabled = isAdmin ? await db.getBetaModeEnabled().catch(() => false) : false;
+  const isSuperAdmin = req.session.coach_is_super_admin === true;
 
   const tableRows = rows.map(r => {
     const name      = esc(`${r.first_name || ''} ${r.last_name || ''}`.trim()) || '—';
@@ -5155,10 +5300,12 @@ app.get('/admin', requireAdminSession, async (req, res) => {
           : `<span style="color:#b07800;">⚠ Pending</span>`)
       : '—';
 
-    const deleteAction = `
+    // Delete is super-admin only (PR-F). Server-enforced by requireSuperAdmin on the
+    // route; hidden here for everyone else.
+    const deleteAction = isSuperAdmin ? `
       <form method="POST" action="/admin/delete/${clientId}" style="display:inline;" onsubmit="return confirm('Delete record for ${rawName.replace(/'/g, "\\'")}? This will permanently remove the record and any PDFs.');">
         <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;color:#c0392b;">&#128465;</button>
-      </form>`;
+      </form>` : '';
 
     const inviteResendAction = clientStatus === 'not_started' ? `
       <form method="POST" action="/admin/clients/resend/${clientId}" style="display:inline;" onsubmit="return confirm('Resend invite to ${rawName.replace(/'/g, "\\'")}?');">
@@ -5195,32 +5342,6 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       ? `<button onclick="adminRetake(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#7c3aed;padding:0;text-decoration:underline;margin-right:6px;">Retake</button>`
       : '';
 
-    // Beta Report cell (super admin only)
-    let betaCell = '';
-    if (isAdmin) {
-      if (!betaModeEnabled) {
-        betaCell = `<td id="beta-cell-${clientId}" style="font-size:11px;color:#aaa;">—</td>`;
-      } else if (status !== 'complete') {
-        betaCell = `<td id="beta-cell-${clientId}" style="font-size:11px;color:#aaa;">—</td>`;
-      } else {
-        const betaTs = r.beta_report_generated_at;
-        if (betaTs) {
-          const betaFilename = r.beta_report_filename || null;
-          const betaLink = betaFilename
-            ? `<a href="/reports/token/${encodeURIComponent(betaFilename)}" style="display:block;color:#7c3aed;text-decoration:none;white-space:nowrap;font-size:11px;">&#128196; Download</a>`
-            : '';
-          betaCell = `<td id="beta-cell-${clientId}" style="font-size:11px;">
-            ✓ ${formatAdminDate(betaTs)}${betaLink}
-            <button onclick="adminGenBetaReport(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="display:block;background:none;border:none;cursor:pointer;font-size:11px;color:#7c3aed;padding:0;text-decoration:underline;margin-top:2px;">Regenerate</button>
-          </td>`;
-        } else {
-          betaCell = `<td id="beta-cell-${clientId}" style="font-size:11px;">
-            <button onclick="adminGenBetaReport(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#7c3aed;padding:0;text-decoration:underline;">Generate</button>
-          </td>`;
-        }
-      }
-    }
-
     const retakeBadge = r.retake_of_assessment_id
       ? ` <span title="Issued as a retake" style="background:#ede9fe;color:#7c3aed;font-size:10px;font-weight:700;letter-spacing:0.04em;padding:1px 5px;border-radius:3px;vertical-align:middle;">RETAKE</span>`
       : '';
@@ -5243,7 +5364,6 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       <td id="pdf-status-${clientId}" style="font-size:12px;">${pdfStatus}</td>
       <td id="email-status-${clientId}" style="font-size:12px;">${emailStatus}</td>
       <td>${pdfLinks}</td>
-      ${betaCell}
       <td>${reassignAction}${retryAction}${regenAction}${resendAction}${retakeAction}${inviteResendAction}${deleteAction}</td>
     </tr>`;
   }).join('\n');
@@ -5325,7 +5445,6 @@ ${flashError ? `<div class="flash-error">${flashError}</div>` : ''}
           <th>PDF</th>
           <th>Email</th>
           <th>Reports</th>
-          ${isAdmin ? '<th style="color:#d8b4fe;">Beta Report</th>' : ''}
           <th>Actions</th>
         </tr>
       </thead>
@@ -5401,23 +5520,6 @@ async function adminRetake(clientId, name, btn) {
     } else { alert(d.error || 'Retake failed'); btn.disabled = false; btn.textContent = orig; }
   } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
 }
-async function adminGenBetaReport(clientId, name, btn) {
-  if (!confirm('Generate beta report for ' + name + '?')) return;
-  const orig = btn.textContent;
-  btn.disabled = true; btn.textContent = '…';
-  try {
-    const r = await fetch('/admin/beta-report/' + clientId, {method:'POST', headers:{Accept:'application/json'}});
-    const d = await r.json();
-    if (d.success) {
-      const cell = document.getElementById('beta-cell-' + clientId);
-      if (cell) {
-        const dl = d.filename ? '<a href="/reports/token/'+encodeURIComponent(d.filename)+'" style="display:block;color:#7c3aed;text-decoration:none;white-space:nowrap;font-size:11px;">&#128196; Download</a>' : '';
-        cell.innerHTML = '✓ just now' + dl + '<button onclick="adminGenBetaReport('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this)" style="display:block;background:none;border:none;cursor:pointer;font-size:11px;color:#7c3aed;padding:0;text-decoration:underline;margin-top:2px;">Regenerate</button>';
-      }
-      showToast('Beta report generated.');
-    } else { alert(d.error || 'Generation failed'); btn.disabled = false; btn.textContent = orig; }
-  } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
-}
 </script>
 ${sharedModalHTML(req.session.coach_is_admin === true, req.session.coach_is_super_admin === true)}
 </body>
@@ -5475,7 +5577,7 @@ app.get('/reports/view/:token', async (req, res) => {
 });
 
 // Delete a client + all associated assessments and PDFs (coach-scoped; super admin unrestricted)
-app.post('/admin/delete/:client_id', requireAdminSession, async (req, res) => {
+app.post('/admin/delete/:client_id', requireSuperAdmin, async (req, res) => {
   const clientId = parseInt(req.params.client_id, 10);
   const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
   if (!clientId || isNaN(clientId)) {

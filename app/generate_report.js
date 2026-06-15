@@ -524,6 +524,13 @@ function buildBetaData(row) {
 }
 
 // ─── Puppeteer launch + PDF write ─────────────────────────────────────────────
+//
+// DEAD CODE (PR-F): the beta diagnostic PDF report was retired when /admin/beta-review
+// replaced it. launchBrowser, htmlToPdf, generateBetaReport, and runCli below are no
+// longer called by any route or CLI shim. They are intentionally left in place this PR
+// to avoid collateral churn; buildBetaData and BETA_QUESTION_TEXT (above/below) remain
+// actively used by the /admin/beta-review tester modal and synthesis. Flagged for a
+// future cleanup pass that strips the PDF machinery.
 
 async function launchBrowser() {
   if (process.env.NODE_ENV === 'production') {

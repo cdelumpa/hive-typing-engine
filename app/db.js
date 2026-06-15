@@ -150,6 +150,20 @@ INSERT INTO app_settings (id, beta_mode_enabled)
 VALUES (1, FALSE)
 ON CONFLICT (id) DO NOTHING;
 
+-- Beta analysis: singleton (id=1) holding the latest cross-record synthesis produced
+-- by the /admin/beta-review Re-analyze pass (PR-F). Overwritten on each re-run.
+-- analysis_json carries the full five-part result (deterministic aggregates + the
+-- Opus narrative). No seed row — created on first save via UPSERT.
+CREATE TABLE IF NOT EXISTS beta_analysis (
+  id               INTEGER PRIMARY KEY DEFAULT 1,
+  analysis_json    JSONB,
+  model            TEXT,
+  token_usage      JSONB,
+  respondent_count INTEGER,
+  generated_at     TIMESTAMPTZ DEFAULT NOW(),
+  CHECK (id = 1)
+);
+
 -- Beta feedback: one row per beta tester's post-submit feedback submission.
 -- Cascades on assessment delete so feedback never outlives its assessment.
 CREATE TABLE IF NOT EXISTS beta_feedback (
@@ -850,6 +864,48 @@ async function getBetaReviewRow(clientId) {
   return r && r.rows.length > 0 ? r.rows[0] : null;
 }
 
+// Synthesis dataset for the Re-analyze pass (PR-F): every submitted feedback row
+// joined to its assessment's engine hypothesis (and client name), newest first.
+// Unlike getAllBetaFeedback this carries confirmed_type/instinct so the synthesis
+// can compare engine vs. tester self-hypothesis without a second query.
+async function getBetaFeedbackForAnalysis() {
+  const r = await query(`
+    SELECT bf.assessment_id, bf.self_hypothesis_types, bf.self_hypothesis_instincts,
+           bf.flagged_keys, bf.block_b_answers, bf.overall_notes, bf.submitted_at,
+           a.confirmed_type, a.confirmed_instinct, a.dominant_instinct_hypothesis,
+           cl.first_name, cl.last_name
+    FROM beta_feedback bf
+    JOIN assessments a ON a.id = bf.assessment_id
+    JOIN clients cl    ON cl.id = a.client_id
+    ORDER BY bf.submitted_at DESC
+  `);
+  return r ? r.rows : [];
+}
+
+// beta_analysis singleton (PR-F). UPSERT overwrites the prior result on re-run.
+async function saveBetaAnalysis({ analysisJson, model, tokenUsage, respondentCount }) {
+  await query(`
+    INSERT INTO beta_analysis (id, analysis_json, model, token_usage, respondent_count, generated_at)
+    VALUES (1, $1, $2, $3, $4, NOW())
+    ON CONFLICT (id) DO UPDATE SET
+      analysis_json    = EXCLUDED.analysis_json,
+      model            = EXCLUDED.model,
+      token_usage      = EXCLUDED.token_usage,
+      respondent_count = EXCLUDED.respondent_count,
+      generated_at     = NOW()
+  `, [
+    JSON.stringify(analysisJson ?? null),
+    model ?? null,
+    JSON.stringify(tokenUsage ?? null),
+    respondentCount ?? null,
+  ]);
+}
+
+async function getBetaAnalysis() {
+  const r = await query('SELECT * FROM beta_analysis WHERE id = 1 LIMIT 1');
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
 async function saveClientSessionState(clientId, sessionState) {
   await query(
     'UPDATE clients SET session_state = $1 WHERE id = $2',
@@ -969,6 +1025,9 @@ module.exports = {
   getAllBetaFeedback,
   getBetaReviewRespondents,
   getBetaReviewRow,
+  getBetaFeedbackForAnalysis,
+  saveBetaAnalysis,
+  getBetaAnalysis,
   saveClientSessionState,
   clearClientSessionState,
   getAbandonedClients,
