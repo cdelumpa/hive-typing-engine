@@ -4738,6 +4738,18 @@ ${BETA_SYNTHESIS_OUTPUT_FORMAT}`;
   return res.json({ ok: true, analysisHtml: renderBetaAnalysisHtml(saved) });
 });
 
+// Clear the stored cross-tester analysis (nulls analysis_json via clearBetaAnalysis,
+// added in PR-F). The page then shows the "Not yet analyzed" empty state. Super-admin only.
+app.post('/admin/beta-review/clear-analysis', requireSuperAdmin, async (req, res) => {
+  try {
+    await db.clearBetaAnalysis();
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[beta-review/clear-analysis] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'Clear failed' });
+  }
+});
+
 // Render the stored beta_analysis row (or the empty state) for the analysis panel.
 // Shared by the page load (GET) and the Re-analyze refresh (POST).
 function renderBetaAnalysisHtml(analysis) {
@@ -4798,6 +4810,8 @@ function renderBetaAnalysisHtml(analysis) {
 }
 
 function renderBetaReviewPage(req, respondents, analysis) {
+  // Clear Analysis is only meaningful when a stored synthesis exists.
+  const hasAnalysis = !!(analysis && analysis.analysis_json);
   const fmtDate = (ts) => {
     if (!ts) return '—';
     try { return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
@@ -4855,6 +4869,8 @@ function renderBetaReviewPage(req, respondents, analysis) {
   .br-badge-pend { background: #fef6e0; color: #9a6a00; }
   .btn-reanalyze { background: #00b1d7; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; }
   .btn-reanalyze:hover { background: #009bbf; }
+  .btn-clear-analysis { background: #fff; color: #7A96A6; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; }
+  .btn-clear-analysis:hover { background: #f4f4f4; color: #5A7280; }
   /* Modal */
   .br-overlay { display: none; position: fixed; inset: 0; background: rgba(26,43,51,0.55); z-index: 9000; align-items: flex-start; justify-content: center; padding: 36px 16px; overflow-y: auto; }
   .br-modal { background: #fff; width: 100%; max-width: 720px; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,.2); }
@@ -4918,7 +4934,10 @@ function renderBetaReviewPage(req, respondents, analysis) {
   <div class="panel">
     <div class="panel-head">
       <h2>Beta testers</h2>
-      <button class="btn-reanalyze" onclick="reanalyzeBeta(this)">Re-analyze</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="btn-clear-analysis" class="btn-clear-analysis" onclick="clearBetaAnalysis(this)" style="display:${hasAnalysis ? 'inline-block' : 'none'};">Clear Analysis</button>
+        <button class="btn-reanalyze" onclick="reanalyzeBeta(this)">Re-analyze</button>
+      </div>
     </div>
     ${(respondents && respondents.length) ? `<table class="br-list">
       <thead><tr><th>Tester</th><th>Engine type</th><th>Subtype</th><th>Feedback date</th><th>Status</th></tr></thead>
@@ -4977,12 +4996,24 @@ async function reanalyzeBeta(btn){
     if(d.ok && d.analysisHtml){
       var panel=document.getElementById('br-analysis-panel');
       if(panel) panel.innerHTML=d.analysisHtml;
+      var clearBtn=document.getElementById('btn-clear-analysis');
+      if(clearBtn) clearBtn.style.display='inline-block';
       _brToast('Analysis complete.');
     } else {
       _brToast(d.error || 'Analysis failed.');
     }
   }catch(e){ _brToast('Request failed.'); }
   btn.disabled=false; btn.textContent=orig;
+}
+async function clearBetaAnalysis(btn){
+  if(!confirm('Clear the stored analysis? This cannot be undone.')) return;
+  btn.disabled=true;
+  try{
+    var r=await fetch('/admin/beta-review/clear-analysis',{method:'POST',headers:{Accept:'application/json'}});
+    var d=await r.json();
+    if(d.ok){ location.reload(); }
+    else { _brToast(d.error || 'Clear failed.'); btn.disabled=false; }
+  }catch(e){ _brToast('Request failed.'); btn.disabled=false; }
 }
 </script>
 </body></html>`;
