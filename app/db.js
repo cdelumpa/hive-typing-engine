@@ -125,6 +125,18 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS beta_report_filename TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_beta BOOLEAN DEFAULT FALSE;
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS is_beta BOOLEAN DEFAULT FALSE;
 
+-- Three-state soft delete, scoped to a single assessment (replaces the old
+-- client-scoped cascade). State machine derived from these three columns:
+--   active             : deleted_at IS NULL
+--   pending deletion   : deleted_at IS NOT NULL AND permanently_deleted = FALSE  (reversible)
+--   permanently deleted: deleted_at IS NOT NULL AND permanently_deleted = TRUE   (tombstone)
+-- A tombstone keeps its assessments row forever (audit trail); its PDFs are purged
+-- from disk and its reports rows removed. pre_deletion_status snapshots status at
+-- mark time for display in /admin/deleted-assessments (status itself is never mutated).
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS deleted_at          TIMESTAMPTZ;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS pre_deletion_status TEXT;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS permanently_deleted BOOLEAN DEFAULT FALSE;
+
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS session_state JSONB DEFAULT NULL;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS reminder_sent_at JSONB DEFAULT NULL;
 
@@ -393,9 +405,13 @@ const ADMIN_ROWS_SELECT = `
     COALESCE(
       a.id = (SELECT a2.id FROM assessments a2
               WHERE a2.client_id = c.id AND a2.status = 'complete'
+                AND a2.deleted_at IS NULL
               ORDER BY a2.created_at DESC LIMIT 1),
       FALSE
     ) AS is_latest_complete,
+    a.deleted_at,
+    a.pre_deletion_status,
+    a.permanently_deleted,
     co.name         AS coach_name,
     COALESCE(a.created_at, c.created_at) AS created_at,
     COALESCE(a.status, c.status, 'unknown') AS status,
@@ -419,10 +435,13 @@ const ADMIN_ROWS_SELECT = `
 `;
 
 // Super-admin all-clients view: every client across every coach. Coaches who are
-// not super-admins use getAdminRowsByCoach (coach-scoped) instead.
+// not super-admins use getAdminRowsByCoach (coach-scoped) instead. Permanently
+// deleted assessments (tombstones) are hidden here — their home is the dedicated
+// /admin/deleted-assessments page. Pending-deletion rows still appear (badged).
 async function getAllAdminRows() {
   const r = await query(
     `${ADMIN_ROWS_SELECT}
+     WHERE a.permanently_deleted IS NOT TRUE
      ORDER BY COALESCE(a.created_at, c.created_at) DESC NULLS LAST`
   );
   return r ? r.rows : [];
@@ -438,16 +457,86 @@ async function getClientReportPaths(clientId) {
   return r ? r.rows.map(row => row.pdf_path) : [];
 }
 
-async function deleteClientCascade(clientId) {
-  await query(`DELETE FROM reports WHERE assessment_id IN (SELECT id FROM assessments WHERE client_id = $1)`, [clientId]);
-  await query(`DELETE FROM assessments WHERE client_id = $1`, [clientId]);
-  await query(`DELETE FROM clients WHERE id = $1`, [clientId]);
+// ─── Assessment soft delete (three-state) ──────────────────────────────────────
+
+// Active → Pending deletion. Snapshots the current status (informational only;
+// status itself is left untouched). Guarded on deleted_at IS NULL so a double-click
+// can't overwrite an earlier snapshot.
+async function markAssessmentForDeletion(assessmentId, currentStatus) {
+  await query(
+    `UPDATE assessments
+       SET deleted_at = NOW(), pre_deletion_status = $2
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [assessmentId, currentStatus || null]
+  );
 }
 
-async function getAdminRowsByCoach(coachId) {
+// Pending deletion → Active. Refuses to resurrect a tombstone
+// (permanently_deleted = TRUE). Clears both soft-delete columns.
+async function restoreAssessment(assessmentId) {
+  await query(
+    `UPDATE assessments
+       SET deleted_at = NULL, pre_deletion_status = NULL
+     WHERE id = $1 AND permanently_deleted = FALSE`,
+    [assessmentId]
+  );
+}
+
+// Pending deletion → Permanently deleted (tombstone). Sets the flag only; the row
+// is intentionally never removed (audit trail, and keeping it sidesteps every FK:
+// retake_of_assessment_id chains stay intact, beta_feedback CASCADE is not fired).
+// PDF files and reports rows are purged by the caller before/around this flip.
+async function permanentlyDeleteAssessment(assessmentId) {
+  await query(
+    `UPDATE assessments
+       SET permanently_deleted = TRUE
+     WHERE id = $1 AND deleted_at IS NOT NULL`,
+    [assessmentId]
+  );
+}
+
+// Every deleted assessment (pending + tombstone) for the /admin/deleted-assessments
+// page, joined to client + coach + report paths. report paths back the permanent-delete
+// purge; pre_deletion_status shows what the assessment was before deletion.
+async function getDeletedAssessments() {
+  const r = await query(`
+    SELECT
+      a.id            AS assessment_id,
+      a.client_id,
+      a.confirmed_type,
+      a.confirmed_instinct,
+      a.dominant_instinct_hypothesis,
+      a.confidence_level,
+      a.deleted_at,
+      a.pre_deletion_status,
+      a.permanently_deleted,
+      a.is_beta,
+      c.first_name,
+      c.last_name,
+      c.email,
+      co.name         AS coach_name,
+      r_cl.pdf_path   AS client_pdf,
+      r_co.pdf_path   AS coach_pdf
+    FROM assessments a
+    JOIN clients c        ON c.id = a.client_id
+    LEFT JOIN coaches co   ON co.id = c.coach_id
+    LEFT JOIN reports r_cl ON r_cl.assessment_id = a.id AND r_cl.report_type = 'client'
+    LEFT JOIN reports r_co ON r_co.assessment_id = a.id AND r_co.report_type = 'coach'
+    WHERE a.deleted_at IS NOT NULL
+    ORDER BY a.deleted_at DESC
+  `);
+  return r ? r.rows : [];
+}
+
+// Coach-scoped rows. By default (coach's own /admin dashboard) tombstones are
+// filtered out in SQL so no permanently-deleted data is ever sent to a coach
+// session (D1). The super-admin per-coach accordion on /admin/coaches passes
+// includeDeleted=true to surface tombstones (audit trail) and pending rows.
+async function getAdminRowsByCoach(coachId, { includeDeleted = false } = {}) {
+  const deletedFilter = includeDeleted ? '' : 'AND a.permanently_deleted IS NOT TRUE';
   const r = await query(
     `${ADMIN_ROWS_SELECT}
-     WHERE c.coach_id = $1
+     WHERE c.coach_id = $1 ${deletedFilter}
      ORDER BY COALESCE(a.created_at, c.created_at) DESC NULLS LAST`,
     [coachId]
   );
@@ -831,7 +920,7 @@ async function getBetaReviewRespondents() {
            bf.submitted_at
     FROM clients cl
     LEFT JOIN LATERAL (
-      SELECT * FROM assessments WHERE client_id = cl.id ORDER BY created_at DESC LIMIT 1
+      SELECT * FROM assessments WHERE client_id = cl.id AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1
     ) a ON TRUE
     LEFT JOIN beta_feedback bf ON bf.assessment_id = a.id
     WHERE cl.is_beta = TRUE
@@ -877,6 +966,7 @@ async function getBetaFeedbackForAnalysis() {
     FROM beta_feedback bf
     JOIN assessments a ON a.id = bf.assessment_id
     JOIN clients cl    ON cl.id = a.client_id
+    WHERE a.deleted_at IS NULL
     ORDER BY bf.submitted_at DESC
   `);
   return r ? r.rows : [];
@@ -904,6 +994,14 @@ async function saveBetaAnalysis({ analysisJson, model, tokenUsage, respondentCou
 async function getBetaAnalysis() {
   const r = await query('SELECT * FROM beta_analysis WHERE id = 1 LIMIT 1');
   return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// Invalidate the cross-tester synthesis (nulls analysis_json, keeps the singleton
+// row so the UPSERT contract in saveBetaAnalysis is preserved). Called when a beta
+// assessment is permanently deleted, since the stored synthesis is then stale.
+// renderBetaAnalysisHtml already renders the empty state when analysis_json is null.
+async function clearBetaAnalysis() {
+  await query(`UPDATE beta_analysis SET analysis_json = NULL, generated_at = NOW() WHERE id = 1`);
 }
 
 async function saveClientSessionState(clientId, sessionState) {
@@ -995,7 +1093,10 @@ module.exports = {
   getClientCoachId,
   getReportCoachId,
   getClientReportPaths,
-  deleteClientCascade,
+  markAssessmentForDeletion,
+  restoreAssessment,
+  permanentlyDeleteAssessment,
+  getDeletedAssessments,
   getClientById,
   createClientToken,
   getTokenWithClient,
@@ -1028,6 +1129,7 @@ module.exports = {
   getBetaFeedbackForAnalysis,
   saveBetaAnalysis,
   getBetaAnalysis,
+  clearBetaAnalysis,
   saveClientSessionState,
   clearClientSessionState,
   getAbandonedClients,

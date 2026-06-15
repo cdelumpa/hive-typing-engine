@@ -3052,7 +3052,26 @@ function renderAccordionTable(coachId, rows) {
     var resendBtn = hasApiResult
       ? '<button onclick="accordionResend('+clientId+',\\''+clientEmail.replace(/'/g,"\\\\'")+'\\',this)" style="background:none;border:none;cursor:pointer;font-size:11px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:4px;">Resend</button>'
       : '';
-    var deleteBtn = window.__IS_SUPER_ADMIN ? '<button onclick="accordionDelete('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#c0392b;padding:0;">&#128465;</button>' : '';
+    // Three-state soft delete. The super-admin accordion is the only view that
+    // receives tombstones (permanently_deleted), so all three states render here.
+    var asmtId = r.assessment_id;
+    var isPending = !!r.deleted_at && !r.permanently_deleted;
+    var isTombstone = !!r.permanently_deleted;
+    var delBadge = '';
+    if (isPending) delBadge = ' <span style="background:#fff3cd;color:#8b6914;font-size:10px;font-weight:700;letter-spacing:0.04em;padding:1px 6px;border-radius:3px;white-space:nowrap;">PENDING DELETION</span>';
+    else if (isTombstone) delBadge = ' <span style="background:#fdecea;color:#c0392b;font-size:10px;font-weight:700;letter-spacing:0.04em;padding:1px 6px;border-radius:3px;white-space:nowrap;">PERMANENTLY DELETED</span>';
+
+    var actionsCell;
+    if (isTombstone) {
+      actionsCell = '<span style="color:#9AA3AD;">—</span>';
+    } else if (isPending) {
+      actionsCell = (window.__IS_SUPER_ADMIN && asmtId)
+        ? '<button onclick="accordionRestore('+asmtId+',\\''+name.replace(/'/g,"\\\\'")+'\\','+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#1a7a4a;padding:0;text-decoration:underline;">Restore</button>'
+        : '<span style="color:#9AA3AD;">—</span>';
+    } else {
+      var deleteBtn = asmtId ? '<button onclick="accordionMarkDeleted('+asmtId+',\\''+name.replace(/'/g,"\\\\'")+'\\','+coachId+')" title="Delete assessment" style="background:none;border:none;cursor:pointer;font-size:13px;color:#c0392b;padding:0;">&#128465;</button>' : '';
+      actionsCell = reassignBtn+retryBtn+regenBtn+resendBtn+deleteBtn;
+    }
 
     // §9.3.1 clock icon — render only on Complete rows that captured timing. Stash the
     // per-row payload for the modal; the button sits inline-left of the date (5px gap).
@@ -3069,11 +3088,11 @@ function renderAccordionTable(coachId, rows) {
       '<td>'+conf+'</td>' +
       '<td id="acc-coach-cell-'+clientId+'">'+coach+'</td>' +
       '<td>'+clockCell+date+'</td>' +
-      '<td>'+_statusBadge(status)+'</td>' +
+      '<td>'+_statusBadge(status)+delBadge+'</td>' +
       '<td id="acc-pdf-'+clientId+'" style="font-size:11px;">'+_pdfStatusHtml(r)+'</td>' +
       '<td id="acc-email-'+clientId+'" style="font-size:11px;">'+_emailStatusHtml(r)+'</td>' +
       '<td>'+pdfLinks+'</td>' +
-      '<td>'+reassignBtn+retryBtn+regenBtn+resendBtn+deleteBtn+'</td>' +
+      '<td>'+actionsCell+'</td>' +
       '</tr>';
   });
   html += '</tbody></table>';
@@ -3201,30 +3220,39 @@ async function accordionResend(clientId, email, btn) {
   btn.disabled = false; btn.textContent = orig;
 }
 
-async function accordionDelete(clientId, name, btn, coachId) {
-  if (!confirm('Delete record for '+name+'? This will permanently remove the record and any PDFs.')) return;
-  btn.disabled = true;
+// Re-fetch and re-render one coach's accordion (used after mark-deleted / restore,
+// since a state change can add/remove badges and actions on any row).
+async function reloadAccordion(coachId) {
+  delete _accordionCache[coachId];
+  var content = document.getElementById('accordion-content-'+coachId);
+  if (!content) return;
+  content.innerHTML = '<p style="padding:12px;color:#7A96A6;font-size:13px;">Loading…</p>';
   try {
-    var r = await fetch('/admin/delete/'+clientId, {method:'POST',headers:{Accept:'application/json'}});
+    var resp = await fetch('/admin/coaches/'+coachId+'/clients', {headers:{Accept:'application/json'}});
+    var data = await resp.json();
+    _accordionCache[coachId] = data;
+    content.innerHTML = renderAccordionTable(coachId, data);
+  } catch(e) {
+    content.innerHTML = '<p style="padding:12px;color:#c0392b;font-size:13px;">Failed to load clients.</p>';
+  }
+}
+async function accordionMarkDeleted(assessmentId, name, coachId) {
+  if (!confirm('Mark this assessment for '+name+' for deletion? A super-admin can restore it from Deleted Assessments.')) return;
+  try {
+    var r = await fetch('/admin/assessments/'+assessmentId+'/mark-deleted', {method:'POST',headers:{Accept:'application/json'}});
     var d = await r.json();
-    if (d.success) {
-      var row = document.getElementById('acc-row-'+clientId);
-      if (row) row.remove();
-      // Invalidate cache and decrement count
-      delete _accordionCache[coachId];
-      var link = document.getElementById('client-count-'+coachId);
-      if (link) {
-        var newCount = parseInt(link.dataset.count, 10) - 1;
-        link.dataset.count = newCount;
-        link.textContent = newCount+' clients ▲';
-        if (newCount === 0) {
-          link.replaceWith(document.createTextNode('0'));
-          document.getElementById('accordion-'+coachId).style.display = 'none';
-          _openCoachId = null;
-        }
-      }
-    } else { alert(d.error || 'Delete failed'); btn.disabled = false; }
-  } catch(e) { alert('Request failed'); btn.disabled = false; }
+    if (d.ok) { showToast('Assessment marked for deletion.'); reloadAccordion(coachId); }
+    else { alert(d.error || 'Failed to mark for deletion'); }
+  } catch(e) { alert('Request failed'); }
+}
+async function accordionRestore(assessmentId, name, coachId) {
+  if (!confirm('Restore the assessment for '+name+' to active?')) return;
+  try {
+    var r = await fetch('/admin/assessments/'+assessmentId+'/restore', {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.ok) { showToast('Assessment restored.'); reloadAccordion(coachId); }
+    else { alert(d.error || 'Restore failed'); }
+  } catch(e) { alert('Request failed'); }
 }
 
 // adminRetry / adminRegen / adminResend also used on main dashboard — define here too for coaches page
@@ -5248,7 +5276,10 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   const isAdmin = req.session.coach_is_admin === true;
   const isSuperAdmin = req.session.coach_is_super_admin === true;
 
-  const tableRows = rows.map(r => {
+  // Per-row cells (the 11 <td>s, no <tr> wrapper) so the same builder feeds both the
+  // flat super-admin table and the coach client-grouped accordion. Tombstones are
+  // filtered out of both /admin queries, so a row here is either active or pending.
+  const rowCells = (r) => {
     const name      = esc(`${r.first_name || ''} ${r.last_name || ''}`.trim()) || '—';
     const typeNum   = r.confirmed_type;
     const typeLabel = typeNum ? `Type ${typeNum} — ${TYPE_NAMES[typeNum] || ''}` : '—';
@@ -5285,7 +5316,9 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     ].filter(Boolean).join('') || '—' : '—';
 
     const clientId = r.client_id;
+    const assessmentId = r.assessment_id;
     const rawName  = `${r.first_name || ''} ${r.last_name || ''}`.trim();
+    const jsName   = rawName.replace(/'/g, "\\'");
     const rawEmail = r.email || '';
 
     // PDF / Email generation status cells
@@ -5300,47 +5333,61 @@ app.get('/admin', requireAdminSession, async (req, res) => {
           : `<span style="color:#b07800;">⚠ Pending</span>`)
       : '—';
 
-    // Delete is super-admin only (PR-F). Server-enforced by requireSuperAdmin on the
-    // route; hidden here for everyone else.
-    const deleteAction = isSuperAdmin ? `
-      <form method="POST" action="/admin/delete/${clientId}" style="display:inline;" onsubmit="return confirm('Delete record for ${rawName.replace(/'/g, "\\'")}? This will permanently remove the record and any PDFs.');">
-        <button type="submit" title="Delete" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;color:#c0392b;">&#128465;</button>
-      </form>` : '';
-
-    const inviteResendAction = clientStatus === 'not_started' ? `
-      <form method="POST" action="/admin/clients/resend/${clientId}" style="display:inline;" onsubmit="return confirm('Resend invite to ${rawName.replace(/'/g, "\\'")}?');">
-        <button type="submit" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;">Resend invite</button>
-      </form> ` : '';
+    // Three-state soft delete (assessment-scoped). A pending-deletion row shows the
+    // PENDING DELETION badge and no operational actions; super-admins additionally
+    // get a Restore link in place of the trash can.
+    const isPending = !!r.deleted_at;
+    const deletionBadge = isPending
+      ? ` <span title="Marked for deletion — recoverable by a super-admin from Deleted Assessments" style="background:#fff3cd;color:#8b6914;font-size:10px;font-weight:700;letter-spacing:0.04em;padding:1px 6px;border-radius:3px;vertical-align:middle;white-space:nowrap;">PENDING DELETION</span>`
+      : '';
 
     const hasScores    = !!r.has_scores_snapshot;
     const hasApiResult = !!r.has_api_result;
 
-    const reassignAction = isAdmin
-      ? `<button onclick="openReassignModal(${clientId},'${rawName.replace(/'/g, "\\'")}',${req.session.coach_id},'${(r.coach_name || '').replace(/'/g, "\\'")}',false,null)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;">Reassign</button>`
-      : '';
+    let actionCell;
+    if (isPending) {
+      actionCell = (isSuperAdmin && assessmentId)
+        ? `<button onclick="restoreAssessmentUI(${assessmentId},'${jsName}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#1a7a4a;padding:0;text-decoration:underline;">Restore</button>`
+        : `<span style="color:#9AA3AD;">—</span>`;
+    } else {
+      const inviteResendAction = clientStatus === 'not_started' ? `
+      <form method="POST" action="/admin/clients/resend/${clientId}" style="display:inline;" onsubmit="return confirm('Resend invite to ${jsName}?');">
+        <button type="submit" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;">Resend invite</button>
+      </form> ` : '';
 
-    const retryAction = (isAdmin && hasScores && !hasApiResult)
-      ? `<button onclick="adminRetry(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#e67e22;padding:0;text-decoration:underline;margin-right:6px;">Retry API</button>`
-      : '';
+      const reassignAction = isAdmin
+        ? `<button onclick="openReassignModal(${clientId},'${jsName}',${req.session.coach_id},'${(r.coach_name || '').replace(/'/g, "\\'")}',false,null)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;">Reassign</button>`
+        : '';
 
-    const regenAction = (isAdmin && hasApiResult)
-      ? `<button onclick="adminRegen(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#f58527;padding:0;text-decoration:underline;margin-right:6px;">Regen</button>`
-      : '';
+      const retryAction = (isAdmin && hasScores && !hasApiResult)
+        ? `<button onclick="adminRetry(${clientId},'${jsName}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#e67e22;padding:0;text-decoration:underline;margin-right:6px;">Retry API</button>`
+        : '';
 
-    const resendAction = hasApiResult
-      ? `<button onclick="adminResend(${clientId},'${esc(rawEmail).replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;">Resend</button>`
-      : '';
+      const regenAction = (isAdmin && hasApiResult)
+        ? `<button onclick="adminRegen(${clientId},'${jsName}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#f58527;padding:0;text-decoration:underline;margin-right:6px;">Regen</button>`
+        : '';
 
-    // Retake (super-admin only, completed clients only): issue a fresh assessment
-    // while preserving the prior results. Hidden entirely for non-super-admins.
-    // Gated on client status (not assessment status): issuing a retake resets
-    // client status to 'not_started', so this button hands off to "Resend invite"
-    // until the new assessment completes. Also gated on is_latest_complete so that
-    // a client with multiple complete rows (original + retake) shows exactly one
-    // Retake button — on the most recent complete assessment.
-    const retakeAction = (req.session.coach_is_super_admin === true && clientStatus === 'complete' && r.is_latest_complete)
-      ? `<button onclick="adminRetake(${clientId},'${rawName.replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#7c3aed;padding:0;text-decoration:underline;margin-right:6px;">Retake</button>`
-      : '';
+      const resendAction = hasApiResult
+        ? `<button onclick="adminResend(${clientId},'${esc(rawEmail).replace(/'/g, "\\'")}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;">Resend</button>`
+        : '';
+
+      // Retake (super-admin only, completed clients only): issue a fresh assessment
+      // while preserving the prior results. Gated on client status (issuing a retake
+      // resets the client to not_started, handing off to "Resend invite") and on
+      // is_latest_complete so exactly one Retake button shows per client.
+      const retakeAction = (req.session.coach_is_super_admin === true && clientStatus === 'complete' && r.is_latest_complete)
+        ? `<button onclick="adminRetake(${clientId},'${jsName}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#7c3aed;padding:0;text-decoration:underline;margin-right:6px;">Retake</button>`
+        : '';
+
+      // Trash → mark this single assessment for deletion. Available to coaches (own
+      // assessments) and super-admins. Hidden when there is no assessment row to
+      // delete (a not_started client with no assessment yet — D3).
+      const trashAction = assessmentId
+        ? `<button onclick="markAssessmentDeleted(${assessmentId},'${jsName}',this)" title="Delete assessment" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;color:#c0392b;">&#128465;</button>`
+        : '';
+
+      actionCell = `${reassignAction}${retryAction}${regenAction}${resendAction}${retakeAction}${inviteResendAction}${trashAction}`;
+    }
 
     const retakeBadge = r.retake_of_assessment_id
       ? ` <span title="Issued as a retake" style="background:#ede9fe;color:#7c3aed;font-size:10px;font-weight:700;letter-spacing:0.04em;padding:1px 5px;border-radius:3px;vertical-align:middle;">RETAKE</span>`
@@ -5353,25 +5400,51 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       ? ` <span title="A retake has been issued and is awaiting completion" style="background:#fff3cd;color:#8b6914;font-size:10px;font-weight:700;letter-spacing:0.04em;padding:1px 6px;border-radius:3px;vertical-align:middle;white-space:nowrap;">Retake Pending</span>`
       : '';
 
-    return `<tr id="row-${clientId}">
+    return `
       <td><a href="#" data-entity="client-${clientId}" onclick="openClientProfile(${clientId});return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle='solid'" onmouseout="this.style.textDecorationStyle='dotted'">${name}</a>${retakeBadge}</td>
       <td>${typeLabel}</td>
       <td>${instinct}</td>
       <td>${conf}</td>
       <td id="coach-cell-${clientId}">${coach}</td>
       <td>${date}</td>
-      <td><span style="background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">${statusLabel}</span>${retakePendingBadge}</td>
+      <td><span style="background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">${statusLabel}</span>${retakePendingBadge}${deletionBadge}</td>
       <td id="pdf-status-${clientId}" style="font-size:12px;">${pdfStatus}</td>
       <td id="email-status-${clientId}" style="font-size:12px;">${emailStatus}</td>
       <td>${pdfLinks}</td>
-      <td>${reassignAction}${retryAction}${regenAction}${resendAction}${retakeAction}${inviteResendAction}${deleteAction}</td>
-    </tr>`;
-  }).join('\n');
+      <td>${actionCell}</td>`;
+  };
 
-  const colCount = isAdmin ? 12 : 11;
-  const body = rows.length === 0
-    ? `<tr><td colspan="${colCount}" style="text-align:center;padding:40px;color:#7A96A6;">No clients yet — click + Client to add one</td></tr>`
-    : tableRows;
+  // Row DOM id: assessment-scoped when an assessment exists, else client-scoped (a
+  // not_started client with no assessment row).
+  const rowId = (r) => r.assessment_id ? `row-asmt-${r.assessment_id}` : `row-client-${r.client_id}`;
+
+  let body;
+  if (rows.length === 0) {
+    body = `<tr><td colspan="11" style="text-align:center;padding:40px;color:#7A96A6;">No clients yet — click + Client to add one</td></tr>`;
+  } else if (isSuperAdmin) {
+    // Super-admin dashboard stays flat (D5).
+    body = rows.map(r => `<tr id="${rowId(r)}">${rowCells(r)}</tr>`).join('\n');
+  } else {
+    // Coach dashboard: group a client's multiple assessments into an accordion
+    // (expanded by default). Single-assessment clients stay a flat row. Rows arrive
+    // ordered by created_at DESC; grouping preserves first-seen order.
+    const groups = [];
+    const idx = {};
+    rows.forEach(r => {
+      if (idx[r.client_id] === undefined) { idx[r.client_id] = groups.length; groups.push([]); }
+      groups[idx[r.client_id]].push(r);
+    });
+    body = groups.map(g => {
+      if (g.length === 1) return `<tr id="${rowId(g[0])}">${rowCells(g[0])}</tr>`;
+      const first = g[0];
+      const gName = esc(`${first.first_name || ''} ${first.last_name || ''}`.trim()) || '—';
+      const header = `<tr class="cgroup-header" onclick="toggleClientGroup(${first.client_id})">
+        <td colspan="11"><span id="cgroup-caret-${first.client_id}" class="cgroup-caret">▼</span> ${gName} <span class="cgroup-count">— ${g.length} assessments</span></td>
+      </tr>`;
+      const subRows = g.map(r => `<tr id="${rowId(r)}" class="cgroup-row cgroup-${first.client_id}">${rowCells(r)}</tr>`).join('\n');
+      return header + '\n' + subRows;
+    }).join('\n');
+  }
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
@@ -5410,6 +5483,13 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     tbody td { border: none; padding: 4px 0; font-size: 13px; }
     tbody td::before { content: attr(data-label) ': '; font-weight: 700; color: #7A96A6; font-size: 11px; text-transform: uppercase; }
   }
+  /* Coach dashboard client-grouping accordion (multi-assessment clients) */
+  tbody tr.cgroup-header { cursor: pointer; background: #eef6f9; }
+  tbody tr.cgroup-header:hover { background: #e3f0f5; }
+  tbody tr.cgroup-header td { font-weight: 700; color: #1A2B33; }
+  .cgroup-caret { display: inline-block; width: 12px; color: #00b1d7; }
+  .cgroup-count { color: #7A96A6; font-weight: 400; font-size: 12px; }
+  tbody tr.cgroup-row td:first-child { border-left: 3px solid #00b1d7; padding-left: 18px; }
   ${CMS_DROPDOWN_CSS}
 </style>
 </head>
@@ -5422,7 +5502,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   <div style="display:flex;align-items:center;gap:16px;">
     <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
     ${req.session.coach_is_admin ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
-    ${req.session.coach_is_super_admin ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>` : ''}
+    ${req.session.coach_is_super_admin ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/password" class="nav-link">Change password</a>
     <span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>
@@ -5520,6 +5600,37 @@ async function adminRetake(clientId, name, btn) {
     } else { alert(d.error || 'Retake failed'); btn.disabled = false; btn.textContent = orig; }
   } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
 }
+// Three-state soft delete. Mark/restore reload after success so badges and the
+// coach client-grouping re-render correctly (the dataset is small).
+async function markAssessmentDeleted(assessmentId, name, btn) {
+  if (!confirm('Mark this assessment for ' + name + ' for deletion? A super-admin can restore it from Deleted Assessments.')) return;
+  btn.disabled = true;
+  try {
+    var r = await fetch('/admin/assessments/' + assessmentId + '/mark-deleted', {method:'POST', headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.ok) { showToast('Assessment marked for deletion.'); setTimeout(function(){ location.reload(); }, 600); }
+    else { alert(d.error || 'Failed to mark for deletion'); btn.disabled = false; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; }
+}
+async function restoreAssessmentUI(assessmentId, name, btn) {
+  if (!confirm('Restore the assessment for ' + name + ' to active?')) return;
+  btn.disabled = true;
+  try {
+    var r = await fetch('/admin/assessments/' + assessmentId + '/restore', {method:'POST', headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.ok) { showToast('Assessment restored.'); setTimeout(function(){ location.reload(); }, 600); }
+    else { alert(d.error || 'Restore failed'); btn.disabled = false; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; }
+}
+// Coach dashboard: collapse/expand a client's grouped assessment rows.
+function toggleClientGroup(clientId) {
+  var rows = document.querySelectorAll('.cgroup-' + clientId);
+  if (!rows.length) return;
+  var collapse = rows[0].style.display !== 'none';
+  rows.forEach(function(row){ row.style.display = collapse ? 'none' : ''; });
+  var caret = document.getElementById('cgroup-caret-' + clientId);
+  if (caret) caret.textContent = collapse ? '▶' : '▼';
+}
 </script>
 ${sharedModalHTML(req.session.coach_is_admin === true, req.session.coach_is_super_admin === true)}
 </body>
@@ -5576,36 +5687,284 @@ app.get('/reports/view/:token', async (req, res) => {
   res.sendFile(filePath);
 });
 
-// Delete a client + all associated assessments and PDFs (coach-scoped; super admin unrestricted)
-app.post('/admin/delete/:client_id', requireSuperAdmin, async (req, res) => {
-  const clientId = parseInt(req.params.client_id, 10);
-  const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
-  if (!clientId || isNaN(clientId)) {
-    return wantsJson ? res.status(400).json({ error: 'Invalid client ID' }) : res.status(400).send('Invalid client ID');
-  }
+// ── Assessment soft delete (three-state, assessment-scoped) ──────────────────
+// Replaces the retired client-scoped cascade (POST /admin/delete/:client_id).
+// A retake no longer takes its siblings down with it: each trash-can targets one
+// assessment id.
 
-  const ownerCoachId = await db.getClientCoachId(clientId);
-  const isSuperAdmin = req.session.coach_is_admin === true;
-  if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) {
-    return wantsJson ? res.status(403).json({ error: 'Forbidden' }) : res.status(403).send('Forbidden');
+// Helper: the coach who owns a given assessment (via its client). Used to gate
+// coaches to their own assessments; super-admins bypass.
+async function assertAssessmentAccess(req, res, assessmentId) {
+  if (req.session.coach_is_super_admin === true) return true;
+  const ownerCoachId = await db.getAssessmentOwnerCoachId(assessmentId);
+  if (ownerCoachId !== null && ownerCoachId !== req.session.coach_id) {
+    res.status(403).json({ error: 'Forbidden' });
+    return false;
   }
+  return true;
+}
+
+// Active → Pending deletion. Available to coaches (own assessments) and super-admins.
+app.post('/admin/assessments/:assessment_id/mark-deleted', requireAdminSession, async (req, res) => {
+  const assessmentId = parseInt(req.params.assessment_id, 10);
+  if (!assessmentId || isNaN(assessmentId)) return res.status(400).json({ error: 'Invalid assessment ID' });
+  if (!(await assertAssessmentAccess(req, res, assessmentId))) return;
 
   try {
-    const pdfPaths = await db.getClientReportPaths(clientId);
-    for (const p of pdfPaths) {
-      try { fs.unlinkSync(p); console.log(`[admin] deleted PDF: ${p}`); }
-      catch (e) { console.warn(`[admin] could not delete PDF ${p}:`, e.message); }
-    }
-    await db.deleteClientCascade(clientId);
-    console.log(`[admin] deleted client #${clientId} and all related records`);
+    const r = await db.query('SELECT status FROM assessments WHERE id = $1 LIMIT 1', [assessmentId]);
+    if (!r || r.rows.length === 0) return res.status(404).json({ error: 'Assessment not found' });
+    await db.markAssessmentForDeletion(assessmentId, r.rows[0].status);
+    console.log(`[admin] assessment #${assessmentId} marked for deletion by coach #${req.session.coach_id}`);
+    return res.json({ ok: true });
   } catch (e) {
-    console.error('[admin] delete error:', e.message);
-    return wantsJson ? res.status(500).json({ error: 'Delete failed' }) : res.redirect('/admin');
+    console.error('[admin] mark-deleted error:', e.message);
+    return res.status(500).json({ error: 'Mark-for-deletion failed' });
   }
-
-  if (wantsJson) return res.json({ success: true });
-  res.redirect('/admin');
 });
+
+// Pending deletion → Active. Super-admin only.
+app.post('/admin/assessments/:assessment_id/restore', requireSuperAdmin, async (req, res) => {
+  const assessmentId = parseInt(req.params.assessment_id, 10);
+  if (!assessmentId || isNaN(assessmentId)) return res.status(400).json({ error: 'Invalid assessment ID' });
+  try {
+    await db.restoreAssessment(assessmentId);
+    console.log(`[admin] assessment #${assessmentId} restored by super-admin #${req.session.coach_id}`);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[admin] restore error:', e.message);
+    return res.status(500).json({ error: 'Restore failed' });
+  }
+});
+
+// Pending deletion → Permanently deleted (tombstone). Super-admin only. Purges PDF
+// files from disk and removes the reports rows, then flips the flag (row is kept as
+// an audit tombstone). If the assessment had beta feedback, invalidates the stale
+// cross-tester analysis singleton.
+app.post('/admin/assessments/:assessment_id/permanent-delete', requireSuperAdmin, async (req, res) => {
+  const assessmentId = parseInt(req.params.assessment_id, 10);
+  if (!assessmentId || isNaN(assessmentId)) return res.status(400).json({ error: 'Invalid assessment ID' });
+
+  try {
+    // Guard: only a pending-deletion row can be permanently deleted.
+    const chk = await db.query(
+      'SELECT deleted_at, permanently_deleted FROM assessments WHERE id = $1 LIMIT 1',
+      [assessmentId]
+    );
+    if (!chk || chk.rows.length === 0) return res.status(404).json({ error: 'Assessment not found' });
+    if (chk.rows[0].deleted_at === null) {
+      return res.status(409).json({ error: 'Assessment is not pending deletion' });
+    }
+    if (chk.rows[0].permanently_deleted === true) {
+      return res.json({ ok: true }); // already a tombstone — idempotent no-op
+    }
+
+    // 1) Purge PDF files via the reports-table join (reliable, assessment-scoped —
+    //    never filename-parsed).
+    const { clientPdf, coachPdf } = await db.getAssessmentReports(assessmentId);
+    for (const p of [clientPdf, coachPdf]) {
+      if (!p) continue;
+      try { fs.unlinkSync(p); console.log(`[admin] purged PDF: ${p}`); }
+      catch (e) { console.warn(`[admin] could not purge PDF ${p}:`, e.message); }
+    }
+    // 2) Remove the now-dangling reports rows.
+    await db.deleteReportsByAssessmentId(assessmentId);
+    // 3) Flip the tombstone flag (keep the row).
+    await db.permanentlyDeleteAssessment(assessmentId);
+    // 4) If this assessment had beta feedback, the cross-tester synthesis is stale.
+    const bf = await db.getBetaFeedback(assessmentId).catch(() => null);
+    if (bf) {
+      await db.clearBetaAnalysis();
+      console.log(`[admin] cleared beta_analysis after permanent delete of beta assessment #${assessmentId}`);
+    }
+    console.log(`[admin] assessment #${assessmentId} permanently deleted by super-admin #${req.session.coach_id}`);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[admin] permanent-delete error:', e.message);
+    return res.status(500).json({ error: 'Permanent delete failed' });
+  }
+});
+
+// ── Deleted Assessments management page (super-admin) ────────────────────────
+// System of record for every soft-deleted assessment (pending + tombstone).
+// Patterned on /admin/beta-review: fetch then render via a page builder.
+app.get('/admin/deleted-assessments', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  let rows = [];
+  try { rows = await db.getDeletedAssessments(); }
+  catch (e) { console.error('[deleted-assessments] query error:', e.message); }
+  res.send(renderDeletedAssessmentsPage(req, rows));
+});
+
+function renderDeletedAssessmentsPage(req, rows) {
+  const fmtStatus = (s) => {
+    if (!s) return '—';
+    return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  const bodyRows = rows.map(r => {
+    const name   = esc(`${r.first_name || ''} ${r.last_name || ''}`.trim()) || '—';
+    const coach  = esc(r.coach_name || '—');
+    const typeNum = r.confirmed_type;
+    const instinct = r.dominant_instinct_hypothesis || r.confirmed_instinct || '';
+    const typeHypothesis = typeNum
+      ? `Type ${typeNum} — ${TYPE_NAMES[typeNum] || ''}${instinct ? ` · ${esc(instinct)}` : ''}`
+      : '—';
+    const delDate = formatAdminDate(r.deleted_at);
+    const isTombstone = r.permanently_deleted === true;
+    const jsName = name.replace(/'/g, "\\'");
+
+    const statusBadge = isTombstone
+      ? `<span style="background:#fdecea;color:#c0392b;font-size:10px;font-weight:700;letter-spacing:0.04em;padding:2px 7px;border-radius:3px;white-space:nowrap;">PERMANENTLY DELETED</span>`
+      : `<span style="background:#fff3cd;color:#8b6914;font-size:10px;font-weight:700;letter-spacing:0.04em;padding:2px 7px;border-radius:3px;white-space:nowrap;">PENDING DELETION</span>`;
+
+    const preStatus = r.pre_deletion_status
+      ? `<div style="color:#9AA3AD;font-size:11px;margin-top:3px;">was: ${esc(fmtStatus(r.pre_deletion_status))}</div>`
+      : '';
+
+    const checkbox = isTombstone
+      ? `<input type="checkbox" disabled style="opacity:0.3;">`
+      : `<input type="checkbox" class="da-check" value="${r.assessment_id}">`;
+
+    const actions = isTombstone
+      ? `<span style="color:#9AA3AD;">—</span>`
+      : `<button onclick="restoreDeleted(${r.assessment_id},'${jsName}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#1a7a4a;padding:0;text-decoration:underline;margin-right:10px;">Restore</button>
+         <button onclick="permanentDelete(${r.assessment_id},'${jsName}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#c0392b;padding:0;text-decoration:underline;">Delete Permanently</button>`;
+
+    return `<tr id="da-row-${r.assessment_id}">
+      <td style="text-align:center;">${checkbox}</td>
+      <td>${name}</td>
+      <td>${coach}</td>
+      <td>${typeHypothesis}</td>
+      <td>${delDate}</td>
+      <td>${statusBadge}${preStatus}</td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join('\n');
+
+  const emptyRow = `<tr><td colspan="7" style="text-align:center;padding:40px;color:#7A96A6;">No deleted assessments.</td></tr>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Admin — Deleted Assessments</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; padding: 0; }
+  .top-bar { background: #1A2B33; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .top-bar h1 { color: #00b1d7; font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar span { color: #7A96A6; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .top-bar .nav-link { color: #7A96A6; font-size: 12px; text-decoration: none; font-family: Georgia, serif; }
+  .top-bar .nav-link:hover { color: #fff; }
+  .top-bar .nav-sep { color: #3A4B55; font-size: 12px; margin: 0 8px; }
+  .container { max-width: 1300px; margin: 0 auto; padding: 32px 24px; }
+  .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; }
+  .toolbar { padding: 14px 18px; border-bottom: 1px solid #EFE8E0; display: flex; align-items: center; gap: 16px; font-size: 13px; }
+  .toolbar a { color: #00b1d7; text-decoration: underline; cursor: pointer; }
+  .btn-danger { background: #c0392b; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 12px; font-weight: 700; padding: 7px 14px; cursor: pointer; }
+  .btn-danger:disabled { background: #d8a39d; cursor: default; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #00b1d7; color: #fff; text-align: left; padding: 12px 14px; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700; }
+  tbody tr { border-bottom: 1px solid #EFE8E0; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafaf8; }
+  tbody td { padding: 11px 14px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <div>
+    <div><span>Hive Enneagram Type Tool</span></div>
+    <h1>Deleted Assessments</h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <a href="/admin" class="nav-link">← Dashboard</a>
+    <span class="nav-sep">|</span>
+    <a href="/admin/beta-review" class="nav-link">Beta Review</a>
+    <span class="nav-sep">|</span>
+    <a href="/admin/logout" class="nav-link">Sign out</a>
+  </div>
+</div>
+<div class="container">
+  <div class="card">
+    <div class="toolbar">
+      <a onclick="toggleSelectAll()">Select all (pending)</a>
+      <button id="da-delete-selected" class="btn-danger" onclick="deleteSelected()">Delete Selected</button>
+      <span style="color:#7A96A6;font-size:12px;">Permanent deletion purges PDFs from disk and cannot be undone. Pending rows can be restored.</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:38px;"></th>
+          <th>Client Name</th>
+          <th>Coach</th>
+          <th>Type Hypothesis</th>
+          <th>Deletion Date</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>${rows.length === 0 ? emptyRow : bodyRows}</tbody>
+    </table>
+  </div>
+</div>
+<script>
+function showToast(msg) {
+  var t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1a7a4a;color:#fff;padding:12px 20px;border-radius:5px;font-family:Georgia,serif;font-size:13px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.25);';
+  document.body.appendChild(t);
+  setTimeout(function(){t.remove();}, 4000);
+}
+function toggleSelectAll() {
+  var boxes = document.querySelectorAll('.da-check');
+  var anyUnchecked = Array.prototype.some.call(boxes, function(b){ return !b.checked; });
+  boxes.forEach(function(b){ b.checked = anyUnchecked; });
+}
+async function restoreDeleted(assessmentId, name, btn) {
+  if (!confirm('Restore the assessment for '+name+' to active?')) return;
+  btn.disabled = true;
+  try {
+    var r = await fetch('/admin/assessments/'+assessmentId+'/restore', {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.ok) { var row = document.getElementById('da-row-'+assessmentId); if (row) row.remove(); showToast('Assessment restored.'); }
+    else { alert(d.error || 'Restore failed'); btn.disabled = false; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; }
+}
+async function permanentDelete(assessmentId, name, btn) {
+  if (!confirm('Permanently delete the assessment for '+name+'? This purges its PDFs from disk and cannot be undone.')) return;
+  btn.disabled = true;
+  try {
+    var r = await fetch('/admin/assessments/'+assessmentId+'/permanent-delete', {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.ok) { showToast('Assessment permanently deleted.'); setTimeout(function(){ location.reload(); }, 600); }
+    else { alert(d.error || 'Permanent delete failed'); btn.disabled = false; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; }
+}
+// Bulk permanent delete: loops the single permanent-delete route client-side (D6).
+// Only pending rows carry an enabled checkbox, so tombstones can never be re-deleted.
+async function deleteSelected() {
+  var ids = Array.prototype.map.call(document.querySelectorAll('.da-check:checked'), function(b){ return b.value; });
+  if (ids.length === 0) { alert('No pending assessments selected.'); return; }
+  if (!confirm('Permanently delete '+ids.length+' assessment(s)? This purges their PDFs from disk and cannot be undone.')) return;
+  var btn = document.getElementById('da-delete-selected');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  var failures = 0;
+  for (var i = 0; i < ids.length; i++) {
+    try {
+      var r = await fetch('/admin/assessments/'+ids[i]+'/permanent-delete', {method:'POST',headers:{Accept:'application/json'}});
+      var d = await r.json();
+      if (!d.ok) failures++;
+    } catch(e) { failures++; }
+  }
+  showToast(failures === 0 ? 'Deleted '+ids.length+' assessment(s).' : (failures+' of '+ids.length+' failed.'));
+  setTimeout(function(){ location.reload(); }, 700);
+}
+</script>
+</body>
+</html>`;
+}
 
 // ── TEMPORARY DIAGNOSTIC — remove when done ──────────────────────────────────
 
@@ -5813,7 +6172,10 @@ app.get('/admin/coaches/:coach_id/clients', requireAdmin, async (req, res) => {
   if (!coachId || isNaN(coachId)) return res.status(400).json({ error: 'Invalid coach ID' });
 
   try {
-    const rows = await db.getAdminRowsByCoach(coachId);
+    // Super-admins see all three states (active / pending / tombstone) in the
+    // accordion; plain admins and coaches never receive tombstone data (D1).
+    const includeDeleted = req.session.coach_is_super_admin === true;
+    const rows = await db.getAdminRowsByCoach(coachId, { includeDeleted });
     return res.json(rows);
   } catch (e) {
     console.error('[admin/coaches/clients] query error:', e.message);
