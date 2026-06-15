@@ -285,8 +285,14 @@ async function callAPI() {
     const data = await res.json();
 
     if (data.ok && data.status === 'processing') {
-      // Background processing confirmed — show confirmation screen immediately
-      state.phase = 'confirmation';
+      // Background processing confirmed. Beta sessions land on the post-submit
+      // review screen first; everyone else goes straight to the Thank You screen.
+      if (state.is_beta) {
+        initBetaReview();
+        state.phase = 'beta-review';
+      } else {
+        state.phase = 'confirmation';
+      }
       render();
       return;
     } else {

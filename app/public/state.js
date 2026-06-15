@@ -1,7 +1,7 @@
 // =================== STATE ===================
 
 const state = {
-  phase: 'welcome', // welcome | profile-confirm | intake | orientation | stage0 | stage1 | part1-complete | stage2 | part2-complete | stage3 | stage4 | finalopen | processing | confirmation | results | error
+  phase: 'welcome', // welcome | profile-confirm | intake | orientation | stage0 | stage1 | part1-complete | stage2 | part2-complete | stage3 | stage4 | finalopen | processing | beta-review | confirmation | results | error
   intake: { firstName: '', lastName: '', email: '', organization: '', coach: 'Cai Delumpa', client_id: null },
   finalOpenResponse: '',
   stage0Idx: 0,

@@ -1362,3 +1362,62 @@ body {
 @media (max-width: 600px) {
   .welcome-beta-note { font-size: 12.5px; max-width: 280px; padding: 10px 13px; }
 }
+
+/* =================== POST-SUBMIT BETA REVIEW (PR-D) =================== */
+.br-screen { text-align: left; max-width: 640px; margin: 0 auto; padding-bottom: 8px; }
+.br-headline { font-size: 22px; font-weight: 700; color: var(--ink); line-height: 1.4; margin: 4px 0 22px; }
+.br-err { background: #fdecea; color: #c0392b; border-radius: 6px; padding: 10px 14px; font-size: 13px; margin-bottom: 16px; }
+.br-block { padding: 18px 0; border-top: 1px solid #EFE8E0; }
+.br-block:first-of-type { border-top: none; padding-top: 0; }
+.br-block-title { font-size: 16px; font-weight: 700; color: var(--ink); margin: 0 0 2px; }
+.br-block-title-2 { margin-top: 18px; }
+.br-block-sub { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+
+/* Block 0 — multi-select chips */
+.br-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.br-chip {
+  min-width: 40px; padding: 9px 14px; border: 1px solid #D0DCE4; border-radius: 999px;
+  background: #fff; color: var(--ink); font-family: Georgia, serif; font-size: 14px; cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.br-chip:hover { border-color: var(--hive-blue); }
+.br-chip.active { background: var(--hive-blue); border-color: var(--hive-blue); color: #fff; }
+.br-chip.br-dk { font-size: 13px; }
+.br-chip.br-dk.active { background: var(--ink-lt); border-color: var(--ink-lt); }
+.br-chip.disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Block A — flagged statements */
+.br-empty { font-size: 14px; color: var(--muted); font-style: italic; margin: 6px 0 0; }
+.br-flag { padding: 12px 0; border-bottom: 1px solid #F2EEE9; }
+.br-flag:last-child { border-bottom: none; }
+.br-flag-head { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+.br-flag-text { font-size: 15px; line-height: 1.5; color: var(--ink); flex: 1 1 70%; }
+.br-flag-removehint { font-size: 12px; color: #8A96A3; flex-basis: 100%; margin-left: 30px; }
+.br-flag-toggle {
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  width: 22px; height: 22px; padding: 0; background: none; border: none; cursor: pointer;
+  line-height: 0; border-radius: 50%;
+}
+.br-flag-toggle .bfi-svg { width: 20px; height: 20px; display: block; }
+/* Flagged (still-active) state — soft green (#2ECC71) ring, matching the in-assessment icon. */
+.br-flag-toggle.flagged { box-shadow: 0 0 0 2px #2ECC7140; }
+.br-flag-input { margin-top: 10px; min-height: 64px; }
+
+/* Block B — Likert matrix */
+.br-likert { display: flex; flex-direction: column; gap: 12px; }
+.br-likert-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.br-likert-label { font-size: 14px; color: var(--ink); flex: 1 1 200px; }
+.br-likert-scale { display: flex; gap: 6px; }
+.br-likert-btn {
+  width: 38px; height: 38px; border: 1px solid #D0DCE4; border-radius: 6px; background: #fff;
+  color: var(--ink); font-family: Georgia, serif; font-size: 14px; cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.br-likert-btn:hover { border-color: var(--hive-blue); }
+.br-likert-btn.active { background: var(--hive-blue); border-color: var(--hive-blue); color: #fff; }
+
+@media (max-width: 600px) {
+  .br-headline { font-size: 19px; }
+  .br-likert-btn { width: 34px; height: 34px; font-size: 13px; }
+  .br-likert-scale { gap: 4px; }
+}

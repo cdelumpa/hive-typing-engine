@@ -548,6 +548,32 @@ const BETA_STEM_KEYS = {
   'S4-habit':    STAGE4_HABIT_STEM,
 };
 
+// Flat lookup: any flaggable key → its full question/stem text. Single source for
+// reconstructing flagged items on the post-submit beta-review screen (PR-D). Built
+// once at load from the same constants the flag mechanic keys on.
+const BETA_QUESTION_TEXT = (() => {
+  const map = {};
+  STAGE0_QUESTIONS.forEach((q) => { map[q.id] = q.text; });
+  Object.keys(STAGE1_TYPE_STATEMENTS).forEach((t) => {
+    STAGE1_TYPE_STATEMENTS[t].forEach((s) => { map[s.id] = s.text; });
+  });
+  Object.keys(STAGE1_INSTINCT_STATEMENTS).forEach((inst) => {
+    STAGE1_INSTINCT_STATEMENTS[inst].forEach((s) => { map[s.id] = s.text; });
+  });
+  STAGE2_QUESTIONS.forEach((q) => { map[q.id] = q.text; });
+  Object.keys(BETA_STEM_KEYS).forEach((k) => { map[k] = BETA_STEM_KEYS[k]; });
+  return map;
+})();
+
+// Block B Likert dimensions (post-submit review). Keys are the stored payload keys.
+const BETA_LIKERT_DIMS = [
+  { key: 'clarity',    label: 'Clarity of questions' },
+  { key: 'ease',       label: 'Ease of answering' },
+  { key: 'length',     label: 'Length & pacing' },
+  { key: 'navigation', label: 'Navigation and way-finding' },
+  { key: 'overall',    label: 'Overall experience' },
+];
+
 // For each type, a three-option question. Index 0 is the CORRECT answer
 // (the canonical stress/security/habit pattern for that type). Indexes 1 and 2
 // are alternative energies (annotated in comments) used as distractors.
@@ -1468,6 +1494,7 @@ const PHASE_CHROME = {
   stage4:                      { topbar: 'full',      progress: true,  sub: true  },
   finalopen:                   { topbar: 'full',      progress: true,  sub: true  },
   processing:                  { topbar: 'logo-only', progress: false, sub: false },
+  'beta-review':               { topbar: 'logo-only', progress: false, sub: false },
   confirmation:                { topbar: 'logo-only', progress: false, sub: false },
   error:                       { topbar: 'logo-only', progress: false, sub: false },
 };
@@ -1627,6 +1654,7 @@ function mountScreen() {
     case 'stage4':                   body = renderStage4(); break;
     case 'finalopen':                body = renderFinalOpen(); break;
     case 'processing':               body = renderProcessing(); break;
+    case 'beta-review':              body = renderBetaReview(); break;
     case 'confirmation':             body = renderThankYou(); break;
     case 'error':                    body = renderError(); break;
   }
@@ -1861,10 +1889,12 @@ function renderThankYou() {
     ${check}
     <div class="ty-eyebrow">ASSESSMENT COMPLETE</div>
     <h1 class="ty-headline"><span class="ty-light">You did it.</span><span class="ty-bold">Thank you.</span></h1>
-    <p class="ty-body">
+    ${state.is_beta ? `<p class="ty-body">
+      Thank you — your answers and feedback are a real gift. Your report is on its way and should arrive shortly. If it doesn’t arrive, please reach out to your coach.
+    </p>` : `<p class="ty-body">
       <span class="ty-full">That took real honesty and self-reflection — and it shows. Your personalized Enneagram report is on its way and should arrive shortly. If you don’t receive your report, please reach out to your coach.</span>
       <span class="ty-short">That took real honesty. Your personalized Enneagram report is on its way and should arrive shortly. If you don’t receive it, please reach out to your coach.</span>
-    </p>
+    </p>`}
     <div class="inbox-card">
       <div class="inbox-icon">${envelope}</div>
       <div class="inbox-body">
@@ -1877,6 +1907,188 @@ function renderThankYou() {
       </div>
     </div>
   </div>`;
+}
+
+// ---- Post-submit Beta Review (§ beta feedback, PR-D) ----
+// Shown only for beta sessions, between processing and the Thank You screen. Collects
+// the client's self-hypothesis (Block 0), notes on flagged questions (Block A), a
+// Likert experience rating (Block B), and an optional open comment (Block C). Local
+// state lives in the transient state._betaReview (NOT serialized — strictly post-submit,
+// no resume). All interactions mutate the DOM in place (no full re-render) so entered
+// text survives, matching the in-assessment flag mechanic.
+
+function initBetaReview() {
+  state._betaReview = {
+    types: [], typesDontKnow: false,
+    instincts: [], instinctsDontKnow: false,
+    likert: {},
+    notes: '',
+    flagComments: {},
+  };
+}
+
+function renderBetaReview() {
+  if (!state._betaReview) initBetaReview();
+  const r = state._betaReview;
+
+  // Block 0 — type (max 3) + instinct (max 2) multi-select, each with a mutually
+  // exclusive "I don't know".
+  const typeBtns = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((t) =>
+    `<button type="button" class="br-chip${r.types.indexOf(t) >= 0 ? ' active' : ''}" data-br-type="${t}">${t}</button>`
+  ).join('');
+  const typeDk = `<button type="button" class="br-chip br-dk${r.typesDontKnow ? ' active' : ''}" data-br-type-dk="1">I don’t know</button>`;
+  const instBtns = ['SP', 'SX', 'SO'].map((i) =>
+    `<button type="button" class="br-chip${r.instincts.indexOf(i) >= 0 ? ' active' : ''}" data-br-inst="${i}">${i}</button>`
+  ).join('');
+  const instDk = `<button type="button" class="br-chip br-dk${r.instinctsDontKnow ? ' active' : ''}" data-br-inst-dk="1">I don’t know</button>`;
+
+  // Block A — flagged statements, reconstructed from state.betaFlaggedQuestions.
+  const flagKeys = Object.keys(state.betaFlaggedQuestions || {});
+  let blockA;
+  if (flagKeys.length === 0) {
+    blockA = `<p class="br-empty">There were no questions flagged for your review.</p>`;
+  } else {
+    blockA = flagKeys.map((k) => {
+      const entry = state.betaFlaggedQuestions[k];
+      const reconsidered = !!entry.reconsidered;
+      const text = BETA_QUESTION_TEXT[k] || k;
+      const comment = r.flagComments[k] || '';
+      return `<div class="br-flag" data-br-flag="${esc(k)}">
+        <div class="br-flag-head">
+          <button type="button" class="br-flag-toggle${reconsidered ? '' : ' flagged'}" data-br-flag-toggle="${esc(k)}" aria-pressed="${reconsidered ? 'false' : 'true'}" aria-label="Remove this flag" title="Remove this flag">${reconsidered ? FLAG_ICON_UNFLAGGED_SVG : FLAG_ICON_FLAGGED_SVG}</button>
+          <span class="br-flag-text">${esc(text)}</span>
+          <span class="br-flag-removehint">Click to remove.</span>
+        </div>
+        ${reconsidered ? '' : `<textarea class="text-input br-flag-input" data-br-flag-comment="${esc(k)}" placeholder="What gave you pause here?">${esc(comment)}</textarea>`}
+      </div>`;
+    }).join('');
+  }
+
+  // Block B — Likert matrix, 0–5 per dimension.
+  const blockB = BETA_LIKERT_DIMS.map((d) => {
+    const sel = r.likert[d.key];
+    const scale = [0, 1, 2, 3, 4, 5].map((n) =>
+      `<button type="button" class="br-likert-btn${sel === n ? ' active' : ''}" data-br-likert="${d.key}" data-br-likert-val="${n}">${n}</button>`
+    ).join('');
+    return `<div class="br-likert-row">
+      <div class="br-likert-label">${esc(d.label)}</div>
+      <div class="br-likert-scale">${scale}</div>
+    </div>`;
+  }).join('');
+
+  return `<div class="screen br-screen">
+    <h1 class="br-headline">Before we show you your results, we have a few questions.</h1>
+    <div id="br-err" class="br-err" style="display:none;"></div>
+
+    <section class="br-block">
+      <h2 class="br-block-title">What type do you think you are?</h2>
+      <p class="br-block-sub">Select up to 3.</p>
+      <div class="br-chips" id="br-types">${typeBtns}${typeDk}</div>
+      <h2 class="br-block-title br-block-title-2">And your dominant instinct?</h2>
+      <p class="br-block-sub">Select up to 2.</p>
+      <div class="br-chips" id="br-insts">${instBtns}${instDk}</div>
+    </section>
+
+    <section class="br-block">
+      <h2 class="br-block-title">Questions you flagged</h2>
+      ${blockA}
+    </section>
+
+    <section class="br-block">
+      <h2 class="br-block-title">How was the experience?</h2>
+      <p class="br-block-sub">0 = poor · 5 = excellent</p>
+      <div class="br-likert">${blockB}</div>
+    </section>
+
+    <section class="br-block">
+      <h2 class="br-block-title">Anything else?</h2>
+      <textarea class="text-input" id="br-notes" placeholder="Anything else you’d like us to know about your experience?">${esc(r.notes || '')}</textarea>
+    </section>
+
+    <div class="nav-row">
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="btn-br-submit" disabled>Submit</button>
+    </div>
+  </div>`;
+}
+
+// Sync Block 0 chip active/disabled state in place (no re-render).
+function syncBetaReviewBlock0() {
+  const r = state._betaReview; if (!r) return;
+  document.querySelectorAll('[data-br-type]').forEach((el) => {
+    const t = parseInt(el.getAttribute('data-br-type'), 10);
+    const on = r.types.indexOf(t) >= 0;
+    el.classList.toggle('active', on);
+    el.classList.toggle('disabled', !on && (r.typesDontKnow || r.types.length >= 3));
+  });
+  const tdk = document.querySelector('[data-br-type-dk]');
+  if (tdk) tdk.classList.toggle('active', r.typesDontKnow);
+  document.querySelectorAll('[data-br-inst]').forEach((el) => {
+    const v = el.getAttribute('data-br-inst');
+    const on = r.instincts.indexOf(v) >= 0;
+    el.classList.toggle('active', on);
+    el.classList.toggle('disabled', !on && (r.instinctsDontKnow || r.instincts.length >= 2));
+  });
+  const idk = document.querySelector('[data-br-inst-dk]');
+  if (idk) idk.classList.toggle('active', r.instinctsDontKnow);
+}
+
+// Submit gate: Block 0 complete (type + instinct each chosen or "I don't know"),
+// all 5 Likert dimensions rated, and every flagged statement either has text or was
+// toggled off (reconsidered). Block C is ungated.
+function refreshBetaReviewGate() {
+  const r = state._betaReview;
+  const btn = document.getElementById('btn-br-submit');
+  if (!r || !btn) return;
+  const block0 = (r.types.length >= 1 || r.typesDontKnow) && (r.instincts.length >= 1 || r.instinctsDontKnow);
+  const blockB = BETA_LIKERT_DIMS.every((d) => r.likert[d.key] !== undefined);
+  const blockA = Object.keys(state.betaFlaggedQuestions || {}).every((k) => {
+    const e = state.betaFlaggedQuestions[k];
+    return e.reconsidered ? true : (r.flagComments[k] || '').trim().length > 0;
+  });
+  btn.disabled = !(block0 && blockB && blockA);
+}
+
+async function submitBetaReview() {
+  const r = state._betaReview;
+  const btn = document.getElementById('btn-br-submit');
+  const err = document.getElementById('br-err');
+  if (err) err.style.display = 'none';
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+
+  // Block A comments ride inside flagged_keys (no dedicated column). Reconsidered
+  // items carry an empty comment. See the server route's PR-E contract note.
+  const flaggedKeys = Object.keys(state.betaFlaggedQuestions || {}).map((k) => ({
+    key: k,
+    stageLabel: state.betaFlaggedQuestions[k].stageLabel,
+    reconsidered: !!state.betaFlaggedQuestions[k].reconsidered,
+    comment: state.betaFlaggedQuestions[k].reconsidered ? '' : (r.flagComments[k] || ''),
+  }));
+
+  const payload = {
+    client_id: state.intake.client_id,
+    selfHypothesisTypes:     { dontKnow: r.typesDontKnow,     values: r.typesDontKnow ? [] : r.types },
+    selfHypothesisInstincts: { dontKnow: r.instinctsDontKnow, values: r.instinctsDontKnow ? [] : r.instincts },
+    flaggedKeys,
+    blockBAnswers: r.likert,
+    overallNotes: (r.notes || '').trim() || null,
+  };
+
+  try {
+    const res = await fetch('/api/beta-feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error((data && data.error) || 'Submission failed.');
+    state.phase = 'confirmation';
+    render();
+  } catch (e) {
+    console.error('[beta-review] submit failed:', e);
+    if (err) { err.textContent = 'Something went wrong submitting your feedback. Please try again.'; err.style.display = ''; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit'; }
+  }
 }
 
 // ---- Resume Screen (§0G) ----
@@ -2447,6 +2659,112 @@ function attachHandlers() {
       console.log(`[beta-flag] ${nowFlagged ? 'flagged' : 'unflagged'} ${key} · ${stageLabel}`);
     });
   });
+
+  // ---- Beta review screen (PR-D) ----
+  if (state.phase === 'beta-review') {
+    if (!state._betaReview) initBetaReview();
+    const r = state._betaReview;
+
+    // Block 0 — types (max 3), mutually exclusive with "I don't know".
+    document.querySelectorAll('[data-br-type]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const t = parseInt(el.getAttribute('data-br-type'), 10);
+        r.typesDontKnow = false;
+        const i = r.types.indexOf(t);
+        if (i >= 0) r.types.splice(i, 1);
+        else if (r.types.length < 3) r.types.push(t);
+        syncBetaReviewBlock0();
+        refreshBetaReviewGate();
+      });
+    });
+    const typeDkEl = document.querySelector('[data-br-type-dk]');
+    if (typeDkEl) typeDkEl.addEventListener('click', () => {
+      r.typesDontKnow = !r.typesDontKnow;
+      if (r.typesDontKnow) r.types = [];
+      syncBetaReviewBlock0();
+      refreshBetaReviewGate();
+    });
+
+    // Block 0 — instincts (max 2), mutually exclusive with "I don't know".
+    document.querySelectorAll('[data-br-inst]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const v = el.getAttribute('data-br-inst');
+        r.instinctsDontKnow = false;
+        const i = r.instincts.indexOf(v);
+        if (i >= 0) r.instincts.splice(i, 1);
+        else if (r.instincts.length < 2) r.instincts.push(v);
+        syncBetaReviewBlock0();
+        refreshBetaReviewGate();
+      });
+    });
+    const instDkEl = document.querySelector('[data-br-inst-dk]');
+    if (instDkEl) instDkEl.addEventListener('click', () => {
+      r.instinctsDontKnow = !r.instinctsDontKnow;
+      if (r.instinctsDontKnow) r.instincts = [];
+      syncBetaReviewBlock0();
+      refreshBetaReviewGate();
+    });
+
+    // Block A — "Click to remove" reverts the icon and drops the textbox in place,
+    // logging reconsidered=true; clicking again restores the textbox.
+    const bindFlagComment = (ta, k) => {
+      ta.addEventListener('input', () => { r.flagComments[k] = ta.value; refreshBetaReviewGate(); });
+    };
+    document.querySelectorAll('[data-br-flag-toggle]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const k = el.getAttribute('data-br-flag-toggle');
+        const entry = state.betaFlaggedQuestions[k];
+        if (!entry) return;
+        entry.reconsidered = !entry.reconsidered;
+        console.log(`[beta-flag] review ${entry.reconsidered ? 'reconsidered (removed)' : 're-flagged'} ${k}`);
+        el.classList.toggle('flagged', !entry.reconsidered);
+        el.setAttribute('aria-pressed', String(!entry.reconsidered));
+        el.innerHTML = entry.reconsidered ? FLAG_ICON_UNFLAGGED_SVG : FLAG_ICON_FLAGGED_SVG;
+        const row = el.closest('[data-br-flag]');
+        const existing = row && row.querySelector('[data-br-flag-comment]');
+        if (entry.reconsidered) {
+          if (existing) existing.remove();
+          delete r.flagComments[k];
+        } else if (row && !existing) {
+          const ta = document.createElement('textarea');
+          ta.className = 'text-input br-flag-input';
+          ta.setAttribute('data-br-flag-comment', k);
+          ta.placeholder = 'What gave you pause here?';
+          ta.value = r.flagComments[k] || '';
+          bindFlagComment(ta, k);
+          row.appendChild(ta);
+        }
+        refreshBetaReviewGate();
+      });
+    });
+    document.querySelectorAll('[data-br-flag-comment]').forEach((el) => {
+      bindFlagComment(el, el.getAttribute('data-br-flag-comment'));
+    });
+
+    // Block B — Likert.
+    document.querySelectorAll('[data-br-likert]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const dim = el.getAttribute('data-br-likert');
+        const val = parseInt(el.getAttribute('data-br-likert-val'), 10);
+        r.likert[dim] = val;
+        document.querySelectorAll(`[data-br-likert="${dim}"]`).forEach((b) => {
+          b.classList.toggle('active', parseInt(b.getAttribute('data-br-likert-val'), 10) === val);
+        });
+        refreshBetaReviewGate();
+      });
+    });
+
+    // Block C — optional notes.
+    const notesEl = document.getElementById('br-notes');
+    if (notesEl) notesEl.addEventListener('input', () => { r.notes = notesEl.value; });
+
+    // Submit.
+    const submitBtn = document.getElementById('btn-br-submit');
+    if (submitBtn) submitBtn.addEventListener('click', submitBetaReview);
+
+    syncBetaReviewBlock0();
+    refreshBetaReviewGate();
+  }
 
   // ---- Welcome (§0) ----
   const btnStart = document.getElementById('btn-start');

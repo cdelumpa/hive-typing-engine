@@ -1168,6 +1168,50 @@ app.post('/api/submit', async (req, res) => {
   })();
 });
 
+// Beta post-submit feedback (PR-D). Fired by the beta-review screen right after
+// /api/submit. No per-route auth — the in-assessment session bypasses basic auth
+// via req.session.assessmentClientId (see the global middleware), same as /api/submit.
+//
+// The frontend only knows client_id; the assessments row is created by /api/submit
+// moments earlier (after its response, before its background job), so we resolve the
+// latest assessment for this client. A short bounded retry covers the sub-second
+// creation race — human fill-time on the review screen makes a miss virtually
+// impossible, but the retry is belt-and-suspenders.
+//
+// CONTRACT for PR-E (/admin/beta-review): Block A per-statement comments have no
+// dedicated column — they ride inside flagged_keys JSONB. Each element is
+// { key, stageLabel, reconsidered, comment }; PR-E reads the comment from
+// flagged_keys[n].comment. self_hypothesis_{types,instincts} use the shape
+// { dontKnow: bool, values: [...] }.
+app.post('/api/beta-feedback', async (req, res) => {
+  const b = req.body || {};
+  const clientId = parseInt(b.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ ok: false, error: 'Missing client_id' });
+
+  let assessmentId = null;
+  for (let attempt = 0; attempt < 4 && !assessmentId; attempt++) {
+    assessmentId = await db.getLatestAssessmentId(clientId).catch(() => null);
+    if (!assessmentId) await new Promise((r) => setTimeout(r, 500));
+  }
+  if (!assessmentId) return res.status(404).json({ ok: false, error: 'No assessment found for client' });
+
+  try {
+    await db.insertBetaFeedback({
+      assessmentId,
+      selfHypothesisTypes:     b.selfHypothesisTypes ?? null,
+      selfHypothesisInstincts: b.selfHypothesisInstincts ?? null,
+      flaggedKeys:             b.flaggedKeys ?? null,
+      blockBAnswers:           b.blockBAnswers ?? null,
+      overallNotes:            b.overallNotes ?? null,
+    });
+    console.log(`[beta-feedback] stored for assessment #${assessmentId} (client #${clientId})`);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[beta-feedback] insert failed:', e.message);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // Stage 0 mini-call — analyzes the four open-text Stage 0 responses to
 // produce a soft Enneagram-type signal (2-3 candidate types with rationale).
 // Fires from the Mid-Assessment Reminders screen as background latency cover.
