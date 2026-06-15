@@ -1698,6 +1698,7 @@ function renderWelcome() {
     <div class="welcome-eyebrow">INSIGHTOUT ENNEAGRAM ASSESSMENT</div>
     <h1 class="welcome-headline"><span class="wh-light">Discover your</span><span class="wh-bold">Enneagram type.</span></h1>
     <p class="welcome-tagline">Welcome to an experience that reveals why you think, feel, act the way you do.</p>
+    ${state.is_beta ? `<p class="welcome-beta-note"><em>As you go, you’ll see a small orange question-mark icon beside each question. Tap it whenever something feels confusing or hard to answer — it turns into a green checkmark to mark the spot, and tapping again clears it. Before you see your results, we’ll bring those flagged questions back and ask what gave you pause.</em></p>` : ''}
     <p class="report-carrot">${envelope}<span class="carrot-full">When you’re done, a personalized Enneagram report lands in your inbox.</span><span class="carrot-short">When you’re done, a personalized report lands in your inbox.</span></p>
     <p class="welcome-meta">15–20 minutes · No right or wrong answers · Go with your first instinct</p>
     <p class="welcome-precta">Now, find a quiet moment and…</p>
@@ -1973,6 +1974,33 @@ function renderFinalOpen() {
 }
 
 // ---- Stage 0 ----
+// =================== BETA FLAG MECHANIC ===================
+//
+// In beta sessions (state.is_beta), every flaggable element renders a small icon
+// at the end: a Hive Orange question-mark circle (unflagged) that toggles to a
+// green checkmark circle (flagged). State lives in state.betaFlaggedQuestions and
+// is re-read on every mount, so flags survive Back navigation and save/resume.
+// The toggle mutates the clicked icon in place (no full re-render) — see the
+// delegation block in attachHandlers().
+
+// Hive Orange circle + white "?" (unflagged).
+const FLAG_ICON_UNFLAGGED_SVG = '<svg class="bfi-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#F68625"/><text x="10" y="14.5" text-anchor="middle" font-family="Georgia, serif" font-size="12" font-weight="700" fill="#ffffff">?</text></svg>';
+// Green (#2ECC71) circle + white checkmark (flagged).
+const FLAG_ICON_FLAGGED_SVG = '<svg class="bfi-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#2ECC71"/><path d="M5.8 10.3l2.7 2.7 5.7-6" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+// Render the flag icon for a flaggable element. Returns '' in non-beta sessions so
+// production output is byte-identical. key = statement identifier; stageLabel is the
+// human stage name stored alongside the flag.
+function renderFlagIcon(key, stageLabel) {
+  if (!state.is_beta) return '';
+  const flagged = !!state.betaFlaggedQuestions[key];
+  return `<button type="button" class="beta-flag-icon${flagged ? ' flagged' : ''}" `
+    + `data-flag-key="${esc(key)}" data-stage-label="${esc(stageLabel)}" `
+    + `aria-pressed="${flagged ? 'true' : 'false'}" `
+    + `aria-label="Flag this question for review" title="Flag this question for review">`
+    + `${flagged ? FLAG_ICON_FLAGGED_SVG : FLAG_ICON_UNFLAGGED_SVG}</button>`;
+}
+
 function renderStage0() {
   const q = STAGE0_QUESTIONS[state.stage0Idx];
   const val = state.stage0Answers[q.id] || '';
@@ -1983,7 +2011,7 @@ function renderStage0() {
     </div>` : '';
 
   return `<div class="screen">
-    <div class="q-text">${q.text}</div>
+    <div class="q-text">${q.text}${renderFlagIcon(q.id, 'Stage 0')}</div>
     ${refHtml}
     <textarea class="text-input" id="stage0-input" placeholder="Type your response here…">${esc(val)}</textarea>
     <div class="nav-row">
@@ -2130,7 +2158,7 @@ function renderStage1() {
     blocksHtml += `
       <div class="stmt-block">
         <div class="stmt-cat">${esc(slot.statement.dimension)}</div>
-        <div class="stmt-text">${esc(slot.statement.text)}</div>
+        <div class="stmt-text">${esc(slot.statement.text)}${renderFlagIcon(slot.statement.id, 'Stage 1')}</div>
         <div class="pole-row">
           <span class="pole pole-left"><span class="pole-full">Not like me</span><span class="pole-short">Not like me</span></span>
           <div class="slider-track-wrap" id="tw${i}">
@@ -2214,7 +2242,7 @@ function renderStage2() {
   }
 
   return `<div class="screen">
-    <div class="q-text">${esc(q.text)}</div>
+    <div class="q-text">${esc(q.text)}${renderFlagIcon(q.id, 'Stage 2')}</div>
     ${bodyHtml}
     <div class="nav-row">
       <button class="btn btn-ghost" id="btn-back">Back</button>
@@ -2260,7 +2288,7 @@ function renderStage3() {
   const isLast = idx === totalQs - 1;
 
   return `<div class="screen">
-    <div class="q-text">${esc(stem)}</div>
+    <div class="q-text">${esc(stem)}${renderFlagIcon(idx === 1 ? 'S3-Q2' : 'S3-Q1', 'Stage 3')}</div>
 
     <div class="person-options">
       ${render4WayOptions(personAText, personBText, sel)}
@@ -2336,7 +2364,7 @@ function renderStage4() {
   }
 
   return `<div class="screen">
-    <div class="q-text">${esc(stem)}</div>
+    <div class="q-text">${esc(stem)}${renderFlagIcon('S4-' + slot.instrument, 'Stage 4')}</div>
 
     <div class="person-options">
       ${bodyHtml}
@@ -2397,6 +2425,29 @@ function renderError() {
 // =================== EVENT HANDLERS ===================
 
 function attachHandlers() {
+  // ---- Beta flag icons ----
+  // Toggle in place (no full re-render) so slider positions, textarea focus, and
+  // caret survive. DOM is rebuilt each mountScreen(), so a fresh per-icon bind is
+  // correct and needs no dedup. State persists across Back/resume via
+  // state.betaFlaggedQuestions (see getSerializableState / renderFlagIcon).
+  document.querySelectorAll('.beta-flag-icon').forEach((el) => {
+    el.addEventListener('click', () => {
+      const key = el.getAttribute('data-flag-key');
+      const stageLabel = el.getAttribute('data-stage-label');
+      const wasFlagged = !!state.betaFlaggedQuestions[key];
+      if (wasFlagged) {
+        delete state.betaFlaggedQuestions[key];
+      } else {
+        state.betaFlaggedQuestions[key] = { stageLabel, reconsidered: false };
+      }
+      const nowFlagged = !wasFlagged;
+      el.classList.toggle('flagged', nowFlagged);
+      el.setAttribute('aria-pressed', String(nowFlagged));
+      el.innerHTML = nowFlagged ? FLAG_ICON_FLAGGED_SVG : FLAG_ICON_UNFLAGGED_SVG;
+      console.log(`[beta-flag] ${nowFlagged ? 'flagged' : 'unflagged'} ${key} · ${stageLabel}`);
+    });
+  });
+
   // ---- Welcome (§0) ----
   const btnStart = document.getElementById('btn-start');
   if (btnStart) btnStart.addEventListener('click', () => {

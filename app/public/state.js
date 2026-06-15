@@ -31,6 +31,10 @@ const state = {
   // Computed
   scores: null,          // output of scoreStage1Profile (v2 type/instinct profile); later stages tuck results on
   apiResult: null,
+  // Beta feedback (per-assessment). is_beta is set fresh from window.__hiveBootstrap on
+  // every load (never persisted), gating the flag mechanic + welcome block.
+  is_beta: false,
+  betaFlaggedQuestions: {}, // { [statementKey]: { stageLabel, reconsidered: bool } }
 };
 
 // Initialize Stage 1 slider state. Each statement starts null (untouched) so the
@@ -91,6 +95,7 @@ function getSerializableState() {
     stage4Answers:       state.stage4Answers,
     stage4Shuffles:      state.stage4Shuffles,
     finalOpenResponse:   state.finalOpenResponse,
+    betaFlaggedQuestions: state.betaFlaggedQuestions,
     scores:              state.scores,
   };
 }

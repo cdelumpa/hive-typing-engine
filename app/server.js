@@ -2580,7 +2580,7 @@ app.get('/assessment/:token', async (req, res) => {
         // 'resume-direct' falls through to the saved phase with no client change.
         const activeSession = !!(req.session && req.session.assessmentClientId === tokenRow.client_id);
         const route = activeSession ? 'resume-direct' : 'resume';
-        html = injectAssessmentBootstrap(html, intake, { route }).replace('</head>', `${sessionTag}\n</head>`);
+        html = injectAssessmentBootstrap(html, intake, { route, is_beta: tokenRow.is_beta === true }).replace('</head>', `${sessionTag}\n</head>`);
         return res.send(html);
       } catch (e) {
         console.error('[assessment/resume] index.html read error:', e.message);
@@ -2629,7 +2629,7 @@ app.get('/assessment/:token', async (req, res) => {
       const all = await db.getAllCoaches();
       coaches = (all || []).filter((c) => c.is_active).map((c) => c.name);
     } catch (e) { /* roster is best-effort; intake falls back to seeded coaches */ }
-    const bootstrap = { route: recordComplete ? 'profile-confirm' : 'intake', coaches };
+    const bootstrap = { route: recordComplete ? 'profile-confirm' : 'intake', coaches, is_beta: tokenRow.is_beta === true };
     let html = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
     html = injectAssessmentBootstrap(html, intake, bootstrap);
     return res.send(html);

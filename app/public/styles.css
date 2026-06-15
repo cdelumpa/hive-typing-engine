@@ -1320,3 +1320,45 @@ body {
   .nav-row { flex-wrap: wrap; row-gap: 12px; }
   .nav-row .btn { padding-left: 18px; padding-right: 18px; }
 }
+
+/* =================== BETA FLAG MECHANIC (PR-C) =================== */
+/* Beta-only: a flag icon at the end of each flaggable stem/statement. Orange
+   question-mark circle (unflagged) toggles to a green (#2ECC71) checkmark circle
+   (flagged). Rendered only when state.is_beta; absent for normal clients. */
+.beta-flag-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  width: 22px;
+  height: 22px;
+  margin-left: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  line-height: 0;
+  border-radius: 50%;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+.beta-flag-icon:hover { transform: scale(1.12); }
+.beta-flag-icon:focus-visible { outline: 2px solid var(--hive-blue); outline-offset: 2px; }
+.beta-flag-icon .bfi-svg { width: 20px; height: 20px; display: block; }
+/* Flagged state — soft green (#2ECC71) ring reinforcing the checkmark. */
+.beta-flag-icon.flagged { box-shadow: 0 0 0 2px #2ECC7140; }
+
+/* Beta-only welcome instruction block — soft Hive Orange callout. */
+.welcome-beta-note {
+  max-width: 460px;
+  margin: 0 auto 18px;
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #6B7785;
+  background: rgba(246, 134, 37, 0.08);
+  border: 1px solid rgba(246, 134, 37, 0.30);
+  border-radius: 8px;
+}
+@media (max-width: 600px) {
+  .welcome-beta-note { font-size: 12.5px; max-width: 280px; padding: 10px 13px; }
+}

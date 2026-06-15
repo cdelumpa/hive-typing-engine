@@ -366,6 +366,10 @@ loadTypeLibrary();
 // Token-based entry: server injects window.__hiveIntake when a valid token session is active.
 var __boot = (typeof window !== 'undefined' && window.__hiveBootstrap) || null;
 
+// Beta flag (per-assessment) — always read fresh from the bootstrap, never from a
+// saved session, so a client-level toggle change takes effect on the next load.
+state.is_beta = !!(__boot && __boot.is_beta);
+
 // Terminal error routes (§10) — no intake, no session, render the screen directly.
 if (__boot && (__boot.route === 'invalid-token' || __boot.route === 'expired-token')) {
   state.phase = __boot.route;
@@ -396,11 +400,14 @@ if (__boot && (__boot.route === 'invalid-token' || __boot.route === 'expired-tok
         'stage2Idx', 'stage2Answers', 'call1Result', 'call1LastSnapshot', 'noPairwise',
         'stage3Mode', 'stage3Idx', 'stage3Answers',
         'stage4Sequence', 'stage4Idx', 'stage4Answers', 'stage4Shuffles', 'finalOpenResponse',
+        'betaFlaggedQuestions',
         'scores',
       ];
       rehydratable.forEach(function(key) {
         if (ss[key] !== undefined) state[key] = ss[key];
       });
+      // Guard sessions saved before PR-C (no betaFlaggedQuestions field).
+      state.betaFlaggedQuestions = state.betaFlaggedQuestions || {};
 
       // Migrate retired interstitial phase names (PR3) so a session saved before
       // this release doesn't rehydrate onto a deleted phase.
