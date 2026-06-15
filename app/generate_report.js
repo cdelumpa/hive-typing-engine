@@ -41,11 +41,11 @@ const STAGE1_QUESTIONS = [
 const STAGE2_QUESTIONS = [
   { id: 'xref-q1', framework: 'Hornevian',       title: 'SOCIAL STANCE',    text: 'How do you tend to go about getting what you want or need in life?',                                     options: { A: 'I go for what I want, knowing I can make it happen.', B: 'I actively attend to what’s needed by the person, situation, or group.', C: 'I move inward where I know I’ll find peace, solitude, and meaning.' } },
   { id: 'xref-q2', framework: 'Harmonic',         title: 'CONFLICT RESPONSE', text: 'How do you experience not getting what matters most to you?',                                           options: { A: 'I call out what’s wrong, sometimes loudly, and challenge the status quo.', B: 'I look on the bright side and try to make the best of the situation.', C: 'I switch to analysis mode and start correcting what’s wrong.' } },
-  { id: 'xref-q3', framework: 'ObjectRelations',  title: 'LIFE THEME',        text: 'Which of the following have you tended to prioritize most over the course of your life?',              options: { A: 'Having a sense of connection and belonging with others.', B: 'Reaching toward something better, deeper, or more complete.', C: 'Protecting myself from intrusion, overwhelm, and control by others.' } },
+  { id: 'xref-q3', framework: 'Centers',          title: 'DECISION MAKING',   text: 'When you face an important decision, rank the following by how much each one guides your process.', options: { a: 'My gut — my instinct about what feels right.', b: 'My feelings — how I and the people involved feel about it.', c: 'The facts — the logic, the data, and a careful weighing of the options.' } },
 ];
 
-const STAGE3_Q1_STEM = 'Which of these sounds most like you at your best?';
-const STAGE3_Q2_STEM = 'Which of these is hardest for you to be with?';
+const STAGE3_Q1_STEM = 'When you’re at your best, how would you describe your internal experience?';
+const STAGE3_Q2_STEM = 'Which of these feels most uncomfortable or intolerable when it shows up in your life?';
 
 const STAGE3_CORE_MOTIVATIONS = {
   1: 'I am doing things the right way. I feel principled, clear, and in integrity with my own standards.',
@@ -132,7 +132,7 @@ const STAGE4_CT_COMPARATIVE = {
 
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver', 3: 'The Performer',
-  4: 'The Idealist', 5: 'The Observer', 6: 'The Questioner',
+  4: 'The Individualist', 5: 'The Observer', 6: 'The Questioner',
   7: 'The Enthusiast', 8: 'The Protector', 9: 'The Peacemaker',
 };
 
@@ -325,33 +325,30 @@ function buildBetaData(row) {
     stage1Summary.push({ label: 'Counter-Type Note', value: (ctf && ctf.description) || hyp.counter_type_combination || '' });
   }
 
-  const stage1Questions = STAGE1_QUESTIONS.map((q, idx) => {
-    const rankingRaw = r1[q.id] || {};
-    const ranking = {
-      a: typeof rankingRaw.a === 'number' ? rankingRaw.a : parseInt(rankingRaw.a) || 0,
-      b: typeof rankingRaw.b === 'number' ? rankingRaw.b : parseInt(rankingRaw.b) || 0,
-      c: typeof rankingRaw.c === 'number' ? rankingRaw.c : parseInt(rankingRaw.c) || 0,
-    };
-    const opts = ['a', 'b', 'c'].map(letter => ({
-      letter,
-      rank: ranking[letter],
-      text: q.options[letter],
-      dim: q.mapping[letter].toUpperCase(),
-    })).sort((x, y) => (x.rank || 99) - (y.rank || 99));
+  // Stage 1 per-statement walkthrough REMOVED (v2 alignment): v1 read r1.q1–r1.q12
+  // as {a,b,c} rank objects, but v2 Stage 1 is a slider instrument keyed by statement
+  // id (typeSliders/instinctSliders) — those v1 keys don't exist in the v2 snapshot, so
+  // every row rendered blank. The Stage 1 summary below (from scores_snapshot) is the
+  // correct v2 view; the per-question table is dropped (questions: [] in the return).
 
-    return {
-      idx: idx + 1,
-      title: q.title,
-      dimLabel: q.type === 'centers' ? 'Centers (Body / Heart / Head)' : 'Instincts (SP / SO / SX)',
-      text: q.text,
-      rows: opts.map(o => ({
-        rankLabel: o.rank ? ['1st', '2nd', '3rd'][o.rank - 1] || String(o.rank) : '—',
-        dim: o.dim,
-        text: o.text,
-        isTop: o.rank === 1,
-      })),
-    };
-  });
+  // ── Stage 1 aggregate scores (v2) + optional open responses.
+  // scores.typeProfile = { 1..9: mean 0–100 }; scores.instinctProfile = { SP, SO, SX }.
+  // Both are pre-computed by scoreStage1Profile — no derivation from raw sliders needed.
+  const round1 = (n) => Math.round(Number(n) * 10) / 10;
+  const typeProf = scores.typeProfile || {};
+  const typeScores = Object.keys(typeProf).length
+    ? Object.keys(typeProf)
+        .map((t) => ({ typeNum: Number(t), label: TYPE_NAMES[t] || '', score: round1(typeProf[t]) }))
+        .sort((a, b) => b.score - a.score)
+    : [];
+  const instinctScores = Object.keys(instProf).length
+    ? ['SP', 'SO', 'SX']
+        .filter((i) => instProf[i] != null)
+        .map((i) => ({ instinct: i, score: round1(instProf[i]) }))
+        .sort((a, b) => b.score - a.score)
+    : [];
+  const stage1TypeOpen = r1.typeOpen || '';
+  const stage1InstinctOpen = r1.instinctOpen || '';
 
   // ── Stage 2 summary + questions
   // v2: the framework cross-reference now lives in api_result.stage2_analysis.
@@ -365,6 +362,35 @@ function buildBetaData(row) {
 
   const s2QuestionKeys = ['q1', 'q2', 'q3'];
   const stage2Questions = STAGE2_QUESTIONS.map((q, idx) => {
+    // v2: xref-q3 is a ranking question (Centers / Decision Making) — the snapshot
+    // stores it as { a, b, c } numeric ranks (1/2/3), not a single letter. q1/q2 are
+    // still single-select. The render helpers live in renderer.js (out of scope), so
+    // we shape q3 to the existing Stage-2 options table: the marker column carries the
+    // rank label (1st/2nd/3rd) and the top choice is highlighted — i.e. RANK / OPTION
+    // TEXT columns, rank-ordered.
+    if (q.id === 'xref-q3') {
+      const ranks = (r2.q3 && typeof r2.q3 === 'object') ? r2.q3 : {};
+      const rankOf = (letter) => {
+        const v = ranks[letter];
+        return typeof v === 'number' ? v : (parseInt(v) || 0);
+      };
+      const opts = ['a', 'b', 'c'].map(letter => ({
+        rank: rankOf(letter),
+        text: q.options[letter],
+      })).sort((x, y) => (x.rank || 99) - (y.rank || 99));
+      return {
+        idx: idx + 1,
+        title: q.title,
+        framework: q.framework,
+        text: q.text,
+        options: opts.map(o => ({
+          letter: o.rank ? (['1st', '2nd', '3rd'][o.rank - 1] || String(o.rank)) : '—',
+          text: o.text,
+          selected: o.rank === 1,
+        })),
+      };
+    }
+
     const selected = r2[s2QuestionKeys[idx]] || null;
     return {
       idx: idx + 1,
@@ -515,7 +541,14 @@ function buildBetaData(row) {
     stage4Path:    s4.path    || 'N/A',
     flags,
     stage0,
-    stage1: { summary: stage1Summary, questions: stage1Questions },
+    stage1: {
+      summary: stage1Summary,
+      questions: [],
+      typeScores,
+      instinctScores,
+      typeOpen: stage1TypeOpen,
+      instinctOpen: stage1InstinctOpen,
+    },
     stage2: { summary: stage2Summary, questions: stage2Questions },
     stage3: { summary: stage3Summary, q1: stage3Q1, q2: stage3Q2 },
     stage4,

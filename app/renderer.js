@@ -708,6 +708,29 @@ function betaReportBodyHtml(data) {
     return `<table style="width:100%;border-collapse:collapse;margin:0 0 14px;border:1px solid #E4DEEE;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${html}</table>`;
   };
 
+  // Ranked 2-column score table (Stage 1 type/instinct). Mirrors summaryTable styling;
+  // rows arrive pre-sorted descending, so the top row (index 0, highest score) gets the
+  // PURPLE_LIGHT highlight + bold. kind 'type' → "Type N — Name"; 'instinct' → "SP".
+  const scoreTable = (rows, kind) => {
+    if (!rows || rows.length === 0) return '';
+    const html = rows.map((r, i) => {
+      const top = i === 0;
+      const bg = top ? PURPLE_LIGHT : (i % 2 === 0 ? PURPLE_TINT : '#FFFFFF');
+      const weight = top ? '700' : '400';
+      const label = kind === 'type' ? `Type ${r.typeNum} — ${r.label}` : r.instinct;
+      return `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        <td style="padding:7px 12px;font-size:14px;color:#1A2B33;font-weight:${weight};width:62%;vertical-align:top;border-bottom:1px solid #EFEAF6;">${esc(label)}</td>
+        <td style="padding:7px 12px;font-size:14px;color:#1A2B33;font-weight:${weight};vertical-align:top;border-bottom:1px solid #EFEAF6;">${esc(Number(r.score).toFixed(1))} / 100</td>
+      </tr>`;
+    }).join('');
+    return `<table style="width:100%;border-collapse:collapse;margin:0 0 14px;border:1px solid #E4DEEE;-webkit-print-color-adjust:exact;print-color-adjust:exact;">${html}</table>`;
+  };
+
+  // Open-response blockquote (Stage 1 type/instinct open text) — matches the Stage 0
+  // response style: PURPLE_TINT fill, 3px PURPLE left border, italic.
+  const openBlock = (text) =>
+    `<div style="background:${PURPLE_TINT};border-left:3px solid ${PURPLE};padding:10px 14px;border-radius:4px;margin:0 0 16px;font-size:14px;font-style:italic;color:#1A2B33;-webkit-print-color-adjust:exact;print-color-adjust:exact;white-space:pre-wrap;">${esc(text)}</div>`;
+
   // Stage-0 question + response block
   const stage0Block = (item) => `
     ${SUBH(item.title)}
@@ -837,7 +860,6 @@ function betaReportBodyHtml(data) {
 
   // ── Stage blocks
   const stage0Html = (data.stage0 || []).map(stage0Block).join('');
-  const stage1QuestionsHtml = (data.stage1.questions || []).map(stage1QuestionBlock).join('');
   const stage2QuestionsHtml = (data.stage2.questions || []).map(stage2QuestionBlock).join('');
 
   return `
@@ -863,10 +885,15 @@ function betaReportBodyHtml(data) {
       ${stage0Html}
 
       <!-- STAGE 1 -->
-      ${SH('Stage 1 — Centers & Instincts')}
+      ${SH('Stage 1 — Types & Instincts')}
       ${SUBH('Score Summary')}
       ${summaryTable(data.stage1.summary)}
-      ${stage1QuestionsHtml}
+      ${SUBH('Type Scores')}
+      ${scoreTable(data.stage1.typeScores, 'type')}
+      ${data.stage1.typeOpen ? SUBH('What you said about your type') + openBlock(data.stage1.typeOpen) : ''}
+      ${SUBH('Instinct Scores')}
+      ${scoreTable(data.stage1.instinctScores, 'instinct')}
+      ${data.stage1.instinctOpen ? SUBH('What you said about your instinct') + openBlock(data.stage1.instinctOpen) : ''}
 
       <!-- STAGE 2 -->
       ${SH('Stage 2 — Cross-Referencing')}
