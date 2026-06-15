@@ -2424,7 +2424,7 @@ ${_clP8Application(model)}
 }
 
 module.exports = {
-  buildClientHTML, buildCoachHTML, buildBetaHTML, buildPdfOptions,
+  buildClientHTML, buildCoachHTML, buildBetaHTML, betaReportBodyHtml, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
   buildCoachReportHTML, buildCoachPdfOptions, COACH_CLARIFICATION_QUESTIONS,
   buildClientReportHTML,

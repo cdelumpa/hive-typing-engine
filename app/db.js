@@ -805,6 +805,51 @@ async function getAllBetaFeedback() {
   return r ? r.rows : [];
 }
 
+// Respondent list for /admin/beta-review (PR-E). Driven by clients.is_beta so beta
+// testers who completed but haven't submitted feedback appear as "pending". Joins the
+// latest assessment (engine type/instinct) and any beta_feedback row (submitted_at).
+// Submitted rows first, newest-first; pending last.
+async function getBetaReviewRespondents() {
+  const r = await query(`
+    SELECT cl.id AS client_id, cl.first_name, cl.last_name, cl.status AS client_status,
+           a.id AS assessment_id, a.confirmed_type, a.confirmed_instinct,
+           a.dominant_instinct_hypothesis, a.confidence_level,
+           bf.submitted_at
+    FROM clients cl
+    LEFT JOIN LATERAL (
+      SELECT * FROM assessments WHERE client_id = cl.id ORDER BY created_at DESC LIMIT 1
+    ) a ON TRUE
+    LEFT JOIN beta_feedback bf ON bf.assessment_id = a.id
+    WHERE cl.is_beta = TRUE
+    ORDER BY (bf.submitted_at IS NULL), bf.submitted_at DESC
+  `);
+  return r ? r.rows : [];
+}
+
+// Single joined row for the tester modal (PR-E). Mirrors generate_report.js
+// fetchClientRow but WITHOUT the status='complete' filter (a beta tester who submitted
+// feedback may still be 'processing'), and additionally selects the engine hypothesis
+// columns so Tab 1's engine side comes from the same query. responses_snapshot lives on
+// clients; scores_snapshot/api_result on assessments — exactly what buildBetaData needs.
+async function getBetaReviewRow(clientId) {
+  const r = await query(`
+    SELECT cl.id AS client_id, cl.first_name, cl.last_name, cl.email,
+           cl.responses_snapshot,
+           co.name AS coach_name,
+           a.id AS assessment_id, a.scores_snapshot, a.api_result,
+           a.created_at AS assessment_date,
+           a.confirmed_type, a.confirmed_instinct, a.dominant_instinct_hypothesis,
+           a.confidence_level
+    FROM clients cl
+    JOIN coaches co    ON co.id = cl.coach_id
+    JOIN assessments a ON a.client_id = cl.id
+    WHERE cl.id = $1
+    ORDER BY a.created_at DESC
+    LIMIT 1
+  `, [clientId]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
 async function saveClientSessionState(clientId, sessionState) {
   await query(
     'UPDATE clients SET session_state = $1 WHERE id = $2',
@@ -922,6 +967,8 @@ module.exports = {
   insertBetaFeedback,
   getBetaFeedback,
   getAllBetaFeedback,
+  getBetaReviewRespondents,
+  getBetaReviewRow,
   saveClientSessionState,
   clearClientSessionState,
   getAbandonedClients,

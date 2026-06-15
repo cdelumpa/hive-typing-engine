@@ -26,9 +26,9 @@ if (process.env.SENDGRID_API_KEY) {
 }
 
 // Load renderer and type library
-const { buildCoachPdfOptions, HIVE_LOGO_SVG, buildClientReportHTML } = require('./renderer');
+const { buildCoachPdfOptions, HIVE_LOGO_SVG, buildClientReportHTML, betaReportBodyHtml } = require('./renderer');
 const { renderClientReport, renderCoachReport } = require('./render_report');
-const { generateBetaReport } = require('./generate_report');
+const { generateBetaReport, buildBetaData, BETA_QUESTION_TEXT } = require('./generate_report');
 const reportPrep = require('./report_prep');          // buildClientModel — for /admin/content preview
 const { TYPE_NAMES: CMS_TYPE_NAMES } = require('./type_meta');  // canonical type names for preview wing/line remap (distinct from the dashboard's local TYPE_NAMES)
 const db = require('./db');
@@ -3700,6 +3700,7 @@ function renderContentPage(overrides, req) {
   <div style="display:flex;align-items:center;gap:10px;">
     <a href="/admin" class="nav-link">← Dashboard</a><span class="nav-sep">|</span>
     ${cmsContentMenu('global')}<span class="nav-sep">|</span>
+    ${req.session.coach_is_super_admin ? `<a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
@@ -4006,6 +4007,7 @@ function renderSubtypesPage(overrides, req) {
   <div style="display:flex;align-items:center;gap:10px;">
     <a href="/admin" class="nav-link">← Dashboard</a><span class="nav-sep">|</span>
     ${cmsContentMenu('subtypes')}<span class="nav-sep">|</span>
+    ${req.session.coach_is_super_admin ? `<a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
@@ -4292,6 +4294,7 @@ function renderTypesPage(overrides, req) {
   <div style="display:flex;align-items:center;gap:10px;">
     <a href="/admin" class="nav-link">← Dashboard</a><span class="nav-sep">|</span>
     ${cmsContentMenu('types')}<span class="nav-sep">|</span>
+    ${req.session.coach_is_super_admin ? `<a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
@@ -4444,6 +4447,340 @@ app.get('/admin/content/types', requireSuperAdmin, async (req, res) => {
   const overrides = await contentOverrides.getAllOverrides();
   res.send(renderTypesPage(overrides, req));
 });
+
+// =================== /admin/beta-review — BETA FEEDBACK REVIEW (super-admin) ===================
+// Respondent list (server-rendered) + a two-tab tester modal (self-vs-engine + survey
+// in Tab 1; full stage-by-stage walkthrough in Tab 2) + a Re-analyze scaffold (PR-F).
+
+const BR_TYPE_NAMES = {
+  1: 'The Improver', 2: 'The Giver', 3: 'The Performer', 4: 'The Individualist',
+  5: 'The Observer', 6: 'The Questioner', 7: 'The Enthusiast', 8: 'The Protector',
+  9: 'The Peacemaker',
+};
+const BR_LIKERT_LABELS = {
+  clarity: 'Clarity of questions', ease: 'Ease of answering', length: 'Length & pacing',
+  navigation: 'Navigation and way-finding', overall: 'Overall experience',
+};
+
+function brParseMaybe(v) {
+  if (v == null) return null;
+  if (typeof v === 'string') { try { return JSON.parse(v); } catch (_) { return null; } }
+  return v;
+}
+
+// Self vs engine indicator. selfObj = { dontKnow, values }. Match only when the engine
+// value is the sole self-pick; Partial when it's one of several; Miss when absent.
+function brMatch(engineVal, selfObj) {
+  if (!selfObj || selfObj.dontKnow) return { label: 'Not assessed', cls: 'na' };
+  if (engineVal == null || engineVal === '') return { label: '—', cls: 'na' };
+  const vals = (selfObj.values || []).map(String);
+  if (vals.indexOf(String(engineVal)) >= 0) {
+    return vals.length === 1 ? { label: 'Match', cls: 'match' } : { label: 'Partial', cls: 'partial' };
+  }
+  return { label: 'Miss', cls: 'miss' };
+}
+
+function brSelfTypesStr(selfObj) {
+  if (!selfObj || selfObj.dontKnow) return 'I don’t know';
+  const vals = selfObj.values || [];
+  return vals.length ? vals.map((t) => `Type ${t}`).join(', ') : '—';
+}
+function brSelfInstStr(selfObj) {
+  if (!selfObj || selfObj.dontKnow) return 'I don’t know';
+  const vals = selfObj.values || [];
+  return vals.length ? vals.join(', ') : '—';
+}
+
+// Build Tab 1 HTML (self-vs-engine comparison + Blocks A/B/C) from the joined row + the
+// beta_feedback row.
+function renderBetaTab1Html(row, bf) {
+  const selfTypes = brParseMaybe(bf.self_hypothesis_types);
+  const selfInst  = brParseMaybe(bf.self_hypothesis_instincts);
+  const flagged   = brParseMaybe(bf.flagged_keys) || [];
+  const likert    = brParseMaybe(bf.block_b_answers) || {};
+
+  const engineType = row.confirmed_type;
+  const engineInst = row.dominant_instinct_hypothesis || row.confirmed_instinct;
+  const typeMatch  = brMatch(engineType, selfTypes);
+  const instMatch  = brMatch(engineInst, selfInst);
+  const engineTypeStr = engineType ? `Type ${engineType} — ${BR_TYPE_NAMES[engineType] || ''}` : '—';
+  const engineSubStr  = (engineInst && engineType) ? `${engineInst} ${engineType}` : '—';
+
+  const cmpRow = (label, selfStr, engineStr, m) => `
+    <tr>
+      <td style="padding:8px 10px;font-size:12px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;width:22%;">${esc(label)}</td>
+      <td style="padding:8px 10px;font-size:14px;color:#1A2B33;width:33%;">${esc(selfStr)}</td>
+      <td style="padding:8px 10px;font-size:14px;color:#1A2B33;width:33%;">${esc(engineStr)}</td>
+      <td style="padding:8px 10px;text-align:right;width:12%;"><span class="br-ind br-ind-${m.cls}">${esc(m.label)}</span></td>
+    </tr>`;
+
+  let html = `<div class="br-tab-section">
+    <div class="br-tab-h">Self-hypothesis vs. engine</div>
+    <table class="br-cmp">
+      <tr><td></td>
+        <td style="padding:6px 10px;font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">Tester thinks</td>
+        <td style="padding:6px 10px;font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;">Engine says</td>
+        <td></td></tr>
+      ${cmpRow('Type', brSelfTypesStr(selfTypes), engineTypeStr, typeMatch)}
+      ${cmpRow('Instinct', brSelfInstStr(selfInst), engineSubStr, instMatch)}
+    </table>
+    <div style="font-size:12px;color:#7A96A6;margin-top:4px;">Engine confidence: ${esc(row.confidence_level || '—')}</div>
+  </div>`;
+
+  // Block A — flagged statements + comments
+  html += `<div class="br-tab-section"><div class="br-tab-h">Flagged questions (Block A)</div>`;
+  if (!flagged.length) {
+    html += `<p class="br-muted">No questions were flagged.</p>`;
+  } else {
+    html += flagged.map((f) => {
+      const text = BETA_QUESTION_TEXT[f.key] || f.key;
+      const meta = `${f.stageLabel || ''} · ${f.key}`;
+      const body = f.reconsidered
+        ? `<div class="br-flag-reconsidered">Reconsidered and removed by the tester.</div>`
+        : `<div class="br-flag-comment">${f.comment ? esc(f.comment) : '<span class="br-muted">(no comment)</span>'}</div>`;
+      return `<div class="br-flag-row">
+        <div class="br-flag-q">${esc(text)}</div>
+        <div class="br-flag-meta">${esc(meta)}</div>
+        ${body}
+      </div>`;
+    }).join('');
+  }
+  html += `</div>`;
+
+  // Block B — Likert
+  html += `<div class="br-tab-section"><div class="br-tab-h">Experience ratings (Block B)</div><table class="br-likert-tbl">`;
+  html += Object.keys(BR_LIKERT_LABELS).map((k) => {
+    const v = (likert && likert[k] != null) ? likert[k] : '—';
+    return `<tr><td style="padding:6px 10px;font-size:13px;color:#1A2B33;">${esc(BR_LIKERT_LABELS[k])}</td>
+      <td style="padding:6px 10px;font-size:14px;font-weight:700;color:#00859f;text-align:right;width:60px;">${esc(String(v))} ${v === '—' ? '' : '/ 5'}</td></tr>`;
+  }).join('');
+  html += `</table></div>`;
+
+  // Block C — open text
+  html += `<div class="br-tab-section"><div class="br-tab-h">Anything else (Block C)</div>`;
+  html += bf.overall_notes ? `<p class="br-notes">${esc(bf.overall_notes)}</p>` : `<p class="br-muted">—</p>`;
+  html += `</div>`;
+
+  return html;
+}
+
+// Build Tab 2 HTML (stage-by-stage walkthrough) by reusing the beta-report builder.
+// Returns null when the snapshots needed to reconstruct the walkthrough are absent.
+function renderBetaTab2Html(row) {
+  if (!row || !row.responses_snapshot || !row.scores_snapshot) return null;
+  try {
+    const data = buildBetaData(row);
+    const header = `<div class="br-engine-header">
+      <span class="br-eh-type">${esc(data.typeLabel || '—')}</span>
+      <span class="br-eh-meta">Confidence: ${esc(data.confidenceLevel || '—')} · Stage 4: ${esc(data.stage4Outcome || '—')}${data.flags && data.flags.length ? ' · Flags: ' + esc(data.flags.map((f) => f.label).join(', ')) : ''}</span>
+    </div>`;
+    return header + `<div class="br-walkthrough">${betaReportBodyHtml(data)}</div>`;
+  } catch (e) {
+    console.error(`[beta-review/tab2] buildBetaData failed for client #${row.client_id}:`, e.message);
+    return null;
+  }
+}
+
+app.get('/admin/beta-review', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  let respondents = [];
+  try {
+    respondents = await db.getBetaReviewRespondents();
+  } catch (e) {
+    console.error('[beta-review] respondent fetch failed:', e.message);
+  }
+  res.send(renderBetaReviewPage(req, respondents));
+});
+
+app.get('/admin/beta-review/tester/:client_id', requireSuperAdmin, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
+
+  const row = await db.getBetaReviewRow(clientId).catch(() => null);
+  if (!row) return res.json({ available: false, reason: 'No assessment found for this tester.' });
+
+  const bf = await db.getBetaFeedback(row.assessment_id).catch(() => null);
+  if (!bf) return res.json({ available: false, reason: 'This tester has not submitted feedback yet.' });
+
+  const testerName = `${row.first_name || ''} ${row.last_name || ''}`.trim();
+  const tab1Html = renderBetaTab1Html(row, bf);
+  const tab2Html = renderBetaTab2Html(row); // null when snapshots are missing
+  return res.json({ available: true, testerName, tab1Html, tab2Html });
+});
+
+// Re-analyze scaffold — PR-F will run the Claude synthesis across all beta_feedback
+// rows and persist the result. For now this just confirms the route is wired.
+app.post('/admin/beta-review/analyze', requireSuperAdmin, async (req, res) => {
+  console.log('[beta-review/analyze] stub invoked (PR-F will implement the Claude synthesis)');
+  return res.json({ ok: true, stub: true });
+});
+
+function renderBetaReviewPage(req, respondents) {
+  const fmtDate = (ts) => {
+    if (!ts) return '—';
+    try { return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
+    catch (_) { return '—'; }
+  };
+  const rowsHtml = (respondents || []).map((r) => {
+    const name = `${r.first_name || ''} ${r.last_name || ''}`.trim() || '(unnamed)';
+    const submitted = !!r.submitted_at;
+    const engineType = r.confirmed_type ? `Type ${r.confirmed_type}` : '—';
+    const inst = r.dominant_instinct_hypothesis || r.confirmed_instinct;
+    const subtype = (inst && r.confirmed_type) ? `${inst} ${r.confirmed_type}` : '—';
+    const statusBadge = submitted
+      ? `<span class="br-badge br-badge-sub">Submitted</span>`
+      : `<span class="br-badge br-badge-pend">Pending</span>`;
+    const nameCell = submitted
+      ? `<a href="#" class="br-name-link" onclick="openBetaTester(${r.client_id});return false;">${esc(name)}</a>`
+      : `<span class="br-name-pending">${esc(name)}</span>`;
+    return `<tr>
+      <td style="padding:10px 12px;">${nameCell}</td>
+      <td style="padding:10px 12px;">${esc(engineType)}</td>
+      <td style="padding:10px 12px;">${esc(subtype)}</td>
+      <td style="padding:10px 12px;">${esc(fmtDate(r.submitted_at))}</td>
+      <td style="padding:10px 12px;">${statusBadge}</td>
+    </tr>`;
+  }).join('');
+
+  const emptyState = (respondents && respondents.length)
+    ? ''
+    : `<p style="padding:24px;color:#7A96A6;">No beta testers yet. Toggle “Beta Tester” on a client’s profile to add one.</p>`;
+
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beta Review — Hive</title>
+<style>
+  body { margin: 0; background: #F4F2EE; font-family: Georgia, serif; color: #1A2B33; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; background: #1A2B33; padding: 14px 24px; }
+  .top-bar h1 { color: #00b1d7; font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar span.eyebrow { color: #7A96A6; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .top-bar .nav-link { color: #7A96A6; font-size: 12px; text-decoration: none; font-family: Georgia, serif; }
+  .top-bar .nav-link:hover { color: #fff; }
+  .top-bar .nav-sep { color: #3A4B55; font-size: 12px; margin: 0 8px; }
+  .container { max-width: 980px; margin: 28px auto; padding: 0 20px; }
+  .panel { background: #fff; border: 1px solid #E2E6EA; border-radius: 8px; overflow: hidden; }
+  .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; border-bottom: 1px solid #EFEAE3; }
+  .panel-head h2 { font-size: 16px; margin: 0; }
+  table.br-list { width: 100%; border-collapse: collapse; }
+  table.br-list th { text-align: left; font-size: 11px; color: #7A96A6; text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 12px; border-bottom: 1px solid #EFEAE3; }
+  table.br-list tr:nth-child(even) td { background: #FAFAF8; }
+  .br-name-link { color: #00859f; text-decoration: none; font-weight: 700; }
+  .br-name-link:hover { text-decoration: underline; }
+  .br-name-pending { color: #7A96A6; }
+  .br-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 3px; letter-spacing: 0.04em; }
+  .br-badge-sub { background: #e6f7ee; color: #1a7a4a; }
+  .br-badge-pend { background: #fef6e0; color: #9a6a00; }
+  .btn-reanalyze { background: #00b1d7; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; }
+  .btn-reanalyze:hover { background: #009bbf; }
+  /* Modal */
+  .br-overlay { display: none; position: fixed; inset: 0; background: rgba(26,43,51,0.55); z-index: 9000; align-items: flex-start; justify-content: center; padding: 36px 16px; overflow-y: auto; }
+  .br-modal { background: #fff; width: 100%; max-width: 720px; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,.2); }
+  .br-modal-head { border-top: 4px solid #7B5EA7; padding: 18px 22px 0; }
+  .br-modal-title { font-size: 19px; font-weight: 700; margin: 0 0 12px; }
+  .br-tabs { display: flex; gap: 4px; border-bottom: 1px solid #EFEAE3; }
+  .br-tab-btn { background: none; border: none; border-bottom: 3px solid transparent; font-family: Georgia, serif; font-size: 13px; font-weight: 700; color: #7A96A6; padding: 10px 14px; cursor: pointer; }
+  .br-tab-btn.active { color: #5C4080; border-bottom-color: #7B5EA7; }
+  .br-tab-body { padding: 18px 22px 24px; max-height: 70vh; overflow-y: auto; }
+  .br-tab-section { margin-bottom: 20px; }
+  .br-tab-h { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #5C4080; margin: 0 0 8px; padding-bottom: 4px; border-bottom: 1px solid #EFEAF6; }
+  table.br-cmp, table.br-likert-tbl { width: 100%; border-collapse: collapse; }
+  table.br-cmp td { border-bottom: 1px solid #F2EEE9; vertical-align: top; }
+  .br-ind { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+  .br-ind-match { background: #e6f7ee; color: #1a7a4a; }
+  .br-ind-partial { background: #fef6e0; color: #9a6a00; }
+  .br-ind-miss { background: #fdecea; color: #c0392b; }
+  .br-ind-na { background: #f1f1ee; color: #7A8A92; }
+  .br-flag-row { padding: 10px 0; border-bottom: 1px solid #F2EEE9; }
+  .br-flag-q { font-size: 14px; color: #1A2B33; }
+  .br-flag-meta { font-size: 11px; color: #9FB0B9; margin: 2px 0 6px; font-family: Menlo, monospace; }
+  .br-flag-comment { font-size: 13px; color: #4A6070; background: #FAF7FC; border-left: 3px solid #7B5EA7; padding: 8px 12px; border-radius: 4px; white-space: pre-wrap; }
+  .br-flag-reconsidered { font-size: 12px; color: #7A96A6; font-style: italic; }
+  .br-notes { font-size: 14px; color: #1A2B33; background: #FAF7FC; border-left: 3px solid #7B5EA7; padding: 10px 14px; border-radius: 4px; white-space: pre-wrap; }
+  .br-muted { color: #9FB0B9; font-style: italic; }
+  .br-engine-header { position: sticky; top: 0; background: #F1ECF7; border: 1px solid #E4DEEE; border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; z-index: 2; }
+  .br-eh-type { font-size: 15px; font-weight: 700; color: #5C4080; display: block; }
+  .br-eh-meta { font-size: 12px; color: #7A6A90; }
+  .br-modal-foot { display: flex; justify-content: flex-end; padding: 0 22px 22px; }
+  .br-close { background: #fff; color: #7A96A6; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; padding: 9px 18px; cursor: pointer; }
+  #br-toast { display: none; position: fixed; bottom: 24px; right: 24px; background: #1a7a4a; color: #fff; padding: 12px 20px; border-radius: 6px; font-size: 13px; z-index: 9500; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+</style></head>
+<body>
+<div class="top-bar">
+  <div><div><span class="eyebrow">Hive Enneagram Type Tool</span></div><h1>Beta Review</h1></div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <a href="/admin" class="nav-link">← Dashboard</a><span class="nav-sep">|</span>
+    <a href="/admin/logout" class="nav-link">Sign out</a>
+  </div>
+</div>
+<div class="container">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Beta testers</h2>
+      <button class="btn-reanalyze" onclick="reanalyzeBeta(this)">Re-analyze</button>
+    </div>
+    ${(respondents && respondents.length) ? `<table class="br-list">
+      <thead><tr><th>Tester</th><th>Engine type</th><th>Subtype</th><th>Feedback date</th><th>Status</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>` : emptyState}
+  </div>
+</div>
+
+<div id="br-overlay" class="br-overlay" onclick="if(event.target===this)closeBetaTester()">
+  <div class="br-modal">
+    <div class="br-modal-head">
+      <h2 class="br-modal-title" id="br-modal-title">Tester</h2>
+      <div class="br-tabs">
+        <button class="br-tab-btn active" id="br-tab-btn-1" onclick="switchBetaTab(1)">Self vs. Engine</button>
+        <button class="br-tab-btn" id="br-tab-btn-2" onclick="switchBetaTab(2)">Assessment Walkthrough</button>
+      </div>
+    </div>
+    <div class="br-tab-body">
+      <div id="br-tab-1"></div>
+      <div id="br-tab-2" style="display:none;"></div>
+    </div>
+    <div class="br-modal-foot"><button class="br-close" onclick="closeBetaTester()">Close</button></div>
+  </div>
+</div>
+<div id="br-toast"></div>
+
+<script>
+function _brToast(msg){ var t=document.getElementById('br-toast'); t.textContent=msg; t.style.display='block'; setTimeout(function(){t.style.display='none';},2600); }
+function switchBetaTab(n){
+  document.getElementById('br-tab-btn-1').classList.toggle('active', n===1);
+  document.getElementById('br-tab-btn-2').classList.toggle('active', n===2);
+  document.getElementById('br-tab-1').style.display = n===1 ? 'block' : 'none';
+  document.getElementById('br-tab-2').style.display = n===2 ? 'block' : 'none';
+}
+function closeBetaTester(){ document.getElementById('br-overlay').style.display='none'; }
+async function openBetaTester(clientId){
+  var t1=document.getElementById('br-tab-1'), t2=document.getElementById('br-tab-2');
+  t1.innerHTML='<p class="br-muted">Loading…</p>'; t2.innerHTML='';
+  switchBetaTab(1);
+  document.getElementById('br-overlay').style.display='flex';
+  try{
+    var r=await fetch('/admin/beta-review/tester/'+clientId,{headers:{Accept:'application/json'}});
+    var d=await r.json();
+    if(!d.available){ t1.innerHTML='<p class="br-muted">'+(d.reason||'Unavailable.')+'</p>'; document.getElementById('br-modal-title').textContent='Tester'; return; }
+    document.getElementById('br-modal-title').textContent=d.testerName||'Tester';
+    t1.innerHTML=d.tab1Html||'<p class="br-muted">No data.</p>';
+    t2.innerHTML=d.tab2Html||'<p class="br-muted">Stage-by-stage walkthrough is unavailable for this record (assessment still processing or snapshots missing).</p>';
+  }catch(e){ t1.innerHTML='<p class="br-muted">Failed to load tester detail.</p>'; }
+}
+async function reanalyzeBeta(btn){
+  var orig=btn.textContent; btn.disabled=true; btn.textContent='Analyzing…';
+  try{
+    var r=await fetch('/admin/beta-review/analyze',{method:'POST',headers:{Accept:'application/json'}});
+    var d=await r.json();
+    if(d.ok && d.stub){ _brToast('Re-analyze is coming in a future update.'); }
+    else if(d.ok){ _brToast('Analysis complete.'); }
+    else { _brToast('Analysis failed.'); }
+  }catch(e){ _brToast('Request failed.'); }
+  btn.disabled=false; btn.textContent=orig;
+}
+</script>
+</body></html>`;
+}
 
 app.post('/admin/content/draft', requireSuperAdmin, async (req, res) => {
   const { content_key, value } = req.body || {};
@@ -4965,7 +5302,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   <div style="display:flex;align-items:center;gap:16px;">
     <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
     ${req.session.coach_is_admin ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
-    ${req.session.coach_is_super_admin ? `${cmsContentMenu('')}<span class="nav-sep">|</span>` : ''}
+    ${req.session.coach_is_super_admin ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/password" class="nav-link">Change password</a>
     <span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>

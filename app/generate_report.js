@@ -668,6 +668,95 @@ async function runCli() {
   })().catch(e => { console.error('Fatal:', e.message); process.exit(1); });
 }
 
-module.exports = { generateBetaReport, runCli, buildBetaData };
+// ─── Beta flag-key → question text lookup (PR-E) ──────────────────────────────
+// Resolves any flaggable key to its full question/statement text for the Block A
+// display on /admin/beta-review. Covers Stage 0 (q1-q4), the 60 Stage 1 statements
+// (S{type}-N, I1-{inst}-N), Stage 2 (xref-qN), and the Stage 3/4 synthetic stem keys.
+//
+// WORDING DIVERGENCE (flagged for a future reconciliation pass): the Stage 1
+// statement text and the Stage 3/4 stems below are mirrored from app/public/
+// assessment.js, but the two files have drifted — notably the Stage 3 stems
+// (assessment.js: "When you're at your best, how would you describe your internal
+// experience?" vs this file's STAGE3_Q1_STEM). The flag KEY + stage label always
+// identify the question unambiguously; only the displayed wording may differ slightly
+// from what the tester saw. Reconcile by extracting these constants into a single
+// shared data module consumed by both the SPA and the server.
+const BETA_STAGE1_STATEMENT_TEXT = {
+  'S3-1': 'I prioritize achieving my goals and being recognized for what I accomplish.',
+  'S3-2a': 'My attention naturally goes to what needs to be accomplished and how I’m coming across.',
+  'S3-2b': 'I find myself adjusting how I present myself and tracking how I’m landing.',
+  'S3-3': 'I put a lot of energy into staying productive, performing well, and projecting a capable, successful image.',
+  'S3-4': 'I tend to avoid failing, slowing down, or being seen as unsuccessful or incapable.',
+  'S6-1': 'I prioritize feeling safe, secure, and prepared for whatever might happen.',
+  'S6-2a': 'My attention naturally goes to what could go wrong, potential danger, and whether people and situations can really be trusted.',
+  'S6-2b': 'I find myself running through worst-case scenarios and figuring out how to be prepared for what might happen.',
+  'S6-3': 'I put a lot of energy into questioning, seeking reassurance, and making sure I’m ready for what could go wrong.',
+  'S6-4': 'I tend to avoid uncertainty, blindly trusting others, and being caught unprepared.',
+  'S9-1': 'I prioritize keeping the peace and maintaining harmony, inside myself and with others.',
+  'S9-2a': 'My attention naturally goes outward to other people’s agendas, potential sources of conflict, and to what’s right in front of me.',
+  'S9-2b': 'I find myself going along with what others want, keeping things comfortable, and losing track of what matters most to me.',
+  'S9-3': 'I put a lot of energy into accommodating others, staying comfortable, and keeping the peace.',
+  'S9-4': 'I tend to avoid conflict, asserting my own position, and anything that disturbs my sense of peace.',
+  'S1-1': 'I prioritize doing things right and being a good, responsible person.',
+  'S1-2a': 'My attention naturally goes to what’s wrong, imprecise, or not meeting the standard in situations, in others, and in myself.',
+  'S1-2b': 'I find myself monitoring, correcting, and comparing, driven by a relentless internal critic.',
+  'S1-3': 'I put a lot of energy into improving things, maintaining standards, and keeping myself and my work above reproach.',
+  'S1-4': 'I tend to avoid making mistakes, being wrong, and letting my own anger or impulses show.',
+  'S4-1': 'I prioritize being authentic and true to myself, and feeling a deep connection to what’s real and meaningful.',
+  'S4-2a': 'My attention naturally goes to what is missing or unavailable to me, and my internal emotional landscape.',
+  'S4-2b': 'I find myself drawn toward what would make me feel unique or special and away from the ordinary or mundane.',
+  'S4-3': 'I put a lot of energy into processing my emotions, seeking depth, and being seen as unique and authentic.',
+  'S4-4': 'I tend to avoid being ordinary, feeling cut off from my feelings, and settling for the superficial.',
+  'S2-1': 'I prioritize being needed and appreciated for how I care for and support others.',
+  'S2-2a': 'My attention naturally goes to other people’s feelings and needs, picking up on what they need usually before they even know.',
+  'S2-2b': 'I find myself setting aside what I need in order to focus on others, telling myself my needs can wait.',
+  'S2-3': 'I put a lot of energy into helping, supporting, and tending to relationships and others’ needs.',
+  'S2-4': 'I tend to avoid acknowledging my own needs, asking for help, and feeling that I’m not needed or appreciated.',
+  'S8-1': 'I prioritize being strong and in control so I can protect myself and the people I care about.',
+  'S8-2a': 'My attention naturally goes to power dynamics, fairness, and any move to control, take advantage, or show weakness.',
+  'S8-2b': 'I find myself moving toward action, confronting what’s wrong head-on, and protecting against any sign of vulnerability.',
+  'S8-3': 'My energy goes to taking action, asserting my will, and taking a stand against what’s unjust or unfair.',
+  'S8-4': 'I tend to avoid feeling vulnerable, being controlled, and being dependent on others.',
+  'S5-1': 'I prioritize understanding the world and having enough knowledge and resources to be self-sufficient.',
+  'S5-2a': 'My attention naturally goes to demands on my time and energy, and to potential intrusions on my privacy.',
+  'S5-2b': 'I find myself building my knowledge, maintaining my boundaries, and conserving my energy and resources.',
+  'S5-3': 'I put a lot of energy into gathering knowledge, figuring things out, and protecting my privacy and resources.',
+  'S5-4': 'I tend to avoid emotional demands, intrusion on my space, and being caught without enough understanding or resources.',
+  'S7-1': 'I prioritize living a life free from pain and constraints.',
+  'S7-2a': 'My attention naturally goes to anything that could potentially limit my options or cause me pain and suffering.',
+  'S7-2b': 'I find myself imagining enjoyable possibilities, generating new options, and reframing negatives into positives.',
+  'S7-3': 'I put a lot of energy into staying up and positive, planning for pleasurable possibilities, and keeping my options open.',
+  'S7-4': 'I tend to avoid people and situations that limit my options or require me to sit with pain or difficulty.',
+  'I1-SP-1': 'I pay close attention to my physical comfort — things like temperature, hunger, rest, and whether my body feels okay.',
+  'I1-SP-2': 'I keep track of whether I have enough resources (money, supplies, energy, time, etc.) to ensure comfort and survival.',
+  'I1-SP-3': 'I keep the people and things I depend on safe.',
+  'I1-SP-4': 'I prefer to handle things myself rather than counting on others.',
+  'I1-SP-5': 'I recharge by being on my own, in my own space, with no demands on me.',
+  'I1-SO-1': 'I pay attention to where I stand in a group and how I’m coming across to the people in it.',
+  'I1-SO-2': 'I pay attention to who in a group is reliable and can be counted on, and who can’t.',
+  'I1-SO-3': 'I notice the social landscape — who’s connected to whom, who’s in, and who’s out.',
+  'I1-SO-4': 'I am pulled toward something larger than myself: a cause, a community, or a group I want to be part of.',
+  'I1-SO-5': 'I get my energy by being part of a community.',
+  'I1-SX-1': 'My attention gets pulled strongly toward specific people or things, sometimes to the point of crowding out everything else.',
+  'I1-SX-2': 'I find intense one-on-one conversations energizing.',
+  'I1-SX-3': 'When I’m captivated by someone or something, the pull can override my better judgment about what I should be doing.',
+  'I1-SX-4': 'When I want something, I go after it directly and don’t hold back.',
+  'I1-SX-5': 'I want to have a real impact on the people and things that matter to me, even if I don’t make it obvious.',
+};
+
+const BETA_QUESTION_TEXT = (() => {
+  const map = {};
+  STAGE0_QUESTIONS.forEach((q) => { map[q.id] = q.text; });
+  Object.assign(map, BETA_STAGE1_STATEMENT_TEXT);
+  STAGE2_QUESTIONS.forEach((q) => { map[q.id] = q.text; });
+  map['S3-Q1'] = STAGE3_Q1_STEM;
+  map['S3-Q2'] = STAGE3_Q2_STEM;
+  map['S4-stress'] = STAGE4_STRESS_STEM;
+  map['S4-security'] = STAGE4_SECURITY_STEM;
+  map['S4-habit'] = STAGE4_HABIT_STEM;
+  return map;
+})();
+
+module.exports = { generateBetaReport, runCli, buildBetaData, BETA_QUESTION_TEXT };
 
 if (require.main === module) runCli();
