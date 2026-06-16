@@ -959,6 +959,17 @@ async function callClaudeWithRetry(systemPrompt, userMessage) {
       const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
       const result = JSON.parse(clean);
       console.log(`[claude] usage — ${JSON.stringify(response.usage)}`);
+      // D6: persist Call #2 token usage in the result's meta block so it lands in
+      // assessments.api_result. response.usage is only in scope here (inside the
+      // retry helper), so usage is attached to the returned result rather than in
+      // runBackgroundJob; the unchanged api_result write then persists it.
+      result.meta = result.meta || {};
+      result.meta._usage = {
+        input_tokens: response.usage?.input_tokens ?? null,
+        output_tokens: response.usage?.output_tokens ?? null,
+        cache_read_input_tokens: response.usage?.cache_read_input_tokens ?? null,
+        cache_creation_input_tokens: response.usage?.cache_creation_input_tokens ?? null,
+      };
       console.log(`[claude] success — attempt ${attempt}, confirmed_type=${result?.hypothesis?.confirmed_type}, confidence=${result?.hypothesis?.confidence_level}`);
       return result;
     } catch (err) {
@@ -1551,6 +1562,13 @@ app.post('/api/call1', async (req, res) => {
         }
       }
       result = parsed;
+      // D6: persist Call #1 token usage on the saved result (additive; null-safe).
+      result._usage = {
+        input_tokens: response.usage?.input_tokens ?? null,
+        output_tokens: response.usage?.output_tokens ?? null,
+        cache_read_input_tokens: response.usage?.cache_read_input_tokens ?? null,
+        cache_creation_input_tokens: response.usage?.cache_creation_input_tokens ?? null,
+      };
       console.log(`[call1] success — client #${client_id} leading=${parsed.leading_candidate} alt=${parsed.alternate_candidate} gap=${parsed.gap} mode=${parsed.stage3_mode} ct=${parsed.ct_pair} inst=${parsed.dominant_instinct}`);
     } else {
       console.warn('[call1] parsed payload missing 9-entry ranking array');
