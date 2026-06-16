@@ -366,6 +366,13 @@ async function getLatestAssessmentId(clientId) {
   return r && r.rows.length > 0 ? r.rows[0].id : null;
 }
 
+// Full assessment row by id, or null. Used by the EM engine to resolve client_id
+// and read the stored SM verdict (api_result) for the reliability log.
+async function getAssessmentById(assessmentId) {
+  const r = await query('SELECT * FROM assessments WHERE id = $1 LIMIT 1', [assessmentId]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
 async function completeAssessment(assessmentId, result) {
   const h = result.hypothesis || {};
   const fr = result.final_response || {};
@@ -1224,6 +1231,7 @@ module.exports = {
   createClient,
   createAssessment,
   getLatestAssessmentId,
+  getAssessmentById,
   completeAssessment,
   failAssessment,
   updateAssessmentTiming,

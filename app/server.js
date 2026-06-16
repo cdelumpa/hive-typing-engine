@@ -32,6 +32,7 @@ const { buildBetaData, BETA_QUESTION_TEXT } = require('./generate_report');
 const reportPrep = require('./report_prep');          // buildClientModel — for /admin/content preview
 const { TYPE_NAMES: CMS_TYPE_NAMES } = require('./type_meta');  // canonical type names for preview wing/line remap (distinct from the dashboard's local TYPE_NAMES)
 const db = require('./db');
+const experimentalAnalysis = require('./experimental_analysis');  // EM prompt builder + engine (PR4/PR5)
 const contentOverrides = require('./content_overrides');
 // Baseline static content for the /admin/content editor (read-only). The renderer
 // reads the same file via report_prep; the editor shows these as the fallback values.
@@ -4781,6 +4782,50 @@ app.post('/admin/beta-review/clear-analysis', requireSuperAdmin, async (req, res
   } catch (e) {
     console.error('[beta-review/clear-analysis] failed:', e.message);
     return res.status(500).json({ ok: false, error: 'Clear failed' });
+  }
+});
+
+// ── Enhanced Mode (EM) — on-demand experimental analysis (super-admin) ────────────
+// Manual Re-run / Run-Opus trigger. The automatic parallel-mode trigger is PR6's
+// runBackgroundJob hook; this route is the after-the-fact re-run. The Anthropic call
+// is wrapped here (server owns the SDK client) and injected into runExperimentalAnalysis
+// so app/experimental_analysis.js stays SDK-free (C-c). EM is fully isolated — a failure
+// returns { ok:false } and never affects SM.
+app.post('/admin/experiment/raw-analysis/:assessment_id', requireSuperAdmin, async (req, res) => {
+  const assessmentId = parseInt(req.params.assessment_id, 10);
+  if (!assessmentId || isNaN(assessmentId)) {
+    return res.status(400).json({ ok: false, error: 'Invalid assessment id' });
+  }
+  // 'opus' selects Opus; anything else (incl. absent/unrecognized) defaults to Sonnet (C-d).
+  const model = (req.body && req.body.model) || 'sonnet';
+
+  // Adapter matching runExperimentalAnalysis's callClaude contract:
+  //   ({ model, max_tokens, system, user }) => { text, usage }
+  const callClaude = async ({ model: modelId, max_tokens, system, user }) => {
+    const response = await client.messages.create({
+      model: modelId,
+      max_tokens,
+      system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: user }],
+    });
+    console.log(`[em] usage — ${JSON.stringify(response.usage)}`);
+    return { text: response.content[0].text, usage: response.usage };
+  };
+
+  try {
+    const out = await experimentalAnalysis.runExperimentalAnalysis({
+      assessmentId, model, trigger: 'manual', callClaude, db,
+    });
+    if (!out.ok) {
+      console.warn(`[em] assessment #${assessmentId} failed: ${out.error}`);
+      return res.status(422).json(out);
+    }
+    console.log(`[em] assessment #${assessmentId} ok — type=${out.result?.confirmed_type} match=${out.match_status}`);
+    return res.json(out);
+  } catch (e) {
+    // runExperimentalAnalysis is self-contained, but guard the route regardless.
+    console.error('[em] route error:', e.message);
+    return res.status(500).json({ ok: false, error: e.message });
   }
 });
 

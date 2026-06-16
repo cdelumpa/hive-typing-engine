@@ -26,7 +26,7 @@ const { TYPE_STATEMENTS, INSTINCT_STATEMENTS, TYPE_GEOMETRY } = require('./stage
 
 // ── Config (prompt spec §1) ──────────────────────────────────────────────────────
 const PROMPT_VERSION = 'EM-v1.0';
-const EM_MAX_TOKENS = 3000;
+const EM_MAX_TOKENS = 6000;   // raised from spec §1's 3000 — that cap truncated real runs (spec §6.3 underestimated output); flagged for spec v1.1
 const EM_MODEL_SONNET = 'claude-sonnet-4-6';   // primary
 const EM_MODEL_OPUS = 'claude-opus-4-6';       // parallel run (consumed in PR5)
 
@@ -307,8 +307,8 @@ function buildExperimentalPrompt(responsesSnapshot) {
 }
 
 // extractJSON — tolerate leading whitespace / an explanatory sentence / code fences
-// around the JSON object (spec §6.2). Throws if no object is present; PR5 owns the
-// retry-once-then-fail loop.
+// around the JSON object (spec §6.2). Throws if no object is present; the retry-once-
+// then-fail loop lives in runExperimentalAnalysis below.
 function extractJSON(text) {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
@@ -316,10 +316,214 @@ function extractJSON(text) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
+// ── EM execution layer ───────────────────────────────────────────────────────────
+
+// The type with the highest raw slider mean (tie-break: lowest type number), used to
+// server-verify ranking_override rather than trusting the model's self-report (§5.2).
+function _highestRawMeanType(snapshot) {
+  let best = null;
+  let bestMean = -Infinity;
+  for (let t = 1; t <= 9; t++) {
+    const m = _typeMean(snapshot, t);
+    if (m !== null && m > bestMean) { bestMean = m; best = t; }
+  }
+  return best;
+}
+
+// EM-vs-declared match status (design §7.2, decision C-a). Pending when there is no
+// declared_type; Exact when type AND instinct match; partial otherwise; Mismatch when
+// neither matches.
+function computeMatchStatus(em, declared) {
+  if (declared == null || declared.type == null) return 'Pending';
+  const typeMatch = Number(em.type) === Number(declared.type);
+  const instMatch = declared.instinct != null && em.instinct != null
+    && String(em.instinct) === String(declared.instinct);
+  if (typeMatch && instMatch) return 'Exact';
+  if (typeMatch) return 'Type only';
+  if (instMatch) return 'Instinct only';
+  return 'Mismatch';
+}
+
+// Resolve the active analysis mode by the three-level hierarchy (design §6.2):
+// per-assessment override → per-client override → global app_settings. First non-empty
+// wins; defaults to 'sm_only'. Consumed by PR6's runBackgroundJob auto-fire; the manual
+// route runs EM regardless of mode.
+function resolveAnalysisMode({ assessment, client, appSettings } = {}) {
+  const a = assessment && assessment.analysis_mode;
+  if (a) return a;
+  const c = client && client.analysis_mode;
+  if (c) return c;
+  const g = appSettings && appSettings.em_analysis_mode;
+  return g || 'sm_only';
+}
+
+// Run one EM analysis for a completed assessment and persist it. Fully isolated: any
+// failure resolves to { ok:false } and writes a failure row to em_reliability_log
+// (em_type_* = null, error_message populated) — it never throws, so callers (the manual
+// route now, runBackgroundJob in PR6) are insulated and SM is never affected.
+//
+// Dependencies are injected (no SDK, no db require in this module): `callClaude` is an
+// async ({ model, max_tokens, system, user }) => { text, usage } adapter owned by the
+// route (C-c); `db` is the app/db.js module.
+//
+// On EM failure, experimental_raw_analysis is left UNTOUCHED — null is the correct
+// signal that no valid EM result exists (decision C-b); the reliability-log failure row
+// is the sole failure record.
+async function runExperimentalAnalysis({ assessmentId, model, trigger, callClaude, db } = {}) {
+  const modelId = (model === EM_MODEL_OPUS || model === 'opus') ? EM_MODEL_OPUS : EM_MODEL_SONNET; // C-d default
+  const isOpus = modelId === EM_MODEL_OPUS;
+
+  // Mutable context populated as we go, so a failure row carries whatever we know.
+  let clientId = null;
+  let sm = { type: null, instinct: null, confidence: null };
+  let declared = { type: null, instinct: null, confidence: null };
+
+  const emCols = (type, instinct, confidence) => isOpus
+    ? { em_type_opus: type, em_instinct_opus: instinct, em_confidence_opus: confidence }
+    : { em_type_sonnet: type, em_instinct_sonnet: instinct, em_confidence_sonnet: confidence };
+
+  const logFailure = async (errMsg) => {
+    try {
+      await db.insertEmReliabilityLog({
+        assessment_id: assessmentId,
+        client_id: clientId,
+        sm_type: sm.type, sm_instinct: sm.instinct, sm_confidence: sm.confidence,
+        ...emCols(null, null, null),
+        declared_type: declared.type, declared_instinct: declared.instinct,
+        declaration_confidence: declared.confidence,
+        match_status: null,
+        prompt_version: PROMPT_VERSION,
+        model_version: modelId,
+        full_em_result: null,
+        error_message: errMsg,
+      });
+    } catch (e) { /* never let logging failure escape */ }
+    return { ok: false, error: errMsg };
+  };
+
+  try {
+    // 1. Assessment → client.
+    const assessment = await db.getAssessmentById(assessmentId);
+    if (!assessment) return logFailure('Assessment not found');
+    clientId = assessment.client_id;
+
+    // SM verdict for the reliability log (api_result is JSONB → object; parse defensively).
+    let apiResult = assessment.api_result;
+    if (typeof apiResult === 'string') { try { apiResult = JSON.parse(apiResult); } catch (e) { apiResult = null; } }
+    const h = (apiResult && apiResult.hypothesis) || {};
+    sm = {
+      type: h.confirmed_type ?? null,
+      instinct: h.dominant_instinct_hypothesis ?? null,
+      confidence: h.confidence_level ?? null,
+    };
+
+    // 2. Client row → responses_snapshot (pg returns JSONB as an object).
+    const client = await db.getClientById(clientId);
+    const snapshot = client && client.responses_snapshot;
+    if (!snapshot) return logFailure('No responses_snapshot for this assessment');
+
+    // 3. Staleness — warn, never block (design §5.1).
+    const latestId = await db.getLatestAssessmentId(clientId);
+    const isLatest = latestId === assessmentId;
+
+    // Declared ground truth (may be absent).
+    const bf = await db.getBetaFeedback(assessmentId);
+    declared = {
+      type: bf ? (bf.declared_type ?? null) : null,
+      instinct: bf ? (bf.declared_instinct ?? null) : null,
+      confidence: bf ? (bf.declaration_confidence ?? null) : null,
+    };
+
+    // 4. Build the prompt and 5. call with one retry on parse/API failure (§6.2).
+    const { system, user } = buildExperimentalPrompt(snapshot);
+    let parsed = null;
+    let usage = null;
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const resp = await callClaude({ model: modelId, max_tokens: EM_MAX_TOKENS, system, user });
+        parsed = extractJSON(resp && resp.text != null ? resp.text : '');
+        usage = (resp && resp.usage) || null;
+        break;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    if (!parsed) return logFailure('EM call/parse failed: ' + (lastErr && lastErr.message));
+
+    // 6. Server-side verification stamps (§5.2).
+    const lead = Number(parsed.leading_candidate);
+    if (Number.isInteger(lead) && lead >= 1 && lead <= 9) {
+      // v1.0 invariant: confirmed_type must equal leading_candidate.
+      parsed.confirmed_type = lead;
+      parsed.confirmed_type_name = (TYPE_GEOMETRY[lead] && TYPE_GEOMETRY[lead].name) || parsed.confirmed_type_name;
+    }
+    const rawTop = _highestRawMeanType(snapshot);
+    parsed.ranking_override = (rawTop != null) && (Number(parsed.confirmed_type) !== rawTop);
+
+    parsed.meta = parsed.meta || {};
+    parsed.meta.prompt_version = PROMPT_VERSION;
+    parsed.meta.model = modelId;
+    parsed.meta.generated_at = new Date().toISOString();          // C-e: server-side at persist time
+    // Total input = uncached + cache-creation + cache-read. With the system prompt
+    // cached (cache_control: ephemeral), usage.input_tokens is only the uncached
+    // remainder (e.g. 3 on a cache hit), so sum all three to reflect the true input
+    // footprint. Cache fields are 0 when caching is inactive, so the sum is correct
+    // either way — and robust whether the first attempt or the retry supplied usage
+    // (cache_read on a retry ≈ cache_creation on the first call: same prefix size).
+    parsed.meta.input_tokens = usage
+      ? ((usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0))
+      : null;
+    parsed.meta.output_tokens = usage ? (usage.output_tokens ?? null) : null;
+    // Preserve the cache breakdown for cost analysis (matches the D6/PR2 usage shape).
+    parsed.meta.cache_creation_input_tokens = usage ? (usage.cache_creation_input_tokens ?? null) : null;
+    parsed.meta.cache_read_input_tokens = usage ? (usage.cache_read_input_tokens ?? null) : null;
+    parsed.meta.source_assessment_is_latest = isLatest;
+    parsed.meta.latest_assessment_id = latestId;
+    parsed.meta.trigger = trigger || null;
+
+    const matchStatus = computeMatchStatus(
+      { type: parsed.confirmed_type, instinct: parsed.dominant_instinct_hypothesis },
+      declared
+    );
+
+    // 7. Persist: EM result on the assessment, plus a reliability-log row.
+    await db.saveEmResult(assessmentId, parsed);
+    await db.insertEmReliabilityLog({
+      assessment_id: assessmentId,
+      client_id: clientId,
+      sm_type: sm.type, sm_instinct: sm.instinct, sm_confidence: sm.confidence,
+      ...emCols(parsed.confirmed_type ?? null, parsed.dominant_instinct_hypothesis ?? null, parsed.confidence_level ?? null),
+      declared_type: declared.type, declared_instinct: declared.instinct,
+      declaration_confidence: declared.confidence,
+      match_status: matchStatus,
+      prompt_version: PROMPT_VERSION,
+      model_version: modelId,
+      full_em_result: parsed,
+      error_message: null,
+    });
+
+    return {
+      ok: true,
+      result: parsed,
+      match_status: matchStatus,
+      source_assessment_is_latest: isLatest,
+      latest_assessment_id: latestId,
+      stale_snapshot_warning: isLatest ? null
+        : 'responses_snapshot reflects the client\'s latest assessment (#' + latestId + '), not #' + assessmentId + '.',
+    };
+  } catch (e) {
+    return logFailure('EM run error: ' + (e && e.message));
+  }
+}
+
 module.exports = {
   EM_SYSTEM_PROMPT,
   buildExperimentalPrompt,
   extractJSON,
+  runExperimentalAnalysis,
+  resolveAnalysisMode,
+  computeMatchStatus,
   PROMPT_VERSION,
   EM_MAX_TOKENS,
   EM_MODEL_SONNET,
