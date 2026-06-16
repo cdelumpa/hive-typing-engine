@@ -5463,13 +5463,13 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   let body;
   if (rows.length === 0) {
     body = `<tr><td colspan="11" style="text-align:center;padding:40px;color:#7A96A6;">No clients yet — click + Client to add one</td></tr>`;
-  } else if (isSuperAdmin) {
-    // Super-admin dashboard stays flat (D5).
-    body = rows.map(r => `<tr id="${rowId(r)}">${rowCells(r)}</tr>`).join('\n');
   } else {
-    // Coach dashboard: group a client's multiple assessments into an accordion
-    // (expanded by default). Single-assessment clients stay a flat row. Rows arrive
-    // ordered by created_at DESC; grouping preserves first-seen order.
+    // Group a client's multiple assessments into an accordion (expanded by default);
+    // single-assessment clients stay a flat row. Applies to BOTH the coach view and the
+    // super-admin view (D5 reversed — super-admins also need the accordion given
+    // increasing assessment volume). rowCells handles all per-role action gating, so the
+    // grouping logic is identical for both. Rows arrive ordered by created_at DESC;
+    // grouping preserves first-seen order.
     const groups = [];
     const idx = {};
     rows.forEach(r => {
