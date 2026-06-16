@@ -1897,7 +1897,7 @@ function _renderClientView(data){
     h+='<select id="am-override" onchange="window._setClientAnalysisMode('+c.id+',this)" style="width:100%;padding:8px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;">';
     h+=amOpt('','Inherit global')+amOpt('parallel','Parallel')+amOpt('em_only','EM only')+amOpt('sm_only','SM only');
     h+='</select>';
-    h+='<p style="font-size:11px;color:#7A96A6;margin:4px 0 0;">Overrides the global EM mode for this client\'s new assessments.</p>';
+    h+='<p style="font-size:11px;color:#7A96A6;margin:4px 0 0;">Overrides the global EM mode for new assessments by this client.</p>';
     h+='</div>';
   }
   h+='<div id="coach-debrief-section">'+_coachDebriefReadonlyHTML(data)+'</div>';
