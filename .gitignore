@@ -9,3 +9,5 @@ app/reports/
 .phase3_gallery/
 .phase5_out/
 .phase6_out/
+# Word lock/temp files — never commit
+~$*.docx
