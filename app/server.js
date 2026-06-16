@@ -169,6 +169,10 @@ function requireAdmin(req, res, next) {
 function requireSuperAdmin(req, res, next) {
   if (!req.session || !req.session.coach_id) return res.redirect('/admin/login');
   if (req.session.coach_is_super_admin !== true) {
+    const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
+    if (wantsJson) {
+      return res.status(403).json({ ok: false, error: 'Super-admin access required.' });
+    }
     return res.redirect('/admin?error=super_admin_required');
   }
   next();
@@ -3299,7 +3303,7 @@ async function adminResend(clientId, email, btn) {
   btn.disabled = false; btn.textContent = orig;
 }
 </script>
-${sharedModalHTML(true, true)}
+${sharedModalHTML(true, isSuperAdmin)}
 </body>
 </html>`;
 }
