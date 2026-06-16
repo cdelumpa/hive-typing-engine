@@ -33,6 +33,7 @@ const reportPrep = require('./report_prep');          // buildClientModel — fo
 const { TYPE_NAMES: CMS_TYPE_NAMES } = require('./type_meta');  // canonical type names for preview wing/line remap (distinct from the dashboard's local TYPE_NAMES)
 const db = require('./db');
 const experimentalAnalysis = require('./experimental_analysis');  // EM prompt builder + engine (PR4/PR5)
+const stage1Labels = require('./stage1_labels');                  // frozen label map + TYPE_GEOMETRY (PR3) — EM Lab rendering
 const contentOverrides = require('./content_overrides');
 // Baseline static content for the /admin/content editor (read-only). The renderer
 // reads the same file via report_prep; the editor shows these as the fallback values.
@@ -1886,6 +1887,19 @@ function _renderClientView(data){
     h+='</label>';
     h+='</div>';
   }
+  // Per-client EM analysis_mode override (super-admin only). null/'' = inherit global.
+  if(_IS_SUPER_ADMIN){
+    var amVal=c.analysis_mode||'';
+    var amOpt=function(v,l){ return '<option value="'+v+'"'+(amVal===v?' selected':'')+'>'+l+'</option>'; };
+    h+='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:16px;">';
+    h+='<div id="am-override-err" style="display:none;background:#fdecea;color:#c0392b;border-radius:4px;padding:8px 12px;font-size:12px;margin-bottom:10px;"></div>';
+    h+='<label style="display:block;font-size:11px;color:#7A96A6;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">EM Analysis Mode Override</label>';
+    h+='<select id="am-override" onchange="window._setClientAnalysisMode('+c.id+',this)" style="width:100%;padding:8px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;">';
+    h+=amOpt('','Inherit global')+amOpt('parallel','Parallel')+amOpt('em_only','EM only')+amOpt('sm_only','SM only');
+    h+='</select>';
+    h+='<p style="font-size:11px;color:#7A96A6;margin:4px 0 0;">Overrides the global EM mode for this client\'s new assessments.</p>';
+    h+='</div>';
+  }
   h+='<div id="coach-debrief-section">'+_coachDebriefReadonlyHTML(data)+'</div>';
   h+='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">';
   h+='<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Edit History</p>';
@@ -1986,6 +2000,24 @@ window._toggleClientBeta = async function(cb){
     if(errDiv){ errDiv.textContent=e.message; errDiv.style.display=''; }
   }finally{
     cb.disabled=false;
+  }
+};
+
+window._setClientAnalysisMode = async function(clientId, sel){
+  var errDiv=document.getElementById('am-override-err');
+  if(errDiv) errDiv.style.display='none';
+  var mode=sel.value||'';
+  sel.disabled=true;
+  try{
+    var resp=await fetch('/admin/clients/'+clientId+'/analysis-mode',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({analysis_mode:mode})});
+    var data=await resp.json();
+    if(!resp.ok||!data.ok){ throw new Error(data.error||'Update failed.'); }
+    if(_hiveRec&&_hiveRec.client) _hiveRec.client.analysis_mode=mode||null;
+    _showToast('Analysis mode override '+(mode?('set to '+mode):'cleared')+'.');
+  }catch(e){
+    if(errDiv){ errDiv.textContent=e.message; errDiv.style.display=''; }
+  }finally{
+    sel.disabled=false;
   }
 };
 
@@ -4876,6 +4908,545 @@ app.post('/admin/experiment/raw-analysis/:assessment_id', requireSuperAdmin, asy
   }
 });
 
+// ══ Enhanced Mode (EM) Analysis Lab (PR7) — super-admin ════════════════════════════
+// Admin UI for the EM experiment: cohort Overview, per-assessment SM/EM/declared
+// comparison, Mode Settings, and the Reliability Log. All super-admin only; zero
+// contact with live assessment routing. Per-model EM results are read from
+// em_reliability_log (R1); declared type + match status are computed LIVE from
+// beta_feedback (R2). The model selector persists but auto-fire is Sonnet-only (R5);
+// the EM-active toggle maps to em_analysis_mode (R6).
+
+function _emTypeName(n) {
+  return (n && stage1Labels.TYPE_GEOMETRY[n] && stage1Labels.TYPE_GEOMETRY[n].name) || '';
+}
+function _emTypeLabel(n) {
+  if (!n) return '—';
+  const nm = _emTypeName(n);
+  return 'Type ' + n + (nm ? ' — ' + nm : '');
+}
+function _emSubtype(type, inst) {
+  if (!type) return '—';
+  return (inst ? inst + ' ' : '') + type;
+}
+function _emMatchBadge(status) {
+  let cls = 'em-ind-na';
+  if (status === 'Exact') cls = 'em-ind-match';
+  else if (status === 'Type only' || status === 'Instinct only') cls = 'em-ind-partial';
+  else if (status === 'Mismatch') cls = 'em-ind-miss';
+  return '<span class="em-ind ' + cls + '">' + esc(status || 'Pending') + '</span>';
+}
+function _emParse(v) {
+  if (v == null) return null;
+  if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return null; } }
+  return v;
+}
+function _emSm(assessment) {
+  const ar = _emParse(assessment && assessment.api_result);
+  const h = (ar && ar.hypothesis) || {};
+  return {
+    type: h.confirmed_type ?? null,
+    instinct: h.dominant_instinct_hypothesis ?? null,
+    confidence: h.confidence_level ?? null,
+    alternate: h.alternate_candidate ?? null,
+    ranking: Array.isArray(h.call1_ranking) ? h.call1_ranking : null,   // R3: may be null on older rows
+  };
+}
+function _emFmtDate(ts) {
+  if (!ts) return '—';
+  try { return new Date(ts).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  catch (e) { return '—'; }
+}
+
+// Side-by-side bar chart: SM coherence (call1_ranking) vs EM dimensional (em_ranking).
+function _emBarsHtml(smRanking, emRanking) {
+  const sm = {}; (smRanking || []).forEach((e) => { if (e && e.type != null) sm[e.type] = e.score; });
+  const em = {}; (emRanking || []).forEach((e) => { if (e && e.type != null) em[e.type] = e.score; });
+  const scores = [].concat(Object.values(sm), Object.values(em)).filter((v) => typeof v === 'number');
+  const denom = scores.length ? Math.max.apply(null, scores) : 100;
+  const d = denom > 0 ? denom : 100;
+  let rows = '';
+  for (let t = 1; t <= 9; t++) {
+    const s = sm[t], e = em[t];
+    const sW = (typeof s === 'number') ? Math.round((s / d) * 100) : 0;
+    const eW = (typeof e === 'number') ? Math.round((e / d) * 100) : 0;
+    rows += '<div class="em-bar-row"><div class="em-bar-lbl">' + esc(_emTypeLabel(t)) + '</div>'
+      + '<div class="em-bar-track"><div class="em-bar em-bar-sm" style="width:' + sW + '%;"></div><span class="em-bar-val">' + (typeof s === 'number' ? s : 'n/a') + '</span></div>'
+      + '<div class="em-bar-track"><div class="em-bar em-bar-em" style="width:' + eW + '%;"></div><span class="em-bar-val">' + (typeof e === 'number' ? e : 'n/a') + '</span></div></div>';
+  }
+  const note = smRanking ? '' : '<p class="em-muted">SM coherence ranking unavailable for this assessment.</p>';
+  return '<div class="em-bars"><div class="em-bar-row em-bar-headrow"><div class="em-bar-lbl"></div><div class="em-bar-h em-bar-h-sm">SM coherence</div><div class="em-bar-h em-bar-h-em">EM dimensional</div></div>' + rows + '</div>' + note;
+}
+
+function _emObsHtml(obs) {
+  if (!Array.isArray(obs) || !obs.length) return '<p class="em-muted">No observations.</p>';
+  return '<ul class="em-obs">' + obs.map((o) => {
+    const s = String(o || '');
+    let cls = 'em-obs-note', label = 'NOTE', body = s;
+    const m = /^\s*\[(CONFIRMS|NOTE|FLAG)\]\s*/i.exec(s);
+    if (m) {
+      const tag = m[1].toUpperCase();
+      body = s.slice(m[0].length);
+      if (tag === 'CONFIRMS') { cls = 'em-obs-confirm'; label = 'CONFIRMS'; }
+      else if (tag === 'FLAG') { cls = 'em-obs-flag'; label = 'FLAG'; }
+    }
+    return '<li><span class="em-obs-badge ' + cls + '">' + label + '</span>' + esc(body) + '</li>';
+  }).join('') + '</ul>';
+}
+
+// Server-rendered detail panel for one assessment (returned by the detail route).
+function renderEmDetailHtml(d) {
+  const aid = d.assessmentId;
+  const sm = d.sm || {};
+  const em = d.em;                       // experimental_raw_analysis (latest run) or null
+  const declared = d.declared || null;
+  const dType = declared ? declared.declared_type : null;
+  const dInst = declared ? declared.declared_instinct : null;
+
+  if (!em) {
+    return '<div class="em-empty-detail">'
+      + '<p class="em-muted">No EM result yet for assessment #' + aid + '.</p>'
+      + '<button class="em-btn" onclick="emRun(' + aid + ',\'sonnet\',this)">Run Analysis</button>'
+      + '</div>';
+  }
+
+  const matchEm = experimentalAnalysis.computeMatchStatus(
+    { type: em.confirmed_type, instinct: em.dominant_instinct_hypothesis }, { type: dType, instinct: dInst });
+  const matchSm = experimentalAnalysis.computeMatchStatus(
+    { type: sm.type, instinct: sm.instinct }, { type: dType, instinct: dInst });
+
+  // 3-column comparison (SM · EM · Declared).
+  const smCol = '<div class="em-col"><div class="em-col-h">Standard Mode</div>'
+    + '<div class="em-col-type">' + esc(_emTypeLabel(sm.type)) + '</div>'
+    + '<div class="em-col-meta">Instinct: <strong>' + esc(sm.instinct || '—') + '</strong></div>'
+    + '<div class="em-col-meta">Confidence: ' + esc(sm.confidence || '—') + '</div>'
+    + '<div class="em-col-meta">Alternate: ' + esc(_emTypeLabel(sm.alternate)) + '</div></div>';
+  const emCol = '<div class="em-col em-col-em' + (sm.type && em.confirmed_type && sm.type !== em.confirmed_type ? ' em-col-diff' : '') + '">'
+    + '<div class="em-col-h">Enhanced Mode</div>'
+    + '<div class="em-col-type">' + esc(_emTypeLabel(em.confirmed_type)) + '</div>'
+    + '<div class="em-col-meta">Instinct: <strong>' + esc(em.dominant_instinct_hypothesis || '—') + '</strong> (' + esc(em.em_instinct_confidence || '—') + ')</div>'
+    + '<div class="em-col-meta">Confidence: ' + esc(em.confidence_level || '—') + '</div>'
+    + (em.confidence_rationale ? '<div class="em-col-note">' + esc(em.confidence_rationale) + '</div>' : '')
+    + '<div class="em-col-meta">Alternate: ' + esc(_emTypeLabel(em.alternate_candidate)) + '</div>'
+    + (em.alternate_rationale ? '<div class="em-col-note">' + esc(em.alternate_rationale) + '</div>' : '') + '</div>';
+  const decCol = '<div class="em-col"><div class="em-col-h">Declared</div>'
+    + (dType
+        ? '<div class="em-col-type">' + esc(_emTypeLabel(dType)) + '</div>'
+          + '<div class="em-col-meta">Instinct: <strong>' + esc(dInst || '—') + '</strong></div>'
+          + (declared.declared_subtype ? '<div class="em-col-meta">Subtype: ' + esc(declared.declared_subtype) + '</div>' : '')
+          + '<div class="em-col-meta">Confidence: ' + esc(declared.declaration_confidence || '—') + '</div>'
+          + '<div class="em-col-meta">vs EM: ' + _emMatchBadge(matchEm) + '</div>'
+          + '<div class="em-col-meta">vs SM: ' + _emMatchBadge(matchSm) + '</div>'
+        : '<p class="em-muted">Pending tester declaration.</p>')
+    + '</div>';
+
+  // Framework signals.
+  const fs = em.framework_signals || {};
+  const fwHtml = '<table class="em-tbl"><tbody>'
+    + '<tr><th>Hornevian</th><td>' + esc(fs.hornevian || '—') + '</td></tr>'
+    + '<tr><th>Harmonic</th><td>' + esc(fs.harmonic || '—') + '</td></tr>'
+    + '<tr><th>Center</th><td>' + esc(fs.center || '—') + '</td></tr>'
+    + '<tr><th>Stage 2 alignment</th><td>' + esc(fs.stage2_alignment || '—') + '</td></tr>'
+    + '</tbody></table>';
+
+  // Geometric neighborhood (3 cards).
+  const gn = em.geometric_neighborhood || {};
+  const geo = stage1Labels.TYPE_GEOMETRY[em.confirmed_type] || {};
+  const wingCard = '<div class="em-card"><div class="em-card-h">Active wing</div><div class="em-card-type">' + esc(_emTypeLabel(gn.active_wing)) + '</div></div>';
+  const stressCard = '<div class="em-card"><div class="em-card-h">Stress point</div><div class="em-card-type">' + esc(_emTypeLabel(geo.stress)) + '</div><div class="em-card-note">' + (gn.stress_echo_present ? 'echo: ' + esc(gn.stress_echo_note || 'present') : 'no echo') + '</div></div>';
+  const secCard = '<div class="em-card"><div class="em-card-h">Security point</div><div class="em-card-type">' + esc(_emTypeLabel(geo.security)) + '</div><div class="em-card-note">' + (gn.security_echo_present ? 'echo: ' + esc(gn.security_echo_note || 'present') : 'no echo') + '</div></div>';
+  const geoHtml = '<div class="em-cards">' + wingCard + stressCard + secCard + '</div><p class="em-muted">Neighborhood coherence: ' + esc(gn.neighborhood_coherence || '—') + '</p>';
+
+  // Instinct analysis.
+  const ia = em.instinct_analysis || {};
+  const iaHtml = '<table class="em-tbl"><tbody>'
+    + '<tr><th>Stack coherence</th><td>' + esc(ia.stack_coherence || '—') + '</td></tr>'
+    + '<tr><th>Means (dom / sec / ter)</th><td>' + [ia.dominant_mean, ia.secondary_mean, ia.tertiary_mean].map((x) => (x == null ? '—' : x)).join(' / ') + '</td></tr>'
+    + '<tr><th>Stack gap</th><td>' + (ia.stack_gap == null ? '—' : ia.stack_gap) + '</td></tr>'
+    + '<tr><th>Dominant confidence</th><td>' + esc(ia.dominant_confidence || '—') + '</td></tr>'
+    + (ia.within_instinct_notes ? '<tr><th>Notes</th><td>' + esc(ia.within_instinct_notes) + '</td></tr>' : '')
+    + '</tbody></table>';
+
+  // Counter-type flag (only if flagged).
+  const ct = em.counter_type_flag || {};
+  const ctHtml = ct.flagged
+    ? '<div class="em-section"><div class="em-h em-h-flag">Counter-type flag</div><div class="em-ct">'
+      + '<strong>' + esc(_emTypeLabel(ct.type)) + (ct.instinct ? ' · ' + esc(ct.instinct) : '') + '</strong>'
+      + (ct.rationale ? '<p>' + esc(ct.rationale) + '</p>' : '') + '</div></div>'
+    : '';
+
+  // Run metadata.
+  const meta = em.meta || {};
+  const perModel = [];
+  if (d.emSonnetType) perModel.push('Sonnet → ' + esc(_emTypeLabel(d.emSonnetType)));
+  if (d.emOpusType) perModel.push('Opus → ' + esc(_emTypeLabel(d.emOpusType)));
+  const metaHtml = '<table class="em-tbl"><tbody>'
+    + '<tr><th>Model</th><td>' + esc(meta.model || '—') + '</td></tr>'
+    + '<tr><th>Prompt version</th><td>' + esc(meta.prompt_version || '—') + '</td></tr>'
+    + '<tr><th>Trigger</th><td>' + esc(meta.trigger || '—') + '</td></tr>'
+    + '<tr><th>Generated</th><td>' + esc(_emFmtDate(meta.generated_at)) + '</td></tr>'
+    + '<tr><th>Tokens (in / out)</th><td>' + (meta.input_tokens == null ? '—' : meta.input_tokens) + ' / ' + (meta.output_tokens == null ? '—' : meta.output_tokens) + '</td></tr>'
+    + (perModel.length ? '<tr><th>Models run</th><td>' + perModel.join(' · ') + '</td></tr>' : '')
+    + (meta.source_assessment_is_latest === false ? '<tr><th>Warning</th><td class="em-warn">Snapshot reflects the client\'s latest assessment, not this one.</td></tr>' : '')
+    + '</tbody></table>';
+
+  const actions = '<div class="em-detail-actions">'
+    + '<button class="em-btn" onclick="emRun(' + aid + ',\'sonnet\',this)">Re-run (Sonnet)</button>'
+    + '<button class="em-btn em-btn-ghost" onclick="emRun(' + aid + ',\'opus\',this)">Run Opus</button></div>';
+
+  return '<div class="em-detail">'
+    + '<div class="em-3col">' + smCol + emCol + decCol + '</div>'
+    + '<div class="em-section"><div class="em-h">Type score comparison</div>' + _emBarsHtml(sm.ranking, em.em_ranking) + '</div>'
+    + '<div class="em-section"><div class="em-h">Framework signals</div>' + fwHtml + '</div>'
+    + '<div class="em-section"><div class="em-h">Dimensional observations</div>' + _emObsHtml(em.dimensional_observations) + '</div>'
+    + '<div class="em-section"><div class="em-h">Geometric neighborhood</div>' + geoHtml + '</div>'
+    + '<div class="em-section"><div class="em-h">Instinct analysis</div>' + iaHtml + '</div>'
+    + ctHtml
+    + '<div class="em-section"><div class="em-h">EM reasoning</div><div class="em-reasoning">' + esc(em.reasoning || '—') + '</div></div>'
+    + '<div class="em-section"><div class="em-h">Run metadata</div>' + metaHtml + '</div>'
+    + actions + '</div>';
+}
+
+// GET the EM Lab page (Overview / Mode Settings / Reliability rendered server-side;
+// Assessment Detail lazy-loads on roster click).
+app.get('/admin/em-lab', requireSuperAdmin, async (req, res) => {
+  const [roster, settings, log] = await Promise.all([
+    db.getEmLabRoster().catch(() => []),
+    db.getAppSettings().catch(() => null),
+    db.getEmReliabilityLog({ limit: 300 }).catch(() => []),
+  ]);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(renderEmLabPage(req, { roster: roster || [], settings: settings || {}, log: log || [] }));
+});
+
+// GET the detail panel for one assessment (server-rendered HTML).
+app.get('/admin/em-lab/assessment/:assessment_id', requireSuperAdmin, async (req, res) => {
+  const aid = parseInt(req.params.assessment_id, 10);
+  if (!aid || isNaN(aid)) return res.status(400).json({ available: false, error: 'Invalid assessment id' });
+  try {
+    const assessment = await db.getAssessmentById(aid);
+    if (!assessment) return res.json({ available: false, error: 'Assessment not found' });
+    const [em, logRows, declared, client] = await Promise.all([
+      db.getEmResult(aid).catch(() => null),
+      db.getEmReliabilityLog({ assessmentId: aid }).catch(() => []),
+      db.getBetaFeedback(aid).catch(() => null),
+      db.getClientById(assessment.client_id).catch(() => null),
+    ]);
+    const sonnetRow = (logRows || []).find((r) => r.em_type_sonnet != null);
+    const opusRow = (logRows || []).find((r) => r.em_type_opus != null);
+    const html = renderEmDetailHtml({
+      assessmentId: aid,
+      sm: _emSm(assessment),
+      em: _emParse(em),
+      emSonnetType: sonnetRow ? sonnetRow.em_type_sonnet : null,
+      emOpusType: opusRow ? opusRow.em_type_opus : null,
+      declared,
+      client,
+    });
+    const name = client ? ((client.first_name || '') + ' ' + (client.last_name || '')).trim() : 'Assessment #' + aid;
+    return res.json({ available: true, hasEmResult: !!em, html, name });
+  } catch (e) {
+    console.error('[em-lab/detail] failed:', e.message);
+    return res.status(500).json({ available: false, error: e.message });
+  }
+});
+
+// POST global EM mode settings. R6: the active toggle maps to em_analysis_mode
+// (on → selected mode default 'parallel'; off → 'sm_only'). No runBackgroundJob change.
+app.post('/admin/em-lab/mode-settings', requireSuperAdmin, async (req, res) => {
+  const b = req.body || {};
+  const active = !!b.em_active;
+  const sel = (b.em_analysis_mode === 'em_only' || b.em_analysis_mode === 'parallel') ? b.em_analysis_mode : 'parallel';
+  const em_analysis_mode = active ? sel : 'sm_only';
+  const em_model = (b.em_model === 'sonnet_and_opus') ? 'sonnet_and_opus' : 'sonnet';
+  const em_prompt_version = b.em_prompt_version || experimentalAnalysis.PROMPT_VERSION;
+  try {
+    await db.updateEmModeSettings({ em_active: active, em_analysis_mode, em_model, em_prompt_version });
+    const settings = await db.getAppSettings();
+    return res.json({ ok: true, settings });
+  } catch (e) {
+    console.error('[em-lab/mode-settings] failed:', e.message);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST per-client analysis_mode override (also wired into the client profile modal).
+app.post('/admin/clients/:client_id/analysis-mode', requireSuperAdmin, async (req, res) => {
+  const clientId = parseInt(req.params.client_id, 10);
+  if (!clientId || isNaN(clientId)) return res.status(400).json({ ok: false, error: 'Invalid client id' });
+  let mode = (req.body && req.body.analysis_mode) || null;
+  if (mode === '' || mode === 'inherit') mode = null;
+  if (mode !== null && !['parallel', 'em_only', 'sm_only'].includes(mode)) {
+    return res.status(400).json({ ok: false, error: 'Invalid mode' });
+  }
+  try {
+    await db.setClientAnalysisMode(clientId, mode);
+    return res.json({ ok: true, analysis_mode: mode });
+  } catch (e) {
+    console.error('[clients/analysis-mode] failed:', e.message);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+function renderEmLabPage(req, data) {
+  const roster = data.roster || [];
+  const settings = data.settings || {};
+  const log = data.log || [];
+
+  // Effective global mode is the source of truth (R6) — derive UI from em_analysis_mode.
+  const gMode = settings.em_analysis_mode || 'sm_only';
+  const active = gMode !== 'sm_only';
+  const selMode = gMode === 'em_only' ? 'em_only' : 'parallel';
+  const gModel = settings.em_model || 'sonnet';
+  const gVersion = settings.em_prompt_version || experimentalAnalysis.PROMPT_VERSION;
+
+  // ── Cohort metrics (computed from roster; Sonnet is the auto-fire model) ──
+  const withResult = roster.filter((r) => r.has_em_result);
+  const declaredRows = roster.filter((r) => r.declared_type != null);
+  const typeMatchElig = roster.filter((r) => r.declared_type != null && r.em_type_sonnet != null);
+  const typeMatchHits = typeMatchElig.filter((r) => Number(r.em_type_sonnet) === Number(r.declared_type));
+  const agreeElig = roster.filter((r) => r.sm_type != null && r.em_type_sonnet != null);
+  const agreeHits = agreeElig.filter((r) => Number(r.sm_type) === Number(r.em_type_sonnet));
+  const pending = withResult.filter((r) => r.declared_type == null);
+  const pct = (h, n) => (n ? Math.round((h / n) * 100) + '%' : '—');
+
+  const cards = `
+    <div class="em-card-grid">
+      <div class="em-metric"><div class="em-metric-n">${roster.length}</div><div class="em-metric-l">Assessments run</div><div class="em-metric-sub">${withResult.length} with EM result</div></div>
+      <div class="em-metric"><div class="em-metric-n">${pct(typeMatchHits.length, typeMatchElig.length)}</div><div class="em-metric-l">Type match rate</div><div class="em-metric-sub">EM vs declared (${typeMatchElig.length})</div></div>
+      <div class="em-metric"><div class="em-metric-n">${pct(agreeHits.length, agreeElig.length)}</div><div class="em-metric-l">SM vs EM agreement</div><div class="em-metric-sub">${agreeElig.length} comparable</div></div>
+      <div class="em-metric"><div class="em-metric-n">${pending.length}</div><div class="em-metric-l">Declarations pending</div><div class="em-metric-sub">EM result, no declaration</div></div>
+    </div>`;
+
+  // ── Roster rows ──
+  const rosterRows = roster.map((r) => {
+    const name = ((r.first_name || '') + ' ' + (r.last_name || '')).trim() || '(unnamed)';
+    const matchLive = experimentalAnalysis.computeMatchStatus(
+      { type: r.em_type_sonnet, instinct: r.em_instinct_sonnet },
+      { type: r.declared_type, instinct: r.declared_instinct });
+    const emSon = r.em_type_sonnet != null ? esc(_emSubtype(r.em_type_sonnet, r.em_instinct_sonnet)) : (r.latest_error ? '<span class="em-muted">failed</span>' : '—');
+    const emOpu = r.em_type_opus != null ? esc(_emSubtype(r.em_type_opus, r.em_instinct_opus)) : '—';
+    const dec = r.declared_type != null ? esc(_emSubtype(r.declared_type, r.declared_instinct)) : '<span class="em-badge-pend">Pending</span>';
+    return `<tr>
+      <td><a href="#" class="em-name-link" onclick="emLoadDetail(${r.assessment_id});return false;">${esc(name)}</a><div class="em-sub">${esc(r.email || '')}</div></td>
+      <td>${esc(_emSubtype(r.sm_type, r.sm_instinct))}</td>
+      <td>${emSon}</td>
+      <td>${emOpu}</td>
+      <td>${dec}</td>
+      <td>${_emMatchBadge(matchLive)}</td>
+      <td><button class="em-btn em-btn-sm" onclick="emLoadDetail(${r.assessment_id})">View</button></td>
+    </tr>`;
+  }).join('');
+  const rosterTable = roster.length
+    ? `<table class="em-list"><thead><tr><th>Tester</th><th>SM</th><th>EM Sonnet</th><th>EM Opus</th><th>Declared</th><th>Match</th><th></th></tr></thead><tbody>${rosterRows}</tbody></table>`
+    : `<p class="em-muted" style="padding:20px;">No EM runs yet. Complete an assessment in parallel mode, or run one from a client's profile.</p>`;
+
+  // ── Reliability log rows ──
+  const nameByClient = {};
+  roster.forEach((r) => { nameByClient[r.client_id] = ((r.first_name || '') + ' ' + (r.last_name || '')).trim(); });
+  const logRows = log.map((e) => {
+    const emType = e.em_type_sonnet != null ? e.em_type_sonnet : e.em_type_opus;
+    const emInst = e.em_instinct_sonnet != null ? e.em_instinct_sonnet : e.em_instinct_opus;
+    const ms = e.match_status || 'Pending';
+    return `<tr data-ms="${esc(ms)}" data-pv="${esc(e.prompt_version || '')}" data-mv="${esc(e.model_version || '')}">
+      <td>#${e.assessment_id}</td>
+      <td>${esc(nameByClient[e.client_id] || ('client #' + e.client_id))}</td>
+      <td>${esc(_emFmtDate(e.ran_at))}</td>
+      <td>${esc(_emSubtype(e.sm_type, e.sm_instinct))} ${e.sm_confidence ? '(' + esc(e.sm_confidence) + ')' : ''}</td>
+      <td>${emType != null ? esc(_emSubtype(emType, emInst)) : (e.error_message ? '<span class="em-muted">failed</span>' : '—')}</td>
+      <td>${e.declared_type != null ? esc(_emSubtype(e.declared_type, e.declared_instinct)) : '—'}</td>
+      <td>${_emMatchBadge(ms)}</td>
+      <td>${esc(e.model_version || '—')}</td>
+      <td>${esc(e.prompt_version || '—')}</td>
+      <td>${e.error_message ? '<span class="em-warn">' + esc(e.error_message) + '</span>' : '—'}</td>
+    </tr>`;
+  }).join('');
+  const logTable = log.length
+    ? `<table class="em-list em-log"><thead><tr><th>Assessment</th><th>Tester</th><th>Run</th><th>SM</th><th>EM</th><th>Declared</th><th>Match</th><th>Model</th><th>Prompt</th><th>Error</th></tr></thead><tbody>${logRows}</tbody></table>`
+    : `<p class="em-muted" style="padding:20px;">No reliability-log rows yet.</p>`;
+
+  // Distinct filter values from the log.
+  const versions = Array.from(new Set(log.map((e) => e.prompt_version).filter(Boolean)));
+  const models = Array.from(new Set(log.map((e) => e.model_version).filter(Boolean)));
+  const verOpts = versions.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  const modelOpts = models.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+
+  // ── Mode Settings form ──
+  const settingsForm = `
+    <div class="em-form">
+      <label class="em-toggle"><input type="checkbox" id="em-active" ${active ? 'checked' : ''}> <span>EM active</span></label>
+      <p class="em-form-help">When off, EM never auto-fires (global mode forced to <code>sm_only</code>).</p>
+
+      <div class="em-field"><label>Mode</label>
+        <select id="em-mode">
+          <option value="parallel" ${selMode === 'parallel' ? 'selected' : ''}>Parallel — SM report + EM stored alongside</option>
+          <option value="em_only" ${selMode === 'em_only' ? 'selected' : ''}>EM only — EM runs in addition (SM still reports in alpha)</option>
+        </select>
+      </div>
+
+      <div class="em-field"><label>Auto-fire model</label>
+        <select id="em-model">
+          <option value="sonnet" ${gModel === 'sonnet' ? 'selected' : ''}>Sonnet</option>
+          <option value="sonnet_and_opus" ${gModel === 'sonnet_and_opus' ? 'selected' : ''}>Sonnet + Opus</option>
+        </select>
+        <p class="em-form-help">Auto-fire uses Sonnet only. Opus runs manually per assessment via the Run Opus button.</p>
+      </div>
+
+      <div class="em-field"><label>Prompt version</label>
+        <select id="em-version"><option value="${esc(gVersion)}" selected>${esc(gVersion)}</option></select>
+      </div>
+
+      <div class="em-advisory">Mode changes apply to new assessments only. SM report generation is unaffected in all modes.</div>
+      <button class="em-btn" onclick="emSaveSettings(this)">Save settings</button>
+    </div>`;
+
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EM Analysis Lab — Hive</title>
+<style>
+  body { margin:0; background:#F4F2EE; font-family:Georgia, serif; color:#1A2B33; }
+  .top-bar { display:flex; justify-content:space-between; align-items:center; background:#1A2B33; padding:14px 24px; }
+  .top-bar h1 { color:#00b1d7; font-size:18px; margin:0; font-weight:700; }
+  .top-bar .eyebrow { color:#7A96A6; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; }
+  .top-bar .nav-link { color:#7A96A6; font-size:12px; text-decoration:none; } .top-bar .nav-link:hover { color:#fff; }
+  .top-bar .nav-sep { color:#3A4B55; font-size:12px; margin:0 8px; }
+  .container { max-width:1080px; margin:24px auto; padding:0 20px; }
+  .em-tabs { display:flex; gap:4px; border-bottom:1px solid #E2E6EA; margin-bottom:18px; }
+  .em-tab-btn { background:none; border:none; border-bottom:3px solid transparent; font-family:Georgia, serif; font-size:14px; font-weight:700; color:#7A96A6; padding:10px 16px; cursor:pointer; }
+  .em-tab-btn.active { color:#5C4080; border-bottom-color:#7B5EA7; }
+  .em-panel { background:#fff; border:1px solid #E2E6EA; border-radius:8px; padding:18px; }
+  .em-card-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
+  .em-metric { background:#F8F6FB; border:1px solid #E9E3F2; border-radius:8px; padding:14px 16px; }
+  .em-metric-n { font-size:26px; font-weight:700; color:#5C4080; }
+  .em-metric-l { font-size:13px; font-weight:700; color:#1A2B33; margin-top:2px; }
+  .em-metric-sub { font-size:11px; color:#7A96A6; margin-top:2px; }
+  table.em-list { width:100%; border-collapse:collapse; }
+  table.em-list th { text-align:left; font-size:11px; color:#7A96A6; text-transform:uppercase; letter-spacing:0.05em; padding:9px 10px; border-bottom:1px solid #EFEAE3; }
+  table.em-list td { padding:9px 10px; font-size:13px; border-bottom:1px solid #F2EEE9; vertical-align:top; }
+  table.em-list tr:nth-child(even) td { background:#FAFAF8; }
+  .em-name-link { color:#00859f; font-weight:700; text-decoration:none; } .em-name-link:hover { text-decoration:underline; }
+  .em-sub { font-size:11px; color:#9FB0B9; }
+  .em-ind { font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; white-space:nowrap; }
+  .em-ind-match { background:#e6f7ee; color:#1a7a4a; } .em-ind-partial { background:#fef6e0; color:#9a6a00; }
+  .em-ind-miss { background:#fdecea; color:#c0392b; } .em-ind-na { background:#f1f1ee; color:#7A8A92; }
+  .em-badge-pend { background:#fef6e0; color:#9a6a00; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; }
+  .em-muted { color:#9FB0B9; font-style:italic; }
+  .em-warn { color:#c0392b; }
+  .em-btn { background:#00b1d7; color:#fff; border:none; border-radius:4px; font-family:Georgia, serif; font-size:13px; font-weight:700; padding:8px 14px; cursor:pointer; }
+  .em-btn:hover { background:#009bbf; } .em-btn-ghost { background:#fff; color:#5C4080; border:1px solid #C9BEDF; }
+  .em-btn-sm { padding:5px 10px; font-size:12px; }
+  .em-3col { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:20px; }
+  .em-col { border:1px solid #E2E6EA; border-radius:8px; padding:12px 14px; } .em-col-em { background:#F8F6FB; } .em-col-diff { border-color:#7B5EA7; box-shadow:0 0 0 1px #7B5EA7; }
+  .em-col-h { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#7A96A6; margin-bottom:6px; }
+  .em-col-type { font-size:15px; font-weight:700; color:#5C4080; margin-bottom:4px; }
+  .em-col-meta { font-size:12px; color:#1A2B33; margin:2px 0; } .em-col-note { font-size:12px; color:#7A6A90; font-style:italic; margin:3px 0; }
+  .em-section { margin-bottom:20px; } .em-h { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#5C4080; margin:0 0 8px; padding-bottom:4px; border-bottom:1px solid #EFEAF6; } .em-h-flag { color:#c0392b; border-bottom-color:#f6d6d2; }
+  table.em-tbl { width:100%; border-collapse:collapse; } table.em-tbl th { text-align:left; width:34%; font-size:12px; color:#7A96A6; font-weight:700; padding:6px 10px; border-bottom:1px solid #F2EEE9; vertical-align:top; } table.em-tbl td { padding:6px 10px; font-size:13px; border-bottom:1px solid #F2EEE9; }
+  .em-bars { margin-top:6px; } .em-bar-row { display:grid; grid-template-columns:180px 1fr 1fr; gap:10px; align-items:center; margin-bottom:5px; }
+  .em-bar-headrow .em-bar-h { font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#7A96A6; } .em-bar-h-sm { color:#2b6fa6; } .em-bar-h-em { color:#1a7a4a; }
+  .em-bar-lbl { font-size:12px; color:#1A2B33; } .em-bar-track { position:relative; background:#F1EFEA; border-radius:3px; height:16px; }
+  .em-bar { height:16px; border-radius:3px; } .em-bar-sm { background:#5b9bd5; } .em-bar-em { background:#4caf7d; }
+  .em-bar-val { position:absolute; right:5px; top:0; font-size:10px; line-height:16px; color:#33414a; }
+  .em-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; } .em-card { border:1px solid #E2E6EA; border-radius:8px; padding:10px 12px; } .em-card-h { font-size:11px; text-transform:uppercase; color:#7A96A6; font-weight:700; } .em-card-type { font-size:14px; font-weight:700; color:#5C4080; margin:3px 0; } .em-card-note { font-size:11px; color:#7A96A6; }
+  .em-obs { margin:0; padding:0; list-style:none; } .em-obs li { font-size:13px; line-height:1.5; margin-bottom:7px; }
+  .em-obs-badge { font-size:10px; font-weight:700; padding:1px 6px; border-radius:3px; margin-right:7px; letter-spacing:0.04em; } .em-obs-confirm { background:#e6f7ee; color:#1a7a4a; } .em-obs-note { background:#eef1f4; color:#566; } .em-obs-flag { background:#fdecea; color:#c0392b; }
+  .em-ct { background:#fdf3f2; border-left:3px solid #c0392b; padding:10px 14px; border-radius:4px; font-size:13px; }
+  .em-reasoning { font-size:14px; line-height:1.6; white-space:pre-wrap; color:#1A2B33; }
+  .em-detail-actions { display:flex; gap:10px; margin-top:8px; } .em-empty-detail { text-align:center; padding:40px 20px; }
+  .em-form { max-width:560px; } .em-field { margin:14px 0; } .em-field label { display:block; font-size:12px; font-weight:700; color:#5C4080; margin-bottom:4px; }
+  .em-field select { width:100%; padding:8px; border:1px solid #C9BEDF; border-radius:4px; font-family:Georgia, serif; font-size:13px; }
+  .em-toggle { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:700; } .em-form-help { font-size:11px; color:#7A96A6; margin:3px 0 0; }
+  .em-advisory { background:#F1ECF7; border:1px solid #E4DEEE; border-radius:6px; padding:10px 14px; font-size:12px; color:#5C4080; margin:16px 0; }
+  .em-log-filters { display:flex; gap:10px; margin-bottom:12px; } .em-log-filters select { padding:6px; border:1px solid #D0DCE4; border-radius:4px; font-family:Georgia, serif; font-size:12px; }
+  #em-toast { display:none; position:fixed; bottom:24px; right:24px; background:#1a7a4a; color:#fff; padding:12px 20px; border-radius:6px; font-size:13px; z-index:9500; box-shadow:0 2px 8px rgba(0,0,0,.18); }
+</style></head>
+<body>
+<div class="top-bar">
+  <div><div><span class="eyebrow">Hive Enneagram Type Tool</span></div><h1>EM Analysis Lab</h1></div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <a href="/admin" class="nav-link">← Dashboard</a><span class="nav-sep">|</span>
+    <a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>
+    <a href="/admin/logout" class="nav-link">Sign out</a>
+  </div>
+</div>
+<div class="container">
+  <div class="em-tabs">
+    <button class="em-tab-btn active" id="em-tab-btn-1" onclick="switchEmTab(1)">Overview</button>
+    <button class="em-tab-btn" id="em-tab-btn-2" onclick="switchEmTab(2)">Assessment detail</button>
+    <button class="em-tab-btn" id="em-tab-btn-3" onclick="switchEmTab(3)">Mode settings</button>
+    <button class="em-tab-btn" id="em-tab-btn-4" onclick="switchEmTab(4)">Reliability log</button>
+  </div>
+
+  <div id="em-tab-1" class="em-panel">${cards}${rosterTable}</div>
+  <div id="em-tab-2" class="em-panel" style="display:none;"><p class="em-muted">Select an assessment from the Overview roster to view its EM analysis.</p></div>
+  <div id="em-tab-3" class="em-panel" style="display:none;">${settingsForm}</div>
+  <div id="em-tab-4" class="em-panel" style="display:none;">
+    <div class="em-log-filters">
+      <select id="em-flt-ms" onchange="emFilterLog()"><option value="">All match</option><option>Exact</option><option>Type only</option><option>Instinct only</option><option>Mismatch</option><option>Pending</option></select>
+      <select id="em-flt-pv" onchange="emFilterLog()"><option value="">All prompts</option>${verOpts}</select>
+      <select id="em-flt-mv" onchange="emFilterLog()"><option value="">All models</option>${modelOpts}</select>
+    </div>
+    ${logTable}
+  </div>
+</div>
+<div id="em-toast"></div>
+<script>
+function _emToast(m){ var t=document.getElementById('em-toast'); t.textContent=m; t.style.display='block'; setTimeout(function(){t.style.display='none';},2600); }
+function switchEmTab(n){
+  for (var i=1;i<=4;i++){
+    document.getElementById('em-tab-btn-'+i).classList.toggle('active', i===n);
+    document.getElementById('em-tab-'+i).style.display = (i===n)?'block':'none';
+  }
+}
+async function emLoadDetail(aid){
+  switchEmTab(2);
+  var panel=document.getElementById('em-tab-2');
+  panel.innerHTML='<p class="em-muted">Loading…</p>';
+  try{
+    var r=await fetch('/admin/em-lab/assessment/'+aid,{headers:{Accept:'application/json'}});
+    var d=await r.json();
+    if(!d.available){ panel.innerHTML='<p class="em-muted">'+(d.error||'Unavailable.')+'</p>'; return; }
+    panel.innerHTML=d.html;
+  }catch(e){ panel.innerHTML='<p class="em-warn">Failed to load: '+e.message+'</p>'; }
+}
+async function emRun(aid, model, btn){
+  if(btn){ btn.disabled=true; btn.textContent='Running '+model+'…'; }
+  try{
+    var r=await fetch('/admin/experiment/raw-analysis/'+aid,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({model:model})});
+    var d=await r.json();
+    if(!d.ok){ _emToast('Run failed: '+(d.error||'error')); if(btn){btn.disabled=false;btn.textContent='Retry';} return; }
+    _emToast('EM run complete ('+model+')');
+    emLoadDetail(aid);
+  }catch(e){ _emToast('Run error: '+e.message); if(btn){btn.disabled=false;btn.textContent='Retry';} }
+}
+async function emSaveSettings(btn){
+  var payload={
+    em_active: document.getElementById('em-active').checked,
+    em_analysis_mode: document.getElementById('em-mode').value,
+    em_model: document.getElementById('em-model').value,
+    em_prompt_version: document.getElementById('em-version').value
+  };
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  try{
+    var r=await fetch('/admin/em-lab/mode-settings',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});
+    var d=await r.json();
+    if(d.ok){ _emToast('Settings saved (mode: '+d.settings.em_analysis_mode+')'); } else { _emToast('Save failed'); }
+  }catch(e){ _emToast('Save error: '+e.message); }
+  if(btn){ btn.disabled=false; btn.textContent='Save settings'; }
+}
+function emFilterLog(){
+  var ms=document.getElementById('em-flt-ms').value, pv=document.getElementById('em-flt-pv').value, mv=document.getElementById('em-flt-mv').value;
+  var rows=document.querySelectorAll('table.em-log tbody tr');
+  for(var i=0;i<rows.length;i++){
+    var row=rows[i];
+    var ok=(!ms||row.getAttribute('data-ms')===ms)&&(!pv||row.getAttribute('data-pv')===pv)&&(!mv||row.getAttribute('data-mv')===mv);
+    row.style.display=ok?'':'none';
+  }
+}
+</script>
+</body></html>`;
+}
+
 // Render the stored beta_analysis row (or the empty state) for the analysis panel.
 // Shared by the page load (GET) and the Re-analyze refresh (POST).
 function renderBetaAnalysisHtml(analysis) {
@@ -5659,7 +6230,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   <div style="display:flex;align-items:center;gap:16px;">
     <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
     ${req.session.coach_is_admin ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
-    ${req.session.coach_is_super_admin ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span>` : ''}
+    ${req.session.coach_is_super_admin ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/em-lab" class="nav-link">EM Lab</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/password" class="nav-link">Change password</a>
     <span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>

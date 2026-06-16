@@ -1223,6 +1223,40 @@ async function getEmReliabilityLog({ assessmentId, clientId, promptVersion, matc
   return r ? r.rows : [];
 }
 
+// Per-client analysis_mode override (EM Lab profile control). mode is a string
+// ('parallel'/'em_only'/'sm_only') or null to clear the override (inherit global).
+async function setClientAnalysisMode(clientId, mode) {
+  await query('UPDATE clients SET analysis_mode = $1 WHERE id = $2', [mode ?? null, clientId]);
+}
+
+// EM Lab roster: one row per assessment that has at least one EM run. Aggregates the
+// reliability log per assessment — latest successful Sonnet run and latest successful
+// Opus run (separate rows in the log) — joins client identity, the SM verdict (taken
+// from the latest log row, immutable post-Call #2), the live beta_feedback declaration,
+// and whether a stored EM result exists. Newest run first.
+async function getEmLabRoster() {
+  const r = await query(
+    `SELECT a.id AS assessment_id, a.client_id,
+            cl.first_name, cl.last_name, cl.email,
+            (a.experimental_raw_analysis IS NOT NULL) AS has_em_result,
+            son.em_type_sonnet, son.em_instinct_sonnet, son.em_confidence_sonnet, son.ran_at AS sonnet_ran_at,
+            opu.em_type_opus, opu.em_instinct_opus, opu.em_confidence_opus, opu.ran_at AS opus_ran_at,
+            latest.sm_type, latest.sm_instinct, latest.sm_confidence, latest.error_message AS latest_error,
+            bf.declared_type, bf.declared_instinct, bf.declared_subtype, bf.declaration_confidence,
+            GREATEST(COALESCE(son.ran_at, to_timestamp(0)), COALESCE(opu.ran_at, to_timestamp(0)),
+                     COALESCE(latest.ran_at, to_timestamp(0))) AS last_run_at
+       FROM assessments a
+       JOIN clients cl ON cl.id = a.client_id
+       LEFT JOIN LATERAL (SELECT * FROM em_reliability_log e WHERE e.assessment_id = a.id AND e.em_type_sonnet IS NOT NULL ORDER BY e.ran_at DESC LIMIT 1) son ON TRUE
+       LEFT JOIN LATERAL (SELECT * FROM em_reliability_log e WHERE e.assessment_id = a.id AND e.em_type_opus   IS NOT NULL ORDER BY e.ran_at DESC LIMIT 1) opu ON TRUE
+       LEFT JOIN LATERAL (SELECT * FROM em_reliability_log e WHERE e.assessment_id = a.id ORDER BY e.ran_at DESC LIMIT 1) latest ON TRUE
+       LEFT JOIN LATERAL (SELECT * FROM beta_feedback b WHERE b.assessment_id = a.id ORDER BY b.submitted_at DESC LIMIT 1) bf ON TRUE
+      WHERE EXISTS (SELECT 1 FROM em_reliability_log e WHERE e.assessment_id = a.id)
+      ORDER BY last_run_at DESC`
+  );
+  return r ? r.rows : [];
+}
+
 module.exports = {
   pool,
   initDb,
@@ -1306,4 +1340,6 @@ module.exports = {
   getEmResult,
   insertEmReliabilityLog,
   getEmReliabilityLog,
+  setClientAnalysisMode,
+  getEmLabRoster,
 };
