@@ -146,13 +146,6 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS reminder_sent_at JSONB DEFAULT NULL
 -- lowercase is a tracked follow-up, not part of this change.
 CREATE UNIQUE INDEX IF NOT EXISTS clients_email_key ON clients (email);
 
--- Idempotent data fix: ensure the sole remaining client record carries the
--- correct name. No-op once the name is already correct, so safe on every boot.
-UPDATE clients
-SET first_name = 'Cai', last_name = 'Delumpa'
-WHERE email = 'cdelumpa@gmail.com'
-  AND (first_name != 'Cai' OR last_name != 'Delumpa');
-
 CREATE TABLE IF NOT EXISTS app_settings (
   id INTEGER PRIMARY KEY DEFAULT 1,
   beta_mode_enabled BOOLEAN NOT NULL DEFAULT FALSE,

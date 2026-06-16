@@ -1842,6 +1842,7 @@ window._editClientMode = function(){
   h+=_editInput('m_fn','First Name',c.first_name,true);
   h+=_editInput('m_ln','Last Name',c.last_name,true);
   h+=_editInput('m_em','Email',c.email,true,'email');
+  h+='<div style="font-size:12px;color:#7A96A6;font-style:italic;margin:-8px 0 14px;">Changing this will affect report delivery and login access.</div>';
   h+=_editInput('m_org','Organization',c.organization,false);
   h+='<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">';
   h+=_profileRow('Coach',c.coach_name);
@@ -1856,9 +1857,15 @@ window._editClientMode = function(){
   h+='</div>';
   h+='<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 0 24px;">';
   h+='<button id="modal-save-btn" onclick="window._saveClientProfile()" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Save Changes</button>';
-  h+='<button onclick="window._hideModal()" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Cancel</button>';
+  h+='<button onclick="window._cancelClientEdit()" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Cancel</button>';
   h+='</div></div>';
   _content().innerHTML=h;
+};
+
+// Cancel edit: discard the form and restore the read-only profile view in place
+// (modal stays open), re-rendering from the unchanged _hiveRec.
+window._cancelClientEdit = function(){
+  if(_hiveRec) _renderClientView(_hiveRec);
 };
 
 window._saveClientProfile = async function(){
@@ -1884,7 +1891,7 @@ window._saveClientProfile = async function(){
     // Reload record for history display
     _hiveRec.client=Object.assign({},_hiveRec.client,{first_name:fn,last_name:ln,email:em,organization:org||null});
     if(data.historyEntry) (_hiveRec.history=_hiveRec.history||[]).unshift(data.historyEntry);
-    _hideModal(); _showToast('Profile updated.');
+    _renderClientView(_hiveRec); _showToast('Profile updated.');
   }catch(e){errDiv.textContent='Request failed: '+e.message;errDiv.style.display='';saveBtn.disabled=false;saveBtn.textContent='Save Changes';}
 };
 
