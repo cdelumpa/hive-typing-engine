@@ -243,11 +243,10 @@ VALUES ('Cai Delumpa', 'cai@hiveleadership.com'),
        ('Monique Breault', 'monique@hiveleadership.com')
 ON CONFLICT (email) DO NOTHING;
 
-UPDATE coaches SET password_hash = '$2b$12$NkrKjo3/RF8oMM4.D1tJU.88toD/AC1N1tHl4dm4P.ChGUJBFSey2'
-WHERE email = 'cai@hiveleadership.com' AND password_hash IS NULL;
-
-UPDATE coaches SET password_hash = '$2b$12$j76FBdX8jQoB4agtmjXpGOfhVevkpi1jnkwZMBnerFkHsWA/rkIN.'
-WHERE email = 'monique@hiveleadership.com' AND password_hash IS NULL;
+-- Passwords are intentionally NOT seeded here — credentials must never live in
+-- source control. Set them out-of-band against the target database with:
+--   SEED_CAI_PASSWORD='…' SEED_MONIQUE_PASSWORD='…' node scripts/seed_coach_passwords.js
+-- A fresh coach row therefore has a NULL password_hash until that script is run.
 
 UPDATE coaches SET is_admin = TRUE, is_active = TRUE
 WHERE email IN ('cai@hiveleadership.com', 'monique@hiveleadership.com');

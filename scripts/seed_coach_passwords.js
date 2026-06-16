@@ -21,9 +21,13 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
+// Passwords are read from environment variables — NEVER hardcode them here
+// (this file is committed to source control). Provide them inline at run time:
+//   SEED_CAI_PASSWORD='…' SEED_MONIQUE_PASSWORD='…' node scripts/seed_coach_passwords.js
+// Any coach whose env var is unset is skipped, so you can rotate one account at a time.
 const COACHES = [
-  { email: 'cai@hiveleadership.com',     password: 'HiveCai2026!' },
-  { email: 'monique@hiveleadership.com', password: 'HiveMo2026!' },
+  { email: 'cai@hiveleadership.com',     password: process.env.SEED_CAI_PASSWORD },
+  { email: 'monique@hiveleadership.com', password: process.env.SEED_MONIQUE_PASSWORD },
 ];
 
 async function run() {
@@ -31,6 +35,10 @@ async function run() {
   await pool.query('ALTER TABLE coaches ADD COLUMN IF NOT EXISTS password_hash TEXT');
 
   for (const { email, password } of COACHES) {
+    if (!password) {
+      console.warn(`[seed] no password env var set for ${email} — skipping`);
+      continue;
+    }
     const hash = await bcrypt.hash(password, 12);
     const result = await pool.query(
       'UPDATE coaches SET password_hash = $1 WHERE email = $2 RETURNING name',
