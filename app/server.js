@@ -1076,6 +1076,53 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
   } catch (e) {
     console.error('[email] sendEmails threw:', e.message);
   }
+
+  // 8. Enhanced Mode (EM) auto-fire (D3). Runs ONLY after every SM operation above has
+  //    completed and committed (api_result, completeAssessment, PDFs, email). EM is the
+  //    final step, so it can never delay or affect SM. The whole block is wrapped so any
+  //    throw — getAppSettings / resolveAnalysisMode / runExperimentalAnalysis — is
+  //    swallowed; SM's result, reports, and email are unaffected in every case. Fires
+  //    only in 'parallel' or 'em_only' mode (default 'sm_only' = dormant, C5); Sonnet-only
+  //    on auto-fire (C8). A failed SM Call #2 early-returns above (~line 1015), so EM is
+  //    structurally unreachable unless Call #2 succeeded (D3/R5).
+  try {
+    if (assessmentId) {
+      const appSettings = await db.getAppSettings();
+      const aMode = await db.getAssessmentAnalysisMode(assessmentId);
+      const cMode = clientId ? await db.getClientAnalysisMode(clientId) : null;
+      const mode = experimentalAnalysis.resolveAnalysisMode({
+        assessment: { analysis_mode: aMode },
+        client:     { analysis_mode: cMode },
+        appSettings,
+      });
+
+      if (mode === 'parallel' || mode === 'em_only') {
+        // Inline Claude adapter (same contract as the manual route's — R4).
+        const callClaude = async ({ model, max_tokens, system, user }) => {
+          const response = await client.messages.create({
+            model,
+            max_tokens,
+            system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+            messages: [{ role: 'user', content: user }],
+          });
+          return { text: response.content[0].text, usage: response.usage };
+        };
+        // runExperimentalAnalysis is itself fully isolated (returns {ok:false}, never
+        // throws); this outer try/catch is belt-and-suspenders for the calls above it.
+        const out = await experimentalAnalysis.runExperimentalAnalysis({
+          assessmentId,
+          model: experimentalAnalysis.EM_MODEL_SONNET,   // C8: Sonnet-only on auto-fire
+          trigger: 'auto',                               // R2: distinguishes auto vs manual runs
+          callClaude,
+          db,
+        });
+        console.log(`[em][auto] assessment #${assessmentId} mode=${mode} -> ${out && out.ok ? 'ok type=' + (out.result && out.result.confirmed_type) : 'failed: ' + (out && out.error)}`);
+      }
+    }
+  } catch (e) {
+    // Absolute isolation: EM must never surface into SM's path.
+    console.error(`[em][auto] assessment #${assessmentId} EM block error (SM unaffected):`, e && e.message);
+  }
 }
 
 async function sendErrorNotification(intake, err) {
