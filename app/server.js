@@ -1207,6 +1207,11 @@ app.post('/api/beta-feedback', async (req, res) => {
       flaggedKeys:             b.flaggedKeys ?? null,
       blockBAnswers:           b.blockBAnswers ?? null,
       overallNotes:            b.overallNotes ?? null,
+      // Declared type/instinct (EM ground truth) — optional; NULL when absent.
+      declaredType:            b.declared_type ?? null,
+      declaredInstinct:        b.declared_instinct ?? null,
+      declaredSubtype:         b.declared_subtype ?? null,
+      declarationConfidence:   b.declaration_confidence ?? null,
     });
     console.log(`[beta-feedback] stored for assessment #${assessmentId} (client #${clientId})`);
     return res.json({ ok: true });

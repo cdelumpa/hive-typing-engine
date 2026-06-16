@@ -228,6 +228,56 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
   deployed_by   TEXT,
   notes         TEXT
 );
+
+-- ─── Enhanced Mode (EM) — experimental raw-slider analysis path (design §8) ──────
+-- All additive and nullable; existing rows are unaffected. EM is a parallel
+-- analysis path that has zero contact with the live SM assessment flow in this PR.
+
+-- EM result storage + per-assessment mode override (nullable; null = inherit).
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS experimental_raw_analysis JSONB;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS analysis_mode TEXT;
+
+-- Per-client mode override (nullable; null = inherit from global).
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS analysis_mode TEXT;
+
+-- Global EM mode controls on the singleton app_settings row.
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS em_active BOOLEAN DEFAULT FALSE;
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS em_analysis_mode TEXT DEFAULT 'sm_only';
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS em_model TEXT DEFAULT 'sonnet';
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS em_prompt_version TEXT DEFAULT 'EM-v1.0';
+
+-- Declared type/instinct ground truth captured in the beta feedback survey.
+ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declared_type INTEGER;
+ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declared_instinct VARCHAR(8);
+ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declared_subtype TEXT;
+ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declaration_confidence VARCHAR(8);
+
+-- EM reliability log: one row per EM run. Stores the SM result, the EM result(s)
+-- (Sonnet and/or Opus), the declared type, and the full EM JSON for prompt tuning.
+-- error_message is populated when an EM run fails (SM is unaffected in all cases).
+CREATE TABLE IF NOT EXISTS em_reliability_log (
+  id SERIAL PRIMARY KEY,
+  assessment_id INTEGER REFERENCES assessments(id),
+  client_id INTEGER REFERENCES clients(id),
+  sm_type INTEGER,
+  sm_instinct VARCHAR(8),
+  sm_confidence VARCHAR(16),
+  em_type_sonnet INTEGER,
+  em_instinct_sonnet VARCHAR(8),
+  em_confidence_sonnet VARCHAR(16),
+  em_type_opus INTEGER,
+  em_instinct_opus VARCHAR(8),
+  em_confidence_opus VARCHAR(16),
+  declared_type INTEGER,
+  declared_instinct VARCHAR(8),
+  declaration_confidence VARCHAR(8),
+  match_status VARCHAR(16),
+  prompt_version VARCHAR(32),
+  model_version VARCHAR(64),
+  full_em_result JSONB,
+  error_message TEXT,
+  ran_at TIMESTAMP DEFAULT NOW()
+);
 `;
 
 const SEED_SQL = `
@@ -866,11 +916,12 @@ async function setClientBeta(clientId, isBeta) {
 // Insert a beta tester's post-submit feedback. JSONB columns are stringified; the
 // pg driver also accepts objects for JSONB, but we stringify to match the rest of
 // this file's insert style (e.g. createAssessment, saveClientSessionState).
-async function insertBetaFeedback({ assessmentId, selfHypothesisTypes, selfHypothesisInstincts, flaggedKeys, blockBAnswers, overallNotes }) {
+async function insertBetaFeedback({ assessmentId, selfHypothesisTypes, selfHypothesisInstincts, flaggedKeys, blockBAnswers, overallNotes, declaredType, declaredInstinct, declaredSubtype, declarationConfidence }) {
   const r = await query(
     `INSERT INTO beta_feedback
-       (assessment_id, self_hypothesis_types, self_hypothesis_instincts, flagged_keys, block_b_answers, overall_notes)
-     VALUES ($1, $2, $3, $4, $5, $6)
+       (assessment_id, self_hypothesis_types, self_hypothesis_instincts, flagged_keys, block_b_answers, overall_notes,
+        declared_type, declared_instinct, declared_subtype, declaration_confidence)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING id`,
     [
       assessmentId,
@@ -879,6 +930,11 @@ async function insertBetaFeedback({ assessmentId, selfHypothesisTypes, selfHypot
       JSON.stringify(flaggedKeys ?? null),
       JSON.stringify(blockBAnswers ?? null),
       overallNotes ?? null,
+      // Declared type/instinct (EM ground truth) — scalar columns, optional. NULL when absent.
+      declaredType ?? null,
+      declaredInstinct ?? null,
+      declaredSubtype ?? null,
+      declarationConfidence ?? null,
     ]
   );
   return r && r.rows.length > 0 ? r.rows[0].id : null;
@@ -1056,6 +1112,110 @@ async function recordReminderSent(clientId, key, timestamp) {
   );
 }
 
+// ─── Enhanced Mode (EM) helpers ────────────────────────────────────────────────
+
+// Singleton app_settings row (id=1) — carries the global EM mode controls.
+async function getAppSettings() {
+  const r = await query('SELECT * FROM app_settings WHERE id = 1');
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// Update the global EM mode controls. All fields optional — COALESCE preserves the
+// existing value for any field not provided (undefined/null → keep current value).
+async function updateEmModeSettings({ em_active, em_analysis_mode, em_model, em_prompt_version } = {}) {
+  const r = await query(
+    `UPDATE app_settings
+        SET em_active         = COALESCE($1, em_active),
+            em_analysis_mode  = COALESCE($2, em_analysis_mode),
+            em_model          = COALESCE($3, em_model),
+            em_prompt_version = COALESCE($4, em_prompt_version)
+      WHERE id = 1
+      RETURNING *`,
+    [em_active ?? null, em_analysis_mode ?? null, em_model ?? null, em_prompt_version ?? null]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// Per-client analysis_mode override, or null (inherit from global).
+async function getClientAnalysisMode(clientId) {
+  const r = await query('SELECT analysis_mode FROM clients WHERE id = $1', [clientId]);
+  return r && r.rows.length > 0 ? r.rows[0].analysis_mode : null;
+}
+
+// Per-assessment analysis_mode override, or null (inherit).
+async function getAssessmentAnalysisMode(assessmentId) {
+  const r = await query('SELECT analysis_mode FROM assessments WHERE id = $1', [assessmentId]);
+  return r && r.rows.length > 0 ? r.rows[0].analysis_mode : null;
+}
+
+// Persist (overwrite) the EM result JSON onto the assessment row. Stringified to
+// match this file's JSONB insert style (e.g. updateClientResponsesSnapshot).
+async function saveEmResult(assessmentId, resultJson) {
+  await query(
+    `UPDATE assessments SET experimental_raw_analysis = $1 WHERE id = $2`,
+    [resultJson == null ? null : JSON.stringify(resultJson), assessmentId]
+  );
+}
+
+async function getEmResult(assessmentId) {
+  const r = await query('SELECT experimental_raw_analysis FROM assessments WHERE id = $1', [assessmentId]);
+  return r && r.rows.length > 0 ? r.rows[0].experimental_raw_analysis : null;
+}
+
+// Append one EM run to the reliability log. All fields nullable — a failed run
+// writes em_type_* = null with error_message populated. Never throws on a missing field.
+async function insertEmReliabilityLog(row = {}) {
+  const r = await query(
+    `INSERT INTO em_reliability_log
+       (assessment_id, client_id, sm_type, sm_instinct, sm_confidence,
+        em_type_sonnet, em_instinct_sonnet, em_confidence_sonnet,
+        em_type_opus, em_instinct_opus, em_confidence_opus,
+        declared_type, declared_instinct, declaration_confidence,
+        match_status, prompt_version, model_version,
+        full_em_result, error_message)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+     RETURNING id`,
+    [
+      row.assessment_id ?? null,
+      row.client_id ?? null,
+      row.sm_type ?? null,
+      row.sm_instinct ?? null,
+      row.sm_confidence ?? null,
+      row.em_type_sonnet ?? null,
+      row.em_instinct_sonnet ?? null,
+      row.em_confidence_sonnet ?? null,
+      row.em_type_opus ?? null,
+      row.em_instinct_opus ?? null,
+      row.em_confidence_opus ?? null,
+      row.declared_type ?? null,
+      row.declared_instinct ?? null,
+      row.declaration_confidence ?? null,
+      row.match_status ?? null,
+      row.prompt_version ?? null,
+      row.model_version ?? null,
+      row.full_em_result == null ? null : JSON.stringify(row.full_em_result),
+      row.error_message ?? null,
+    ]
+  );
+  return r && r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// Reliability log rows, newest first, with optional filters. Each filter uses the
+// (col = $n OR $n IS NULL) idiom so a null param matches all rows. Defaults: limit 50, offset 0.
+async function getEmReliabilityLog({ assessmentId, clientId, promptVersion, matchStatus, limit, offset } = {}) {
+  const r = await query(
+    `SELECT * FROM em_reliability_log
+      WHERE (assessment_id  = $1 OR $1 IS NULL)
+        AND (client_id      = $2 OR $2 IS NULL)
+        AND (prompt_version = $3 OR $3 IS NULL)
+        AND (match_status   = $4 OR $4 IS NULL)
+      ORDER BY ran_at DESC
+      LIMIT $5 OFFSET $6`,
+    [assessmentId ?? null, clientId ?? null, promptVersion ?? null, matchStatus ?? null, limit ?? 50, offset ?? 0]
+  );
+  return r ? r.rows : [];
+}
+
 module.exports = {
   pool,
   initDb,
@@ -1129,4 +1289,13 @@ module.exports = {
   createPdfToken,
   getPdfToken,
   markPdfTokenRedeemed,
+  // Enhanced Mode (EM)
+  getAppSettings,
+  updateEmModeSettings,
+  getClientAnalysisMode,
+  getAssessmentAnalysisMode,
+  saveEmResult,
+  getEmResult,
+  insertEmReliabilityLog,
+  getEmReliabilityLog,
 };
