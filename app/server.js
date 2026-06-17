@@ -1083,9 +1083,10 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
   //    final step, so it can never delay or affect SM. The whole block is wrapped so any
   //    throw — getAppSettings / resolveAnalysisMode / runExperimentalAnalysis — is
   //    swallowed; SM's result, reports, and email are unaffected in every case. Fires
-  //    only in 'parallel' or 'em_only' mode (default 'sm_only' = dormant, C5); Sonnet-only
-  //    on auto-fire (C8). A failed SM Call #2 early-returns above (~line 1015), so EM is
-  //    structurally unreachable unless Call #2 succeeded (D3/R5).
+  //    only in 'parallel' or 'em_only' mode (default 'sm_only' = dormant, C5); the
+  //    model(s) are driven by app_settings.em_model (sonnet / opus / both). A failed SM
+  //    Call #2 early-returns above (~line 1015), so EM is structurally unreachable unless
+  //    Call #2 succeeded (D3/R5).
   try {
     if (assessmentId) {
       const appSettings = await db.getAppSettings();
@@ -1108,16 +1109,27 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
           });
           return { text: response.content[0].text, usage: response.usage };
         };
-        // runExperimentalAnalysis is itself fully isolated (returns {ok:false}, never
-        // throws); this outer try/catch is belt-and-suspenders for the calls above it.
-        const out = await experimentalAnalysis.runExperimentalAnalysis({
-          assessmentId,
-          model: experimentalAnalysis.EM_MODEL_SONNET,   // C8: Sonnet-only on auto-fire
-          trigger: 'auto',                               // R2: distinguishes auto vs manual runs
-          callClaude,
-          db,
-        });
-        console.log(`[em][auto] assessment #${assessmentId} mode=${mode} -> ${out && out.ok ? 'ok type=' + (out.result && out.result.confirmed_type) : 'failed: ' + (out && out.error)}`);
+        // Auto-fire model is driven by app_settings.em_model: 'sonnet' / 'opus' fire one;
+        // 'sonnet_and_opus' fires both sequentially. Each runExperimentalAnalysis call is
+        // fully isolated (returns {ok:false}, never throws) and writes its own
+        // em_reliability_log row in that model's columns (Option A — two rows). Order is
+        // ['sonnet','opus'] so the Opus result lands last and becomes the stored
+        // experimental_raw_analysis headline. Manual Run Opus stays available regardless.
+        const modelSetting = (appSettings && appSettings.em_model) || 'sonnet';
+        const runModels = modelSetting === 'opus' ? ['opus']
+                        : modelSetting === 'sonnet_and_opus' ? ['sonnet', 'opus']
+                        : ['sonnet'];
+        for (const m of runModels) {
+          const modelId = m === 'opus' ? experimentalAnalysis.EM_MODEL_OPUS : experimentalAnalysis.EM_MODEL_SONNET;
+          const out = await experimentalAnalysis.runExperimentalAnalysis({
+            assessmentId,
+            model: modelId,
+            trigger: 'auto',                             // R2: distinguishes auto vs manual runs
+            callClaude,
+            db,
+          });
+          console.log(`[em][auto] assessment #${assessmentId} mode=${mode} model=${m} -> ${out && out.ok ? 'ok type=' + (out.result && out.result.confirmed_type) : 'failed: ' + (out && out.error)}`);
+        }
       }
     }
   } catch (e) {
@@ -5157,7 +5169,8 @@ app.post('/admin/em-lab/mode-settings', requireSuperAdmin, async (req, res) => {
   const active = !!b.em_active;
   const sel = (b.em_analysis_mode === 'em_only' || b.em_analysis_mode === 'parallel') ? b.em_analysis_mode : 'parallel';
   const em_analysis_mode = active ? sel : 'sm_only';
-  const em_model = (b.em_model === 'sonnet_and_opus') ? 'sonnet_and_opus' : 'sonnet';
+  const VALID_MODELS = ['sonnet', 'opus', 'sonnet_and_opus'];
+  const em_model = VALID_MODELS.includes(b.em_model) ? b.em_model : 'sonnet';
   const em_prompt_version = b.em_prompt_version || experimentalAnalysis.PROMPT_VERSION;
   try {
     await db.updateEmModeSettings({ em_active: active, em_analysis_mode, em_model, em_prompt_version });
