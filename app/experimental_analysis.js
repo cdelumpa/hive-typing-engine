@@ -520,6 +520,202 @@ async function runExperimentalAnalysis({ assessmentId, model, trigger, callClaud
   }
 }
 
+// ════════════════════════════════════════════════════════════════════════════════
+// EM REPORT CALL (PR8b) — the second call in the B1 two-call EM-primary architecture.
+// Governed by docs/hive_insightout_em_report_prompt_spec_v1_0.docx. Takes the EM
+// Analysis output + open responses and authors the prose registers the renderer needs.
+// CONFIDENTIAL — server-side only. extractJSON() reused; callClaude/db injected (no SDK).
+// ════════════════════════════════════════════════════════════════════════════════
+
+const EM_REPORT_PROMPT_VERSION = 'EM-Report-v1.0';
+const EM_REPORT_MAX_TOKENS = 8000;
+
+// Part A — system prompt (fixed, cacheable). Verbatim from report-prompt spec §2–§5.
+const EM_REPORT_SYSTEM_PROMPT = `You are an expert Enneagram coach writing personalized reports for clients who have completed the InsightOut assessment. You have been given a structured analysis of this client's assessment data. Your job is to translate that analysis into two report registers: a coach report (for the coach preparing the debrief) and a client report (for the client to read after the debrief).
+
+You write in warm, direct, plain-English. You never use clinical or academic language. You never mention the Narrative Enneagram or any proprietary framework by name. You never reference scores, sliders, dimensional analysis, passes, or any engine mechanics. You write as if you are a skilled practitioner who has studied this person's responses and formed a clear hypothesis.
+
+All typing is hypothesis-driven. The report prepares the coach for the debrief — it does not label the client. Use language of hypothesis throughout: 'appears to,' 'consistent with,' 'worth exploring,' 'the pattern suggests.' Never write 'this person is a Type X' — write 'the pattern appears consistent with Type X.'
+
+The coach report is written for a trained Enneagram practitioner. Use Enneagram-literate language in the coach report: type names, instinct names, subtype names, stress and security point references. The client report is written for someone who may be encountering this material for the first time. Use plain language, avoid jargon, and explain concepts briefly where necessary.
+
+The container is fixed. Every page of the report renders in a fixed pixel container. Content that is too long will break the layout. Observe every word count and line count constraint in this specification precisely.
+
+CROSS-CUTTING CONTENT RULES (non-negotiable, apply to every generated field):
+- Warm, direct, plain-English. No clinical tone. Never use 'Narrative' or 'Narrative Enneagram' anywhere.
+- Hypothesis language throughout. Use 'appears to,' 'consistent with,' 'worth exploring,' 'the pattern suggests.' Never 'is,' 'definitively,' 'confirms,' 'proves.'
+- No engine or mechanics language. No mention of sliders, scores, dimensions, passes, coherence, rankings, or dimensional analysis in any prose field.
+- Ground prose in what the client actually said. Quote or closely paraphrase their open response language wherever it illuminates the hypothesis. Never fabricate quotes — use only language that appears in the responses provided.
+- Bold only the 2–3 most important bullets per section. Within a bolded bullet, bold the opening claim, not the elaboration. The bold falls early in the bullet.
+- Powerful questions: under 15 words, open (never yes/no), one concept per question, invites reflection on lived experience, no jargon.
+- The container is fixed. Observe every word/line constraint precisely. Content that exceeds the constraint will break the layout.
+
+You have access to the dimensional analysis — use it to inform your prose, but never reference it explicitly. Write as if you are a skilled Enneagram coach summarizing what you observed, not as an AI reporting what scores showed.
+
+COACH REPORT FIELDS:
+- bottom_line: 1 paragraph, 3–5 sentences. Names the leading type, subtype, and confidence in plain language; what made the pattern clear; the alternate hypothesis and what distinguishes it; a forward-looking framing for the debrief.
+- what_responses_revealed: 4–6 bullets, each ≤ ~27 words, ≤ 80 words total. Bold the opening claim of 2–3 bullets. One bullet must name the alternate hypothesis and motivational distinction; one must address the instinct; at least one must quote or closely paraphrase the client's own language.
+- alternate_callout: ~3 lines (~40–50 words). Why the alternate surfaced, what in the client's data lifted it, the motivational distinction between leading and alternate, framed as worth exploring (not a competing verdict).
+- key_discriminator: { leading, alternate } — 1–2 sentences per column. The single most important motivational distinction for this specific pair, for each type, Enneagram-literate. Not generic.
+- client_words: { leading_quotes (1–2 verbatim strings, never edited), alternate_absence_note (1 sentence on why the alternate-type language is absent/minimal, informative not dismissive) }.
+- debrief.subtype: { question (powerful question ≤ 15 words), bullets (≤ 6, each ≤ 3 lines, ≤ 9 lines total, bold 2–3) }. Cover counter-type/lookalike notes first if flagged, sequencing advice, and one client-specific foothold from their actual language.
+- debrief.stress_release: { question, bullets } same budget. What the stress point looks like for THIS client (behavioral + motivational, not generic), what the security point offers, coaching angle, an early-warning signal. Reference the client's language where present.
+- debrief.wings: { question, bullets } same budget. Cover both wings; let behavioral description carry which is more active — do NOT label a wing 'dominant' or 'active' in prose. Coaching advice and a foothold if available.
+
+CLIENT REPORT FIELDS (written for the client, plain language, warm, hypothesis-framed):
+- client_narrative: 3–4 sentences. Names the leading type and what the pattern pointed to; what the type is about in the client's terms; invites them into the exploration.
+- core_motivation_evidence: 2–3 sentences. How the client's own responses confirmed the core motivation; references their actual language; written so they recognize themselves.
+- instinct_personal_overlay: 2–3 sentences. How the dominant instinct shapes this client's particular expression; references their instinct/Stage 4 language; if the stack was a near-tie, name the ambiguity briefly.
+- secondary_type_narrative: 2–3 sentences. Names the alternate type in plain language; what makes it worth exploring; framed as a question for the debrief, not a competing verdict.
+- stress_security_narratives: { stress, security } — 2–3 sentences each. What the stress point looks like for this client in plain behavioral language; what becomes available when resourced. If no echo is present, write the generic type-level description. Never alarming or pathologizing.
+- what_to_explore: exactly 3 questions, each ≤ 15 words, open, one concept each, no jargon. Cover (1) core motivation, (2) instinct/subtype, (3) the alternate type or genuine ambiguity.
+
+OUTPUT: return a single valid JSON object exactly matching this schema. No markdown, no preamble, no trailing text. Field names must match exactly.
+{
+  "coach_report": {
+    "bottom_line": <string>,
+    "what_responses_revealed": [ { "bold": <boolean>, "bold_lead": <string or null>, "body": <string> }, ... 4-6 ],
+    "alternate_callout": <string>,
+    "key_discriminator": { "leading": <string>, "alternate": <string> },
+    "client_words": { "leading_quotes": [<string>, ...], "alternate_absence_note": <string> },
+    "debrief": {
+      "subtype": { "question": <string>, "bullets": [ { "bold": <boolean>, "text": <string> }, ... up to 6 ] },
+      "stress_release": { "question": <string>, "bullets": [ { "bold": <boolean>, "text": <string> }, ... up to 6 ] },
+      "wings": { "question": <string>, "bullets": [ { "bold": <boolean>, "text": <string> }, ... up to 6 ] }
+    }
+  },
+  "client_facing": {
+    "client_narrative": <string>,
+    "core_motivation_evidence": <string>,
+    "instinct_personal_overlay": <string>,
+    "secondary_type_narrative": <string>,
+    "stress_security_narratives": { "stress": <string>, "security": <string> },
+    "what_to_explore": [<string>, <string>, <string>]
+  },
+  "client_words": { "leading_quotes": [<string>, ...], "alternate_absence_note": <string> },
+  "meta": { "prompt_version": "EM-Report-v1.0", "confirmed_type": <integer 1-9>, "dominant_instinct_hypothesis": <"SP" | "SO" | "SX"> }
+}`;
+
+// Part B — user prompt (dynamic, per assessment). Three blocks (report spec §6).
+function buildEmReportUserPrompt(emAnalysis, snapshot, ctx) {
+  const a = emAnalysis || {};
+  const c = ctx || {};
+  const s1 = (snapshot && snapshot.stage1) || {};
+  const s0 = (snapshot && snapshot.stage0) || {};
+  const ia = a.instinct_analysis || {};
+  const gn = a.geometric_neighborhood || {};
+  const fs = a.framework_signals || {};
+  const ctf = a.counter_type_flag || {};
+
+  // Block 1 — context header.
+  const block1 = [
+    'You are writing InsightOut reports for the following client assessment.',
+    '',
+    `CLIENT: ${c.client_first_name || ''} ${c.client_last_name || ''}`.trim(),
+    `LEADING TYPE HYPOTHESIS: Type ${a.confirmed_type} — ${c.confirmed_type_name || ''}`,
+    `SUBTYPE: ${a.dominant_instinct_hypothesis} Subtype — ${c.subtype_name || ''}`,
+    `CONFIDENCE: ${a.confidence_level || ''}`,
+    `ALTERNATE TYPE HYPOTHESIS: Type ${a.alternate_candidate} — ${c.alternate_candidate_name || ''}`,
+    '',
+    'Write all coach report prose for a trained Enneagram practitioner.',
+    'Write all client report prose for the client directly — warm, plain-English, hypothesis-framed.',
+    'Observe all word count and line count constraints precisely.',
+    'Return a single valid JSON object matching the output schema.',
+  ].join('\n');
+
+  // Block 2 — EM analysis object.
+  const obs = Array.isArray(a.dimensional_observations) ? a.dimensional_observations.map((o) => '  ' + o).join('\n') : '';
+  const block2 = [
+    'EM ANALYSIS OUTPUT',
+    '==================',
+    `Confirmed type: ${a.confirmed_type} — ${c.confirmed_type_name || ''}`,
+    `Confidence: ${a.confidence_level || ''}`,
+    `Confidence rationale: ${a.confidence_rationale || ''}`,
+    '',
+    `Alternate type: ${a.alternate_candidate} — ${c.alternate_candidate_name || ''}`,
+    `Alternate rationale: ${a.alternate_rationale || ''}`,
+    '',
+    `Dominant instinct: ${a.dominant_instinct_hypothesis} (${a.em_instinct_confidence || ''} confidence)`,
+    `Instinct stack: ${ia.stack_coherence || ''}`,
+    `  Dominant mean: ${ia.dominant_mean ?? ''}  Secondary mean: ${ia.secondary_mean ?? ''}  Tertiary mean: ${ia.tertiary_mean ?? ''}`,
+    `  Stack gap: ${ia.stack_gap ?? ''}  Dominant confidence: ${ia.dominant_confidence || ''}`,
+    `  Notes: ${ia.within_instinct_notes || ''}`,
+    '',
+    `Counter-type flag: ${ctf.flagged ? 'YES' : 'no'} — ${ctf.rationale || ''}`,
+    '',
+    'Geometric neighborhood:',
+    `  Dominant wing: Type ${gn.active_wing ?? ''}`,
+    `  Stress echo present: ${gn.stress_echo_present ? 'yes' : 'no'} — ${gn.stress_echo_note || ''}`,
+    `  Security echo present: ${gn.security_echo_present ? 'yes' : 'no'} — ${gn.security_echo_note || ''}`,
+    `  Neighborhood coherence: ${gn.neighborhood_coherence || ''}`,
+    '',
+    'Framework signals:',
+    `  Hornevian: ${fs.hornevian || ''}`,
+    `  Harmonic: ${fs.harmonic || ''}`,
+    `  Center: ${fs.center || ''}`,
+    '',
+    'Dimensional observations:',
+    obs,
+    '',
+    'Reasoning:',
+    a.reasoning || '',
+  ].join('\n');
+
+  // Block 3 — client open responses (omit null/empty; Stage 4 only if non-null — top-level finalQuestion).
+  const lines = ['CLIENT OPEN RESPONSES', '====================='];
+  lines.push('Stage 0 — Self description:');
+  lines.push(`Q1 (self): "${s0.q1 || ''}"`);
+  lines.push(`Q2 (how others see you): "${s0.q2 || ''}"`);
+  lines.push(`Q3 (greatest strength): "${s0.q3 || ''}"`);
+  lines.push(`Q4 (most challenging quality): "${s0.q4 || ''}"`);
+  if (s1.typeOpen) { lines.push('', 'Stage 1 — Type open response:', `"${s1.typeOpen}"`); }
+  if (s1.instinctOpen) { lines.push('', 'Stage 1 — Instinct open response:', `"${s1.instinctOpen}"`); }
+  if (snapshot && snapshot.finalQuestion) { lines.push('', 'Stage 4 — Final reflection:', `"${snapshot.finalQuestion}"`); }
+  const block3 = lines.join('\n');
+
+  return [block1, '', block2, '', block3].join('\n');
+}
+
+// runEmReportCall — assembles Part B, calls Claude (Opus by default — report is
+// client-facing, C5), parses with one retry. Never throws: returns {ok:false,error}
+// so runBackgroundJob can fall back to SM's Call #2 (C1). callClaude({model,max_tokens,
+// system,user}) => {text, usage} is injected by the route, same as the analysis call.
+async function runEmReportCall({ emAnalysis, responsesSnapshot, contextFields, callClaude, db, model } = {}) {
+  const modelId = model || EM_MODEL_OPUS;
+  const system = EM_REPORT_SYSTEM_PROMPT;
+  const user = buildEmReportUserPrompt(emAnalysis, responsesSnapshot, contextFields);
+
+  let parsed = null;
+  let usage = null;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const resp = await callClaude({ model: modelId, max_tokens: EM_REPORT_MAX_TOKENS, system, user });
+      parsed = extractJSON(resp && resp.text != null ? resp.text : '');
+      usage = (resp && resp.usage) || null;
+      break;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  if (!parsed) {
+    return { ok: false, error: 'EM report call/parse failed: ' + (lastErr && lastErr.message), model: modelId };
+  }
+
+  parsed.meta = parsed.meta || {};
+  parsed.meta.prompt_version = EM_REPORT_PROMPT_VERSION;
+  parsed.meta.model = modelId;
+  // Total input = uncached + cache-creation + cache-read (same rationale as the analysis call).
+  parsed.meta._usage = usage ? {
+    input_tokens: (usage.input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0),
+    output_tokens: usage.output_tokens ?? null,
+    cache_creation_input_tokens: usage.cache_creation_input_tokens ?? null,
+    cache_read_input_tokens: usage.cache_read_input_tokens ?? null,
+  } : null;
+
+  return { ok: true, result: parsed, model: modelId };
+}
+
 module.exports = {
   EM_SYSTEM_PROMPT,
   buildExperimentalPrompt,
@@ -531,4 +727,10 @@ module.exports = {
   EM_MAX_TOKENS,
   EM_MODEL_SONNET,
   EM_MODEL_OPUS,
+  // EM Report Call (PR8b)
+  EM_REPORT_SYSTEM_PROMPT,
+  buildEmReportUserPrompt,
+  runEmReportCall,
+  EM_REPORT_PROMPT_VERSION,
+  EM_REPORT_MAX_TOKENS,
 };
