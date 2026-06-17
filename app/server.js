@@ -5285,10 +5285,11 @@ function renderEmLabPage(req, data) {
 
       <div class="em-field"><label>Auto-fire model</label>
         <select id="em-model">
+          <option value="opus" ${gModel === 'opus' ? 'selected' : ''}>Opus</option>
           <option value="sonnet" ${gModel === 'sonnet' ? 'selected' : ''}>Sonnet</option>
           <option value="sonnet_and_opus" ${gModel === 'sonnet_and_opus' ? 'selected' : ''}>Sonnet + Opus</option>
         </select>
-        <p class="em-form-help">Auto-fire uses Sonnet only. Opus runs manually per assessment via the Run Opus button.</p>
+        <p class="em-form-help">In parallel mode, auto-fire uses the selected model. Sonnet + Opus runs both on every assessment.</p>
       </div>
 
       <div class="em-field"><label>Prompt version</label>
