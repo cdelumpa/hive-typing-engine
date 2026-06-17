@@ -18,14 +18,14 @@
 //        the spec's §4.4 "stage1.finalQuestion" path is a documentation error.
 //   R2 — the §5.1 output schema is embedded in Part A (system) since it is fixed and
 //        cacheable; the spec lists it under §5 without assigning it to a prompt part.
-//   R3 — Stage 2 data is intentionally NOT included in the prompt in v1.0 (design
+//   R3 — Stage 2 data is intentionally NOT included in the prompt in v1.1 (design
 //        §2.1); the model emits framework_signals.stage2_alignment = "not available".
 'use strict';
 
 const { TYPE_STATEMENTS, INSTINCT_STATEMENTS, TYPE_GEOMETRY } = require('./stage1_labels');
 
 // ── Config (prompt spec §1) ──────────────────────────────────────────────────────
-const PROMPT_VERSION = 'EM-v1.0';
+const PROMPT_VERSION = 'EM-v1.1';
 const EM_MAX_TOKENS = 6000;   // raised from spec §1's 3000 — that cap truncated real runs (spec §6.3 underestimated output); flagged for spec v1.1
 const EM_MODEL_SONNET = 'claude-sonnet-4-6';   // primary
 const EM_MODEL_OPUS = 'claude-opus-4-6';       // parallel run (consumed in PR5)
@@ -67,13 +67,15 @@ Focus of Attention clustering across Types 5, 6, 7 (Head Center) — signals fea
 Core Motivation clustering across Types 1, 2, 6 (the Dutiful Hornevian triad) — signals obligation and responsibility orientation
 Avoidance clustering across Types 4, 6, 8 (Reactive Harmonic group) — signals high reactivity to threat or loss
 These cross-type dimensional echoes are orientation signals about the person's structural character. They are not typing confusion — name them for what they are.
+The Hornevian triads are exactly: Assertive (Types 3, 7, 8), Dutiful (Types 1, 2, 6), Withdrawn (Types 4, 5, 9). The Harmonic triads are exactly: Competency (Types 1, 3, 5), Positive Outlook (Types 2, 7, 9), Reactive (Types 4, 6, 8). Each type belongs to exactly one Hornevian triad and one Harmonic triad — assign groups using only these lists and the geometry table above, never your training knowledge.
 Pass 5 — Framework derivation
 From the slider pattern alone — without referencing any Stage 2 self-report answers — derive the following signals:
-Hornevian group: which triad's types dominate the top 4 scores? (Dutiful: 1/2/6 · Withdrawn: 3/4/5/7 · Assertive: 3/7/8 — note Type 3 appears in both Withdrawn and Assertive; use the dimensional pattern to discriminate)
+Hornevian group: which triad's types dominate the top 4 scores? The three Hornevian triads are exactly — Assertive: 3/7/8 · Dutiful: 1/2/6 · Withdrawn: 4/5/9. Each type belongs to exactly one triad; use these groupings exactly, matching the Hornevian column of the geometry table above.
 Harmonic group: do the top types cluster in Competency (1/3/5), Positive Outlook (2/7/9), or Reactive (4/6/8)?
 Center: do Core Motivation and Energy scores cluster in Body types (8/9/1), Heart types (2/3/4), or Head types (5/6/7)?
 Stress/security echo: for the leading candidate, are its stress and security point types present with elevated scores on theoretically expected dimensions?
 If Stage 2 self-report answers are available in the data package (Hornevian, Harmonic, Centers), note whether the slider-derived signals align with or diverge from the self-report. Divergence is diagnostically interesting — name it.
+Derive all framework signals exclusively from the geometry table and the explicit triad lists stated above (Hornevian: Assertive 3/7/8, Dutiful 1/2/6, Withdrawn 4/5/9). If your training knowledge conflicts with these groupings, these groupings govern.
 Pass 6 — Instinct stack analysis
 Examine all 15 instinct slider values (5 per instinct). Assess:
 Stack coherence: is one instinct clearly dominant across all 5 of its statements, or is dominance concentrated in only 1–2 statements? Broad dominance (all 5 elevated) is a stronger signal than narrow dominance.
@@ -95,6 +97,7 @@ Name what the alternate hypothesis explains that the leading hypothesis does not
 Note any unresolved tensions between passes — where the evidence points in different directions
 State explicitly whether the final verdict confirms or overrides the raw slider ranking from Pass 0, and why
 Set confidence level based on the dimensional evidence alone — not on Stage 3/4 outcomes
+Your alternate_candidate must be the type with the second-highest dimensional confidence score from your analytical passes unless you can explicitly name a specific reason — grounded in the dimensional evidence — why a lower-ranked type is a stronger alternate. If you depart from the dimensional ranking for the alternate, state the reason in alternate_rationale. Do not override the dimensional ranking based on general Enneagram knowledge or training data.
 Confidence calibration guidelines:
   HIGH — Within-type coherence is tight (spread ≤ 15), geometric neighborhood is elevated, instinct stack is clear (gap ≥ 20), open response language confirms the core motivation. All passes point in the same direction.
   MEDIUM_HIGH — Most passes confirm the leading type but 1–2 create tension. Dimensional coherence is good but not tight. Alternate hypothesis is present but clearly secondary.
@@ -166,7 +169,7 @@ const _SCHEMA = `{
     the hypothesis was reached. Written for a coach, not a client.
     Use hypothesis language throughout.>,
   "meta": {
-    "prompt_version": "EM-v1.0",
+    "prompt_version": "EM-v1.1",
     "pass0_raw_ranking": [
       { "type": <1-9>, "mean": <0-100> },
       ... all 9 types, mean-descending
@@ -454,7 +457,7 @@ async function runExperimentalAnalysis({ assessmentId, model, trigger, callClaud
     // 6. Server-side verification stamps (§5.2).
     const lead = Number(parsed.leading_candidate);
     if (Number.isInteger(lead) && lead >= 1 && lead <= 9) {
-      // v1.0 invariant: confirmed_type must equal leading_candidate.
+      // v1.1 invariant: confirmed_type must equal leading_candidate.
       parsed.confirmed_type = lead;
       parsed.confirmed_type_name = (TYPE_GEOMETRY[lead] && TYPE_GEOMETRY[lead].name) || parsed.confirmed_type_name;
     }

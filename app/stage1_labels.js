@@ -96,13 +96,13 @@ const INSTINCT_STATEMENTS = [
 const TYPE_GEOMETRY = {
   1: { name: "The Improver", center: "Body", hornevian: "Dutiful", harmonic: "Competency", stress: 4, security: 7, wings: [9, 2] },
   2: { name: "The Giver", center: "Heart", hornevian: "Dutiful", harmonic: "Positive Outlook", stress: 8, security: 4, wings: [1, 3] },
-  3: { name: "The Performer", center: "Heart", hornevian: "Withdrawn", harmonic: "Competency", stress: 9, security: 6, wings: [2, 4] },
+  3: { name: "The Performer", center: "Heart", hornevian: "Assertive", harmonic: "Competency", stress: 9, security: 6, wings: [2, 4] },
   4: { name: "The Individualist", center: "Heart", hornevian: "Withdrawn", harmonic: "Reactive", stress: 2, security: 1, wings: [3, 5] },
   5: { name: "The Observer", center: "Head", hornevian: "Withdrawn", harmonic: "Competency", stress: 7, security: 8, wings: [4, 6] },
   6: { name: "The Questioner", center: "Head", hornevian: "Dutiful", harmonic: "Reactive", stress: 3, security: 9, wings: [5, 7] },
-  7: { name: "The Enthusiast", center: "Head", hornevian: "Withdrawn", harmonic: "Positive Outlook", stress: 1, security: 5, wings: [6, 8] },
-  8: { name: "The Protector", center: "Body", hornevian: "Withdrawn", harmonic: "Reactive", stress: 5, security: 2, wings: [7, 9] },
-  9: { name: "The Peacemaker", center: "Body", hornevian: "Dutiful", harmonic: "Positive Outlook", stress: 6, security: 3, wings: [8, 1] },
+  7: { name: "The Enthusiast", center: "Head", hornevian: "Assertive", harmonic: "Positive Outlook", stress: 1, security: 5, wings: [6, 8] },
+  8: { name: "The Protector", center: "Body", hornevian: "Assertive", harmonic: "Reactive", stress: 5, security: 2, wings: [7, 9] },
+  9: { name: "The Peacemaker", center: "Body", hornevian: "Withdrawn", harmonic: "Positive Outlook", stress: 6, security: 3, wings: [8, 1] },
 };
 
 module.exports = { TYPE_STATEMENTS, INSTINCT_STATEMENTS, TYPE_GEOMETRY };
