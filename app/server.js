@@ -1060,6 +1060,13 @@ async function runEmPrimary({ assessmentId, clientId, scores, intake, responsesS
     const dvCoach = { full_name: intake.coach || 'Cai Delumpa', type: null, instinct: null };
     await reportPrep.buildCoachModel({ apiResult: probe, client: dvClient, coach: dvCoach });
     await reportPrep.buildClientModel({ apiResult: probe, client: dvClient, coach: dvCoach });
+    // Exercise the real renderers too. buildCoachModel/buildClientModel/validateModel check the
+    // MODEL, but type mismatches that only surface in the renderer (e.g. instinct_evidence
+    // arriving as a string and hitting .map) slip past validateModel — that gap shipped a broken
+    // PDF for #45. Rendering both reports here turns a render-level contract failure into
+    // null -> SM fallback (C1).
+    await renderClientReport({ apiResult: probe, client: dvClient, coach: dvCoach });
+    await renderCoachReport({ apiResult: probe, client: dvClient, coach: dvCoach });
 
     console.log(`[em][primary] #${assessmentId} EM-primary OK — type=${adapted.hypothesis.confirmed_type} (analysis=${analysisModelId}, report=opus)`);
     return adapted;

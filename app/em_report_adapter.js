@@ -50,6 +50,19 @@ function _bulletsToStrings(arr) {
   return arr.map((b) => _str(b && b.text).trim()).filter(Boolean);
 }
 
+// renderer.js renders instinct_evidence as an array of bullet strings (SM contract:
+// up to 3 bullets, or null). The EM Report Call emits instinct_personal_overlay as a
+// single 2–3 sentence string -> wrap it as a one-element array (one bullet). Already an
+// array -> filter empties; empty/null -> null so the renderer's `|| []` no-ops.
+function _toEvidenceArray(v) {
+  if (Array.isArray(v)) {
+    const a = v.map((s) => _str(s).trim()).filter(Boolean);
+    return a.length ? a : null;
+  }
+  const s = _str(v).trim();
+  return s ? [s] : null;
+}
+
 // adaptEmToContract(emAnalysis, emReport, contextFields) -> SM-shaped api_result object.
 //   emAnalysis    = experimental_raw_analysis (EM Analysis Call output)
 //   emReport      = EM Report Call output (report-prompt spec §5.1)
@@ -115,7 +128,7 @@ function adaptEmToContract(emAnalysis, emReport, contextFields) {
     // Client-facing: pass every EM Report field through verbatim (unused ones preserved
     // for future use), plus the instinct_evidence rename (R1b) the renderer reads.
     client_facing: Object.assign({}, cf, {
-      instinct_evidence: cf.instinct_personal_overlay ?? null,
+      instinct_evidence: _toEvidenceArray(cf.instinct_personal_overlay),
     }),
 
     // Top-level client_words (renderer reads here).
@@ -139,4 +152,4 @@ function adaptEmToContract(emAnalysis, emReport, contextFields) {
   };
 }
 
-module.exports = { adaptEmToContract, _revealedToStrings, _bulletsToStrings };
+module.exports = { adaptEmToContract, _revealedToStrings, _bulletsToStrings, _toEvidenceArray };
