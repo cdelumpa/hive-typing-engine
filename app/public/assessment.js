@@ -1730,7 +1730,7 @@ function renderWelcome() {
     <div class="welcome-eyebrow">INSIGHTOUT ENNEAGRAM ASSESSMENT</div>
     <h1 class="welcome-headline"><span class="wh-light">Discover your</span><span class="wh-bold">Enneagram type.</span></h1>
     <p class="welcome-tagline">Welcome to an experience that reveals why you think, feel, act the way you do.</p>
-    ${state.is_beta ? `<p class="welcome-beta-note"><em>As you go, you’ll see a small orange question-mark icon beside each question. Tap it whenever something feels confusing or hard to answer — it turns into a green checkmark to mark the spot, and tapping again clears it. Before you see your results, we’ll bring those flagged questions back and ask what gave you pause.</em></p>` : ''}
+    ${state.is_beta ? `<p class="welcome-beta-note"><em>A Note for All Testers: As you go, you’ll see a small orange question-mark icon beside each question. Tap it whenever something feels confusing or hard to answer — it turns into a green checkmark to mark the spot, and tapping again clears it. Before you see your results, we’ll bring those flagged questions back and ask what gave you pause.</em></p>` : ''}
     <p class="report-carrot">${envelope}<span class="carrot-full">When you’re done, a personalized Enneagram report lands in your inbox.</span><span class="carrot-short">When you’re done, a personalized report lands in your inbox.</span></p>
     <p class="welcome-meta">15–20 minutes · No right or wrong answers · Go with your first instinct</p>
     <p class="welcome-precta">Now, find a quiet moment and…</p>
@@ -2191,10 +2191,10 @@ function renderFinalOpen() {
 // The toggle mutates the clicked icon in place (no full re-render) — see the
 // delegation block in attachHandlers().
 
-// Hive Orange circle + white "?" (unflagged).
-const FLAG_ICON_UNFLAGGED_SVG = '<svg class="bfi-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#F68625"/><text x="10" y="14.5" text-anchor="middle" font-family="Georgia, serif" font-size="12" font-weight="700" fill="#ffffff">?</text></svg>';
-// Green (#2ECC71) circle + white checkmark (flagged).
-const FLAG_ICON_FLAGGED_SVG = '<svg class="bfi-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#2ECC71"/><path d="M5.8 10.3l2.7 2.7 5.7-6" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// Hive Orange flag on a short pole (unflagged) — rectangular body, clean edges, no taper.
+const FLAG_ICON_UNFLAGGED_SVG = '<svg class="bfi-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="2.5" width="1.8" height="15" rx="0.9" fill="#F68625"/><rect x="5.8" y="3" width="9.4" height="7" fill="#F68625"/></svg>';
+// Hive Green (#2ECC71) flag, same shape (flagged).
+const FLAG_ICON_FLAGGED_SVG = '<svg class="bfi-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="2.5" width="1.8" height="15" rx="0.9" fill="#2ECC71"/><rect x="5.8" y="3" width="9.4" height="7" fill="#2ECC71"/></svg>';
 
 // Render the flag icon for a flaggable element. Returns '' in non-beta sessions so
 // production output is byte-identical. key = statement identifier; stageLabel is the
