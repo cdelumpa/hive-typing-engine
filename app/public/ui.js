@@ -75,7 +75,7 @@ function renderMultiPara(str, style) {
 
 // Global-bar stage labels (spec §3.4). Phases absent here render no stage label.
 const STAGE_LABELS = {
-  stage0:    'Warmup',
+  stage0:    'Setting the Stage',
   'stage0to1-bridge':          'Part 1',
   stage1:    'Part 1',
   'types-to-instincts-bridge': 'Part 1',
@@ -195,7 +195,7 @@ function progressFor(phase) {
 // / 6.5. screens_done counts the current screen (dotIndex + 1), so "screen 8 of 14"
 // reads 8/14 and the badge shows 42% — matching the §0G worked example exactly.
 const RESUME_SEGMENTS = [
-  { key: 'warmup', label: 'Warmup', weight: 1 },
+  { key: 'warmup', label: 'Setting the Stage', weight: 1 },
   { key: 'part1',  label: 'Part 1', weight: 3 },
   { key: 'part2',  label: 'Part 2', weight: 1 },
   { key: 'part34', label: 'Part 4', weight: 1.5 }, // Parts 3 & 4 combined (§0G.4)
@@ -209,7 +209,7 @@ function resumePartInfo(phase) {
   const p34Total = s3 + s4 + 1; // Parts 3 & 4 + final open share one trail (§6.5)
   switch (phase) {
     case 'stage0':
-      return { segIdx: 0, label: 'Warmup', done: (state.stage0Idx || 0) + 1, total: stageDotTotal('stage0') };
+      return { segIdx: 0, label: 'Setting the Stage', done: (state.stage0Idx || 0) + 1, total: stageDotTotal('stage0') };
     // Bridge phases are skipped on resume (app.js redirects them to the adjacent
     // stage1 screen before the Resume screen renders), so these are defensive only.
     case 'stage0to1-bridge':
@@ -231,7 +231,7 @@ function resumePartInfo(phase) {
     case 'finalopen':
       return { segIdx: 3, label: 'Part 4', done: p34Total, total: p34Total };
     default:
-      return { segIdx: 0, label: 'Warmup', done: 1, total: stageDotTotal('stage0') };
+      return { segIdx: 0, label: 'Setting the Stage', done: 1, total: stageDotTotal('stage0') };
   }
 }
 

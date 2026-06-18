@@ -310,6 +310,7 @@ body {
 .orient-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #fff; border-radius: 4px; padding: 3px 8px; margin-bottom: 10px; }
 .orient-badge.warmup { background: #8ABEC9; }
 .orient-badge.part1  { background: #00B2D9; }
+.orient-narrative { font-size: 14px; color: var(--ink); line-height: 1.55; margin: 0 0 14px; }
 .orient-tip-list { margin: 0; padding-left: 18px; }
 .orient-tip-list li { font-size: 14px; color: var(--ink); line-height: 1.55; margin-bottom: 8px; }
 .orient-tip-list li:last-child { margin-bottom: 0; }

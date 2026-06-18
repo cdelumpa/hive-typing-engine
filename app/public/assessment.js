@@ -14,7 +14,7 @@ const STAGE0_QUESTIONS = [
   {
     id: 'q2',
     title: 'OTHERS\u2019 DESCRIPTION',
-    text: 'What are 3\u20135 words or phrases others would use to describe you?',
+    text: 'What are 3\u20135 words or phrases others who know you well would use to describe you?',
     showRef: false,
   },
   {
@@ -1838,7 +1838,7 @@ function renderIntake() {
 // renderChromeShell) to avoid collision with any other instance on the page.
 function renderOrientationInterstitial() {
   const pills = [
-    { label: 'Warmup',       count: '4 short questions', kind: 'Open responses',     featured: true  },
+    { label: 'Setting the Stage', count: '4 short questions', kind: 'Open responses',     featured: true  },
     { label: 'Part 1',       count: '14 screens',        kind: 'Sliders',            featured: false },
     { label: 'Part 2',       count: '3 questions',       kind: 'Multiple choice',    featured: false },
     { label: 'Parts 3 & 4',  count: 'A few rounds',      kind: 'Paired comparisons', featured: false },
@@ -1856,15 +1856,15 @@ function renderOrientationInterstitial() {
     <div class="orient-pills">${pillsHtml}</div>
 
     <div class="orient-tip">
-      <div class="orient-badge warmup">WARMUP</div>
+      <div class="orient-badge warmup">SETTING THE STAGE</div>
+      <p class="orient-narrative">This first section gives us context for everything that follows. The richer the detail you provide, the more we have to work with.</p>
+      <div class="bridge-tips-title">Other Helpful Tips:</div>
       <ul class="orient-tip-list">
-        <li>No wrong answers — a few words is plenty, but feel free to say more. The richer the detail, the more we have to work with.</li>
-        <li>Think about your life in general, not just how you’ve been lately or at work.</li>
-        <li>Take your time with these questions — your answers help set up everything that follows.</li>
+        <li>As you answer the questions, think about your life in general, not just how you’ve been lately or at work. If you feel blocked, answer these questions from the perspective of your 25-year-old self.</li>
+        <li>Take your time with these questions and know that there are no wrong answers.</li>
+        <li>All questions require a response to continue. The richer the detail you provide, the more we have to work with.</li>
       </ul>
     </div>
-
-    <p class="orient-closing">Ready? The first question is a warm-up — just a chance to find your voice before the real work begins.</p>
 
     <div class="preassess-nav orient-nav">
       <button class="btn btn-primary" id="btn-orient-begin">Let’s begin</button>
@@ -2221,7 +2221,7 @@ function renderStage0() {
   return `<div class="screen">
     <div class="q-text">${q.text}${renderFlagIcon(q.id, 'Stage 0')}</div>
     ${refHtml}
-    <textarea class="text-input" id="stage0-input" placeholder="Type your response here…">${esc(val)}</textarea>
+    <textarea class="text-input" id="stage0-input" placeholder="Type your response here — the richer the detail, the more we have to work with." style="min-height:133px;">${esc(val)}</textarea>
     <div class="nav-row">
       ${state.stage0Idx > 0 ? '<button class="btn btn-ghost" id="btn-back">Back</button>' : ''}
       <div class="spacer"></div>
@@ -2248,7 +2248,7 @@ function interstitialStatus(ready, loadingText, readyText) {
 // renders 'upnext' (blue), and the rest render upcoming (plain). Pass a `sub` map to
 // annotate a pill with a small kind label (e.g. the up-next pill).
 const PARTMAP_STEPS = [
-  { key: 'warmup', label: 'Warmup' },
+  { key: 'warmup', label: 'Setting the Stage' },
   { key: 'part1',  label: 'Part 1' },
   { key: 'part2',  label: 'Part 2' },
   { key: 'part34', label: 'Parts 3 &amp; 4' },
