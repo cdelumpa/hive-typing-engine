@@ -5208,7 +5208,8 @@ function renderEmDetailHtml(d) {
 
   const actions = '<div class="em-detail-actions">'
     + '<button class="em-btn" onclick="emRun(' + aid + ',\'sonnet\',this)">Re-run (Sonnet)</button>'
-    + '<button class="em-btn em-btn-ghost" onclick="emRun(' + aid + ',\'opus\',this)">Run Opus</button></div>';
+    + '<button class="em-btn em-btn-ghost" onclick="emRun(' + aid + ',\'opus\',this)">Run Opus</button>'
+    + '<button class="em-btn em-btn-ghost" onclick="emReport(' + aid + ',this)">Re-run Report</button></div>';
 
   return '<div class="em-detail">'
     + '<div class="em-3col">' + smCol + emCol + decCol + '</div>'
@@ -5264,6 +5265,90 @@ app.get('/admin/em-lab/assessment/:assessment_id', requireSuperAdmin, async (req
   } catch (e) {
     console.error('[em-lab/detail] failed:', e.message);
     return res.status(500).json({ available: false, error: e.message });
+  }
+});
+
+// Re-run JUST the EM Report Call on a stored assessment, using the already-stored EM analysis
+// (experimental_raw_analysis) as input — no full retake, no re-run of the analysis. Reshapes via
+// the adapter, dry-validates against the real renderers (build*Model + render*Report), stamps the
+// 2b score fields, then writes api_result so the coach can regenerate PDFs. Manual / super-admin
+// only; never touches runBackgroundJob. The report call is always Opus (client-facing, C5).
+app.post('/admin/em-lab/report/:assessment_id', requireSuperAdmin, async (req, res) => {
+  const aid = parseInt(req.params.assessment_id, 10);
+  if (!aid || isNaN(aid)) return res.status(400).json({ ok: false, error: 'Invalid assessment id' });
+  try {
+    const assessment = await db.getAssessmentById(aid);
+    if (!assessment) return res.status(404).json({ ok: false, error: 'Assessment not found' });
+
+    // The stored EM analysis is the report-call input — required.
+    const emAnalysis = _emParse(assessment.experimental_raw_analysis);
+    if (!emAnalysis) return res.status(422).json({ ok: false, error: 'No EM analysis result found — run EM analysis first' });
+
+    // responses_snapshot lives on the client; scores_snapshot on the assessment.
+    const cl = assessment.client_id ? await db.getClientById(assessment.client_id) : null;
+    const responsesSnapshot = cl ? _emParse(cl.responses_snapshot) : null;
+    if (!responsesSnapshot) return res.status(422).json({ ok: false, error: 'No responses_snapshot found for this assessment' });
+    const scores = _emParse(assessment.scores_snapshot) || {};
+
+    // Intake for name resolution (R8) + dry-validation. Coach name affects only the dry render.
+    let coachName = 'Cai Delumpa';
+    if (cl && cl.coach_id) { try { const co = await db.getCoachById(cl.coach_id); if (co && co.name) coachName = co.name; } catch (e) {} }
+    const intake = {
+      firstName: (cl && cl.first_name) || '',
+      lastName: (cl && cl.last_name) || '',
+      organization: (cl && cl.organization) || '',
+      coach: coachName,
+    };
+
+    // em_model is read for parity with the em_only path; it does NOT change the report model —
+    // the report call is always Opus (no analysis is re-run here).
+    const appSettings = await db.getAppSettings().catch(() => null);
+    const emModel = (appSettings && appSettings.em_model) || 'sonnet';
+
+    const callClaude = async ({ model: modelId, max_tokens, system, user }) => {
+      const response = await client.messages.create({
+        model: modelId, max_tokens,
+        system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content: user }],
+      });
+      return { text: response.content[0].text, usage: response.usage };
+    };
+
+    const contextFields = resolveEmContextFields(emAnalysis, intake);
+    const rep = await experimentalAnalysis.runEmReportCall({
+      emAnalysis, responsesSnapshot, contextFields, callClaude, db,
+      model: experimentalAnalysis.EM_MODEL_OPUS,   // C5: report is client-facing -> always Opus
+    });
+    if (!rep || !rep.ok || !rep.result) {
+      return res.status(422).json({ ok: false, error: 'EM report call failed: ' + ((rep && rep.error) || 'unknown') });
+    }
+
+    const adapted = adaptEmToContract(emAnalysis, rep.result, contextFields);
+
+    // DRY-VALIDATE against the real renderers BEFORE persisting (same gate as runEmPrimary). Stamp
+    // the 2b score fields onto the copy we persist, so api_result matches the normal-flow shape.
+    const probe = JSON.parse(JSON.stringify(adapted));
+    if (probe.hypothesis) _stampScoresForDryValidate(probe.hypothesis, scores || {});
+    const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    const dvClient = { first_name: intake.firstName, last_name: intake.lastName, organization: intake.organization, date: reportDate };
+    const dvCoach = { full_name: intake.coach, type: null, instinct: null };
+    try {
+      await reportPrep.buildCoachModel({ apiResult: probe, client: dvClient, coach: dvCoach });
+      await reportPrep.buildClientModel({ apiResult: probe, client: dvClient, coach: dvCoach });
+      await renderClientReport({ apiResult: probe, client: dvClient, coach: dvCoach });
+      await renderCoachReport({ apiResult: probe, client: dvClient, coach: dvCoach });
+    } catch (ve) {
+      console.error(`[em-lab/report] #${aid} dry-validation failed:`, ve && ve.message);
+      return res.status(422).json({ ok: false, error: 'Report failed renderer validation: ' + (ve && ve.message) });
+    }
+
+    // Persist the stamped, validated result so the coach can regenerate PDFs from api_result.
+    await db.query(`UPDATE assessments SET api_result = $1 WHERE id = $2`, [JSON.stringify(probe), aid]);
+    console.log(`[em-lab/report] #${aid} EM report re-run OK — type=${probe.hypothesis && probe.hypothesis.confirmed_type} (report=opus, em_model=${emModel})`);
+    return res.json({ ok: true, result: probe });
+  } catch (e) {
+    console.error('[em-lab/report] route error:', e.message);
+    return res.status(500).json({ ok: false, error: e.message });
   }
 });
 
@@ -5537,6 +5622,16 @@ async function emRun(aid, model, btn){
     _emToast('EM run complete ('+model+')');
     emLoadDetail(aid);
   }catch(e){ _emToast('Run error: '+e.message); if(btn){btn.disabled=false;btn.textContent='Retry';} }
+}
+async function emReport(aid, btn){
+  if(btn){ btn.disabled=true; btn.textContent='Running report…'; }
+  try{
+    var r=await fetch('/admin/em-lab/report/'+aid,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'}});
+    var d=await r.json();
+    if(!d.ok){ _emToast('Report run failed: '+(d.error||'error')); if(btn){btn.disabled=false;btn.textContent='Retry Report';} return; }
+    _emToast('EM report re-run complete — api_result updated');
+    emLoadDetail(aid);
+  }catch(e){ _emToast('Report run error: '+e.message); if(btn){btn.disabled=false;btn.textContent='Retry Report';} }
 }
 async function emSaveSettings(btn){
   var payload={
