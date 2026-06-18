@@ -6,7 +6,7 @@
     "expected_confidence": "HIGH",
     "expected_stage4_outcome": "CONFIRMED",
     "expected_ranking_override": false,
-    "expected_flags": ["counter_type"],
+    "expected_flags": [],
     "expected_dominant_instinct": "SX",
     "expected_final_response_classification": "EMPTY"
   },

@@ -337,12 +337,14 @@ Read the Stage 3 discriminating lean and the Stage 4 movement evidence. The Stag
 Record in stage4_analysis (stress_point_description, security_point_description, habit_of_mind_description — null if Habit of Mind did not fire).
 
 Check 4 — Counter-Type Scan
-Judge a counter-type from the slider profile, the dominant instinct, and the open-text language — there is no mechanical lookup.
+The counter-types are a CLOSED list of exactly five type/instinct combinations. Judge from the slider profile, the dominant instinct, and the open-text language whether the confirmed type's instinct forms one of these five combinations:
   SP + Type 3 → Anti-Vanity: humble, hardworking, downplays recognition. Looks like 1.
   SX + Type 6 → Counterphobic: confrontational, risk-taking. Looks like 8.
   SP + Type 4 → Tenacity: driven, resilient, refuses inner defeat. Looks like 3.
   SX + Type 1 → Zeal: intense, crusading, passionate. Looks like 8.
   SO + Type 7 → Sacrifice: shares own joy outward, service-oriented. Looks like 2.
+
+EXCLUSIVE: ONLY these five combinations qualify for a counter_type flag. If the confirmed type's instinct combination is not one of the five above, do NOT emit a counter_type flag — no matter how intense, crusading, or instinct-flavored the language is, and regardless of any other signal. A non-listed combination (e.g. SX + Type 7) is an instinct flavor of the type, NOT a counter-type, and must not raise the flag.
 
 CRITICAL: When a counter-type is confirmed, the standard type description may not resonate with the client. Do NOT treat low resonance with the standard description as a redirect signal when a counter-type is confirmed.
 
@@ -390,7 +392,7 @@ The flag enum is CLOSED — use ONLY the flag_type values below and never invent
 
 FLAG TYPES:
 
-counter_type — The instinct + type combination produces a known counter-type. Describe which combination, the expected presentation, and how the open-text language confirms it.
+counter_type — The instinct + type combination is one of the five known counter-types listed in Check 4 (SP+3, SX+6, SP+4, SX+1, SO+7) — and ONLY one of those five. Describe which combination, the expected presentation, and how the open-text language confirms it. Never raise this flag for a combination outside that closed list.
 
 lookalike_ambiguity — Two types remain close after Stage 3/4, or ambiguous answers persisted. Describe which pair, the distinguishing dimension, and the probe that would resolve it in session.
 
