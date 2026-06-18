@@ -30,9 +30,11 @@ const { buildCoachPdfOptions, HIVE_LOGO_SVG, buildClientReportHTML, betaReportBo
 const { renderClientReport, renderCoachReport } = require('./render_report');
 const { buildBetaData, BETA_QUESTION_TEXT } = require('./generate_report');
 const reportPrep = require('./report_prep');          // buildClientModel — for /admin/content preview
-const { TYPE_NAMES: CMS_TYPE_NAMES } = require('./type_meta');  // canonical type names for preview wing/line remap (distinct from the dashboard's local TYPE_NAMES)
+const { TYPE_NAMES: CMS_TYPE_NAMES, INSTINCT_NAME: EM_INSTINCT_NAME } = require('./type_meta');  // canonical type/instinct names (distinct from the dashboard's local TYPE_NAMES)
 const db = require('./db');
 const experimentalAnalysis = require('./experimental_analysis');  // EM prompt builder + engine (PR4/PR5)
+const { adaptEmToContract } = require('./em_report_adapter');     // EM two-call output -> SM api_result contract (PR8b)
+const emContentLibrary = require('./content/content_library.json'); // server-side subtype-name resolution (PR8b contextFields)
 const stage1Labels = require('./stage1_labels');                  // frozen label map + TYPE_GEOMETRY (PR3) — EM Lab rendering
 const contentOverrides = require('./content_overrides');
 // Baseline static content for the /admin/content editor (read-only). The renderer
@@ -982,6 +984,91 @@ async function callClaudeWithRetry(systemPrompt, userMessage) {
   }
 }
 
+// Resolve the name strings the EM Report Call needs (PR8b R8 — server-side via type_meta
+// / content_library, never the client-side maps in assessment.js).
+function resolveEmContextFields(emAnalysis, intake) {
+  const a = emAnalysis || {};
+  const t = a.confirmed_type, alt = a.alternate_candidate, inst = a.dominant_instinct_hypothesis;
+  let subtypeName = '';
+  try {
+    const key = `subtype_${String(inst).toLowerCase()}${t}`;
+    subtypeName = (emContentLibrary[key] && emContentLibrary[key].name) || '';
+  } catch (e) { subtypeName = ''; }
+  if (!subtypeName) subtypeName = `${EM_INSTINCT_NAME[inst] || inst || ''} ${CMS_TYPE_NAMES[t] || ''}`.trim();
+  return {
+    client_first_name: (intake && intake.firstName) || '',
+    client_last_name: (intake && intake.lastName) || '',
+    confirmed_type_name: CMS_TYPE_NAMES[t] || a.confirmed_type_name || '',
+    alternate_candidate_name: CMS_TYPE_NAMES[alt] || '',
+    subtype_name: subtypeName,
+    dominant_instinct_name: EM_INSTINCT_NAME[inst] || inst || '',
+  };
+}
+
+// Mirror of the step-2b stamping — applied ONLY to the dry-validation copy so the EM
+// result can be validated against the renderer before commit. The real result is stamped
+// by the existing untouched 2b block after step 2 (kept byte-identical).
+function _stampScoresForDryValidate(h, scores) {
+  const c1 = (scores && scores.call1Result) || {};
+  if (typeof scores.ranking_override === 'boolean') h.ranking_override = scores.ranking_override;
+  if (c1.leading_candidate != null) h.leading_candidate = c1.leading_candidate;
+  if (c1.alternate_candidate != null) h.alternate_candidate = c1.alternate_candidate;
+  if (c1.third_candidate != null) h.third_candidate = c1.third_candidate;
+  if (Array.isArray(c1.ranking)) h.call1_ranking = c1.ranking;
+  if (scores.typeProfile) h.type_score_profile = scores.typeProfile;
+  if (scores.instinctProfile) h.instinct_score_profile = scores.instinctProfile;
+  if (scores.stage4 && scores.stage4.outcome) h.stage4_outcome = scores.stage4.outcome;
+  if (scores.gap != null) h.gap = scores.gap;
+}
+
+// EM-primary report path (PR8b, B1). EM Analysis -> EM Report -> adapter, then DRY-VALIDATES
+// against the real renderer prep (buildCoachModel + buildClientModel THROW on a contract
+// failure) BEFORE returning. Returns the adapted (un-stamped) api_result on success, or
+// null on ANY failure so runBackgroundJob falls back to SM's Call #2 (C1). C5: report call
+// is always Opus (client-facing); analysis uses Opus only when em_model='opus'.
+async function runEmPrimary({ assessmentId, clientId, scores, intake, responsesSnapshot, emModel }) {
+  try {
+    const callClaude = async ({ model, max_tokens, system, user }) => {
+      const response = await client.messages.create({
+        model, max_tokens,
+        system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content: user }],
+      });
+      return { text: response.content[0].text, usage: response.usage };
+    };
+
+    const analysisModelId = (emModel === 'opus') ? experimentalAnalysis.EM_MODEL_OPUS : experimentalAnalysis.EM_MODEL_SONNET;
+    const an = await experimentalAnalysis.runExperimentalAnalysis({ assessmentId, model: analysisModelId, trigger: 'em_only', callClaude, db });
+    if (!an || !an.ok || !an.result) { console.warn(`[em][primary] #${assessmentId} analysis call failed`); return null; }
+
+    const contextFields = resolveEmContextFields(an.result, intake);
+    const rep = await experimentalAnalysis.runEmReportCall({
+      emAnalysis: an.result, responsesSnapshot, contextFields, callClaude, db,
+      model: experimentalAnalysis.EM_MODEL_OPUS,   // C5: report is client-facing -> always Opus
+    });
+    if (!rep || !rep.ok || !rep.result) { console.warn(`[em][primary] #${assessmentId} report call failed`); return null; }
+
+    const adapted = adaptEmToContract(an.result, rep.result, contextFields);
+
+    // DRY-VALIDATE against the real renderer prep BEFORE committing (C1). Stamp a deep copy
+    // with the score-profile fields (the real result is stamped by the untouched 2b block
+    // after step 2). buildCoachModel/buildClientModel throw on validateModel failure.
+    const probe = JSON.parse(JSON.stringify(adapted));
+    if (probe.hypothesis) _stampScoresForDryValidate(probe.hypothesis, scores || {});
+    const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    const dvClient = { first_name: intake.firstName, last_name: intake.lastName, organization: intake.organization, date: reportDate };
+    const dvCoach = { full_name: intake.coach || 'Cai Delumpa', type: null, instinct: null };
+    await reportPrep.buildCoachModel({ apiResult: probe, client: dvClient, coach: dvCoach });
+    await reportPrep.buildClientModel({ apiResult: probe, client: dvClient, coach: dvCoach });
+
+    console.log(`[em][primary] #${assessmentId} EM-primary OK — type=${adapted.hypothesis.confirmed_type} (analysis=${analysisModelId}, report=opus)`);
+    return adapted;
+  } catch (e) {
+    console.error(`[em][primary] #${assessmentId} EM-primary failed (falling back to SM):`, e && e.message);
+    return null;
+  }
+}
+
 async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId, clientId, responsesSnapshot) {
   // 1. Persist scores_snapshot immediately — before the API call — so the
   //    assessment is recoverable even if Claude fails.
@@ -1002,10 +1089,38 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     }
   }
 
-  // 2. Call Claude API with retries
+  // 1c. Resolve the analysis mode ONCE — gates the Call #2 source (em_only) and the Step 8
+  //     parallel auto-fire. Fail-safe to sm_only so a resolution error never blocks SM.
+  let analysisMode = 'sm_only';
+  let emModel = 'sonnet';
+  try {
+    const appSettings = await db.getAppSettings();
+    emModel = (appSettings && appSettings.em_model) || 'sonnet';
+    const aMode = assessmentId ? await db.getAssessmentAnalysisMode(assessmentId) : null;
+    const cMode = clientId ? await db.getClientAnalysisMode(clientId) : null;
+    analysisMode = experimentalAnalysis.resolveAnalysisMode({
+      assessment: { analysis_mode: aMode }, client: { analysis_mode: cMode }, appSettings,
+    }) || 'sm_only';
+  } catch (e) {
+    console.error('[em] mode resolution failed; defaulting to sm_only:', e && e.message);
+    analysisMode = 'sm_only';
+  }
+
+  // 2. Produce the Call #2 verdict + report registers. In em_only, EM is primary
+  //    (EM Analysis + EM Report -> adapter -> dry-validated against the renderer), with a
+  //    hard fallback to SM's Call #2 if any part fails (C1). All other modes run SM's
+  //    Call #2 exactly as before (byte-identical).
   let result;
   try {
-    result = await callClaudeWithRetry(systemPrompt, userMessage);
+    if (analysisMode === 'em_only') {
+      result = await runEmPrimary({ assessmentId, clientId, scores, intake, responsesSnapshot, emModel });
+      if (!result) {
+        console.warn(`[em][primary] #${assessmentId} fell back to SM Call #2 (EM-primary unavailable)`);
+        result = await callClaudeWithRetry(systemPrompt, userMessage);   // EXACT existing SM call — fallback (C1)
+      }
+    } else {
+      result = await callClaudeWithRetry(systemPrompt, userMessage);      // sm_only / parallel — unchanged
+    }
   } catch (err) {
     await db.failAssessment(assessmentId);
     // Revert client status so the invite link stops showing the processing
@@ -1078,58 +1193,41 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     console.error('[email] sendEmails threw:', e.message);
   }
 
-  // 8. Enhanced Mode (EM) auto-fire (D3). Runs ONLY after every SM operation above has
-  //    completed and committed (api_result, completeAssessment, PDFs, email). EM is the
-  //    final step, so it can never delay or affect SM. The whole block is wrapped so any
-  //    throw — getAppSettings / resolveAnalysisMode / runExperimentalAnalysis — is
-  //    swallowed; SM's result, reports, and email are unaffected in every case. Fires
-  //    only in 'parallel' or 'em_only' mode (default 'sm_only' = dormant, C5); the
-  //    model(s) are driven by app_settings.em_model (sonnet / opus / both). A failed SM
-  //    Call #2 early-returns above (~line 1015), so EM is structurally unreachable unless
-  //    Call #2 succeeded (D3/R5).
+  // 8. Enhanced Mode (EM) auto-fire — PARALLEL MODE ONLY (PR8b R6). Runs after every SM
+  //    operation above has committed (api_result, completeAssessment, PDFs, email), so it
+  //    can never delay or affect SM. em_only does NOT reach here — EM ran as the primary
+  //    path in step 2; firing again would re-run the analysis. The mode is the one resolved
+  //    once in step 1c; the block is fully isolated (SM unaffected in every case).
   try {
-    if (assessmentId) {
-      const appSettings = await db.getAppSettings();
-      const aMode = await db.getAssessmentAnalysisMode(assessmentId);
-      const cMode = clientId ? await db.getClientAnalysisMode(clientId) : null;
-      const mode = experimentalAnalysis.resolveAnalysisMode({
-        assessment: { analysis_mode: aMode },
-        client:     { analysis_mode: cMode },
-        appSettings,
-      });
-
-      if (mode === 'parallel' || mode === 'em_only') {
-        // Inline Claude adapter (same contract as the manual route's — R4).
-        const callClaude = async ({ model, max_tokens, system, user }) => {
-          const response = await client.messages.create({
-            model,
-            max_tokens,
-            system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
-            messages: [{ role: 'user', content: user }],
-          });
-          return { text: response.content[0].text, usage: response.usage };
-        };
-        // Auto-fire model is driven by app_settings.em_model: 'sonnet' / 'opus' fire one;
-        // 'sonnet_and_opus' fires both sequentially. Each runExperimentalAnalysis call is
-        // fully isolated (returns {ok:false}, never throws) and writes its own
-        // em_reliability_log row in that model's columns (Option A — two rows). Order is
-        // ['sonnet','opus'] so the Opus result lands last and becomes the stored
-        // experimental_raw_analysis headline. Manual Run Opus stays available regardless.
-        const modelSetting = (appSettings && appSettings.em_model) || 'sonnet';
-        const runModels = modelSetting === 'opus' ? ['opus']
-                        : modelSetting === 'sonnet_and_opus' ? ['sonnet', 'opus']
-                        : ['sonnet'];
-        for (const m of runModels) {
-          const modelId = m === 'opus' ? experimentalAnalysis.EM_MODEL_OPUS : experimentalAnalysis.EM_MODEL_SONNET;
-          const out = await experimentalAnalysis.runExperimentalAnalysis({
-            assessmentId,
-            model: modelId,
-            trigger: 'auto',                             // R2: distinguishes auto vs manual runs
-            callClaude,
-            db,
-          });
-          console.log(`[em][auto] assessment #${assessmentId} mode=${mode} model=${m} -> ${out && out.ok ? 'ok type=' + (out.result && out.result.confirmed_type) : 'failed: ' + (out && out.error)}`);
-        }
+    if (assessmentId && analysisMode === 'parallel') {
+      // Inline Claude adapter (same contract as the manual route's — R4).
+      const callClaude = async ({ model, max_tokens, system, user }) => {
+        const response = await client.messages.create({
+          model,
+          max_tokens,
+          system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+          messages: [{ role: 'user', content: user }],
+        });
+        return { text: response.content[0].text, usage: response.usage };
+      };
+      // Auto-fire model is driven by app_settings.em_model (captured in step 1c): 'sonnet' /
+      // 'opus' fire one; 'sonnet_and_opus' fires both sequentially. Each runExperimentalAnalysis
+      // call is fully isolated (returns {ok:false}, never throws) and writes its own
+      // em_reliability_log row in that model's columns (Option A — two rows). Order is
+      // ['sonnet','opus'] so the Opus result lands last. Manual Run Opus stays available.
+      const runModels = emModel === 'opus' ? ['opus']
+                      : emModel === 'sonnet_and_opus' ? ['sonnet', 'opus']
+                      : ['sonnet'];
+      for (const m of runModels) {
+        const modelId = m === 'opus' ? experimentalAnalysis.EM_MODEL_OPUS : experimentalAnalysis.EM_MODEL_SONNET;
+        const out = await experimentalAnalysis.runExperimentalAnalysis({
+          assessmentId,
+          model: modelId,
+          trigger: 'auto',                             // R2: distinguishes auto vs manual runs
+          callClaude,
+          db,
+        });
+        console.log(`[em][auto] assessment #${assessmentId} mode=parallel model=${m} -> ${out && out.ok ? 'ok type=' + (out.result && out.result.confirmed_type) : 'failed: ' + (out && out.error)}`);
       }
     }
   } catch (e) {
