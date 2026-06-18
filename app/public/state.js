@@ -35,6 +35,12 @@ const state = {
   // every load (never persisted), gating the flag mechanic + welcome block.
   is_beta: false,
   betaFlaggedQuestions: {}, // { [statementKey]: { stageLabel, reconsidered: bool } }
+  // Practice ("dummy") slider on the stage0to1-bridge interstitial. Transient and
+  // DELIBERATELY isolated: null until moved, then a 0-100 value used ONLY to gate the
+  // bridge's Continue button. Never serialized (absent from getSerializableState) and
+  // never read by scoreStage1Profile / buildResponsesSnapshot — it is structurally
+  // unreachable by scoring and the responses snapshot.
+  _practiceSlider: null,
 };
 
 // Initialize Stage 1 slider state. Each statement starts null (untouched) so the

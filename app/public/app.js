@@ -431,6 +431,12 @@ if (__boot && (__boot.route === 'invalid-token' || __boot.route === 'expired-tok
         }
         if (state.phase === 'part1-complete') state._part1Ready = false;
       }
+
+      // Bridge interstitials are never replayed on resume — they're transient
+      // transition screens. Land on the adjacent Stage 1 slider screen instead so
+      // the client doesn't re-do the practice slider / re-read the reset screen.
+      if (state.phase === 'stage0to1-bridge') { state.phase = 'stage1'; state.stage1Idx = 0; }
+      else if (state.phase === 'types-to-instincts-bridge') { state.phase = 'stage1'; state.stage1Idx = 10; }
     }
     // Resume (§0G): stash the rehydrated saved phase and show the Resume screen
     // first; the Continue handler advances to _resumeTarget. Defensive guard skips

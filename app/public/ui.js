@@ -76,7 +76,9 @@ function renderMultiPara(str, style) {
 // Global-bar stage labels (spec §3.4). Phases absent here render no stage label.
 const STAGE_LABELS = {
   stage0:    'Warmup',
+  'stage0to1-bridge':          'Part 1',
   stage1:    'Part 1',
+  'types-to-instincts-bridge': 'Part 1',
   stage2:    'Part 2',
   stage3:    'Part 3',
   stage4:    'Part 4',
@@ -137,6 +139,12 @@ function overallFraction() {
   const lerp = (lo, hi, done, total) => (lo + (total > 0 ? (done / total) * (hi - lo) : 0)) / 100;
   switch (p) {
     case 'stage0': return lerp(0,  12, stageDotIndex('stage0'), stageDotTotal('stage0'));
+    // Bridge: sits at the Warmup→Part 1 seam (Warmup done, no Part 1 screens yet) → 12%,
+    // coinciding with stage1 screen 0 so the bar doesn't jump across the transition.
+    case 'stage0to1-bridge': return lerp(12, 42, 0, stageDotTotal('stage1'));
+    // Bridge: after the type open response (10 of the 14 Part 1 screens complete),
+    // before the first instinct slider → interpolated within the Part 1 band (~33%).
+    case 'types-to-instincts-bridge': return lerp(12, 42, 10, stageDotTotal('stage1'));
     case 'stage1': return lerp(12, 42, stageDotIndex('stage1'), stageDotTotal('stage1'));
     case 'stage2': return lerp(42, 68, stageDotIndex('stage2'), stageDotTotal('stage2'));
     case 'stage3':
@@ -202,6 +210,12 @@ function resumePartInfo(phase) {
   switch (phase) {
     case 'stage0':
       return { segIdx: 0, label: 'Warmup', done: (state.stage0Idx || 0) + 1, total: stageDotTotal('stage0') };
+    // Bridge phases are skipped on resume (app.js redirects them to the adjacent
+    // stage1 screen before the Resume screen renders), so these are defensive only.
+    case 'stage0to1-bridge':
+      return { segIdx: 1, label: 'Part 1', done: 1, total: stageDotTotal('stage1') };
+    case 'types-to-instincts-bridge':
+      return { segIdx: 1, label: 'Part 1', done: 11, total: stageDotTotal('stage1') };
     case 'stage1':
       return { segIdx: 1, label: 'Part 1', done: (state.stage1Idx || 0) + 1, total: stageDotTotal('stage1') };
     case 'part1-complete':

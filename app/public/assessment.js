@@ -1486,7 +1486,9 @@ const PHASE_CHROME = {
   'expired-token':             { topbar: 'logo-only', progress: false, sub: false },
   'invalid-token':             { topbar: 'logo-only', progress: false, sub: false },
   stage0:                      { topbar: 'full',      progress: true,  sub: true  },
+  'stage0to1-bridge':          { topbar: 'full',      progress: true,  sub: false },
   stage1:                      { topbar: 'full',      progress: true,  sub: true  },
+  'types-to-instincts-bridge': { topbar: 'full',      progress: true,  sub: false },
   'part1-complete':            { topbar: 'full',      progress: true,  sub: false },
   stage2:                      { topbar: 'full',      progress: true,  sub: true  },
   'part2-complete':            { topbar: 'full',      progress: true,  sub: false },
@@ -1646,7 +1648,9 @@ function mountScreen() {
     case 'expired-token':            body = renderExpiredToken(); break;
     case 'invalid-token':            body = renderInvalidToken(); break;
     case 'stage0':                   body = renderStage0(); break;
+    case 'stage0to1-bridge':         body = renderStage0to1Bridge(); break;
     case 'stage1':                   body = renderStage1(); break;
+    case 'types-to-instincts-bridge': body = renderTypesToInstinctsBridge(); break;
     case 'part1-complete':           body = renderPart1Complete(); break;
     case 'stage2':                   body = renderStage2(); break;
     case 'part2-complete':           body = renderPart2Complete(); break;
@@ -1856,15 +1860,7 @@ function renderOrientationInterstitial() {
       <ul class="orient-tip-list">
         <li>No wrong answers — a few words is plenty, but feel free to say more. The richer the detail, the more we have to work with.</li>
         <li>Think about your life in general, not just how you’ve been lately or at work.</li>
-      </ul>
-    </div>
-
-    <div class="orient-tip">
-      <div class="orient-badge part1">PART 1</div>
-      <ul class="orient-tip-list">
-        <li>Move the slider even if you’re not sure — an uncertain answer is more useful than a blank one. You can’t get this wrong.</li>
-        <li>Go with your gut. If a statement makes you pause, ask yourself: would my closest friend say this is true of me?</li>
-        <li>All sliders must be moved to continue to the next screen.</li>
+        <li>Take your time with these questions — your answers help set up everything that follows.</li>
       </ul>
     </div>
 
@@ -2245,6 +2241,36 @@ function interstitialStatus(ready, loadingText, readyText) {
     : `<div class="ic-status loading"><span class="ic-spinner"></span><span>${esc(loadingText)}</span></div>`;
 }
 
+// Shared four-step part-pill progress map (Warmup / Part 1 / Part 2 / Parts 3 & 4),
+// generalized from the §0F part2-complete map so the bridge interstitials can reuse
+// it. `current` names the part the client is entering ('warmup'|'part1'|'part2'|
+// 'part34'); every part before it renders 'done' (grey + check), the current part
+// renders 'upnext' (blue), and the rest render upcoming (plain). Pass a `sub` map to
+// annotate a pill with a small kind label (e.g. the up-next pill).
+const PARTMAP_STEPS = [
+  { key: 'warmup', label: 'Warmup' },
+  { key: 'part1',  label: 'Part 1' },
+  { key: 'part2',  label: 'Part 2' },
+  { key: 'part34', label: 'Parts 3 &amp; 4' },
+];
+function renderPartmap(current, subs) {
+  const subMap = subs || {};
+  const curIdx = PARTMAP_STEPS.findIndex((s) => s.key === current);
+  const pill = (step, i) => {
+    const cls = i < curIdx ? 'done' : (i === curIdx ? 'upnext' : '');
+    const stateTxt = i < curIdx ? 'Done' : (i === curIdx ? 'Up next' : '');
+    const label = i === curIdx ? `${step.label} →` : step.label;
+    const sub = subMap[step.key] || '';
+    return `<div class="partmap-pill ${cls}">
+       ${cls === 'done' ? `<span class="pm-check">${IC_CHECK_SVG}</span>` : ''}
+       <span class="pm-label">${label}</span>
+       <span class="pm-state">${stateTxt}</span>
+       ${sub ? `<span class="pm-sub">${sub}</span>` : ''}
+     </div>`;
+  };
+  return `<div class="partmap">${PARTMAP_STEPS.map(pill).join('')}</div>`;
+}
+
 // ---- Part 1 Complete interstitial (§0D) ----
 // Shown after Stage 1, before Stage 2. Two states: A (loading) while the CT
 // mini-call resolves, B (ready) once it does. Per Decision A, a minimum 800ms
@@ -2278,19 +2304,7 @@ function renderPart1Complete() {
 // Continue (locked until B) builds the Stage 3 routing and advances.
 function renderPart2Complete() {
   const ready = !!state._call1Done;
-  const pill = (label, cls, state2, sub) =>
-    `<div class="partmap-pill ${cls}">
-       ${cls === 'done' ? `<span class="pm-check">${IC_CHECK_SVG}</span>` : ''}
-       <span class="pm-label">${label}</span>
-       <span class="pm-state">${state2}</span>
-       ${sub ? `<span class="pm-sub">${sub}</span>` : ''}
-     </div>`;
-  const partmap = `<div class="partmap">
-      ${pill('Warmup', 'done', 'Done', '')}
-      ${pill('Part 1', 'done', 'Done', '')}
-      ${pill('Part 2', 'done', 'Done', '')}
-      ${pill('Parts 3 &amp; 4 →', 'upnext', 'Up next', 'Paired comparisons')}
-    </div>`;
+  const partmap = renderPartmap('part34', { part34: 'Paired comparisons' });
 
   return `<div class="screen interstitial">
     <h1 class="ic-headline">Nearly there — three parts down.</h1>
@@ -2312,6 +2326,59 @@ function renderPart2Complete() {
     <div class="nav-row">
       <div class="spacer"></div>
       <button class="btn btn-primary" id="btn-next" ${ready ? '' : 'disabled'}>Continue</button>
+    </div>
+  </div>`;
+}
+
+// ---- Bridge: Stage 0 → Stage 1 (practice slider) ----
+// Sits between the last Stage 0 open response (q4) and the first Stage 1 type
+// slider screen. Explains how the sliders work and offers a single practice
+// ("dummy") slider that behaves identically to a real Stage 1 slider but is
+// deliberately ISOLATED from scoring and the responses snapshot: its value lives
+// only on state._practiceSlider (a transient field — NOT serialized, NOT in any
+// statement bank, NOT touched by buildResponsesSnapshot / scoreStage1Profile).
+// Continue is gated until the practice slider has been moved (matches the "move
+// all sliders to continue" mechanic of real slider screens).
+function renderStage0to1Bridge() {
+  const touched = state._practiceSlider !== null && state._practiceSlider !== undefined;
+  const pos = touched ? state._practiceSlider : 50;
+  return `<div class="screen">
+    ${renderPartmap('part1')}
+    <p class="slider-instr">Each statement has multiple parts — some may resonate strongly, others less so. Rate how true the whole statement feels for you, not just one piece of it. Think about your patterns over time, not just right now.</p>
+    <div class="stmt-list">
+      <div class="stmt-block">
+        <div class="stmt-text">I understand how this slider works.</div>
+        <div class="pole-row">
+          <span class="pole pole-left"><span class="pole-full">Not like me</span><span class="pole-short">Not like me</span></span>
+          <div class="slider-track-wrap" id="tw0">
+            <div class="track-bg" id="track0"></div>
+            <input type="range" min="0" max="100" value="${pos}" id="s0" class="hive-range" aria-label="I understand how this slider works." />
+            <div class="thumb-vis ${touched ? 'grabbing' : 'bar'}" id="th0"></div>
+          </div>
+          <span class="pole pole-right"><span class="pole-full">Very much like me</span><span class="pole-short">Very much</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="nav-row">
+      <button class="btn btn-ghost" id="btn-back">Back</button>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="btn-next" ${touched ? '' : 'disabled'}>Continue</button>
+    </div>
+  </div>`;
+}
+
+// ---- Bridge: Types open response → Instincts sliders ----
+// Brief encouragement/reset screen between the Stage 1 type open response
+// (stage1Idx 9) and the first instinct slider screen (stage1Idx 10). No
+// interactive elements other than Continue.
+function renderTypesToInstinctsBridge() {
+  return `<div class="screen">
+    ${renderPartmap('part1')}
+    <h1 class="ic-headline">Great work so far. You’re in the home stretch of Part 1 — a few more questions and you’ll be on to Part 2!</h1>
+    <div class="nav-row">
+      <button class="btn btn-ghost" id="btn-back">Back</button>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="btn-next">Continue</button>
     </div>
   </div>`;
 }
@@ -2934,16 +3001,136 @@ function attachHandlers() {
         // never overwritten on later saves). Best-effort, silent.
         saveSessionState();
       } else {
-        // Stage 0 complete — the retired mid-assessment-reminders screen is gone.
-        // Fire the Stage 0 mini-call silently (background, snapshot-guarded) and
-        // go straight into Stage 1 (Q4). The mini-call never blocks the UI.
+        // Stage 0 complete — fire the Stage 0 mini-call silently (background,
+        // snapshot-guarded) and initialize Stage 1 state. Timing is preserved: the
+        // mini-call + initStage1() fire HERE on leaving Stage 0, not on the bridge's
+        // Continue. Then route into the stage0→stage1 bridge (practice slider) which
+        // precedes the first Stage 1 type slider screen.
         fireStage0MiniCall();
         initStage1();
-        state.phase = 'stage1';
-        state.stage1Idx = 0;
+        state._practiceSlider = null;   // fresh practice slider each time we enter the bridge
+        state.phase = 'stage0to1-bridge';
         render();
         saveSessionState();
       }
+    });
+  }
+
+  // ---- Bridge: Stage 0 → Stage 1 (practice slider) ----
+  // Wires the single dummy slider so it behaves identically to a real Stage 1
+  // slider (morph on first contact, color/track gradient, thumb tracking) while
+  // writing ONLY to state._practiceSlider. Continue is gated until it's moved.
+  if (state.phase === 'stage0to1-bridge') {
+    const THUMB = 11; // half the grabbing-handle diameter, keeps it on-track
+    const valToColor = (v) => {
+      const t = v / 100;
+      const r = Math.round(180 + (24 - 180) * t);
+      const g = Math.round(210 + (95 - 210) * t);
+      const b = Math.round(240 + (165 - 240) * t);
+      return `rgb(${r},${g},${b})`;
+    };
+    const trackWidth = () => {
+      const tw = document.getElementById('tw0');
+      return tw ? tw.getBoundingClientRect().width : 0;
+    };
+    const placeThumb = (pct) => {
+      const th = document.getElementById('th0');
+      const w = trackWidth();
+      if (th && w) th.style.left = (THUMB + (pct / 100) * (w - THUMB * 2)) + 'px';
+    };
+    const renderTrack = (v) => {
+      const el = document.getElementById('track0');
+      const w = trackWidth();
+      if (!el || !w) return;
+      const leftPx = THUMB + (v / 100) * (w - THUMB * 2);
+      const pct = Math.round((leftPx / w) * 100);
+      el.style.background =
+        `linear-gradient(to right, rgba(180,210,240,0.18) 0%, ${valToColor(v)} ${pct}%, var(--border) ${pct}%, var(--border) 100%)`;
+    };
+    const refreshGate = () => {
+      const btn = document.getElementById('btn-next');
+      if (btn) btn.disabled = state._practiceSlider === null || state._practiceSlider === undefined;
+    };
+
+    // Position the handle once the DOM has laid out (mirrors Stage 1's deferred init).
+    const initPractice = () => {
+      if (!document.getElementById('tw0')) return;
+      const v = state._practiceSlider;
+      placeThumb(v === null || v === undefined ? 50 : v);
+      const el = document.getElementById('track0');
+      if (el) {
+        if (v === null || v === undefined) el.style.background = 'var(--border)';
+        else renderTrack(v);
+      }
+    };
+    setTimeout(initPractice, 60);
+    if (_stage1ResizeHandler) { window.removeEventListener('resize', _stage1ResizeHandler); }
+    _stage1ResizeHandler = initPractice;
+    window.addEventListener('resize', initPractice);
+
+    const input = document.getElementById('s0');
+    const thumb = document.getElementById('th0');
+    if (input && thumb) {
+      const grab = () => {
+        if (thumb.classList.contains('bar')) {
+          thumb.classList.remove('bar');
+          thumb.classList.add('grabbing');
+        }
+        const v = parseInt(input.value, 10);
+        thumb.style.background = valToColor(v);
+        if (state._practiceSlider === null || state._practiceSlider === undefined) state._practiceSlider = v;
+        renderTrack(v);
+        placeThumb(v);
+        refreshGate();
+      };
+      input.addEventListener('mousedown', grab);
+      input.addEventListener('touchstart', grab);
+      input.addEventListener('input', () => {
+        if (thumb.classList.contains('bar')) {
+          thumb.classList.remove('bar');
+          thumb.classList.add('grabbing');
+        }
+        const v = parseInt(input.value, 10);
+        state._practiceSlider = v;
+        thumb.style.background = valToColor(v);
+        renderTrack(v);
+        placeThumb(v);
+        refreshGate();
+      });
+    }
+
+    const btnBackBr = document.getElementById('btn-back');
+    if (btnBackBr) btnBackBr.addEventListener('click', () => {
+      state.phase = 'stage0';
+      state.stage0Idx = 3;
+      render();
+    });
+    const btnNextBr = document.getElementById('btn-next');
+    if (btnNextBr) btnNextBr.addEventListener('click', () => {
+      if (state._practiceSlider === null || state._practiceSlider === undefined) return; // gated
+      state.phase = 'stage1';
+      state.stage1Idx = 0;
+      render();
+      saveSessionState();
+    });
+  }
+
+  // ---- Bridge: Types open response → Instincts sliders ----
+  // Continue-only encouragement screen. Back → type open response (stage1 idx 9);
+  // Continue → first instinct slider (stage1 idx 10).
+  if (state.phase === 'types-to-instincts-bridge') {
+    const btnBackTb = document.getElementById('btn-back');
+    if (btnBackTb) btnBackTb.addEventListener('click', () => {
+      state.phase = 'stage1';
+      state.stage1Idx = 9;
+      render();
+    });
+    const btnNextTb = document.getElementById('btn-next');
+    if (btnNextTb) btnNextTb.addEventListener('click', () => {
+      state.phase = 'stage1';
+      state.stage1Idx = 10;
+      render();
+      saveSessionState();
     });
   }
 
@@ -3070,14 +3257,27 @@ function attachHandlers() {
     const btnBack1 = document.getElementById('btn-back');
     if (btnBack1) btnBack1.addEventListener('click', () => {
       state._stage1StaleNotice = false;
-      if (state.stage1Idx > 0) { state.stage1Idx--; render(); }
-      else { state.phase = 'stage0'; state.stage0Idx = 3; render(); }
+      if (state.stage1Idx === 0) {
+        // Back from the first type slider → the stage0→stage1 practice bridge.
+        state.phase = 'stage0to1-bridge';
+        render();
+      } else if (state.stage1Idx === 10) {
+        // Back from the first instinct slider → the types→instincts bridge.
+        state.phase = 'types-to-instincts-bridge';
+        render();
+      } else { state.stage1Idx--; render(); }
     });
 
     const btnNext1 = document.getElementById('btn-next');
     if (btnNext1) btnNext1.addEventListener('click', () => {
       state._stage1StaleNotice = false;
-      if (state.stage1Idx < STAGE1_SCREENS.length - 1) {
+      if (state.stage1Idx === 9) {
+        // After the type open response → the types→instincts bridge (before the
+        // first instinct slider at idx 10).
+        state.phase = 'types-to-instincts-bridge';
+        render();
+        saveSessionState();
+      } else if (state.stage1Idx < STAGE1_SCREENS.length - 1) {
         state.stage1Idx++;
         render();
         saveSessionState();
