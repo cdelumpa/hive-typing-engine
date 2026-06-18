@@ -1015,7 +1015,9 @@ function _stampScoresForDryValidate(h, scores) {
   // with Call #1's. (Call #1 runs only to gate Stage 3 routing; its ranking is not authoritative for
   // the type hypothesis in em_only.) This helper is em_only-only, so both overwrites are dropped.
   if (c1.third_candidate != null) h.third_candidate = c1.third_candidate;
-  if (Array.isArray(c1.ranking)) h.call1_ranking = c1.ranking;
+  // em_only: keep EM's em_ranking (adapter-set) so the coach chart matches the EM hypothesis;
+  // fall back to Call #1's ranking only if EM provided none. (Helper is em_only-only.)
+  if (Array.isArray(c1.ranking) && !(Array.isArray(h.call1_ranking) && h.call1_ranking.length)) h.call1_ranking = c1.ranking;
   if (scores.typeProfile) h.type_score_profile = scores.typeProfile;
   if (scores.instinctProfile) h.instinct_score_profile = scores.instinctProfile;
   if (scores.stage4 && scores.stage4.outcome) h.stage4_outcome = scores.stage4.outcome;
@@ -1155,7 +1157,9 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     if (analysisMode !== 'em_only' && c1.leading_candidate != null)   h.leading_candidate   = c1.leading_candidate;
     if (analysisMode !== 'em_only' && c1.alternate_candidate != null) h.alternate_candidate = c1.alternate_candidate;
     if (c1.third_candidate != null)     h.third_candidate     = c1.third_candidate;
-    if (Array.isArray(c1.ranking))      h.call1_ranking       = c1.ranking;
+    // em_only: keep EM's em_ranking (adapter-set) for the coach chart unless EM provided none;
+    // SM/parallel always overwrite the model's echoed ranking with the canonical Call #1 ranking.
+    if (Array.isArray(c1.ranking) && (analysisMode !== 'em_only' || !(Array.isArray(h.call1_ranking) && h.call1_ranking.length))) h.call1_ranking = c1.ranking;
     if (scores.typeProfile)             h.type_score_profile     = scores.typeProfile;
     if (scores.instinctProfile)         h.instinct_score_profile = scores.instinctProfile;
     if (scores.stage4 && scores.stage4.outcome) h.stage4_outcome  = scores.stage4.outcome;
@@ -5063,12 +5067,21 @@ function _emParse(v) {
 function _emSm(assessment) {
   const ar = _emParse(assessment && assessment.api_result);
   const h = (ar && ar.hypothesis) || {};
+  // em_only: h.call1_ranking holds EM's dimensional ranking (it drives the coach chart). The TRUE
+  // SM Call #1 coherence ranking lives on scores_snapshot.call1Result.ranking — read it from there
+  // so the "SM Coherence" column shows real coherence scores, not EM's dimensional scores.
+  let ranking = Array.isArray(h.call1_ranking) ? h.call1_ranking : null;   // R3: may be null on older rows
+  if (ar && ar.meta && ar.meta.source === 'em_primary') {
+    const ss = _emParse(assessment && assessment.scores_snapshot);
+    const c1 = ss && ss.call1Result && ss.call1Result.ranking;
+    if (Array.isArray(c1)) ranking = c1;
+  }
   return {
     type: h.confirmed_type ?? null,
     instinct: h.dominant_instinct_hypothesis ?? null,
     confidence: h.confidence_level ?? null,
     alternate: h.alternate_candidate ?? null,
-    ranking: Array.isArray(h.call1_ranking) ? h.call1_ranking : null,   // R3: may be null on older rows
+    ranking,
   };
 }
 function _emFmtDate(ts) {

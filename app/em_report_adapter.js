@@ -98,6 +98,14 @@ function adaptEmToContract(emAnalysis, emReport, contextFields) {
       redirect_from_type: null,
       hypothesis_validated: null,
       third_candidate: null,
+      // em_only chart fix: the coach Page-1 type bar chart (report_prep typeBars) reads
+      // h.call1_ranking. EM owns the type hypothesis here, so feed the chart EM's dimensional
+      // ranking (em_ranking — same {type,score} shape) instead of Call #1's coherence ranking,
+      // so it agrees with the EM alternate badge. Null if EM omitted it → the 2b stamp falls back
+      // to Call #1 so the chart still renders.
+      call1_ranking: (Array.isArray(a.em_ranking) && a.em_ranking.length)
+        ? a.em_ranking.map((r) => ({ type: r.type, score: r.score }))
+        : null,
     },
 
     // Coach report reshaped into the section-based structure report_prep consumes.

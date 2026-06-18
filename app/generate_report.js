@@ -310,7 +310,13 @@ function buildBetaData(row) {
   // ── Stage 1 summary + questions (v2: typeProfile/instinctProfile + Call #1 ranking;
   //    center scoring was removed in v2, so the Head/Heart/Body center rows are dropped).
   const instProf = scores.instinctProfile || {};
-  const ranked   = [...(hyp.call1_ranking || [])].sort((a, b) => b.score - a.score).map(r => r.type);
+  // em_only: hyp.call1_ranking holds EM's dimensional ranking (it drives the coach chart). For the
+  // coherence display read the TRUE Call #1 coherence ranking from scores.call1Result.ranking.
+  const emOnly    = !!(apiResult.meta && apiResult.meta.source === 'em_primary');
+  const cohSource = (emOnly && scores.call1Result && Array.isArray(scores.call1Result.ranking))
+    ? scores.call1Result.ranking
+    : (hyp.call1_ranking || []);
+  const ranked   = [...cohSource].sort((a, b) => b.score - a.score).map(r => r.type);
   const counterFlag = flags.some(f => f.label === 'counter_type');
 
   const stage1Summary = [
