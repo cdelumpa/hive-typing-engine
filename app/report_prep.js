@@ -241,7 +241,7 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
         discriminator: (apiResult.coach_report && apiResult.coach_report.section6 && apiResult.coach_report.section6.pushes_back && apiResult.coach_report.section6.pushes_back.key_distinction) || '',
       },
       patterns: { thinking: t.patterns.thinking, feeling: t.patterns.feeling, behaving: t.patterns.behaving, inquiry_lines: t.inquiry_lines }, // P4
-      wings_lines: { wings: t.wings, lines: t.lines, wings_primer: stat.wings_primer, lines_primer: stat.lines_primer, // P5 (wings/lines unchanged; primers PENDING)
+      wings_lines: { wings: t.wings, lines: t.lines, wings_primer: stat.wings_primer, lines_primer: stat.lines_primer, wings_using: stat.wings_using, // P5 (wings/lines unchanged; primers PENDING)
         wing_low: wingLow, wing_high: wingHigh, line_stress: lineStress, line_security: lineSecurity }, // P5 remap (template-shaped)
       instinct_subtype: {                                                                       // P6
         subtype: { name: st.name, tagline: st.tagline, narrative: st.narrative, patterns: st.patterns },

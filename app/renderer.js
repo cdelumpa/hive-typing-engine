@@ -1895,17 +1895,12 @@ function _clP5WingsLines(m) {
         <div class="p5-about-label">ABOUT STRESS &amp; SECURITY POINTS</div>
         <div class="p5-about-body">${esc(w.lines_primer)}</div>
       </div>
-      <!-- USING-YOUR-WINGS-PLACEHOLDER (GROUP 3): static placeholder copy. Mo will
-           replace these 4 bullets with final static content from the content docx
-           in the full content editing pass. Replaced the two redundant stress/
-           security resource pills that duplicated the left-column line content. -->
+      <!-- USING YOUR WINGS AND LINES: CMS-editable static content (static.wings_using).
+           Single multi-line string; each non-empty line becomes a bullet. -->
       <div class="p5-about p5-using-section">
         <div class="p5-about-label">USING YOUR WINGS AND LINES</div>
         <ul class="p5-using-list">
-          <li>Notice which wing is more active this week. You don’t need to pick one permanently — just observe where the texture is coming from right now.</li>
-          <li>Use your stress point as an early warning system. When you notice yourself moving into that pattern, something important has been pushed aside.</li>
-          <li>Your security point is a resource, not just a destination. You can consciously move toward those qualities before you need them.</li>
-          <li>Wings and lines aren’t fixed. They’re dynamic — the texture of your type shifts with context, stress, and growth.</li>
+          ${String(w.wings_using || '').split('\n').map(s => s.trim()).filter(Boolean).map(s => `<li>${esc(s)}</li>`).join('\n          ')}
         </ul>
       </div>
     </div>

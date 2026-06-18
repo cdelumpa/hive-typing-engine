@@ -3549,7 +3549,7 @@ ${sharedModalHTML(true, isSuperAdmin)}
 // prompt editing are later PRs. Overrides are keyed "static.<field>" (matching PR2's
 // resolveLibObject('static', ...)); the value column stores JSON.stringify(value).
 
-const CMS_STATIC_FIELDS = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'instinct_primer', 'instinct_definitions'];
+const CMS_STATIC_FIELDS = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'wings_using', 'instinct_primer', 'instinct_definitions'];
 function cmsIsValidStaticKey(k) {
   return typeof k === 'string' && k.indexOf('static.') === 0 && CMS_STATIC_FIELDS.indexOf(k.slice(7)) >= 0;
 }
@@ -3561,6 +3561,7 @@ const CMS_FIELD_META = {
   'static.primer':               { name: 'Enneagram Primer',     page: 'P2 — What Is the Enneagram?' },
   'static.wings_primer':         { name: 'Wings Sidebar',        page: 'P5 — Wings & Lines' },
   'static.lines_primer':         { name: 'Lines Sidebar',        page: 'P5 — Wings & Lines' },
+  'static.wings_using':          { name: 'Using Your Wings and Lines', page: 'P5 — Wings & Lines' },
   'static.instinct_primer':      { name: 'Instinct Sidebar',     page: 'P6 — Instinct & Subtype' },
   'static.instinct_definitions': { name: 'Instinct Definitions', page: 'P6 — Instinct & Subtype' },
 };
@@ -3698,6 +3699,7 @@ function cmsBudgetFor(key, path) {
   }
   if (key === 'static.wings_primer') return 55;
   if (key === 'static.lines_primer') return 75;
+  if (key === 'static.wings_using') return 80;
   if (key === 'static.instinct_primer') return 75;
   if (key === 'static.instinct_definitions') {
     if (/^\d+\.name$/.test(path)) return 6;
@@ -6019,6 +6021,7 @@ function cmsPreviewSpec(key) {
     'static.primer':               { page: 'P2 — Enneagram Primer',   selector: '.page',          apply: (m, v) => { m.pages.primer = v; } },
     'static.wings_primer':         { page: P5,                        selector: '.p5-page',       apply: (m, v) => { m.pages.wings_lines.wings_primer = v; } },
     'static.lines_primer':         { page: P5,                        selector: '.p5-page',       apply: (m, v) => { m.pages.wings_lines.lines_primer = v; } },
+    'static.wings_using':          { page: P5,                        selector: '.p5-page',       apply: (m, v) => { m.pages.wings_lines.wings_using = v; } },
     'static.instinct_primer':      { page: P6,                        selector: '.p6-page',       apply: (m, v) => { m.pages.instinct_subtype.instinct_primer = v; } },
     'static.instinct_definitions': { page: P6,                        selector: '.p6-page',       apply: (m, v) => { m.pages.instinct_subtype.instinct_definitions = v; } },
   };
