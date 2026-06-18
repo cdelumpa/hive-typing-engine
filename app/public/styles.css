@@ -1209,6 +1209,14 @@ body {
   margin-bottom: 22px;
 }
 
+/* stage0to1-bridge practice-slider cue + tips (body-text styling). */
+.practice-cue { font-size: 14px; color: var(--ink); margin: 0 0 16px; }
+.bridge-tips { margin-top: 24px; }
+.bridge-tips-title { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+
+/* types-to-instincts-bridge encouragement copy: standard body size, italic. */
+.bridge-encouragement { font-style: italic; }
+
 .stmt-list { display: flex; flex-direction: column; gap: 28px; }
 
 /* Beta-only diagnostics — never shown to clients */

@@ -2345,6 +2345,7 @@ function renderStage0to1Bridge() {
   return `<div class="screen">
     ${renderPartmap('part1')}
     <p class="slider-instr">Each statement has multiple parts — some may resonate strongly, others less so. Rate how true the whole statement feels for you, not just one piece of it. Think about your patterns over time, not just right now.</p>
+    <p class="practice-cue">Try this practice slider:</p>
     <div class="stmt-list">
       <div class="stmt-block">
         <div class="stmt-text">I understand how this slider works.</div>
@@ -2358,6 +2359,14 @@ function renderStage0to1Bridge() {
           <span class="pole pole-right"><span class="pole-full">Very much like me</span><span class="pole-short">Very much</span></span>
         </div>
       </div>
+    </div>
+    <div class="bridge-tips">
+      <div class="bridge-tips-title">Other Helpful Tips:</div>
+      <ul class="orient-tip-list">
+        <li>Go with your gut. If a statement makes you pause, ask yourself: would my closest friend say this is true of me?</li>
+        <li>Move the slider even if you’re not sure — an uncertain answer is more useful than a blank one. You can’t get this wrong.</li>
+        <li>All sliders must be moved to continue to the next screen.</li>
+      </ul>
     </div>
     <div class="nav-row">
       <button class="btn btn-ghost" id="btn-back">Back</button>
@@ -2374,7 +2383,7 @@ function renderStage0to1Bridge() {
 function renderTypesToInstinctsBridge() {
   return `<div class="screen">
     ${renderPartmap('part1')}
-    <h1 class="ic-headline">Great work so far. You’re in the home stretch of Part 1 — a few more questions and you’ll be on to Part 2!</h1>
+    <p class="ic-subhead bridge-encouragement">Great work so far. You’re in the home stretch of Part 1 — a few more questions and you’ll be on to Part 2!</p>
     <div class="nav-row">
       <button class="btn btn-ghost" id="btn-back">Back</button>
       <div class="spacer"></div>
