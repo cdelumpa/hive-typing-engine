@@ -5345,10 +5345,26 @@ app.post('/admin/em-lab/report/:assessment_id', requireSuperAdmin, async (req, r
       return res.status(422).json({ ok: false, error: 'Report failed renderer validation: ' + (ve && ve.message) });
     }
 
-    // Persist the stamped, validated result so the coach can regenerate PDFs from api_result.
+    // Persist the stamped, validated result.
     await db.query(`UPDATE assessments SET api_result = $1 WHERE id = $2`, [JSON.stringify(probe), aid]);
     console.log(`[em-lab/report] #${aid} EM report re-run OK — type=${probe.hypothesis && probe.hypothesis.confirmed_type} (report=opus, em_model=${emModel})`);
-    return res.json({ ok: true, result: probe });
+
+    // Regenerate THIS assessment's PDFs from the updated api_result. Mirrors /admin/regenerate,
+    // but scoped to assessmentId (not the client's latest, which that route resolves) so EM Lab
+    // work always targets the right row. Delete the stale report rows first so the dashboard link
+    // can't surface a superseded PDF. Best-effort: api_result is already committed, so a PDF-regen
+    // failure is reported (pdf_regenerated:false) rather than failing the whole route.
+    let pdfRegenerated = false;
+    try {
+      await db.deleteReportsByAssessmentId(aid);
+      await generateReportPDFs(probe, scores, intake, aid);
+      await db.query(`UPDATE assessments SET pdf_generated_at = NOW() WHERE id = $1`, [aid]);
+      pdfRegenerated = true;
+      console.log(`[em-lab/report] #${aid} PDFs regenerated from updated api_result`);
+    } catch (pe) {
+      console.error(`[em-lab/report] #${aid} PDF regeneration failed (api_result already updated):`, pe && pe.message);
+    }
+    return res.json({ ok: true, result: probe, pdf_regenerated: pdfRegenerated });
   } catch (e) {
     console.error('[em-lab/report] route error:', e.message);
     return res.status(500).json({ ok: false, error: e.message });
@@ -5632,7 +5648,7 @@ async function emReport(aid, btn){
     var r=await fetch('/admin/em-lab/report/'+aid,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'}});
     var d=await r.json();
     if(!d.ok){ _emToast('Report run failed: '+(d.error||'error')); if(btn){btn.disabled=false;btn.textContent='Retry Report';} return; }
-    _emToast('EM report re-run complete — api_result updated');
+    _emToast('EM report re-run complete — '+(d.pdf_regenerated ? 'PDFs regenerated' : 'api_result updated (PDF regen failed — see logs)'));
     emLoadDetail(aid);
   }catch(e){ _emToast('Report run error: '+e.message); if(btn){btn.disabled=false;btn.textContent='Retry Report';} }
 }

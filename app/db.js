@@ -479,8 +479,12 @@ const ADMIN_ROWS_SELECT = `
   FROM clients c
   LEFT JOIN assessments a  ON a.client_id = c.id
   LEFT JOIN coaches co      ON co.id = c.coach_id
-  LEFT JOIN reports r_cl    ON r_cl.assessment_id = a.id AND r_cl.report_type = 'client'
-  LEFT JOIN reports r_co    ON r_co.assessment_id = a.id AND r_co.report_type = 'coach'
+  LEFT JOIN LATERAL (SELECT pdf_path FROM reports
+                     WHERE assessment_id = a.id AND report_type = 'client'
+                     ORDER BY created_at DESC, id DESC LIMIT 1) r_cl ON TRUE
+  LEFT JOIN LATERAL (SELECT pdf_path FROM reports
+                     WHERE assessment_id = a.id AND report_type = 'coach'
+                     ORDER BY created_at DESC, id DESC LIMIT 1) r_co ON TRUE
 `;
 
 // Super-admin all-clients view: every client across every coach. Coaches who are
