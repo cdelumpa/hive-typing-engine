@@ -1,7 +1,7 @@
 {
   "_meta": {
     "name": "SX7 Sexual Seven — Clean Confirmation (v2)",
-    "description": "Sexual Seven, SX instinct flavor (NOT a genuine counter-type — SO-7 is the Seven counter-type). Stage 1 raw slider profile leads Type 7 with Type 5 as closest alternate; SX instinct dominant by a wide margin. Stage 2 evidence is Assertive / Positive / Facts-first. Stage 3 ran STANDARD (5 vs 7), clean lean to Type 7 (Person B). Stage 4 Option A confirmed cleanly. AI Call #1 leads Type 7 with no counter-type pair (frozen in call1Result). Call #2 returns confirmed_type 7, HIGH confidence. NOTE: Call #2 currently emits a counter_type flag on the SX instinct-flavor distinction — accepted behavior, asserted as-is; prompt tightening is a Step 7 punch-list item. Section presence is NOT asserted (section1a flickers run-to-run for the same reason). Call #2 is the unit under test.",
+    "description": "SX+7 is an instinct flavor, not a counter-type (SO+7 is the known Type 7 counter-type). The counter_type flag is correctly absent. expected_flags is empty.",
     "expected_type": 7,
     "expected_confidence": "HIGH",
     "expected_stage4_outcome": "CONFIRMED",
