@@ -1011,8 +1011,9 @@ function resolveEmContextFields(emAnalysis, intake) {
 function _stampScoresForDryValidate(h, scores) {
   const c1 = (scores && scores.call1Result) || {};
   if (typeof scores.ranking_override === 'boolean') h.ranking_override = scores.ranking_override;
-  if (c1.leading_candidate != null) h.leading_candidate = c1.leading_candidate;
-  if (c1.alternate_candidate != null) h.alternate_candidate = c1.alternate_candidate;
+  // em_only: EM owns the type hypothesis — do NOT overwrite leading_candidate or alternate_candidate
+  // with Call #1's. (Call #1 runs only to gate Stage 3 routing; its ranking is not authoritative for
+  // the type hypothesis in em_only.) This helper is em_only-only, so both overwrites are dropped.
   if (c1.third_candidate != null) h.third_candidate = c1.third_candidate;
   if (Array.isArray(c1.ranking)) h.call1_ranking = c1.ranking;
   if (scores.typeProfile) h.type_score_profile = scores.typeProfile;
@@ -1149,8 +1150,10 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     const h = result.hypothesis;
     const c1 = scores.call1Result || {};
     if (typeof scores.ranking_override === 'boolean') h.ranking_override = scores.ranking_override;
-    if (c1.leading_candidate != null)   h.leading_candidate   = c1.leading_candidate;
-    if (c1.alternate_candidate != null) h.alternate_candidate = c1.alternate_candidate;
+    // em_only: EM owns the type hypothesis (leading + alternate) — see _stampScoresForDryValidate.
+    // For sm_only/parallel, Call #1's ranking stays authoritative — same behavior as before.
+    if (analysisMode !== 'em_only' && c1.leading_candidate != null)   h.leading_candidate   = c1.leading_candidate;
+    if (analysisMode !== 'em_only' && c1.alternate_candidate != null) h.alternate_candidate = c1.alternate_candidate;
     if (c1.third_candidate != null)     h.third_candidate     = c1.third_candidate;
     if (Array.isArray(c1.ranking))      h.call1_ranking       = c1.ranking;
     if (scores.typeProfile)             h.type_score_profile     = scores.typeProfile;
