@@ -527,7 +527,7 @@ async function runExperimentalAnalysis({ assessmentId, model, trigger, callClaud
 // CONFIDENTIAL — server-side only. extractJSON() reused; callClaude/db injected (no SDK).
 // ════════════════════════════════════════════════════════════════════════════════
 
-const EM_REPORT_PROMPT_VERSION = 'EM-Report-v1.0';
+const EM_REPORT_PROMPT_VERSION = 'EM-Report-v1.1';
 const EM_REPORT_MAX_TOKENS = 8000;
 
 // Part A — system prompt (fixed, cacheable). Verbatim from report-prompt spec §2–§5.
@@ -544,6 +544,7 @@ The container is fixed. Every page of the report renders in a fixed pixel contai
 CROSS-CUTTING CONTENT RULES (non-negotiable, apply to every generated field):
 - Warm, direct, plain-English. No clinical tone. Never use 'Narrative' or 'Narrative Enneagram' anywhere.
 - Hypothesis language throughout. Use 'appears to,' 'consistent with,' 'worth exploring,' 'the pattern suggests.' Never 'is,' 'definitively,' 'confirms,' 'proves.'
+- The alternate type is fixed and provided to you as alternate_candidate_name in the context header. Every reference to the alternate type throughout ALL prose fields — bottom_line, what_responses_revealed, alternate_callout, key_discriminator, client_words, debrief sections, and client_facing fields — must refer to this specific alternate type and no other. Do not substitute a different type as the foil even if your analysis suggests another type is interesting. The alternate is determined by the analysis — your job is to author prose about the pair you were given.
 - No engine or mechanics language. No mention of sliders, scores, dimensions, passes, coherence, rankings, or dimensional analysis in any prose field.
 - Ground prose in what the client actually said. Quote or closely paraphrase their open response language wherever it illuminates the hypothesis. Never fabricate quotes — use only language that appears in the responses provided.
 - Bold only the 2–3 most important bullets per section. Within a bolded bullet, bold the opening claim, not the elaboration. The bold falls early in the bullet.
@@ -556,7 +557,7 @@ COACH REPORT FIELDS:
 - bottom_line: 1 paragraph, 3–5 sentences. Names the leading type, subtype, and confidence in plain language; what made the pattern clear; the alternate hypothesis and what distinguishes it; a forward-looking framing for the debrief.
 - what_responses_revealed: 4–6 bullets, each ≤ ~27 words, ≤ 80 words total. Bold the opening claim of 2–3 bullets. One bullet must name the alternate hypothesis and motivational distinction; one must address the instinct; at least one must quote or closely paraphrase the client's own language.
 - alternate_callout: ~3 lines (~40–50 words). Why the alternate surfaced, what in the client's data lifted it, the motivational distinction between leading and alternate, framed as worth exploring (not a competing verdict).
-- key_discriminator: { leading, alternate } — 1–2 sentences per column. The single most important motivational distinction for this specific pair, for each type, Enneagram-literate. Not generic.
+- key_discriminator: MAXIMUM 1 sentence per column, 25 words per column. This field renders in a fixed two-column table cell on Page 2. Content exceeding 1 sentence per side will overflow and create a blank page. Write the single sharpest motivational distinction — nothing more.
 - client_words: { leading_quotes (1–2 verbatim strings, never edited), alternate_absence_note (1 sentence on why the alternate-type language is absent/minimal, informative not dismissive) }.
 - debrief.subtype: { question (powerful question ≤ 15 words), bullets (≤ 6, each ≤ 3 lines, ≤ 9 lines total, bold 2–3) }. Cover counter-type/lookalike notes first if flagged, sequencing advice, and one client-specific foothold from their actual language.
 - debrief.stress_release: { question, bullets } same budget. What the stress point looks like for THIS client (behavioral + motivational, not generic), what the security point offers, coaching angle, an early-warning signal. Reference the client's language where present.
