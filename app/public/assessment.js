@@ -2383,7 +2383,7 @@ function renderStage0to1Bridge() {
 function renderTypesToInstinctsBridge() {
   return `<div class="screen">
     ${renderPartmap('part1')}
-    <p class="ic-subhead bridge-encouragement">Great work so far. You’re in the home stretch of Part 1 — a few more questions and you’ll be on to Part 2!</p>
+    <p class="ic-subhead bridge-encouragement"><span class="bridge-encouragement-lead">Great work so far.</span> You’re in the home stretch of Part 1 — a few more questions and you’ll be on to Part 2!</p>
     <div class="nav-row">
       <button class="btn btn-ghost" id="btn-back">Back</button>
       <div class="spacer"></div>

@@ -1214,8 +1214,10 @@ body {
 .bridge-tips { margin-top: 24px; }
 .bridge-tips-title { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
 
-/* types-to-instincts-bridge encouragement copy: standard body size, italic. */
+/* types-to-instincts-bridge encouragement copy: standard body size, italic.
+   Lead phrase ("Great work so far.") is bold + slightly larger; italic inherited. */
 .bridge-encouragement { font-style: italic; }
+.bridge-encouragement-lead { font-weight: 700; font-size: 16px; }
 
 .stmt-list { display: flex; flex-direction: column; gap: 28px; }
 
