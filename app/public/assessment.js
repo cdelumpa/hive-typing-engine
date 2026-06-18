@@ -1730,7 +1730,7 @@ function renderWelcome() {
     <div class="welcome-eyebrow">INSIGHTOUT ENNEAGRAM ASSESSMENT</div>
     <h1 class="welcome-headline"><span class="wh-light">Discover your</span><span class="wh-bold">Enneagram type.</span></h1>
     <p class="welcome-tagline">Welcome to an experience that reveals why you think, feel, act the way you do.</p>
-    ${state.is_beta ? `<p class="welcome-beta-note"><em>A Note for All Testers: As you go, you’ll see a small orange question-mark icon beside each question. Tap it whenever something feels confusing or hard to answer — it turns into a green checkmark to mark the spot, and tapping again clears it. Before you see your results, we’ll bring those flagged questions back and ask what gave you pause.</em></p>` : ''}
+    ${state.is_beta ? `<p class="welcome-beta-note"><em>A Note for All Testers: As you go, you’ll see a small orange flag icon beside each question. Tap it whenever something feels confusing or hard to answer — it turns green to mark the spot, and tapping again clears it. Before you see your results, we’ll bring those flagged questions back and ask what gave you pause.</em></p>` : ''}
     <p class="report-carrot">${envelope}<span class="carrot-full">When you’re done, a personalized Enneagram report lands in your inbox.</span><span class="carrot-short">When you’re done, a personalized report lands in your inbox.</span></p>
     <p class="welcome-meta">15–20 minutes · No right or wrong answers · Go with your first instinct</p>
     <p class="welcome-precta">Now, find a quiet moment and…</p>
