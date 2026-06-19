@@ -1008,6 +1008,13 @@ function describeStage3Answer(answer, typeA, typeB) {
 
 // =================== STAGE 4 HELPERS ===================
 
+// Defect #4 — REDIRECT gap-suppression threshold. A REDIRECT overrides the leading
+// hypothesis on two Stage 4 movement answers; when the AI Call #1 coherence-score gap
+// between the leading and alternate types is wider than this many points, the alternate
+// is not a genuine competing hypothesis and the redirect is suppressed (see
+// computeStage4Scores). Tunable from alpha data without a code search.
+const REDIRECT_SUPPRESSION_GAP_THRESHOLD = 30;
+
 // Decide which Stage 4 path to run from the AI Call #1 candidate read (call1)
 // and the raw Stage 3 lean (s3). v2 §8.1: routing re-keys on leading_candidate /
 // alternate_candidate / stage3_mode / the Stage 3 lean, replacing the deleted
@@ -1148,6 +1155,33 @@ function computeStage4Scores() {
     throw new Error('computeStage4Scores: unreachable state — exactly one of stress/security confirmed but the habit question did not fire. This violates the shouldFireHabit invariant (stress/security disagreement must trigger the habit question). Check shouldFireHabit(), the Next-gating on the habit slot, and stage4Sequence/stage4Answers sync in the Stage 4 Next handler.');
   }
 
+  // Defect #4 — REDIRECT gap suppression (STANDARD paths only). When a REDIRECT fires
+  // but the AI Call #1 coherence-score gap between the leading and alternate types is
+  // very wide, the alternate is not a real competing hypothesis — the redirect is more
+  // likely an artifact of how the client engaged Stage 4 than a true type signal. Retain
+  // the leading type and downgrade to CONFIRMED_WITH_NOTE so the coach still sees the
+  // movement pattern (surfaced server-side via the redirect_suppressed coach flag). Not
+  // applied to COUNTER_TYPE paths, where lead/second are a counter-type/lookalike pair
+  // and the score gap does not carry the same meaning.
+  let redirectSuppressed = false;
+  let redirectGap = null;
+  if (outcome === 'REDIRECT' && pr.path === 'STANDARD' && pr.secondType != null
+      && state.call1Result && Array.isArray(state.call1Result.ranking)) {
+    const scoreOf = (t) => {
+      const row = state.call1Result.ranking.find((r) => +r.type === +t);
+      return row ? row.score : null;
+    };
+    const leadScore = scoreOf(pr.leadType);
+    const altScore = scoreOf(pr.secondType);
+    if (leadScore != null && altScore != null) {
+      redirectGap = leadScore - altScore;
+      if (redirectGap > REDIRECT_SUPPRESSION_GAP_THRESHOLD) {
+        outcome = 'CONFIRMED_WITH_NOTE';
+        redirectSuppressed = true;
+      }
+    }
+  }
+
   // Describe what the user chose for each instrument (AI-facing).
   const describe = (slot, ans) => {
     if (!slot || ans == null) return null;
@@ -1181,6 +1215,8 @@ function computeStage4Scores() {
     stressDescription: describe(stressSlot, stressAns),
     securityDescription: describe(securitySlot, securityAns),
     habitDescription: habitFired ? describe(habitSlot, habitAns) : null,
+    redirectSuppressed,
+    redirectGap,
   };
 }
 
