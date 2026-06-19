@@ -1120,7 +1120,7 @@ async function runEmPrimary({ assessmentId, clientId, scores, intake, responsesS
   }
 }
 
-async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId, clientId, responsesSnapshot) {
+async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId, clientId, responsesSnapshot, isRetake = false) {
   // 1. Persist scores_snapshot immediately — before the API call — so the
   //    assessment is recoverable even if Claude fails.
   if (assessmentId) {
@@ -1267,6 +1267,20 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     await db.clearClientSessionState(clientId);
   }
 
+  // PR B: lifecycle audit — assessment (or retake) completed. Model/prompt version come
+  // from the result meta. Fire-and-forget; logClientEvent swallows its own errors.
+  if (clientId) {
+    const _m = (result && result.meta) || {};
+    const _model = _m.model || _m.em_model || 'unknown';
+    const _pv = _m.prompt_version || _m.em_report_prompt_version || _m.em_analysis_prompt_version || 'unknown';
+    db.logClientEvent({
+      clientId, assessmentId,
+      eventType: isRetake ? 'retake_completed' : 'assessment_completed',
+      eventDescription: `${isRetake ? 'Retake' : 'Assessment'} completed (model: ${_model}, prompt version: ${_pv})`,
+      actor: 'system',
+    });
+  }
+
   // 5. Generate PDFs via shared helper
   const { clientPdfPath, coachPdfPath } = await generateReportPDFs(result, scores, intake, assessmentId);
 
@@ -1286,6 +1300,15 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
         `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
         [assessmentId]
       );
+    }
+    // PR B: lifecycle audit — report delivered (to client and coach).
+    if (clientId) {
+      db.logClientEvent({
+        clientId, assessmentId,
+        eventType: isRetake ? 'retake_report_delivered' : 'report_delivered',
+        eventDescription: `${isRetake ? 'Retake report' : 'Report'} delivered to client and coach`,
+        actor: 'system',
+      });
     }
   } catch (e) {
     console.error('[email] sendEmails threw:', e.message);
@@ -1407,16 +1430,28 @@ app.post('/api/submit', async (req, res) => {
   // Create DB records (fire-and-forget safe — all wrapped in try/catch in db.js)
   let assessmentId = null;
   let resolvedClientId = bodyClientId || null;
+  let isRetake = false;
   try {
     if (!resolvedClientId) {
       const coachId = await db.findOrCreateCoach(intake?.coach || 'Cai Delumpa');
       resolvedClientId = await db.createClient(intake || {}, coachId);
+      // PR B: lifecycle audit — client created via the self-serve submit fallback (no
+      // admin actor available, so 'system').
+      if (resolvedClientId) {
+        db.logClientEvent({
+          clientId: resolvedClientId, assessmentId: null,
+          eventType: 'client_created',
+          eventDescription: `Client created (self-serve submission)`,
+          actor: 'system',
+        });
+      }
     }
     // Retake linkage: if this client already has an assessment, the row we're about
     // to create is a retake — point retake_of_assessment_id at the most recent prior
     // assessment. First-time clients have no prior row, so this stays null. (The retake
     // flow is the only path that reopens a completed client, so "has a prior" == retake.)
     const priorAssessmentId = resolvedClientId ? await db.getLatestAssessmentId(resolvedClientId) : null;
+    isRetake = priorAssessmentId != null;
     assessmentId = await db.createAssessment(resolvedClientId, { systemPrompt, userMessage, intake }, priorAssessmentId);
     if (assessmentId) console.log(`[submit] assessment #${assessmentId} created for client #${resolvedClientId}`);
     // §9 timing: write the computed metrics onto the fresh assessment row. Guarded
@@ -1433,7 +1468,7 @@ app.post('/api/submit', async (req, res) => {
   // Fire and forget background job
   (async () => {
     try {
-      await runBackgroundJob(systemPrompt, userMessage, intake || {}, scores || {}, assessmentId, resolvedClientId, responsesSnapshot || null);
+      await runBackgroundJob(systemPrompt, userMessage, intake || {}, scores || {}, assessmentId, resolvedClientId, responsesSnapshot || null, isRetake);
     } catch (e) {
       console.error('[submit] unhandled background job error:', e.message);
     }
@@ -2070,6 +2105,20 @@ function _renderClientView(data){
   var lu=c.updated_at?('<p style="font-size:12px;color:#7A96A6;margin:0 0 16px;">Last Updated: '+_esc(_fmtFull(c.updated_at))+' by <strong>'+_esc(c.updated_by||'')+'</strong></p>'):'';
 
   var h=_modalHeader('Client Profile',(c.first_name||'')+' '+(c.last_name||''),'#00b1d7');
+  // PR B: super-admins get a tabbed modal (Profile | History). Regular coaches see the
+  // flat profile unchanged. The History tab is a read-only lifecycle audit trail
+  // (client_history) — distinct from the Edit History section inside the Profile tab.
+  if(_IS_SUPER_ADMIN){
+    var _ctBtn=function(name,label,active){
+      return '<button id="client-tab-btn-'+name+'" onclick="switchClientTab(&#39;'+name+'&#39;)" '+
+        'style="background:none;border:none;border-bottom:2px solid '+(active?'#00b1d7':'transparent')+';'+
+        'color:'+(active?'#1A2B33':'#7A96A6')+';font-family:Georgia,serif;font-size:13px;font-weight:700;'+
+        'padding:8px 14px;cursor:pointer;">'+label+'</button>';
+    };
+    h+='<div style="display:flex;gap:4px;border-bottom:1px solid #EFE8E0;margin:0 0 16px;">'+
+       _ctBtn('profile','Profile',true)+_ctBtn('history','History',false)+'</div>';
+    h+='<div id="client-tab-profile">';
+  }
   h+='<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">';
   h+=_profileRow('First Name',c.first_name);
   h+=_profileRow('Last Name',c.last_name);
@@ -2116,8 +2165,41 @@ function _renderClientView(data){
   h+='<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 0 24px;">';
   h+='<button onclick="window._editClientMode()" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Edit Profile</button>';
   h+='<button onclick="_hideModal()" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Close</button>';
-  h+='</div></div>';
+  h+='</div>';
+  // PR B: close the Profile panel and add the read-only History panel (super-admin only).
+  if(_IS_SUPER_ADMIN){
+    h+='</div>'; // close #client-tab-profile
+    h+='<div id="client-tab-history" style="display:none;padding-bottom:24px;">';
+    h+='<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Client History</p>';
+    h+=_renderClientHistory(data.clientHistory||[]);
+    h+='</div>';
+  }
+  h+='</div>';
   _content().innerHTML=h; _showModal();
+}
+
+// PR B: switch between Profile and History tabs in the client details modal.
+// Mirrors switchEmTab; inline-styled because the em-tab CSS isn't loaded on this page.
+window.switchClientTab = function(name){
+  ['profile','history'].forEach(function(t){
+    var panel=document.getElementById('client-tab-'+t);
+    var btn=document.getElementById('client-tab-btn-'+t);
+    if(panel) panel.style.display=(t===name)?'block':'none';
+    if(btn){ btn.style.borderBottomColor=(t===name)?'#00b1d7':'transparent'; btn.style.color=(t===name)?'#1A2B33':'#7A96A6'; }
+  });
+};
+
+// PR B: render the client_history lifecycle audit trail (read-only). Mirrors
+// _renderHistory but for client_history rows (created_at, actor, event_type, description).
+function _renderClientHistory(rows){
+  if(!rows||rows.length===0) return '<p style="font-size:12px;color:#7A96A6;margin:6px 0 0;">No history yet.</p>';
+  return rows.map(function(r){
+    return '<div style="padding:8px 0;border-bottom:1px solid #f0ece8;">'+
+      '<div style="font-size:11px;color:#7A96A6;">'+_esc(_fmtFull(r.created_at))+' — <strong style="color:#4A6070;">'+_esc(r.actor||'system')+'</strong>'+
+      ' <span style="display:inline-block;background:#eef4f7;color:#4A6070;border-radius:3px;padding:1px 6px;font-size:10px;letter-spacing:0.04em;">'+_esc(r.event_type||'')+'</span></div>'+
+      '<div style="font-size:12px;margin-top:3px;color:#1A2B33;">'+_esc(r.event_description||'')+'</div>'+
+      '</div>';
+  }).join('');
 }
 
 window._editClientMode = function(){
@@ -2766,6 +2848,13 @@ app.post('/admin/clients/new', requireAdminSession, async (req, res) => {
     if (!clientId) {
       return res.send(renderNewClientPage('Failed to create client — please try again.', req.body));
     }
+    // PR B: lifecycle audit — client created by a coach/super-admin.
+    db.logClientEvent({
+      clientId, assessmentId: null,
+      eventType: 'client_created',
+      eventDescription: 'Client created',
+      actor: req.session.coach_name,
+    });
 
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -2773,6 +2862,13 @@ app.post('/admin/clients/new', requireAdminSession, async (req, res) => {
 
     const clientRow = { first_name: first_name.trim(), last_name: last_name.trim(), email: email.trim().toLowerCase() };
     await sendInviteEmail(clientRow, token, req.session.coach_name);
+    // PR B: lifecycle audit — invitation sent.
+    db.logClientEvent({
+      clientId, assessmentId: null,
+      eventType: 'invitation_sent',
+      eventDescription: 'Invitation sent',
+      actor: req.session.coach_name,
+    });
 
     console.log(`[admin/clients/new] created client #${clientId} and sent invite`);
     res.redirect('/admin?flash=invite_sent');
@@ -2799,6 +2895,13 @@ app.post('/admin/clients/resend/:client_id', requireAdminSession, async (req, re
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await db.resendInviteTransaction(clientId, token, expiresAt);
     await sendInviteEmail({ first_name: client.first_name, last_name: client.last_name, email: client.email }, token, req.session.coach_name);
+    // PR B: lifecycle audit — invitation re-sent.
+    db.logClientEvent({
+      clientId, assessmentId: null,
+      eventType: 'invitation_sent',
+      eventDescription: 'Invitation re-sent',
+      actor: req.session.coach_name,
+    });
 
     console.log(`[admin/clients/resend] resent invite for client #${clientId}`);
     res.redirect('/admin?flash=invite_resent');
@@ -2832,6 +2935,19 @@ app.post('/admin/clients/:client_id/retake', requireSuperAdmin, async (req, res)
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await db.retakeTransaction(clientId, token, expiresAt);
     await sendInviteEmail({ first_name: client.first_name, last_name: client.last_name, email: client.email }, token, coachName);
+
+    // PR B: lifecycle audit — retake issued by a super-admin. The retake's own
+    // "started/completed/report delivered" events are logged through the normal
+    // assessment flow (runBackgroundJob branches on isRetake).
+    db.logClientEvent({
+      clientId, assessmentId: null,
+      eventType: 'retake_issued',
+      eventDescription: `Retake issued (invitation sent)`,
+      actor: req.session.coach_name,
+    });
+    // HOOK: Retake requested by coach — not yet built
+    // HOOK: Retake approved by super-admin — not yet built
+    // HOOK: Retake denied by super-admin — not yet built
 
     console.log(`[admin/clients/retake] retake issued for client #${clientId} by coach #${req.session.coach_id}`);
     return res.json({ success: true });
@@ -3069,6 +3185,15 @@ app.post('/assessment/:token/save', async (req, res) => {
     sessionState.assessment_started_at = existingStart;          // preserve — never overwrite
   } else if (q1Answered) {
     sessionState.assessment_started_at = new Date().toISOString(); // first stamp, at Q1
+    // PR B: lifecycle audit — assessment started (first Stage 0 Q1 save). Logged once,
+    // at the first stamp only (the existingStart branch never reaches here). Client-driven,
+    // so actor is 'system'. assessment_id is null — the assessments row is created at submit.
+    db.logClientEvent({
+      clientId: tokenRow.client_id, assessmentId: null,
+      eventType: 'assessment_started',
+      eventDescription: 'Assessment started (Stage 0 began)',
+      actor: 'system',
+    });
   }
   // else: Stage-0-entry save before Q1 — persist state, leave started_at unset.
   await db.saveClientSessionState(tokenRow.client_id, sessionState);
@@ -5110,6 +5235,19 @@ app.post('/admin/experiment/raw-analysis/:assessment_id', requireSuperAdmin, asy
       return res.status(422).json(out);
     }
     console.log(`[em] assessment #${assessmentId} ok — type=${out.result?.confirmed_type} match=${out.match_status}`);
+    // PR B: lifecycle audit — EM analysis re-run completed (super-admin action).
+    try {
+      const _asm = await db.getAssessmentById(assessmentId);
+      const _pv = (out.result && out.result.meta && out.result.meta.prompt_version) || 'unknown';
+      if (_asm && _asm.client_id) {
+        db.logClientEvent({
+          clientId: _asm.client_id, assessmentId,
+          eventType: 'em_rerun_completed',
+          eventDescription: `EM analysis re-run completed (model: ${model}, prompt version: ${_pv})`,
+          actor: req.session.coach_name,
+        });
+      }
+    } catch (le) { console.error('[em] history log failed:', le.message); }
     return res.json(out);
   } catch (e) {
     // runExperimentalAnalysis is self-contained, but guard the route regardless.
@@ -5519,6 +5657,16 @@ app.get('/admin/em-lab/assessment/:assessment_id/context-package', requireSuperA
     archive.append(J(openResponses), { name: 'open_responses.json' });
     archive.append(J(metadataFile), { name: 'assessment_metadata.json' });
     archive.append(J(emAnalysisFile), { name: 'em_analysis.json' });
+    // PR B: lifecycle audit — Full Context Package downloaded (super-admin action). Logged
+    // here, after the data assembled cleanly and just before streaming begins.
+    if (assessment.client_id) {
+      db.logClientEvent({
+        clientId: assessment.client_id, assessmentId: aid,
+        eventType: 'context_package_downloaded',
+        eventDescription: 'Full Context Package (ZIP) downloaded',
+        actor: req.session.coach_name,
+      });
+    }
     await archive.finalize();
     console.log(`[em-lab/context-package] #${aid} streamed (5 files)`);
   } catch (e) {
@@ -5581,6 +5729,16 @@ app.get('/admin/em-lab/assessment/:assessment_id/comparison.csv', requireSuperAd
     rows.push(['Security Echo', gn(s).security_echo_present ? (gn(s).security_echo_note || 'present') : 'no echo', gn(o).security_echo_present ? (gn(o).security_echo_note || 'present') : 'no echo']);
 
     const csv = rows.map((r) => r.map(_csvCell).join(',')).join('\r\n');
+
+    // PR B: lifecycle audit — Sonnet vs Opus comparison downloaded (super-admin action).
+    if (assessment.client_id) {
+      db.logClientEvent({
+        clientId: assessment.client_id, assessmentId: aid,
+        eventType: 'comparison_downloaded',
+        eventDescription: 'Sonnet vs Opus comparison (CSV) downloaded',
+        actor: req.session.coach_name,
+      });
+    }
 
     const client = assessment.client_id ? await db.getClientById(assessment.client_id).catch(() => null) : null;
     const last = _safeSegment(client && client.last_name);
@@ -5719,6 +5877,17 @@ app.post('/admin/em-lab/report/:assessment_id', requireSuperAdmin, async (req, r
     const rerunPdfs = await generateRerunReportPDFs(probe, intake, aid);
     await db.updateEmRerunReportPdfPaths(aid, rerunPdfs.clientPdfPath, rerunPdfs.coachPdfPath);
     if (!rerunPdfs.pdf_generated) console.warn(`[em-lab/report] #${aid} re-run PDF generation incomplete — result stored, PDFs missing`);
+
+    // PR B: lifecycle audit — EM Lab Re-run Report completed (super-admin action).
+    if (assessment.client_id) {
+      const _pv = (rep.result && rep.result.meta && rep.result.meta.prompt_version) || 'unknown';
+      db.logClientEvent({
+        clientId: assessment.client_id, assessmentId: aid,
+        eventType: 'em_rerun_completed',
+        eventDescription: `EM Lab Re-run Report completed (model: ${experimentalAnalysis.EM_MODEL_OPUS}, prompt version: ${_pv})`,
+        actor: req.session.coach_name,
+      });
+    }
 
     return res.json({
       ok: true,
@@ -7419,6 +7588,13 @@ app.post('/admin/retry/:client_id', requireAdmin, async (req, res) => {
       `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
       [payload.assessment_id]
     );
+    // PR B: lifecycle audit — report delivered via admin retry.
+    db.logClientEvent({
+      clientId, assessmentId: payload.assessment_id,
+      eventType: 'report_delivered',
+      eventDescription: 'Report delivered (admin retry)',
+      actor: req.session.coach_name,
+    });
 
     console.log(`[admin/retry] succeeded for client #${clientId}`);
     return res.json({ success: true, message: 'API call succeeded. PDFs generated and email sent.' });
@@ -7486,6 +7662,13 @@ app.post('/admin/resend/:client_id', requireAdminSession, async (req, res) => {
       `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
       [payload.assessment_id]
     );
+    // PR B: lifecycle audit — report delivered via admin resend.
+    db.logClientEvent({
+      clientId, assessmentId: payload.assessment_id,
+      eventType: 'report_delivered',
+      eventDescription: 'Report delivered (admin resend)',
+      actor: req.session.coach_name,
+    });
     console.log(`[admin/resend] email resent for client #${clientId}`);
     return res.json({ success: true, message: 'Email resent.' });
   } catch (e) {
@@ -7605,7 +7788,12 @@ app.get('/admin/clients/:client_id/profile', requireAdminSession, async (req, re
   const assessment = asmR && asmR.rows.length > 0 ? asmR.rows[0] : null;
 
   const history = await db.getEditHistory('client', clientId);
-  return res.json({ client, assessment, history });
+  // PR B: lifecycle audit trail for the History tab. Super-admin only — defense-in-depth:
+  // regular coaches never receive the data even though the route is admin-session gated.
+  const clientHistory = req.session.coach_is_super_admin === true
+    ? await db.getClientHistory(clientId)
+    : [];
+  return res.json({ client, assessment, history, clientHistory });
 });
 
 app.get('/admin/clients/:client_id/edit-history', requireAdminSession, async (req, res) => {

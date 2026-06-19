@@ -198,6 +198,23 @@ CREATE TABLE IF NOT EXISTS edit_history (
   edited_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- ─── Client history log (PR B) ───────────────────────────────────────────────────
+-- Read-only lifecycle audit trail surfaced in the client details modal's History tab
+-- (super-admin only). Distinct from edit_history (which logs profile-field edits): this
+-- records significant lifecycle events — client created, invitation sent, assessment
+-- started/completed, report delivered, EM Lab activity, and retake workflow steps.
+-- client_id CASCADE so history dies with the client; assessment_id SET NULL so a
+-- retake-safe assessment deletion preserves the history row.
+CREATE TABLE IF NOT EXISTS client_history (
+  id                SERIAL PRIMARY KEY,
+  client_id         INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+  assessment_id     INTEGER REFERENCES assessments(id) ON DELETE SET NULL,
+  event_type        VARCHAR(64),
+  event_description TEXT,
+  actor             VARCHAR(255),
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS pdf_tokens (
   token TEXT PRIMARY KEY,
   filename TEXT NOT NULL,
@@ -700,6 +717,31 @@ async function getEditHistory(recordType, recordId) {
     `SELECT id, edited_at, edited_by_id, edited_by_name, change_summary, editor_note
      FROM edit_history WHERE record_type = $1 AND record_id = $2 ORDER BY edited_at DESC`,
     [recordType, recordId]
+  );
+  return r ? r.rows : [];
+}
+
+// PR B: append a lifecycle event to client_history. Swallows its own errors — this is
+// audit logging that fires inside fire-and-forget background jobs, email paths, and
+// download streams, so a logging failure must NEVER abort the primary operation.
+async function logClientEvent({ clientId, assessmentId, eventType, eventDescription, actor }) {
+  try {
+    if (!clientId) return;
+    await query(
+      `INSERT INTO client_history (client_id, assessment_id, event_type, event_description, actor)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [clientId, assessmentId ?? null, eventType ?? null, eventDescription ?? null, actor ?? 'system']
+    );
+  } catch (e) {
+    console.error('[client_history] logClientEvent failed:', e.message);
+  }
+}
+
+async function getClientHistory(clientId) {
+  const r = await query(
+    `SELECT id, client_id, assessment_id, event_type, event_description, actor, created_at
+     FROM client_history WHERE client_id = $1 ORDER BY created_at DESC`,
+    [clientId]
   );
   return r ? r.rows : [];
 }
@@ -1380,6 +1422,8 @@ module.exports = {
   updateClient,
   insertEditHistory,
   getEditHistory,
+  logClientEvent,
+  getClientHistory,
   getClientCoachId,
   getReportCoachId,
   getClientReportPaths,
