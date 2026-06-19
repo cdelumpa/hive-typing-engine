@@ -385,7 +385,9 @@ EMPTY — Client left it blank or skipped.
   - Ignore entirely, no processing, no flags
 
 Verdict — set the judgment fields
-confirmed_type is normally the leading_candidate. It changes ONLY on a REDIRECT, where the Stage 4 evidence favored the alternate: in that case set confirmed_type to the alternate_candidate and set redirect_from_type to the original leading_candidate. Otherwise redirect_from_type is null. Set confirmed_type_name to the canonical name of confirmed_type. Set hypothesis_validated true when the leading hypothesis cohered and held, false when it did not (a REDIRECT, or a coherence read that undercut it). Set dominant_instinct_hypothesis from the three-instinct profile and the Call #1 dominant instinct; if the top two instincts are within a point or two, do not force a winner — name your best read and raise low_instinct_confidence. Record the holistic read in holistic_analysis (stage0_coherence, cross_stage_consistency, instinct_coherence, alternative_type_signal, confidence_adjustment), each citing specific evidence.
+confirmed_type is normally the leading_candidate. It changes ONLY on a REDIRECT, where the Stage 4 evidence favored the alternate: in that case set confirmed_type to the alternate_candidate and set redirect_from_type to the original leading_candidate. Otherwise redirect_from_type is null.
+
+CRITICAL — which type is "the alternate" on a REDIRECT: when stage4_outcome is REDIRECT, you have just confirmed the type that was the alternate_candidate, and the engine then moves the displaced original leader into alternate_candidate after you return. So on a REDIRECT, the alternate type hypothesis — the runner-up to hold lightly, the one a coach raises if the client pushes back — is redirect_from_type, NOT alternate_candidate (which on a REDIRECT still names the type you just confirmed). For every prose field that names or describes the alternate type (Section 6 pushes_back alt_type_name and key_distinction, and any secondary-type discussion), treat redirect_from_type as the alternate. On all non-REDIRECT outcomes, alternate_candidate is the alternate as usual. Set confirmed_type_name to the canonical name of confirmed_type. Set hypothesis_validated true when the leading hypothesis cohered and held, false when it did not (a REDIRECT, or a coherence read that undercut it). Set dominant_instinct_hypothesis from the three-instinct profile and the Call #1 dominant instinct; if the top two instincts are within a point or two, do not force a winner — name your best read and raise low_instinct_confidence. Record the holistic read in holistic_analysis (stage0_coherence, cross_stage_consistency, instinct_coherence, alternative_type_signal, confidence_adjustment), each citing specific evidence.
 
 TASK 2 — Identify and Describe Flags
 The flag enum is CLOSED — use ONLY the flag_type values below and never invent a flag type. Note each that is present and describe it specifically, never generically. Quote the client's actual words where relevant. Only flag what is genuinely present; do not manufacture flags for a clean result.
@@ -537,9 +539,9 @@ resonates_strongly: bullets (2-3) on what to do when client strongly agrees — 
 pushes_back: bullets (3-4) on how to handle pushback — do not defend the hypothesis, name the most likely alternate type with the key distinguishing question
 confused: bullets (2-3) on how to work with confusion — find the foothold, treat what doesn't fit as equally useful + probe
 
-For pushes_back, include these two fields separately:
-  alt_type_name: the alternate_candidate named as a string (e.g. "Type 1 — The Improver")
-  key_distinction: one sentence stating the key distinguishing question between the confirmed type and the alternate_candidate
+For pushes_back, include these two fields separately (on a REDIRECT, "the alternate" here is redirect_from_type, not alternate_candidate — see the REDIRECT rule in Task 1):
+  alt_type_name: the alternate type named as a string (e.g. "Type 1 — The Improver")
+  key_distinction: one sentence stating the key distinguishing question between the confirmed type and the alternate type
 
 SECTION 6A (produce only when type-confusion flags are present AND stage4_outcome is not REDIRECT, otherwise set to null. Confusion flags: lookalike_ambiguity, ranking_override, or AMBIGUOUS outcome)
 types_in_question: string describing both types being explored (e.g. "Type 9 and Type 1")
@@ -1168,6 +1170,48 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     // Step 7: stamp the deterministic Stage-1 coherence gap (tight/medium/wide) so the
     // prep layer can derive near_tie = (gap === 'tight'). Engine-set; the AI never emits it.
     if (scores.gap != null)             h.gap                    = scores.gap;
+
+    // Defect #2 — REDIRECT swap. On a REDIRECT the model set confirmed_type to the
+    // (former) alternate and redirect_from_type to the displaced original leader. The
+    // alternate_candidate stamp above re-asserted Call #1's position-2 type, which on a
+    // REDIRECT is exactly the type just confirmed — leaving confirmed_type ===
+    // alternate_candidate. Move the displaced leader into alternate_candidate so the
+    // alternate is a genuine competing hypothesis again. (em_only never redirects —
+    // its adapter hard-sets redirect_from_type=null — so this is inert on that path.)
+    if (h.stage4_outcome === 'REDIRECT' && h.redirect_from_type != null
+        && h.redirect_from_type !== h.confirmed_type) {
+      h.alternate_candidate = h.redirect_from_type;
+    }
+
+    // Defect #3 — equality guard (backstop). After the swap, confirmed_type must never
+    // equal alternate_candidate. If it still does, recover from redirect_from_type when
+    // possible; otherwise flag the collision for admin review. Never pass a collided
+    // result through silently — but do not hard-stop: the client still gets a report.
+    if (h.confirmed_type != null && h.confirmed_type === h.alternate_candidate) {
+      console.error(`[collision] assessment #${assessmentId}: confirmed_type === alternate_candidate (Type ${h.confirmed_type}); redirect_from_type=${h.redirect_from_type}, outcome=${h.stage4_outcome}`);
+      if (h.redirect_from_type != null && h.redirect_from_type !== h.confirmed_type) {
+        h.alternate_candidate = h.redirect_from_type;
+      } else {
+        result.collision_flag = true;
+        result.flags = Array.isArray(result.flags) ? result.flags : [];
+        result.flags.push({
+          flag_type: 'engine_collision',
+          description: 'confirmed_type equalled alternate_candidate; no clean recovery. Flagged for review.',
+        });
+      }
+    }
+
+    // Defect #4 — coach note for a suppressed REDIRECT. computeStage4Scores downgraded a
+    // wide-gap REDIRECT to CONFIRMED_WITH_NOTE upstream, so the model never saw a REDIRECT
+    // and confirmed the leading type normally. Surface the reason to the coach as an
+    // engine-authored flag (renders cleanly; not in renderer's confusion-flag set).
+    if (scores.stage4 && scores.stage4.redirectSuppressed === true) {
+      result.flags = Array.isArray(result.flags) ? result.flags : [];
+      result.flags.push({
+        flag_type: 'redirect_suppressed',
+        description: 'Stage 4 movement evidence pointed toward the alternate type, but the coherence gap between the leading and alternate hypotheses is large enough that the redirect has been suppressed. The leading type hypothesis is retained. The coach should explore the Stage 4 movement pattern in the debrief.',
+      });
+    }
   }
 
   // 3. Persist api_result now that the call succeeded
