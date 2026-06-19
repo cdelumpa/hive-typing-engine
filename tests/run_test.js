@@ -42,6 +42,10 @@ const os   = require('os');
 // Render half (Step 7 Phase 7b): exercise the full pipeline — report_prep -> Part B/C
 // renderer -> measurement gate (with self-heal) — on the live Call #2 result.
 const renderReport = require(path.join(__dirname, '..', 'app', 'render_report'));
+// Call #2 deterministic post-processing (stamping + REDIRECT fixes). Production applies
+// this in runBackgroundJob AFTER Call #2 returns; /api/analyze does NOT, so the runner
+// replays it here to be faithful to what a completed assessment actually persists.
+const { applyCall2DeterministicStamps } = require(path.join(__dirname, '..', 'app', 'call2_stamp'));
 
 // ─── Args ─────────────────────────────────────────────────────────────────────
 const fixtureName = (process.argv[2] || '').toLowerCase();
@@ -261,15 +265,39 @@ async function runAssert() {
   }
 
   const result = resp.result;
+  // Replay production's post-Call-#2 deterministic stamping + REDIRECT fixes. /api/analyze
+  // returns the raw model verdict; runBackgroundJob applies these stamps before persisting,
+  // so the runner must too — otherwise a REDIRECT fixture would see the un-swapped collision
+  // (confirmed_type === alternate_candidate). On CONFIRMED fixtures (sp4/sx7) this is inert.
+  const stampScores = Object.assign({}, fixture.scores, { call1Result: fixture.call1Result });
+  applyCall2DeterministicStamps(result, stampScores, 'sm_only', null);
+
   const h = result.hypothesis || {};
   const flags = (result.flags || []).map(f => f.flag_type);
   const fr = result.final_response || {};
 
+  const VALID_CONFIDENCE = ['VERY_HIGH', 'HIGH', 'MODERATE', 'LOW', 'VERY_LOW'];
+
   console.log('\n=== VERIFICATION ===');
   check('confirmed_type',   h.confirmed_type,   meta.expected_type);
-  check('confidence_level', h.confidence_level, meta.expected_confidence);
+  // Confidence on a REDIRECT is model judgment — "ANY_VALID" checks membership in the valid
+  // set rather than a brittle exact value; otherwise exact match as before.
+  if (meta.expected_confidence === 'ANY_VALID') {
+    checkTrue(`confidence_level is valid (${JSON.stringify(h.confidence_level)})`, VALID_CONFIDENCE.includes(h.confidence_level));
+  } else {
+    check('confidence_level', h.confidence_level, meta.expected_confidence);
+  }
   check('stage4_outcome',   h.stage4_outcome,   meta.expected_stage4_outcome);
   check('ranking_override', h.ranking_override, meta.expected_ranking_override);
+  // REDIRECT-specific assertions (additive — only run when the fixture declares them).
+  if (meta.expected_redirect_from_type != null) {
+    check('redirect_from_type', h.redirect_from_type, meta.expected_redirect_from_type);
+  }
+  if (meta.expected_alternate_candidate != null) {
+    check('alternate_candidate', h.alternate_candidate, meta.expected_alternate_candidate);
+    // The core schema violation the redirect-fix repaired: these must never be equal.
+    checkTrue('confirmed_type !== alternate_candidate', h.confirmed_type !== h.alternate_candidate);
+  }
   for (const f of (meta.expected_flags || [])) {
     checkTrue(`flags contains "${f}"`, flags.includes(f));
   }

@@ -1,0 +1,103 @@
+{
+  "_meta": {
+    "name": "RD69 Self-Preservation Six → Type 9 REDIRECT (small-gap)",
+    "description": "SP6→9 REDIRECT — small gap (20pts), Stage 4 both lean to Type 9, swap fires, alternate becomes Type 6. Exercises Defect #2b (Call #2 prompt names redirect_from_type as the alternate) and, after the runner replays applyCall2DeterministicStamps, the engine swap (Defect #2) end-to-end. confirmed_type 9, redirect_from_type 6, alternate_candidate swapped to 6, confirmed_type !== alternate_candidate.",
+    "expected_type": 9,
+    "expected_confidence": "ANY_VALID",
+    "expected_stage4_outcome": "REDIRECT",
+    "expected_redirect_from_type": 6,
+    "expected_alternate_candidate": 6,
+    "expected_ranking_override": false,
+    "expected_flags": [],
+    "expected_dominant_instinct": "SP",
+    "expected_final_response_classification": "EMPTY"
+  },
+  "intake": {
+    "firstName": "Test",
+    "lastName": "Client-RD69",
+    "organization": "Not provided",
+    "coach": "Cai Delumpa"
+  },
+  "stage0Answers": {
+    "q1": "loyal, careful, a bit anxious — I think through what could go wrong so the people I'm responsible for are covered, and I stick by my commitments even when it's hard",
+    "q2": "dependable, conscientious, sometimes a worrier; the person others trust to have a plan B",
+    "q3": "preparation and loyalty — I anticipate problems before they happen and I don't bail on people when things get difficult",
+    "q4": "doubt — I second-guess myself and the people around me, and I can get stuck scanning for threats instead of just trusting that things will be okay"
+  },
+  "stage1TypeOpen": "My mind is always running worst-case scenarios — not because I'm negative, but because if I've prepared for it, it can't blindside me or the people counting on me. I have a complicated relationship with authority: I want something solid to trust, but part of me is always testing whether it actually deserves my trust.",
+  "stage1InstinctOpen": "Security is everything to me — I keep a buffer in savings, I know where the exits are, and I don't like depending on anyone for the basics. I'd rather over-prepare my own resources than get caught needing something I don't have.",
+  "stage2Answers": ["B", "A", { "a": 2, "b": 3, "c": 1 }],
+  "scores": {
+    "typeProfile": {
+      "1": 52.0,
+      "2": 46.0,
+      "3": 42.0,
+      "4": 38.0,
+      "5": 48.0,
+      "6": 70.0,
+      "7": 40.0,
+      "8": 44.0,
+      "9": 58.0
+    },
+    "instinctProfile": { "SP": 68.0, "SO": 50.0, "SX": 42.0 },
+    "leadingType": 6,
+    "alternateType": 9,
+    "gap": 12.0,
+    "highAmbiguity": false,
+    "dominantInstinct": "SP",
+    "stage3": {
+      "mode": "STANDARD",
+      "administered": true,
+      "pairKey": "6-9",
+      "typeA": 6,
+      "typeB": 9,
+      "leading": 6,
+      "alternate": 9,
+      "q1Answer": "A",
+      "q1Lean": "Person A clean (Type 6)",
+      "q2Answer": null,
+      "q2Lean": null
+    },
+    "stage4": {
+      "path": "STANDARD",
+      "option": "B",
+      "leadType": 6,
+      "secondType": 9,
+      "ctKey": null,
+      "stressConfirmed": false,
+      "securityConfirmed": false,
+      "habitConfirmed": null,
+      "outcome": "REDIRECT",
+      "stressAnswer": "B",
+      "securityAnswer": "B",
+      "stressDescription": "leaned strongly toward second candidate — lead Type 6, second Type 9.",
+      "securityDescription": "leaned strongly toward second candidate — lead Type 6, second Type 9.",
+      "habitAnswer": null,
+      "habitDescription": null,
+      "redirectSuppressed": false,
+      "redirectGap": 20
+    }
+  },
+  "call1Result": {
+    "ranking": [
+      { "type": 6, "score": 72 },
+      { "type": 9, "score": 52 },
+      { "type": 1, "score": 48 },
+      { "type": 5, "score": 44 },
+      { "type": 2, "score": 40 },
+      { "type": 3, "score": 35 },
+      { "type": 7, "score": 30 },
+      { "type": 4, "score": 28 },
+      { "type": 8, "score": 25 }
+    ],
+    "leading_candidate": 6,
+    "alternate_candidate": 9,
+    "third_candidate": 1,
+    "gap": "narrow",
+    "supporting_language": "My mind is always running worst-case scenarios — not because I'm negative, but because if I've prepared for it, it can't blindside me or the people counting on me.",
+    "stage3_mode": "standard",
+    "ct_pair": "Null",
+    "dominant_instinct": "SP"
+  },
+  "finalOpenResponse": "[none provided]"
+}
