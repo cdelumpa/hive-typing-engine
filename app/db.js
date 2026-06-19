@@ -311,6 +311,13 @@ CREATE TABLE IF NOT EXISTS em_rerun_reports (
   prompt_version VARCHAR(64),
   generated_at   TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ─── A2 EM Lab tooling migration ─────────────────────────────────────────────────
+-- Re-run PDF paths. A2 restores PDF generation for the EM Lab Re-run Report, but the
+-- PDFs land under the rerun_*_<assessment_id>_<timestamp>.pdf naming convention and are
+-- recorded HERE — never inserted into the reports table (which drives the dashboard).
+ALTER TABLE em_rerun_reports ADD COLUMN IF NOT EXISTS rerun_client_pdf_path VARCHAR;
+ALTER TABLE em_rerun_reports ADD COLUMN IF NOT EXISTS rerun_coach_pdf_path  VARCHAR;
 `;
 
 const SEED_SQL = `
@@ -1301,6 +1308,15 @@ async function getEmRerunReport(assessmentId) {
   return r && r.rows.length > 0 ? r.rows[0] : null;
 }
 
+// A2: record the re-run PDF paths on the existing em_rerun_reports row (written after
+// the result is stored and the PDFs are generated). Does not touch the reports table.
+async function updateEmRerunReportPdfPaths(assessmentId, clientPath, coachPath) {
+  await query(
+    `UPDATE em_rerun_reports SET rerun_client_pdf_path = $1, rerun_coach_pdf_path = $2 WHERE assessment_id = $3`,
+    [clientPath ?? null, coachPath ?? null, assessmentId]
+  );
+}
+
 // Per-client analysis_mode override (EM Lab profile control). mode is a string
 // ('parallel'/'em_only'/'sm_only') or null to clear the override (inherit global).
 async function setClientAnalysisMode(clientId, mode) {
@@ -1420,6 +1436,7 @@ module.exports = {
   getEmResult,
   saveEmRerunReport,
   getEmRerunReport,
+  updateEmRerunReportPdfPaths,
   insertEmReliabilityLog,
   getEmReliabilityLog,
   setClientAnalysisMode,

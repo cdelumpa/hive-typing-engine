@@ -9,6 +9,7 @@ const session    = require('express-session');
 const crypto     = require('crypto');
 const fs         = require('fs');
 const path       = require('path');
+const archiver   = require('archiver');   // A2: stream the EM Lab Full Context Package ZIP
 
 // override: true lets values in .env authoritatively replace ambient shell env.
 require('dotenv').config({ override: true });
@@ -947,6 +948,42 @@ async function generateReportPDFs(result, scores, intake, assessmentId) {
   }
 
   return { clientPdfPath, coachPdfPath };
+}
+
+// A2: EM Lab re-run PDF generation. Mirrors generateReportPDFs but (1) uses the
+// rerun_*_<assessmentId>_<timestamp>.pdf naming convention so the files are visibly
+// distinct from production PDFs, and (2) NEVER calls db.createReport — these PDFs are
+// recorded only on em_rerun_reports and surfaced only inside EM Lab, never on the
+// dashboard. PDF failures are non-fatal: the caller has already persisted the re-run
+// result, so a render failure must not lose it.
+async function generateRerunReportPDFs(result, intake, assessmentId) {
+  const pdfOpts = buildCoachPdfOptions();
+  const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+  const client = { first_name: intake.firstName, last_name: intake.lastName, organization: intake.organization, date: reportDate };
+  const coach = { full_name: intake.coach || 'Cai Delumpa', type: null, instinct: null };
+  let clientPdfPath = null;
+  let coachPdfPath  = null;
+  let ok = true;
+
+  try {
+    const { html } = await renderClientReport({ apiResult: result, client, coach });
+    clientPdfPath = await generatePDF(html, `rerun_client_${assessmentId}`, pdfOpts);
+    console.log(`[em-lab/rerun-pdf] #${assessmentId} client PDF generated: ${clientPdfPath}`);
+  } catch (e) {
+    ok = false;
+    console.error(`[em-lab/rerun-pdf] #${assessmentId} client PDF generation failed:`, e.message);
+  }
+
+  try {
+    const { html } = await renderCoachReport({ apiResult: result, client, coach });
+    coachPdfPath = await generatePDF(html, `rerun_coach_${assessmentId}`, pdfOpts);
+    console.log(`[em-lab/rerun-pdf] #${assessmentId} coach PDF generated: ${coachPdfPath}`);
+  } catch (e) {
+    ok = false;
+    console.error(`[em-lab/rerun-pdf] #${assessmentId} coach PDF generation failed:`, e.message);
+  }
+
+  return { clientPdfPath, coachPdfPath, pdf_generated: ok };
 }
 
 // =================== BACKGROUND JOB ===================
@@ -5271,11 +5308,34 @@ function renderEmDetailHtml(d) {
     + (meta.source_assessment_is_latest === false ? '<tr><th>Warning</th><td class="em-warn">Snapshot reflects the client\'s latest assessment, not this one.</td></tr>' : '')
     + '</tbody></table>';
 
+  // Download Comparison (A2): active only when BOTH a Sonnet and an Opus analysis run
+  // exist for this assessment; otherwise disabled with a tooltip naming what's missing.
+  const hasSonnet = !!d.hasSonnetRerun;
+  const hasOpus = !!d.hasOpusRerun;
+  let comparisonBtn;
+  if (hasSonnet && hasOpus) {
+    comparisonBtn = '<a class="em-btn em-btn-ghost" href="/admin/em-lab/assessment/' + aid + '/comparison.csv">Download Comparison</a>';
+  } else {
+    const missing = !hasSonnet && !hasOpus ? 'Sonnet and Opus re-runs' : (!hasSonnet ? 'Sonnet re-run' : 'Opus re-run');
+    comparisonBtn = '<button class="em-btn em-btn-ghost" disabled title="Run ' + esc(missing) + ' first to enable comparison">Download Comparison</button>';
+  }
+
   const actions = '<div class="em-detail-actions">'
     + '<button class="em-btn" onclick="emRun(' + aid + ',\'sonnet\',this)">Re-run (Sonnet)</button>'
     + '<button class="em-btn em-btn-ghost" onclick="emRun(' + aid + ',\'opus\',this)">Run Opus</button>'
-    + '<button class="em-btn em-btn-ghost" onclick="emReport(' + aid + ',this)">Re-run Report</button></div>'
-    + '<p class="em-muted" style="margin-top:8px;font-size:12px;">Re-run Report regenerates the EM report analysis and stores it separately for review — it no longer touches the client\'s production result or PDFs. Re-run PDF generation is temporarily unavailable and will be restored in the next update.</p>';
+    + '<button class="em-btn em-btn-ghost" onclick="emReport(' + aid + ',this)">Re-run Report</button>'
+    + '<a class="em-btn em-btn-ghost" href="/admin/em-lab/assessment/' + aid + '/context-package">Download Full Context Package</a>'
+    + comparisonBtn
+    + '</div>';
+
+  // Re-run PDF links (A2): surfaced only after a Re-run Report has produced PDFs.
+  const rr = d.rerunReport || null;
+  const rerunLinks = (rr && (rr.rerun_client_pdf_path || rr.rerun_coach_pdf_path))
+    ? '<div class="em-detail-actions" style="margin-top:8px;">'
+      + (rr.rerun_client_pdf_path ? '<a class="em-btn em-btn-ghost" href="/admin/em-lab/assessment/' + aid + '/rerun-pdf/client" target="_blank" rel="noopener">View Re-run Client Report</a>' : '')
+      + (rr.rerun_coach_pdf_path ? '<a class="em-btn em-btn-ghost" href="/admin/em-lab/assessment/' + aid + '/rerun-pdf/coach" target="_blank" rel="noopener">View Re-run Coach Report</a>' : '')
+      + '</div>'
+    : '';
 
   return '<div class="em-detail">'
     + '<div class="em-3col">' + smCol + emCol + decCol + '</div>'
@@ -5287,7 +5347,7 @@ function renderEmDetailHtml(d) {
     + ctHtml
     + '<div class="em-section"><div class="em-h">EM reasoning</div><div class="em-reasoning">' + esc(em.reasoning || '—') + '</div></div>'
     + '<div class="em-section"><div class="em-h">Run metadata</div>' + metaHtml + '</div>'
-    + actions + '</div>';
+    + actions + rerunLinks + '</div>';
 }
 
 // GET the EM Lab page (Overview / Mode Settings / Reliability rendered server-side;
@@ -5309,11 +5369,12 @@ app.get('/admin/em-lab/assessment/:assessment_id', requireSuperAdmin, async (req
   try {
     const assessment = await db.getAssessmentById(aid);
     if (!assessment) return res.json({ available: false, error: 'Assessment not found' });
-    const [em, logRows, declared, client] = await Promise.all([
+    const [em, logRows, declared, client, rerunReport] = await Promise.all([
       db.getEmResult(aid).catch(() => null),
       db.getEmReliabilityLog({ assessmentId: aid }).catch(() => []),
       db.getBetaFeedback(aid).catch(() => null),
       db.getClientById(assessment.client_id).catch(() => null),
+      db.getEmRerunReport(aid).catch(() => null),
     ]);
     const sonnetRow = (logRows || []).find((r) => r.em_type_sonnet != null);
     const opusRow = (logRows || []).find((r) => r.em_type_opus != null);
@@ -5323,6 +5384,9 @@ app.get('/admin/em-lab/assessment/:assessment_id', requireSuperAdmin, async (req
       em: _emParse(em),
       emSonnetType: sonnetRow ? sonnetRow.em_type_sonnet : null,
       emOpusType: opusRow ? opusRow.em_type_opus : null,
+      hasSonnetRerun: !!sonnetRow,
+      hasOpusRerun: !!opusRow,
+      rerunReport: rerunReport || null,
       declared,
       client,
     });
@@ -5331,6 +5395,225 @@ app.get('/admin/em-lab/assessment/:assessment_id', requireSuperAdmin, async (req
   } catch (e) {
     console.error('[em-lab/detail] failed:', e.message);
     return res.status(500).json({ available: false, error: e.message });
+  }
+});
+
+// ── A2 EM Lab tooling helpers ────────────────────────────────────────────────────
+// Filename-safe segment: lowercase, non-alphanumerics → underscore. Used for the
+// download Content-Disposition names.
+function _safeSegment(str) {
+  return (str == null || String(str).trim() === '' ? 'unknown' : String(str))
+    .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'unknown';
+}
+
+// RFC 4180 CSV cell + spreadsheet formula-injection guard. A leading = + - @ is
+// neutralized with a single quote so Excel/Sheets won't evaluate it as a formula.
+function _csvCell(value) {
+  let s = value == null ? '' : String(value);
+  if (/^[=+\-@]/.test(s)) s = "'" + s;
+  if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+// GET the Full Context Package (ZIP) for one assessment — five JSON files, no PDFs.
+// Streams via archiver. Super-admin only; EM Lab is a read/analysis workspace.
+app.get('/admin/em-lab/assessment/:assessment_id/context-package', requireSuperAdmin, async (req, res) => {
+  const aid = parseInt(req.params.assessment_id, 10);
+  if (!aid || isNaN(aid)) return res.status(400).json({ error: 'Invalid assessment id' });
+  try {
+    const assessment = await db.getAssessmentById(aid);
+    if (!assessment) return res.status(404).json({ error: 'Assessment not found' });
+    if (assessment.status !== 'complete') {
+      return res.status(422).json({ error: 'Assessment is not complete — context package unavailable until completion.' });
+    }
+
+    const [client, settings] = await Promise.all([
+      assessment.client_id ? db.getClientById(assessment.client_id).catch(() => null) : null,
+      db.getAppSettings().catch(() => null),
+    ]);
+    const coach = client && client.coach_id ? await db.getCoachById(client.coach_id).catch(() => null) : null;
+
+    const apiResult = _emParse(assessment.api_result);
+    const hyp = (apiResult && apiResult.hypothesis) || {};
+    const meta = (apiResult && apiResult.meta) || {};
+    const clientName = client ? ((client.first_name || '') + ' ' + (client.last_name || '')).trim() : null;
+    const completedAt = assessment.assessment_completed_at || assessment.completed_at || null;
+
+    // responses_snapshot: prefer the per-assessment column (A1); fall back to the
+    // deprecated clients column with a note that it may reflect a later assessment.
+    let snapshot = _emParse(assessment.responses_snapshot);
+    let snapshotNote = null;
+    if (!snapshot && client) {
+      snapshot = _emParse(client.responses_snapshot);
+      if (snapshot) snapshotNote = 'responses_snapshot read from clients table — may reflect a later assessment';
+    }
+
+    // a) assessment_result.json
+    const resultFile = apiResult || { unavailable: true, note: 'api_result was not set at time of download' };
+
+    // b) raw_scores.json — snapshot wrapped with a metadata header.
+    const rawScoresFile = {
+      _metadata: {
+        assessment_id: aid,
+        client_name: clientName,
+        completion_date: completedAt,
+        model: meta.model || null,
+        prompt_version: meta.prompt_version || null,
+        ...(snapshotNote ? { _note: snapshotNote } : {}),
+      },
+      responses_snapshot: snapshot || null,
+    };
+
+    // c) open_responses.json — verbatim, null fields omitted. finalQuestion is the
+    //    TOP-LEVEL snapshot key (the "Stage 4 final reflection"); there is no stage4.finalQuestion.
+    const s0 = (snapshot && snapshot.stage0) || {};
+    const s1 = (snapshot && snapshot.stage1) || {};
+    const openResponses = {};
+    if (s0.q1) openResponses['Stage 0 — Q1 (self-description)'] = s0.q1;
+    if (s0.q2) openResponses['Stage 0 — Q2 (how others describe you)'] = s0.q2;
+    if (s0.q3) openResponses['Stage 0 — Q3 (greatest strength)'] = s0.q3;
+    if (s0.q4) openResponses['Stage 0 — Q4 (most problematic)'] = s0.q4;
+    if (s1.typeOpen) openResponses['Stage 1 — Type open response'] = s1.typeOpen;
+    if (s1.instinctOpen) openResponses['Stage 1 — Instinct open response'] = s1.instinctOpen;
+    if (snapshot && snapshot.finalQuestion) openResponses['Stage 4 — Final reflection'] = snapshot.finalQuestion;
+
+    // d) assessment_metadata.json
+    const metadataFile = {
+      client_id: assessment.client_id,
+      assessment_id: aid,
+      client_name: clientName,
+      coach_name: coach ? coach.name : null,
+      completed_at: completedAt,
+      analysis_mode: assessment.analysis_mode || null,
+      assessment_analysis_mode_override: assessment.analysis_mode || null,
+      current_global_em_analysis_mode: settings ? (settings.em_analysis_mode || null) : null,
+      _note: 'current_global_em_analysis_mode is current-state, not the mode historically in effect at assessment time',
+      model: meta.model || null,
+      prompt_version: meta.prompt_version || null,
+      confirmed_type: hyp.confirmed_type ?? assessment.confirmed_type ?? null,
+      confidence_level: hyp.confidence_level ?? assessment.confidence_level ?? null,
+      dominant_instinct_hypothesis: hyp.dominant_instinct_hypothesis ?? assessment.dominant_instinct_hypothesis ?? null,
+      alternate_candidate: hyp.alternate_candidate ?? null,
+      stage4_outcome: hyp.stage4_outcome ?? null,
+      ...(hyp.counter_type_flag ? { counter_type_flag: hyp.counter_type_flag } : {}),
+    };
+
+    // e) em_analysis.json
+    const emAnalysis = _emParse(assessment.experimental_raw_analysis);
+    const emAnalysisFile = emAnalysis || { unavailable: true, note: 'No EM analysis run found for this assessment' };
+
+    const last = _safeSegment(client && client.last_name);
+    const first = _safeSegment(client && client.first_name);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="context_package_${last}_${first}_${aid}.zip"`);
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', (err) => {
+      console.error(`[em-lab/context-package] #${aid} archive error:`, err.message);
+      try { res.destroy(err); } catch (e) {}
+    });
+    archive.pipe(res);
+    const J = (o) => JSON.stringify(o, null, 2);
+    archive.append(J(resultFile), { name: 'assessment_result.json' });
+    archive.append(J(rawScoresFile), { name: 'raw_scores.json' });
+    archive.append(J(openResponses), { name: 'open_responses.json' });
+    archive.append(J(metadataFile), { name: 'assessment_metadata.json' });
+    archive.append(J(emAnalysisFile), { name: 'em_analysis.json' });
+    await archive.finalize();
+    console.log(`[em-lab/context-package] #${aid} streamed (5 files)`);
+  } catch (e) {
+    console.error('[em-lab/context-package] route error:', e.message);
+    if (!res.headersSent) res.status(500).json({ error: e.message });
+  }
+});
+
+// GET the Sonnet-vs-Opus comparison CSV for one assessment. Sources the latest Sonnet
+// and latest Opus EM ANALYSIS runs from em_reliability_log (full_em_result). Super-admin only.
+app.get('/admin/em-lab/assessment/:assessment_id/comparison.csv', requireSuperAdmin, async (req, res) => {
+  const aid = parseInt(req.params.assessment_id, 10);
+  if (!aid || isNaN(aid)) return res.status(400).json({ error: 'Invalid assessment id' });
+  try {
+    const assessment = await db.getAssessmentById(aid);
+    if (!assessment) return res.status(404).json({ error: 'Assessment not found' });
+
+    const logRows = await db.getEmReliabilityLog({ assessmentId: aid }).catch(() => []);
+    const sonnetRow = (logRows || []).find((r) => r.em_type_sonnet != null);
+    const opusRow = (logRows || []).find((r) => r.em_type_opus != null);
+    if (!sonnetRow || !opusRow) {
+      const missing = !sonnetRow && !opusRow ? 'Sonnet and Opus re-runs' : (!sonnetRow ? 'Sonnet re-run' : 'Opus re-run');
+      return res.status(422).json({ error: `Comparison unavailable — missing ${missing}. Run both Sonnet and Opus before downloading.` });
+    }
+
+    const s = _emParse(sonnetRow.full_em_result) || {};
+    const o = _emParse(opusRow.full_em_result) || {};
+    const ctText = (d) => {
+      const ct = d.counter_type_flag || {};
+      return ct.flagged ? 'Yes — ' + _emTypeLabel(ct.type) + (ct.instinct ? ' · ' + ct.instinct : '') : 'No';
+    };
+    const fw = (d) => d.framework_signals || {};
+    const gn = (d) => d.geometric_neighborhood || {};
+    const instConf = (d) => d.em_instinct_confidence ?? (d.instinct_analysis && d.instinct_analysis.dominant_confidence) ?? null;
+
+    const rows = [
+      ['Field', 'Sonnet', 'Opus'],
+      ['Confirmed Type', _emTypeLabel(s.confirmed_type), _emTypeLabel(o.confirmed_type)],
+      ['Confidence', s.confidence_level, o.confidence_level],
+      ['Dominant Instinct', s.dominant_instinct_hypothesis, o.dominant_instinct_hypothesis],
+      ['Instinct Confidence', instConf(s), instConf(o)],
+      ['Alternate Candidate', _emTypeLabel(s.alternate_candidate), _emTypeLabel(o.alternate_candidate)],
+      ['Counter-Type Flag', ctText(s), ctText(o)],
+      ['Reasoning Summary', s.reasoning, o.reasoning],
+    ];
+
+    // Dimensional observations — one row per observation, padded to the longer array.
+    const sObs = Array.isArray(s.dimensional_observations) ? s.dimensional_observations : [];
+    const oObs = Array.isArray(o.dimensional_observations) ? o.dimensional_observations : [];
+    const obsMax = Math.max(sObs.length, oObs.length);
+    for (let i = 0; i < obsMax; i++) {
+      rows.push(['Dimensional Observation ' + (i + 1), sObs[i] != null ? sObs[i] : '', oObs[i] != null ? oObs[i] : '']);
+    }
+
+    rows.push(['Framework Signals — Hornevian', fw(s).hornevian, fw(o).hornevian]);
+    rows.push(['Framework Signals — Harmonic', fw(s).harmonic, fw(o).harmonic]);
+    rows.push(['Framework Signals — Center', fw(s).center, fw(o).center]);
+    rows.push(['Geometric Neighborhood — Active Wing', _emTypeLabel(gn(s).active_wing), _emTypeLabel(gn(o).active_wing)]);
+    rows.push(['Stress Echo', gn(s).stress_echo_present ? (gn(s).stress_echo_note || 'present') : 'no echo', gn(o).stress_echo_present ? (gn(o).stress_echo_note || 'present') : 'no echo']);
+    rows.push(['Security Echo', gn(s).security_echo_present ? (gn(s).security_echo_note || 'present') : 'no echo', gn(o).security_echo_present ? (gn(o).security_echo_note || 'present') : 'no echo']);
+
+    const csv = rows.map((r) => r.map(_csvCell).join(',')).join('\r\n');
+
+    const client = assessment.client_id ? await db.getClientById(assessment.client_id).catch(() => null) : null;
+    const last = _safeSegment(client && client.last_name);
+    const first = _safeSegment(client && client.first_name);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="comparison_${last}_${first}_${aid}.csv"`);
+    return res.send(csv);
+  } catch (e) {
+    console.error('[em-lab/comparison] route error:', e.message);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+// Serve a re-run PDF (client|coach) inline. The path comes ONLY from the
+// em_rerun_reports DB column — never user input — and is basename-guarded before read.
+// Super-admin only; re-run PDFs live exclusively inside EM Lab.
+app.get('/admin/em-lab/assessment/:assessment_id/rerun-pdf/:which', requireSuperAdmin, async (req, res) => {
+  const aid = parseInt(req.params.assessment_id, 10);
+  const which = req.params.which;
+  if (!aid || isNaN(aid)) return res.status(400).send('Invalid assessment id');
+  if (which !== 'client' && which !== 'coach') return res.status(400).send('Invalid report type');
+  try {
+    const rr = await db.getEmRerunReport(aid);
+    const storedPath = rr && (which === 'client' ? rr.rerun_client_pdf_path : rr.rerun_coach_pdf_path);
+    if (!storedPath) return res.status(404).send('No re-run PDF found');
+    const filePath = path.join(REPORTS_DIR, path.basename(storedPath));
+    if (!fs.existsSync(filePath)) return res.status(404).send('Re-run PDF file not found');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${path.basename(filePath)}"`);
+    return res.sendFile(filePath);
+  } catch (e) {
+    console.error('[em-lab/rerun-pdf] route error:', e.message);
+    return res.status(500).send('Error serving re-run PDF');
   }
 });
 
@@ -5345,7 +5628,9 @@ app.get('/admin/em-lab/assessment/:assessment_id', requireSuperAdmin, async (req
 // touch assessments.api_result), nor db.deleteReportsByAssessmentId / generateReportPDFs (the
 // production PDF + reports-row path). Re-run output lands ONLY in em_rerun_reports. The
 // writeApiResultOnce "IS NULL" guard also structurally no-ops any accidental call from here.
-// (A2 will add re-run-only PDFs on a separate rerun_*.pdf path; not in A1.)
+// (A2): re-run PDFs are generated via generateRerunReportPDFs on the rerun_*_<aid>_<ts>.pdf
+// path and recorded on em_rerun_reports only — generateRerunReportPDFs never calls
+// db.createReport, so the reports table and dashboard remain untouched.
 app.post('/admin/em-lab/report/:assessment_id', requireSuperAdmin, async (req, res) => {
   const aid = parseInt(req.params.assessment_id, 10);
   if (!aid || isNaN(aid)) return res.status(400).json({ ok: false, error: 'Invalid assessment id' });
@@ -5419,8 +5704,7 @@ app.post('/admin/em-lab/report/:assessment_id', requireSuperAdmin, async (req, r
 
     // Persist the stamped, validated result to em_rerun_reports ONLY (A1) — last-write-wins
     // per assessment. The production assessment row (api_result, PDFs, reports rows) is never
-    // touched. Production PDF regeneration has been removed from this route; re-run-only PDFs
-    // return in A2.
+    // touched.
     await db.saveEmRerunReport(
       aid,
       probe,
@@ -5429,7 +5713,21 @@ app.post('/admin/em-lab/report/:assessment_id', requireSuperAdmin, async (req, r
     );
     console.log(`[em-lab/report] #${aid} EM report re-run stored in em_rerun_reports — type=${probe.hypothesis && probe.hypothesis.confirmed_type} (report=opus, em_model=${emModel}); api_result untouched`);
 
-    return res.json({ ok: true, result: probe, stored: 'em_rerun_reports', pdf_regenerated: false });
+    // A2: generate re-run PDFs on the rerun_*_<aid>_<ts>.pdf path (NEVER the production
+    // reports table) and record the paths on the em_rerun_reports row. Non-fatal: the
+    // result above is already committed, so a PDF failure is reported but not raised.
+    const rerunPdfs = await generateRerunReportPDFs(probe, intake, aid);
+    await db.updateEmRerunReportPdfPaths(aid, rerunPdfs.clientPdfPath, rerunPdfs.coachPdfPath);
+    if (!rerunPdfs.pdf_generated) console.warn(`[em-lab/report] #${aid} re-run PDF generation incomplete — result stored, PDFs missing`);
+
+    return res.json({
+      ok: true,
+      result: probe,
+      stored: 'em_rerun_reports',
+      pdf_generated: rerunPdfs.pdf_generated,
+      has_client_pdf: !!rerunPdfs.clientPdfPath,
+      has_coach_pdf: !!rerunPdfs.coachPdfPath,
+    });
   } catch (e) {
     console.error('[em-lab/report] route error:', e.message);
     return res.status(500).json({ ok: false, error: e.message });
@@ -5713,7 +6011,7 @@ async function emReport(aid, btn){
     var r=await fetch('/admin/em-lab/report/'+aid,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'}});
     var d=await r.json();
     if(!d.ok){ _emToast('Report run failed: '+(d.error||'error')); if(btn){btn.disabled=false;btn.textContent='Retry Report';} return; }
-    _emToast('EM report re-run complete — stored for review (production result & PDFs untouched)');
+    _emToast(d.pdf_generated ? 'EM report re-run complete — re-run PDFs generated (production untouched)' : 'EM report re-run complete — stored, but PDF generation failed (see logs)');
     emLoadDetail(aid);
   }catch(e){ _emToast('Report run error: '+e.message); if(btn){btn.disabled=false;btn.textContent='Retry Report';} }
 }
