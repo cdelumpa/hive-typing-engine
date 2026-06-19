@@ -1093,11 +1093,12 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     );
   }
 
-  // 1b. Persist responses_snapshot to the clients table so the raw answers
-  //     across every stage are recoverable for debugging and engine calibration.
-  if (clientId && responsesSnapshot) {
+  // 1b. Persist responses_snapshot on the ASSESSMENT row (A1) so the raw answers across
+  //     every stage are recoverable per assessment — a retake no longer overwrites the
+  //     prior take's snapshot. (Was clients.responses_snapshot; that column is deprecated.)
+  if (assessmentId && responsesSnapshot) {
     try {
-      await db.updateClientResponsesSnapshot(clientId, responsesSnapshot);
+      await db.saveAssessmentSnapshot(assessmentId, responsesSnapshot);
     } catch (e) {
       console.error('[submit] responses_snapshot DB write failed:', e.message);
     }
@@ -1214,12 +1215,12 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     }
   }
 
-  // 3. Persist api_result now that the call succeeded
+  // 3. Persist api_result now that the call succeeded (A1: write-once — this is the
+  //    legitimate first write at completion; the IS NULL guard makes it a no-op if a
+  //    result was somehow already frozen, preserving the original).
   if (assessmentId) {
-    await db.query(
-      `UPDATE assessments SET api_result = $1 WHERE id = $2`,
-      [JSON.stringify(result), assessmentId]
-    );
+    const wrote = await db.writeApiResultOnce(assessmentId, result);
+    if (!wrote) console.warn(`[submit] api_result already set for assessment #${assessmentId} — completion write skipped (frozen)`);
   }
 
   // 4. Update assessment record with results
@@ -5273,7 +5274,8 @@ function renderEmDetailHtml(d) {
   const actions = '<div class="em-detail-actions">'
     + '<button class="em-btn" onclick="emRun(' + aid + ',\'sonnet\',this)">Re-run (Sonnet)</button>'
     + '<button class="em-btn em-btn-ghost" onclick="emRun(' + aid + ',\'opus\',this)">Run Opus</button>'
-    + '<button class="em-btn em-btn-ghost" onclick="emReport(' + aid + ',this)">Re-run Report</button></div>';
+    + '<button class="em-btn em-btn-ghost" onclick="emReport(' + aid + ',this)">Re-run Report</button></div>'
+    + '<p class="em-muted" style="margin-top:8px;font-size:12px;">Re-run Report regenerates the EM report analysis and stores it separately for review — it no longer touches the client\'s production result or PDFs. Re-run PDF generation is temporarily unavailable and will be restored in the next update.</p>';
 
   return '<div class="em-detail">'
     + '<div class="em-3col">' + smCol + emCol + decCol + '</div>'
@@ -5335,8 +5337,15 @@ app.get('/admin/em-lab/assessment/:assessment_id', requireSuperAdmin, async (req
 // Re-run JUST the EM Report Call on a stored assessment, using the already-stored EM analysis
 // (experimental_raw_analysis) as input — no full retake, no re-run of the analysis. Reshapes via
 // the adapter, dry-validates against the real renderers (build*Model + render*Report), stamps the
-// 2b score fields, then writes api_result so the coach can regenerate PDFs. Manual / super-admin
-// only; never touches runBackgroundJob. The report call is always Opus (client-facing, C5).
+// 2b score fields, then persists to em_rerun_reports. Manual / super-admin only; never touches
+// runBackgroundJob. The report call is always Opus (client-facing, C5).
+//
+// ARCHITECTURAL GUARD (A1): EM Lab is a read/analysis workspace. This route MUST NEVER write to
+// any production-report path — specifically it must NOT call db.writeApiResultOnce (or otherwise
+// touch assessments.api_result), nor db.deleteReportsByAssessmentId / generateReportPDFs (the
+// production PDF + reports-row path). Re-run output lands ONLY in em_rerun_reports. The
+// writeApiResultOnce "IS NULL" guard also structurally no-ops any accidental call from here.
+// (A2 will add re-run-only PDFs on a separate rerun_*.pdf path; not in A1.)
 app.post('/admin/em-lab/report/:assessment_id', requireSuperAdmin, async (req, res) => {
   const aid = parseInt(req.params.assessment_id, 10);
   if (!aid || isNaN(aid)) return res.status(400).json({ ok: false, error: 'Invalid assessment id' });
@@ -5348,9 +5357,11 @@ app.post('/admin/em-lab/report/:assessment_id', requireSuperAdmin, async (req, r
     const emAnalysis = _emParse(assessment.experimental_raw_analysis);
     if (!emAnalysis) return res.status(422).json({ ok: false, error: 'No EM analysis result found — run EM analysis first' });
 
-    // responses_snapshot lives on the client; scores_snapshot on the assessment.
+    // responses_snapshot now lives on the assessment (A1); fall back to the deprecated
+    // clients column for pre-migration rows that were never backfilled. scores_snapshot
+    // is on the assessment.
     const cl = assessment.client_id ? await db.getClientById(assessment.client_id) : null;
-    const responsesSnapshot = cl ? _emParse(cl.responses_snapshot) : null;
+    const responsesSnapshot = _emParse(assessment.responses_snapshot) || (cl ? _emParse(cl.responses_snapshot) : null);
     if (!responsesSnapshot) return res.status(422).json({ ok: false, error: 'No responses_snapshot found for this assessment' });
     const scores = _emParse(assessment.scores_snapshot) || {};
 
@@ -5406,26 +5417,19 @@ app.post('/admin/em-lab/report/:assessment_id', requireSuperAdmin, async (req, r
       return res.status(422).json({ ok: false, error: 'Report failed renderer validation: ' + (ve && ve.message) });
     }
 
-    // Persist the stamped, validated result.
-    await db.query(`UPDATE assessments SET api_result = $1 WHERE id = $2`, [JSON.stringify(probe), aid]);
-    console.log(`[em-lab/report] #${aid} EM report re-run OK — type=${probe.hypothesis && probe.hypothesis.confirmed_type} (report=opus, em_model=${emModel})`);
+    // Persist the stamped, validated result to em_rerun_reports ONLY (A1) — last-write-wins
+    // per assessment. The production assessment row (api_result, PDFs, reports rows) is never
+    // touched. Production PDF regeneration has been removed from this route; re-run-only PDFs
+    // return in A2.
+    await db.saveEmRerunReport(
+      aid,
+      probe,
+      experimentalAnalysis.EM_MODEL_OPUS,
+      (rep.result && rep.result.meta && rep.result.meta.prompt_version) || null
+    );
+    console.log(`[em-lab/report] #${aid} EM report re-run stored in em_rerun_reports — type=${probe.hypothesis && probe.hypothesis.confirmed_type} (report=opus, em_model=${emModel}); api_result untouched`);
 
-    // Regenerate THIS assessment's PDFs from the updated api_result. Mirrors /admin/regenerate,
-    // but scoped to assessmentId (not the client's latest, which that route resolves) so EM Lab
-    // work always targets the right row. Delete the stale report rows first so the dashboard link
-    // can't surface a superseded PDF. Best-effort: api_result is already committed, so a PDF-regen
-    // failure is reported (pdf_regenerated:false) rather than failing the whole route.
-    let pdfRegenerated = false;
-    try {
-      await db.deleteReportsByAssessmentId(aid);
-      await generateReportPDFs(probe, scores, intake, aid);
-      await db.query(`UPDATE assessments SET pdf_generated_at = NOW() WHERE id = $1`, [aid]);
-      pdfRegenerated = true;
-      console.log(`[em-lab/report] #${aid} PDFs regenerated from updated api_result`);
-    } catch (pe) {
-      console.error(`[em-lab/report] #${aid} PDF regeneration failed (api_result already updated):`, pe && pe.message);
-    }
-    return res.json({ ok: true, result: probe, pdf_regenerated: pdfRegenerated });
+    return res.json({ ok: true, result: probe, stored: 'em_rerun_reports', pdf_regenerated: false });
   } catch (e) {
     console.error('[em-lab/report] route error:', e.message);
     return res.status(500).json({ ok: false, error: e.message });
@@ -5709,7 +5713,7 @@ async function emReport(aid, btn){
     var r=await fetch('/admin/em-lab/report/'+aid,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'}});
     var d=await r.json();
     if(!d.ok){ _emToast('Report run failed: '+(d.error||'error')); if(btn){btn.disabled=false;btn.textContent='Retry Report';} return; }
-    _emToast('EM report re-run complete — '+(d.pdf_regenerated ? 'PDFs regenerated' : 'api_result updated (PDF regen failed — see logs)'));
+    _emToast('EM report re-run complete — stored for review (production result & PDFs untouched)');
     emLoadDetail(aid);
   }catch(e){ _emToast('Report run error: '+e.message); if(btn){btn.disabled=false;btn.textContent='Retry Report';} }
 }
@@ -7094,10 +7098,14 @@ app.post('/admin/retry/:client_id', requireAdmin, async (req, res) => {
   }
 
   try {
-    await db.query(
-      `UPDATE assessments SET api_result = $1 WHERE id = $2`,
-      [JSON.stringify(result), payload.assessment_id]
-    );
+    // A1: write-once. This route already refuses to run when api_result exists (see the
+    // guard above), so the first write succeeds; a false return means a concurrent write
+    // beat us and the original is preserved — surface it rather than silently overwriting.
+    const wrote = await db.writeApiResultOnce(payload.assessment_id, result);
+    if (!wrote) {
+      console.warn(`[admin/retry] api_result already set for assessment #${payload.assessment_id} — write blocked (frozen)`);
+      return res.status(409).json({ error: 'API result already exists — not overwritten.' });
+    }
     await db.completeAssessment(payload.assessment_id, result);
     await db.updateClientStatus(clientId, 'complete');
 

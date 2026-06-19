@@ -106,6 +106,11 @@ ALTER TABLE assessments ADD COLUMN IF NOT EXISTS retake_of_assessment_id INTEGER
 
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage0_signal JSONB;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS ct_adjustment JSONB;
+-- DEPRECATED (A1 migration in progress): responses_snapshot has moved to the
+-- assessments table so every assessment is self-contained (a retake no longer
+-- overwrites the prior take's raw answers). This client-level column is left in
+-- place as a read-only safety net until A2 is verified; nothing writes to it
+-- after A1. Do NOT add new reads against clients.responses_snapshot.
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS responses_snapshot JSONB;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS call1_result JSONB;
 
@@ -278,6 +283,34 @@ CREATE TABLE IF NOT EXISTS em_reliability_log (
   error_message TEXT,
   ran_at TIMESTAMP DEFAULT NOW()
 );
+
+-- ─── A1 data-integrity migration ────────────────────────────────────────────────
+-- 1) Per-assessment responses_snapshot. Moves the raw answers off the client row
+--    (where every completion overwrote the prior take) onto the assessment, so each
+--    assessment is forensically self-contained. Additive + nullable.
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS responses_snapshot JSONB;
+
+-- 2) Best-effort backfill for existing rows. clients carries only its LATEST snapshot,
+--    so only the most recent assessment per client gets accurate data; older assessments
+--    inherit whatever is currently on the client row. Guarded on IS NULL so it is
+--    idempotent across restarts and never clobbers a freshly written per-assessment value.
+UPDATE assessments a
+   SET responses_snapshot = c.responses_snapshot
+  FROM clients c
+ WHERE a.client_id = c.id
+   AND a.responses_snapshot IS NULL
+   AND c.responses_snapshot IS NOT NULL;
+
+-- 3) EM re-run report storage. The EM Lab "Re-run Report" reshaped output lands here
+--    (UPSERT, last-write-wins per assessment) instead of overwriting assessments.api_result.
+--    Production assessment data is never touched by an EM Lab re-run.
+CREATE TABLE IF NOT EXISTS em_rerun_reports (
+  assessment_id  INTEGER PRIMARY KEY REFERENCES assessments(id) ON DELETE CASCADE,
+  result         JSONB,
+  model          VARCHAR(64),
+  prompt_version VARCHAR(64),
+  generated_at   TIMESTAMPTZ DEFAULT NOW()
+);
 `;
 
 const SEED_SQL = `
@@ -371,6 +404,27 @@ async function getLatestAssessmentId(clientId) {
 async function getAssessmentById(assessmentId) {
   const r = await query('SELECT * FROM assessments WHERE id = $1 LIMIT 1', [assessmentId]);
   return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// A1 freeze: write api_result exactly once. The WHERE api_result IS NULL clause is the
+// structural enforcement of immutability — the first write (completion / retry-when-null)
+// succeeds; any later overwrite attempt updates zero rows and returns false. Callers should
+// treat false as "blocked, original preserved" (and may log a warning).
+async function writeApiResultOnce(assessmentId, json) {
+  const r = await query(
+    `UPDATE assessments SET api_result = $1 WHERE id = $2 AND api_result IS NULL`,
+    [json == null ? null : (typeof json === 'string' ? json : JSON.stringify(json)), assessmentId]
+  );
+  return !!(r && r.rowCount > 0);
+}
+
+// A1 migration: persist the raw responses snapshot on the assessment row (self-contained
+// per assessment). Replaces updateClientResponsesSnapshot as the write path.
+async function saveAssessmentSnapshot(assessmentId, snapshot) {
+  await query(
+    `UPDATE assessments SET responses_snapshot = $1 WHERE id = $2`,
+    [snapshot == null ? null : JSON.stringify(snapshot), assessmentId]
+  );
 }
 
 async function completeAssessment(assessmentId, result) {
@@ -991,12 +1045,12 @@ async function getBetaReviewRespondents() {
 // Single joined row for the tester modal (PR-E). Mirrors generate_report.js
 // fetchClientRow but WITHOUT the status='complete' filter (a beta tester who submitted
 // feedback may still be 'processing'), and additionally selects the engine hypothesis
-// columns so Tab 1's engine side comes from the same query. responses_snapshot lives on
-// clients; scores_snapshot/api_result on assessments — exactly what buildBetaData needs.
+// columns so Tab 1's engine side comes from the same query. responses_snapshot,
+// scores_snapshot and api_result all live on assessments (A1) — exactly what buildBetaData needs.
 async function getBetaReviewRow(clientId) {
   const r = await query(`
     SELECT cl.id AS client_id, cl.first_name, cl.last_name, cl.email,
-           cl.responses_snapshot,
+           a.responses_snapshot,
            co.name AS coach_name,
            a.id AS assessment_id, a.scores_snapshot, a.api_result,
            a.created_at AS assessment_date,
@@ -1227,6 +1281,26 @@ async function getEmReliabilityLog({ assessmentId, clientId, promptVersion, matc
   return r ? r.rows : [];
 }
 
+// EM re-run report storage (A1). UPSERT on assessment_id — last-write-wins per
+// assessment. Writes ONLY to em_rerun_reports; never touches the assessments row.
+async function saveEmRerunReport(assessmentId, result, model, promptVersion) {
+  await query(
+    `INSERT INTO em_rerun_reports (assessment_id, result, model, prompt_version, generated_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (assessment_id) DO UPDATE SET
+       result         = EXCLUDED.result,
+       model          = EXCLUDED.model,
+       prompt_version = EXCLUDED.prompt_version,
+       generated_at   = NOW()`,
+    [assessmentId, result == null ? null : JSON.stringify(result), model ?? null, promptVersion ?? null]
+  );
+}
+
+async function getEmRerunReport(assessmentId) {
+  const r = await query('SELECT * FROM em_rerun_reports WHERE assessment_id = $1 LIMIT 1', [assessmentId]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
 // Per-client analysis_mode override (EM Lab profile control). mode is a string
 // ('parallel'/'em_only'/'sm_only') or null to clear the override (inherit global).
 async function setClientAnalysisMode(clientId, mode) {
@@ -1270,6 +1344,8 @@ module.exports = {
   createAssessment,
   getLatestAssessmentId,
   getAssessmentById,
+  writeApiResultOnce,
+  saveAssessmentSnapshot,
   completeAssessment,
   failAssessment,
   updateAssessmentTiming,
@@ -1342,6 +1418,8 @@ module.exports = {
   getAssessmentAnalysisMode,
   saveEmResult,
   getEmResult,
+  saveEmRerunReport,
+  getEmRerunReport,
   insertEmReliabilityLog,
   getEmReliabilityLog,
   setClientAnalysisMode,

@@ -420,9 +420,13 @@ async function runExperimentalAnalysis({ assessmentId, model, trigger, callClaud
       confidence: h.confidence_level ?? null,
     };
 
-    // 2. Client row → responses_snapshot (pg returns JSONB as an object).
-    const client = await db.getClientById(clientId);
-    const snapshot = client && client.responses_snapshot;
+    // 2. responses_snapshot now lives on the assessment (A1); fall back to the deprecated
+    //    clients column for pre-migration rows. (pg returns JSONB as an object.)
+    let snapshot = assessment.responses_snapshot;
+    if (!snapshot) {
+      const client = await db.getClientById(clientId);
+      snapshot = client && client.responses_snapshot;
+    }
     if (!snapshot) return logFailure('No responses_snapshot for this assessment');
 
     // 3. Staleness — warn, never block (design §5.1).
