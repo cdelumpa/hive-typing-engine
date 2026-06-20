@@ -1121,6 +1121,31 @@ async function runEmPrimary({ assessmentId, clientId, scores, intake, responsesS
   }
 }
 
+// EM Retry eligibility: tag each admin row with em_retry_eligible — true only for a STUCK
+// assessment (scores_snapshot present, api_result NULL) whose resolved analysis mode is
+// em_only. Resolution mirrors runBackgroundJob's precedence (assessment override > client
+// override > global) so the button matches what would actually run. Computed here rather
+// than in the row SQL so the dashboard query stays untouched; only the (rare) stuck rows
+// are probed, so this is a near no-op for an all-complete dashboard.
+async function annotateEmRetryEligibility(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+  let appSettings = null;
+  try { appSettings = await db.getAppSettings(); } catch (e) { /* null → resolves sm_only */ }
+  await Promise.all(rows.map(async (r) => {
+    r.em_retry_eligible = false;
+    if (!r.has_scores_snapshot || r.has_api_result || !r.assessment_id) return;
+    try {
+      const aMode = await db.getAssessmentAnalysisMode(r.assessment_id);
+      const cMode = r.client_id ? await db.getClientAnalysisMode(r.client_id) : null;
+      const mode = experimentalAnalysis.resolveAnalysisMode({
+        assessment: { analysis_mode: aMode }, client: { analysis_mode: cMode }, appSettings,
+      });
+      r.em_retry_eligible = (mode === 'em_only');
+    } catch (e) { /* leave false on any resolution error */ }
+  }));
+  return rows;
+}
+
 async function runBackgroundJob(systemPrompt, userMessage, intake, scores, assessmentId, clientId, responsesSnapshot, isRetake = false) {
   // 1. Persist scores_snapshot immediately — before the API call — so the
   //    assessment is recoverable even if Claude fails.
@@ -3427,8 +3452,11 @@ function renderAccordionTable(coachId, rows) {
 
     var nameLink = '<a href="#" data-entity="client-'+clientId+'" onclick="openClientProfile('+clientId+');return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle=\\'solid\\'" onmouseout="this.style.textDecorationStyle=\\'dotted\\'">'+name+'</a>';
     var reassignBtn = '<button onclick="openReassignModal('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\','+coachId+',\\''+coach.replace(/'/g,"\\\\'")+'\\',true,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:4px;">Reassign</button>';
-    var retryBtn = (hasScores && !hasApiResult)
-      ? '<button onclick="accordionRetry('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#e67e22;padding:0;text-decoration:underline;margin-right:4px;">Retry API</button>'
+    // EM-only Retry (super-admin) — replaces the retired mode-blind Retry. Shown only for
+    // stuck em_only assessments (r.em_retry_eligible computed server-side in the clients
+    // JSON route); posts to /admin/em-retry/:assessment_id via the emRetry handler.
+    var emRetryBtn = (window.__IS_SUPER_ADMIN && hasScores && !hasApiResult && r.em_retry_eligible && r.assessment_id)
+      ? '<button onclick="emRetry('+r.assessment_id+',\\''+name.replace(/'/g,"\\\\'")+'\\',this)" style="background:none;border:none;cursor:pointer;font-size:11px;color:#7c3aed;padding:0;text-decoration:underline;margin-right:4px;">EM Retry</button>'
       : '';
     var regenBtn = hasApiResult
       ? '<button onclick="accordionRegen('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#f58527;padding:0;text-decoration:underline;margin-right:4px;">Regen</button>'
@@ -3454,7 +3482,7 @@ function renderAccordionTable(coachId, rows) {
         : '<span style="color:#9AA3AD;">—</span>';
     } else {
       var deleteBtn = asmtId ? '<button onclick="accordionMarkDeleted('+asmtId+',\\''+name.replace(/'/g,"\\\\'")+'\\','+coachId+')" title="Delete assessment" style="background:none;border:none;cursor:pointer;font-size:13px;color:#c0392b;padding:0;">&#128465;</button>' : '';
-      actionsCell = reassignBtn+retryBtn+regenBtn+resendBtn+deleteBtn;
+      actionsCell = reassignBtn+emRetryBtn+regenBtn+resendBtn+deleteBtn;
     }
 
     // §9.3.1 clock icon — render only on Complete rows that captured timing. Stash the
@@ -3558,6 +3586,22 @@ function showToast(msg) {
   setTimeout(function(){t.remove();}, 4000);
 }
 
+// EM-only Retry handler (super-admin). Re-fires EM Analysis + EM Report for a stuck em_only
+// assessment via POST /admin/em-retry/:assessment_id, then reloads to reflect the new state.
+async function emRetry(assessmentId, name, btn) {
+  if (!confirm('Re-run EM Analysis + EM Report for '+name+' and deliver results?')) return;
+  var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try {
+    var r = await fetch('/admin/em-retry/'+assessmentId, {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.success) {
+      btn.style.display = 'none';
+      showToast('EM Retry succeeded. Results delivered.');
+      setTimeout(function(){ location.reload(); }, 1200);
+    } else { alert(d.error || 'EM Retry failed'); btn.disabled = false; btn.textContent = orig; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
+}
+// DEAD CODE — retired 2026-06-20. Mark for removal in post-beta cleanup sweep.
 async function accordionRetry(clientId, name, btn, coachId) {
   if (!confirm('Re-run Claude API call for '+name+' and deliver results?')) return;
   var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
@@ -3640,6 +3684,7 @@ async function accordionRestore(assessmentId, name, coachId) {
 }
 
 // adminRetry / adminRegen / adminResend also used on main dashboard — define here too for coaches page
+// DEAD CODE — retired 2026-06-20. Mark for removal in post-beta cleanup sweep.
 async function adminRetry(clientId, name, btn) {
   if (!confirm('Re-run Claude API call for '+name+' and deliver results?')) return;
   var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
@@ -6704,6 +6749,10 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       : await db.getAdminRowsByCoach(req.session.coach_id);
   } catch (e) { console.error('[admin] query error:', e.message); }
 
+  // Tag rows with em_retry_eligible so rowCells can show the EM Retry button only for stuck
+  // em_only assessments. Self-contained (never throws); leaves the flag false on any error.
+  try { await annotateEmRetryEligibility(rows); } catch (e) { console.error('[admin] em-retry annotate failed:', e.message); }
+
   const isAdmin = req.session.coach_is_admin === true;
   const isSuperAdmin = req.session.coach_is_super_admin === true;
 
@@ -6790,8 +6839,12 @@ app.get('/admin', requireAdminSession, async (req, res) => {
         ? `<button onclick="openReassignModal(${clientId},'${jsName}',${req.session.coach_id},'${(r.coach_name || '').replace(/'/g, "\\'")}',false,null)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;">Reassign</button>`
         : '';
 
-      const retryAction = (isAdmin && hasScores && !hasApiResult)
-        ? `<button onclick="adminRetry(${clientId},'${jsName}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#e67e22;padding:0;text-decoration:underline;margin-right:6px;">Retry API</button>`
+      // EM-only Retry (super-admin) — re-fires EM Analysis + EM Report for a stuck em_only
+      // assessment. Replaces the retired mode-blind Retry. Gated to super-admins to match the
+      // requireSuperAdmin route (a plain admin would only hit a 403). em_retry_eligible is
+      // computed server-side (annotateEmRetryEligibility) and is true only for em_only rows.
+      const emRetryAction = (isSuperAdmin && hasScores && !hasApiResult && r.em_retry_eligible && assessmentId)
+        ? `<button onclick="emRetry(${assessmentId},'${jsName}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#7c3aed;padding:0;text-decoration:underline;margin-right:6px;">EM Retry</button>`
         : '';
 
       const regenAction = (isAdmin && hasApiResult)
@@ -6817,7 +6870,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
         ? `<button onclick="markAssessmentDeleted(${assessmentId},'${jsName}',this)" title="Delete assessment" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;color:#c0392b;">&#128465;</button>`
         : '';
 
-      actionCell = `${reassignAction}${retryAction}${regenAction}${resendAction}${retakeAction}${inviteResendAction}${trashAction}`;
+      actionCell = `${reassignAction}${emRetryAction}${regenAction}${resendAction}${retakeAction}${inviteResendAction}${trashAction}`;
     }
 
     const retakeBadge = r.retake_of_assessment_id
@@ -6973,6 +7026,22 @@ function showToast(msg) {
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 4000);
 }
+// EM-only Retry handler (super-admin). Re-fires EM Analysis + EM Report for a stuck em_only
+// assessment via POST /admin/em-retry/:assessment_id, then reloads to reflect the new state.
+async function emRetry(assessmentId, name, btn) {
+  if (!confirm('Re-run EM Analysis + EM Report for ' + name + ' and deliver results?')) return;
+  var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try {
+    var r = await fetch('/admin/em-retry/' + assessmentId, {method:'POST', headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.success) {
+      btn.style.display = 'none';
+      showToast('EM Retry succeeded. Results delivered.');
+      setTimeout(function(){ location.reload(); }, 1200);
+    } else { alert(d.error || 'EM Retry failed'); btn.disabled = false; btn.textContent = orig; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
+}
+// DEAD CODE — retired 2026-06-20. Mark for removal in post-beta cleanup sweep.
 async function adminRetry(clientId, name, btn) {
   if (!confirm('Re-run Claude API call for ' + name + ' and deliver results?')) return;
   const orig = btn.textContent;
@@ -7459,30 +7528,55 @@ app.post('/admin/regenerate/:client_id', requireAdmin, async (req, res) => {
 // ── Retry Claude API call (super admin only — for assessments where scores_snapshot exists but api_result is NULL) ──
 
 app.post('/admin/retry/:client_id', requireAdmin, async (req, res) => {
-  const clientId = parseInt(req.params.client_id, 10);
-  if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
+  // RETIRED (em_only migration, 2026-06-20). The old retry was mode-blind: it always re-fired
+  // SM Call #2 (ignoring analysis_mode) and skipped applyCall2DeterministicStamps, so retried
+  // results lacked the REDIRECT post-processing fixes. Superseded by the EM-only Retry button →
+  // POST /admin/em-retry/:assessment_id. The route shell is kept (locked 410) as a safety net
+  // against any unexpected or cached callers rather than deleted; requireAdmin stays in place.
+  return res.status(410).json({ error: 'The Retry function has been retired. For stuck assessments, please use the EM Retry button.' });
+});
 
-  const payload = await db.getAssessmentPayload(clientId);
-  if (!payload || !payload.scores_snapshot) {
+// ── EM-only Retry (super-admin) — re-fire the FULL EM Analysis + EM Report sequence for a
+//    stuck em_only assessment (scores_snapshot present, api_result NULL). Mirrors
+//    runBackgroundJob's em_only primary path (runEmPrimary → deterministic stamp →
+//    write-once → complete → production PDFs → email). It NEVER touches the retired SM
+//    Call #2 path and never falls back to SM — on any EM failure it leaves the assessment
+//    untouched and returns an error. Gated requireSuperAdmin (sensitive production op). ──
+app.post('/admin/em-retry/:assessment_id', requireSuperAdmin, async (req, res) => {
+  const assessmentId = parseInt(req.params.assessment_id, 10);
+  if (!assessmentId || isNaN(assessmentId)) return res.status(400).json({ error: 'Invalid assessment id' });
+
+  const asmt = await db.getAssessmentById(assessmentId);
+  if (!asmt) return res.status(404).json({ error: 'Assessment not found.' });
+  if (!asmt.scores_snapshot) {
     return res.status(400).json({ error: 'No scores snapshot found. Client may need to retake the assessment.' });
   }
-  if (payload.api_result) {
+  if (asmt.api_result) {
     return res.status(400).json({ error: 'API result already exists. Use Regenerate instead.' });
   }
 
-  const responses = typeof payload.responses === 'string'
-    ? JSON.parse(payload.responses)
-    : (payload.responses || {});
-  const { systemPrompt, userMessage } = responses;
-  if (!systemPrompt || !userMessage) {
-    return res.status(400).json({ error: 'Stored prompts missing — cannot retry. Client may need to retake.' });
+  const clientId = asmt.client_id;
+
+  // Authoritative mode guard — resolved mode (assessment > client > global) MUST be em_only.
+  let analysisMode = 'sm_only';
+  let emModel = 'sonnet';
+  try {
+    const appSettings = await db.getAppSettings();
+    emModel = (appSettings && appSettings.em_model) || 'sonnet';
+    const aMode = await db.getAssessmentAnalysisMode(assessmentId);
+    const cMode = clientId ? await db.getClientAnalysisMode(clientId) : null;
+    analysisMode = experimentalAnalysis.resolveAnalysisMode({
+      assessment: { analysis_mode: aMode }, client: { analysis_mode: cMode }, appSettings,
+    }) || 'sm_only';
+  } catch (e) {
+    console.error('[admin/em-retry] mode resolution failed:', e && e.message);
+    return res.status(500).json({ error: 'Could not resolve analysis mode.' });
+  }
+  if (analysisMode !== 'em_only') {
+    return res.status(409).json({ error: `EM Retry is only available for em_only assessments (resolved mode: ${analysisMode}).` });
   }
 
-  const scores = typeof payload.scores_snapshot === 'string'
-    ? JSON.parse(payload.scores_snapshot)
-    : payload.scores_snapshot;
-
-  const clientInfo = await db.getClientWithCoach(clientId);
+  const clientInfo = clientId ? await db.getClientWithCoach(clientId) : null;
   if (!clientInfo) return res.status(404).json({ error: 'Client not found.' });
 
   const intake = {
@@ -7493,50 +7587,69 @@ app.post('/admin/retry/:client_id', requireAdmin, async (req, res) => {
     coach:        clientInfo.coach_name,
   };
 
-  let result;
-  try {
-    result = await callClaudeWithRetry(systemPrompt, userMessage);
-  } catch (err) {
-    console.error('[admin/retry] Claude API failed:', err.message);
-    return res.status(500).json({ error: `Claude API call failed: ${err.message}` });
+  const scores = typeof asmt.scores_snapshot === 'string'
+    ? JSON.parse(asmt.scores_snapshot)
+    : asmt.scores_snapshot;
+  let responsesSnapshot = asmt.responses_snapshot || null;
+  if (typeof responsesSnapshot === 'string') {
+    try { responsesSnapshot = JSON.parse(responsesSnapshot); } catch (e) { responsesSnapshot = null; }
   }
 
+  // Re-fire EM Analysis + EM Report (runEmPrimary returns the adapted result, or null on ANY
+  // failure — analysis, report, adapter, or dry-validate). No SM fallback: null → leave the
+  // assessment exactly as it was and surface an error.
+  let result;
   try {
-    // A1: write-once. This route already refuses to run when api_result exists (see the
-    // guard above), so the first write succeeds; a false return means a concurrent write
-    // beat us and the original is preserved — surface it rather than silently overwriting.
-    const wrote = await db.writeApiResultOnce(payload.assessment_id, result);
+    result = await runEmPrimary({ assessmentId, clientId, scores, intake, responsesSnapshot, emModel });
+  } catch (err) {
+    console.error(`[admin/em-retry] #${assessmentId} EM-primary threw:`, err.message);
+    return res.status(500).json({ error: `EM Retry failed: ${err.message}` });
+  }
+  if (!result) {
+    console.warn(`[admin/em-retry] #${assessmentId} EM-primary returned null — assessment left unchanged`);
+    return res.status(502).json({ error: 'EM Analysis/Report did not produce a valid result. Assessment left unchanged.' });
+  }
+
+  // Deterministic hypothesis stamping + REDIRECT fixes (parity with runBackgroundJob step 2b).
+  applyCall2DeterministicStamps(result, scores, 'em_only', assessmentId);
+
+  try {
+    // A1: write-once — the IS NULL guard preserves any frozen original if one slipped in.
+    const wrote = await db.writeApiResultOnce(assessmentId, result);
     if (!wrote) {
-      console.warn(`[admin/retry] api_result already set for assessment #${payload.assessment_id} — write blocked (frozen)`);
+      console.warn(`[admin/em-retry] api_result already set for assessment #${assessmentId} — write blocked (frozen)`);
       return res.status(409).json({ error: 'API result already exists — not overwritten.' });
     }
-    await db.completeAssessment(payload.assessment_id, result);
-    await db.updateClientStatus(clientId, 'complete');
+    await db.completeAssessment(assessmentId, result);
+    if (clientId) {
+      await db.updateClientStatus(clientId, 'complete');
+      await db.clearClientSessionState(clientId);
+    }
 
-    await db.deleteReportsByAssessmentId(payload.assessment_id);
-    const { clientPdfPath, coachPdfPath } = await generateReportPDFs(result, scores, intake, payload.assessment_id);
+    await db.deleteReportsByAssessmentId(assessmentId);
+    const { clientPdfPath, coachPdfPath } = await generateReportPDFs(result, scores, intake, assessmentId);
     await db.query(
       `UPDATE assessments SET pdf_generated_at = NOW() WHERE id = $1`,
-      [payload.assessment_id]
+      [assessmentId]
     );
 
     await sendEmails(intake, result, clientPdfPath, coachPdfPath);
     await db.query(
       `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
-      [payload.assessment_id]
+      [assessmentId]
     );
-    // PR B: lifecycle audit — report delivered via admin retry.
+    // PR B: lifecycle audit — report delivered via EM Retry.
     db.logClientEvent({
-      clientId, assessmentId: payload.assessment_id,
+      clientId, assessmentId,
       eventType: 'report_delivered',
-      eventDescription: 'Report delivered (admin retry)',
+      eventDescription: 'Report delivered (EM Retry)',
       actor: req.session.coach_name,
     });
 
-    console.log(`[admin/retry] succeeded for client #${clientId}`);
-    return res.json({ success: true, message: 'API call succeeded. PDFs generated and email sent.' });
+    console.log(`[admin/em-retry] succeeded for assessment #${assessmentId}`);
+    return res.json({ success: true, message: 'EM Retry succeeded. PDFs generated and email sent.' });
   } catch (err) {
-    console.error('[admin/retry] post-API processing failed:', err.message);
+    console.error('[admin/em-retry] post-result processing failed:', err.message);
     return res.status(500).json({ error: err.message });
   }
 });
@@ -7625,6 +7738,8 @@ app.get('/admin/coaches/:coach_id/clients', requireAdmin, async (req, res) => {
     // accordion; plain admins and coaches never receive tombstone data (D1).
     const includeDeleted = req.session.coach_is_super_admin === true;
     const rows = await db.getAdminRowsByCoach(coachId, { includeDeleted });
+    // Tag em_retry_eligible so the client-side accordion can gate the EM Retry button.
+    try { await annotateEmRetryEligibility(rows); } catch (e) { console.error('[admin/coaches/clients] em-retry annotate failed:', e.message); }
     return res.json(rows);
   } catch (e) {
     console.error('[admin/coaches/clients] query error:', e.message);
