@@ -335,6 +335,19 @@ CREATE TABLE IF NOT EXISTS em_rerun_reports (
 -- recorded HERE — never inserted into the reports table (which drives the dashboard).
 ALTER TABLE em_rerun_reports ADD COLUMN IF NOT EXISTS rerun_client_pdf_path VARCHAR;
 ALTER TABLE em_rerun_reports ADD COLUMN IF NOT EXISTS rerun_coach_pdf_path  VARCHAR;
+
+-- ─── Re-Run Analysis (production recovery) ────────────────────────────────────────
+-- POST /admin/em-rerun re-fires the full EM pipeline on a FAILED em_only assessment
+-- (api_result IS NULL) and force-writes the new result into production. These three
+-- columns record provenance + forensic backup. Additive + nullable.
+--   rerun_at             — when the recovery ran.
+--   rerun_by             — actor (coach email, falling back to name) who ran it.
+--   pre_rerun_api_result — the api_result value at the instant before the force-write
+--                          (null for a failed assessment), kept permanently so the prior
+--                          state is recoverable if the new result is worse.
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS rerun_at             TIMESTAMPTZ;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS rerun_by             TEXT;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS pre_rerun_api_result JSONB;
 `;
 
 const SEED_SQL = `
@@ -469,6 +482,51 @@ async function completeAssessment(assessmentId, result) {
        confirmed_instinct = $6,
        dominant_instinct_hypothesis = $7,
        completed_at = NOW()
+     WHERE id = $8`,
+    [
+      h.confirmed_type || null,
+      h.confidence_level || null,
+      h.stage4_outcome || null,
+      JSON.stringify(result.flags || []),
+      fr.classification || null,
+      dominantInstinct,
+      dominantInstinct,
+      assessmentId,
+    ]
+  );
+}
+
+// Re-Run Analysis (production recovery) — UNGUARDED overwrite of api_result. The
+// write-once guard in writeApiResultOnce is deliberately absent here; this is the ONE
+// sanctioned path that may replace an existing (or, for a failed assessment, null)
+// api_result. Distinct name so the freeze invariant stays greppable. MUST be reachable
+// ONLY from the requireSuperAdmin /admin/em-rerun route — never from runBackgroundJob
+// or any normal completion path.
+async function forceWriteApiResult(assessmentId, json) {
+  const r = await query(
+    `UPDATE assessments SET api_result = $1 WHERE id = $2`,
+    [json == null ? null : (typeof json === 'string' ? json : JSON.stringify(json)), assessmentId]
+  );
+  return !!(r && r.rowCount > 0);
+}
+
+// Re-Run Analysis — sync the denormalized verdict columns to a new api_result WITHOUT
+// touching status, completed_at, or created_at (Q2: preserve the original completion
+// timestamp). Mirrors the verdict-column subset of completeAssessment; intentionally
+// does NOT reuse/extend it so completeAssessment's status + completed_at writes stay out.
+async function updateVerdictColumns(assessmentId, result) {
+  const h = (result && result.hypothesis) || {};
+  const fr = (result && result.final_response) || {};
+  const dominantInstinct = h.dominant_instinct_hypothesis || null;
+  await query(
+    `UPDATE assessments SET
+       confirmed_type = $1,
+       confidence_level = $2,
+       stage4_outcome = $3,
+       flags = $4,
+       final_response_classification = $5,
+       confirmed_instinct = $6,
+       dominant_instinct_hypothesis = $7
      WHERE id = $8`,
     [
       h.confirmed_type || null,
@@ -1403,6 +1461,8 @@ module.exports = {
   getLatestAssessmentId,
   getAssessmentById,
   writeApiResultOnce,
+  forceWriteApiResult,
+  updateVerdictColumns,
   saveAssessmentSnapshot,
   completeAssessment,
   failAssessment,
