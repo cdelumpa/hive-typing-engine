@@ -64,11 +64,15 @@ function instinctStack(profile) {
   const labels = ['Leading', 'Supporting', 'Growing'];
   return ranked.map(([code], i) => ({ label: labels[i], code, name: instinctName(code) }));
 }
-// A7: near-tie when the top two COHERENCE scores are within 10 points.
-function nearTie(call1_ranking) {
-  const s = (call1_ranking || []).map(r => r.score).sort((a, b) => b - a);
-  return s.length >= 2 ? (s[0] - s[1]) <= 10 : false;
-}
+// Near-tie when the alternate's coherence score is within 5% of the leading
+// score (relative threshold). call1_ranking is rank-ordered: [0] leading, [1]
+// alternate. Call #1 always runs, so these scores are always available.
+const nearTie = (ranking) => {
+  if (!ranking || ranking.length < 2) return false;
+  const leading = ranking[0].score;
+  const alternate = ranking[1].score;
+  return alternate >= leading * 0.95;
+};
 const confidenceLabel = (level) =>
   ({ HIGH: 'High', MEDIUM_HIGH: 'Medium-High', MEDIUM: 'Medium', LOW: 'Low' }[level] || level || '');
 
@@ -144,8 +148,21 @@ async function buildCoachModel({ apiResult, client, coach, tighten = 0 }) {
     },
     coach: { full_name: coach.full_name || coach.name || '', type: coach.type ?? null, instinct: coach.instinct || '' },
     hero: { number: heroN, name: meta.name, subtype_name: instinctName(instinct), center: meta.center, centerColor: meta.centerColor },
-    confidence: { label: confidenceLabel(h.confidence_level), near_tie: nearTie(h.call1_ranking) },
+    confidence: {
+      label: confidenceLabel(h.confidence_level),
+      near_tie: nearTie(h.call1_ranking),
+      leading_score: (h.call1_ranking && h.call1_ranking[0]) ? h.call1_ranking[0].score : null,
+      alternate_score: (h.call1_ranking && h.call1_ranking[1]) ? h.call1_ranking[1].score : null,
+      leading_type: h.leading_candidate ?? null,
+      alternate_type: h.alternate_candidate ?? null,
+      leading_type_name: h.leading_candidate != null ? (TYPE_NAMES[h.leading_candidate] || '') : '',
+      alternate_type_name: h.alternate_candidate != null ? (TYPE_NAMES[h.alternate_candidate] || '') : '',
+      confidence_summary: cr.confidence_summary ?? null,   // State 2 (no near-tie) — AI-authored
+      near_tie_callout: cr.near_tie_callout ?? null,        // State 1 (near-tie) — AI-authored
+    },
     alternate: nameNode(altN),
+    // DEAD CODE — redirect box removed 2026-06-20. Mark for removal
+    // in post-beta cleanup sweep.
     redirect: (h.stage4_outcome === 'REDIRECT' || h.redirect_from_type != null)
       ? { is_redirect: true, from_type: h.redirect_from_type } : null,
     svg: { variant: 'type', type: heroN },
@@ -297,6 +314,10 @@ const COACH_SPEC = {
   nonEmptyArrays: ['charts.types', 'charts.instincts', 'ataglance.wings', 'responses_revealed',
     'debrief.subtype.bullets', 'debrief.lines.bullets', 'debrief.wings.bullets'],
   ints0to100: ['charts.types', 'charts.instincts'],
+  // OPTIONAL — AI-authored confidence-box content (near-tie redesign 2026-06-20). Not
+  // required: keeps dry-validate, CMS preview, and existing fixtures passing when absent.
+  // The renderer guards on their presence before rendering the box.
+  optional: ['confidence.confidence_summary', 'confidence.near_tie_callout'],
 };
 
 // Client spec excludes the 6 PENDING static.* zones (allowed null until Phase 6).

@@ -111,6 +111,10 @@ function adaptEmToContract(emAnalysis, emReport, contextFields) {
     // Coach report reshaped into the section-based structure report_prep consumes.
     coach_report: {
       bottom_line: cr.bottom_line ?? null,
+      // Near-tie confidence box (2026-06-20). AI authors both on every run; the renderer
+      // selects which to show via the server-side near_tie boolean.
+      confidence_summary: cr.confidence_summary || null,
+      near_tie_callout: cr.near_tie_callout || null,
       section2: { what_responses_showed: _revealedToStrings(cr.what_responses_revealed) },
       section4: {
         probe: sub.question ?? null,

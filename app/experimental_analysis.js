@@ -566,6 +566,9 @@ COACH REPORT FIELDS:
 - debrief.subtype: { question (powerful question ≤ 15 words), bullets (≤ 6, each ≤ 3 lines, ≤ 9 lines total, bold 2–3) }. Cover counter-type/lookalike notes first if flagged, sequencing advice, and one client-specific foothold from their actual language.
 - debrief.stress_release: { question, bullets } same budget. What the stress point looks like for THIS client (behavioral + motivational, not generic), what the security point offers, coaching angle, an early-warning signal. Reference the client's language where present.
 - debrief.wings: { question, bullets } same budget. Cover both wings; let behavioral description carry which is more active — do NOT label a wing 'dominant' or 'active' in prose. Coaching advice and a foothold if available.
+- confidence_summary: ONE sentence, coach-register, plain English. Summarizes why the leading type returned the confidence level it did. No scores, no engine mechanics, no type numbers in isolation. Example: "Type 4 returned high confidence across all four motivational dimensions with no meaningful alternate signal."
+- near_tie_callout: { framing_note, discriminating_questions }. framing_note is 1–2 sentences, coach-register, warm but direct, directing the coach to treat the debrief as the primary resolution instrument for this near-tie result. discriminating_questions is an array of exactly 3 questions specific to the tension between THIS leading type and THIS alternate type — not generic Enneagram questions. Generate them from the leading and alternate type hypotheses you are authoring for.
+- IMPORTANT — confidence box: author BOTH confidence_summary AND near_tie_callout on every run. The server decides (from data you never see) which one is displayed. You do not see scores and you never determine which state applies — always produce both, fully.
 
 CLIENT REPORT FIELDS (written for the client, plain language, warm, hypothesis-framed):
 - client_narrative: 3–4 sentences. Names the leading type and what the pattern pointed to; what the type is about in the client's terms; invites them into the exploration.
@@ -581,6 +584,11 @@ OUTPUT: return a single valid JSON object exactly matching this schema. No markd
     "bottom_line": <string>,
     "what_responses_revealed": [ { "bold": <boolean>, "bold_lead": <string or null>, "body": <string> }, ... 4-6 ],
     "alternate_callout": <string>,
+    "confidence_summary": <string — one sentence, coach-register summary of leading type confidence. No scores. No engine mechanics.>,
+    "near_tie_callout": {
+      "framing_note": <string — 1-2 sentences directing the coach to treat the debrief as the primary resolution instrument for this near-tie result. Coach-register, warm but direct.>,
+      "discriminating_questions": [ <string>, <string>, <string> ]
+    },
     "key_discriminator": { "leading": <string>, "alternate": <string> },
     "client_words": { "leading_quotes": [<string>, ...], "alternate_absence_note": <string> },
     "debrief": {

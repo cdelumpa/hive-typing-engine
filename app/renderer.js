@@ -1223,10 +1223,27 @@ const _coachFooter = (n) => `
 function _coachPage1(m) {
   const w = m.ataglance.wings;
   const cc = m.ataglance.centerColor;
-  // redirect banner = flagged DRAFT copy, pending Mo; renders only on REDIRECT outcomes (edge case)
-  const redirect = m.redirect
-    ? `<div class="bc-redirect">REDIRECT — confirmed type differs from the leading coherence bar (originally Type ${m.redirect.from_type}). The chart shows the coherence ranking; the hero reflects the Stage 4 evidence.</div>`
-    : '';
+  // Confidence box (near-tie redesign 2026-06-20). Two states, selected by the
+  // server-side near_tie boolean. State 1 (near-tie): Hive Orange callout naming both
+  // hypotheses + their scores, a framing note, and AI-authored discriminating questions.
+  // State 2 (no near-tie): muted box with a one-sentence AI confidence summary. Renders
+  // nothing when neither AI field is present (e.g. the SM path — backlog parity item).
+  const conf = m.confidence || {};
+  const ntc = conf.near_tie_callout || null;
+  let confidenceBox = '';
+  if (conf.confidence_summary || ntc) {
+    if (conf.near_tie && ntc) {
+      const dq = (ntc.discriminating_questions || []).map(q => `<li>${esc(q)}</li>`).join('');
+      confidenceBox = `<div class="bc-callout bc-confidence">
+          <div class="bc-conf-hd">Near-Tie &mdash; Debrief is the resolution point</div>
+          <div class="bc-conf-pair">Type ${conf.leading_type} (score: ${conf.leading_score}) vs. Type ${conf.alternate_type} (score: ${conf.alternate_score})</div>
+          ${ntc.framing_note ? `<div class="bc-conf-note">${esc(ntc.framing_note)}</div>` : ''}
+          ${dq ? `<ul class="bc-conf-q">${dq}</ul>` : ''}
+        </div>`;
+    } else if (conf.confidence_summary) {
+      confidenceBox = `<div class="bc-confidence-muted">${esc(conf.confidence_summary)}</div>`;
+    }
+  }
   return `
   <div class="report-page">
 
@@ -1257,10 +1274,9 @@ function _coachPage1(m) {
         </div>
         <div class="bc-badges">
           <span class="bc-conf">${esc(m.confidence.label)} Confidence</span>
-          ${m.confidence.near_tie ? '<span class="bc-tie">Near-Tie (see notes)</span>' : ''}
           <span class="bc-alt">Alternate: Type ${m.alternate.number} — ${esc(m.alternate.name)}</span>
         </div>
-        ${redirect}
+        ${conf.confidence_summary || conf.near_tie_callout ? confidenceBox : ''}
 
         <div class="bc-label">The Bottom Line</div>
         <p class="bc-body">${esc(m.bottom_line)}</p>
@@ -1394,9 +1410,14 @@ function coachReportStyles() {
   .bc-pill-sub { font-size: 10pt; color: var(--leading-pill-text); }
   .bc-badges { margin: 8px 0; display: flex; flex-wrap: wrap; gap: 6px; }
   .bc-conf { font-size: 9pt; font-weight: bold; color: var(--confidence-text); background: var(--confidence-bg); border-radius: 10px; padding: 3px 10px; }
-  .bc-tie { font-size: 9pt; font-weight: bold; color: #B25A00; background: #FBE8D6; border-radius: 10px; padding: 3px 10px; }
   .bc-alt { font-size: 9pt; font-style: italic; color: var(--alt-pill-text); background: var(--alternate-pill-bg); border-radius: 10px; padding: 3px 10px; }
-  .bc-redirect { font-size: 9pt; color: #B25A00; background: #FBE8D6; border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
+  /* Confidence box — State 1 (near-tie, Hive Orange) reuses .bc-callout; State 2 (muted). */
+  .bc-confidence { margin: 6px 0; }
+  .bc-conf-hd { font-size: 9pt; font-weight: bold; color: var(--hive-orange); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+  .bc-conf-pair { font-size: 9pt; font-weight: bold; color: var(--body); margin-bottom: 4px; }
+  .bc-conf-note { font-size: 9pt; line-height: 14pt; margin-bottom: 6px; }
+  .bc-conf-q { margin: 0; padding-left: 16px; font-size: 9pt; line-height: 14pt; }
+  .bc-confidence-muted { font-size: 9pt; line-height: 14pt; background: #F4F4F4; border-left: 4px solid #CCCCCC; border-radius: 6px; padding: 10px 14px; margin: 6px 0; }
   .bc-svg { width: 232px; height: 232px; margin: 0 auto 14px; }
   .ag-row { display: flex; justify-content: space-between; gap: 8px; font-size: 10pt; padding: 3px 0; border-bottom: 1px solid #eee; }
   .ag-label { font-weight: bold; color: var(--body); }
