@@ -1417,7 +1417,7 @@ function coachReportStyles() {
   .bc-conf-pair { font-size: 9pt; font-weight: bold; color: var(--body); margin-bottom: 4px; }
   .bc-conf-note { font-size: 9pt; line-height: 14pt; margin-bottom: 6px; }
   .bc-conf-q { margin: 0; padding-left: 16px; font-size: 9pt; line-height: 14pt; }
-  .bc-confidence-muted { font-size: 9pt; line-height: 14pt; background: #F4F4F4; border-left: 4px solid #CCCCCC; border-radius: 6px; padding: 10px 14px; margin: 6px 0; }
+  .bc-confidence-muted { font-size: 9pt; line-height: 14pt; background: #F4F4F4; border-left: 4px solid #CCCCCC; border-radius: 6px; padding: 10px 14px; margin: 6px 0; max-height: 57px; overflow: hidden; }
   .bc-svg { width: 232px; height: 232px; margin: 0 auto 14px; }
   .ag-row { display: flex; justify-content: space-between; gap: 8px; font-size: 10pt; padding: 3px 0; border-bottom: 1px solid #eee; }
   .ag-label { font-weight: bold; color: var(--body); }

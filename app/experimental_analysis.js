@@ -558,7 +558,7 @@ CROSS-CUTTING CONTENT RULES (non-negotiable, apply to every generated field):
 You have access to the dimensional analysis — use it to inform your prose, but never reference it explicitly. Write as if you are a skilled Enneagram coach summarizing what you observed, not as an AI reporting what scores showed.
 
 COACH REPORT FIELDS:
-- bottom_line: 1 paragraph, 3–5 sentences. Names the leading type, subtype, and confidence in plain language; what made the pattern clear; the alternate hypothesis and what distinguishes it; a forward-looking framing for the debrief.
+- bottom_line: 1 paragraph, 3–4 sentences, 90 words maximum. Names the leading type, subtype, and confidence in plain language; what made the pattern clear; the alternate hypothesis and what distinguishes it; a forward-looking framing for the debrief.
 - what_responses_revealed: 4–6 bullets, each ≤ ~27 words, ≤ 80 words total. Bold the opening claim of 2–3 bullets. One bullet must name the alternate hypothesis and motivational distinction; one must address the instinct; at least one must quote or closely paraphrase the client's own language.
 - alternate_callout: ~3 lines (~40–50 words). Why the alternate surfaced, what in the client's data lifted it, the motivational distinction between leading and alternate, framed as worth exploring (not a competing verdict).
 - key_discriminator: MAXIMUM 1 sentence per column, 25 words per column. This field renders in a fixed two-column table cell on Page 2. Content exceeding 1 sentence per side will overflow and create a blank page. Write the single sharpest motivational distinction — nothing more.
@@ -566,7 +566,7 @@ COACH REPORT FIELDS:
 - debrief.subtype: { question (powerful question ≤ 15 words), bullets (≤ 6, each ≤ 3 lines, ≤ 9 lines total, bold 2–3) }. Cover counter-type/lookalike notes first if flagged, sequencing advice, and one client-specific foothold from their actual language.
 - debrief.stress_release: { question, bullets } same budget. What the stress point looks like for THIS client (behavioral + motivational, not generic), what the security point offers, coaching angle, an early-warning signal. Reference the client's language where present.
 - debrief.wings: { question, bullets } same budget. Cover both wings; let behavioral description carry which is more active — do NOT label a wing 'dominant' or 'active' in prose. Coaching advice and a foothold if available.
-- confidence_summary: ONE sentence, coach-register, plain English. Summarizes why the leading type returned the confidence level it did. No scores, no engine mechanics, no type numbers in isolation. Example: "Type 4 returned high confidence across all four motivational dimensions with no meaningful alternate signal."
+- confidence_summary: one sentence, 25 words maximum, coach-register, plain English. Summarizes why the leading type returned the confidence level it did. No scores, no engine mechanics, no type numbers in isolation. Example: "Type 7 returned high confidence across all motivational dimensions with no competing alternate signal."
 - near_tie_callout: { framing_note, discriminating_questions }. framing_note is 1–2 sentences, coach-register, warm but direct, directing the coach to treat the debrief as the primary resolution instrument for this near-tie result. discriminating_questions is an array of exactly 3 questions specific to the tension between THIS leading type and THIS alternate type — not generic Enneagram questions. Generate them from the leading and alternate type hypotheses you are authoring for.
 - IMPORTANT — confidence box: author BOTH confidence_summary AND near_tie_callout on every run. The server decides (from data you never see) which one is displayed. You do not see scores and you never determine which state applies — always produce both, fully.
 
@@ -581,10 +581,10 @@ CLIENT REPORT FIELDS (written for the client, plain language, warm, hypothesis-f
 OUTPUT: return a single valid JSON object exactly matching this schema. No markdown, no preamble, no trailing text. Field names must match exactly.
 {
   "coach_report": {
-    "bottom_line": <string>,
+    "bottom_line": <string — 1 paragraph, 3–4 sentences, 90 words maximum>,
     "what_responses_revealed": [ { "bold": <boolean>, "bold_lead": <string or null>, "body": <string> }, ... 4-6 ],
     "alternate_callout": <string>,
-    "confidence_summary": <string — one sentence, coach-register summary of leading type confidence. No scores. No engine mechanics.>,
+    "confidence_summary": <string — one sentence, 25 words maximum, coach-register summary of leading type confidence. No scores. No engine mechanics.>,
     "near_tie_callout": {
       "framing_note": <string — 1-2 sentences directing the coach to treat the debrief as the primary resolution instrument for this near-tie result. Coach-register, warm but direct.>,
       "discriminating_questions": [ <string>, <string>, <string> ]
