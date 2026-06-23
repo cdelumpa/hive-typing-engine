@@ -6930,7 +6930,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   if (rows.length === 0) {
     body = `<tr><td colspan="11" style="text-align:center;padding:40px;color:#7A96A6;">No clients yet — click + Client to add one</td></tr>`;
   } else {
-    // Group a client's multiple assessments into an accordion (expanded by default);
+    // Group a client's multiple assessments into an accordion (collapsed by default);
     // single-assessment clients stay a flat row. Applies to BOTH the coach view and the
     // super-admin view (D5 reversed — super-admins also need the accordion given
     // increasing assessment volume). rowCells handles all per-role action gating, so the
@@ -6947,9 +6947,9 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       const first = g[0];
       const gName = esc(`${first.first_name || ''} ${first.last_name || ''}`.trim()) || '—';
       const header = `<tr class="cgroup-header" onclick="toggleClientGroup(${first.client_id})">
-        <td colspan="11"><span id="cgroup-caret-${first.client_id}" class="cgroup-caret">▼</span> ${gName} <span class="cgroup-count">— ${g.length} assessments</span></td>
+        <td colspan="11"><span id="cgroup-caret-${first.client_id}" class="cgroup-caret">▶</span> ${gName} <span class="cgroup-count">— ${g.length} assessments</span></td>
       </tr>`;
-      const subRows = g.map(r => `<tr id="${rowId(r)}" class="cgroup-row cgroup-${first.client_id}">${rowCells(r)}</tr>`).join('\n');
+      const subRows = g.map(r => `<tr id="${rowId(r)}" class="cgroup-row cgroup-${first.client_id}" style="display:none;">${rowCells(r)}</tr>`).join('\n');
       return header + '\n' + subRows;
     }).join('\n');
   }
