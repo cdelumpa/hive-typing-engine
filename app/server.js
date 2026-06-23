@@ -6922,6 +6922,21 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       <td>${actionCell}</td>`;
   };
 
+  // Sort keys for the client-side sortable table (consumed by sortAdminTable in the page
+  // script). Stamped as data-* on each assessment <tr> so sorting never parses rendered
+  // cell HTML. Blank/missing values are emitted as '' and always sort last (comparator).
+  const rowSortAttrs = (r) => {
+    const nameKey   = `${r.first_name || ''} ${r.last_name || ''}`.trim().toLowerCase();
+    const typeKey   = r.confirmed_type ? `type ${r.confirmed_type} — ${(TYPE_NAMES[r.confirmed_type] || '').toLowerCase()}` : '';
+    const instKey   = (r.confirmed_instinct || '').toLowerCase();
+    const confKey   = (r.confidence_level || '').toLowerCase();
+    const coachKey  = (r.coach_name || '').toLowerCase();
+    let dateKey = '';
+    if (r.created_at) { const t = new Date(r.created_at).getTime(); if (!isNaN(t)) dateKey = String(t); }
+    const statusKey = (r.status || '').replace(/_/g, ' ').toLowerCase();
+    return `data-sort-name="${esc(nameKey)}" data-sort-type="${esc(typeKey)}" data-sort-instinct="${esc(instKey)}" data-sort-conf="${esc(confKey)}" data-sort-coach="${esc(coachKey)}" data-sort-date="${dateKey}" data-sort-status="${esc(statusKey)}"`;
+  };
+
   // Row DOM id: assessment-scoped when an assessment exists, else client-scoped (a
   // not_started client with no assessment row).
   const rowId = (r) => r.assessment_id ? `row-asmt-${r.assessment_id}` : `row-client-${r.client_id}`;
@@ -6943,13 +6958,14 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       groups[idx[r.client_id]].push(r);
     });
     body = groups.map(g => {
-      if (g.length === 1) return `<tr id="${rowId(g[0])}">${rowCells(g[0])}</tr>`;
+      if (g.length === 1) return `<tr id="${rowId(g[0])}" data-kind="row" data-client-id="${g[0].client_id}" ${rowSortAttrs(g[0])}>${rowCells(g[0])}</tr>`;
       const first = g[0];
       const gName = esc(`${first.first_name || ''} ${first.last_name || ''}`.trim()) || '—';
-      const header = `<tr class="cgroup-header" onclick="toggleClientGroup(${first.client_id})">
+      const gNameKey = `${first.first_name || ''} ${first.last_name || ''}`.trim().toLowerCase();
+      const header = `<tr class="cgroup-header" data-kind="header" data-client-id="${first.client_id}" data-sort-name="${esc(gNameKey)}" onclick="toggleClientGroup(${first.client_id})">
         <td colspan="11"><span id="cgroup-caret-${first.client_id}" class="cgroup-caret">▶</span> ${gName} <span class="cgroup-count">— ${g.length} assessments</span></td>
       </tr>`;
-      const subRows = g.map(r => `<tr id="${rowId(r)}" class="cgroup-row cgroup-${first.client_id}" style="display:none;">${rowCells(r)}</tr>`).join('\n');
+      const subRows = g.map(r => `<tr id="${rowId(r)}" class="cgroup-row cgroup-${first.client_id}" data-kind="row" data-client-id="${first.client_id}" ${rowSortAttrs(r)} style="display:none;">${rowCells(r)}</tr>`).join('\n');
       return header + '\n' + subRows;
     }).join('\n');
   }
@@ -6998,6 +7014,13 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   .cgroup-caret { display: inline-block; width: 12px; color: #00b1d7; }
   .cgroup-count { color: #7A96A6; font-weight: 400; font-size: 12px; }
   tbody tr.cgroup-row td:first-child { border-left: 3px solid #00b1d7; padding-left: 18px; }
+  /* Sortable column headers */
+  thead th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  thead th.sortable:hover { background: #009bbf; }
+  thead th .sort-ind { font-size: 10px; margin-left: 4px; opacity: 0.85; }
+  /* Flat sort dissolves the client-group accordion: group headers are hidden in JS;
+     sub-rows lose their group indentation so every row reads as an independent row. */
+  tbody.flat-sort tr.cgroup-row td:first-child { border-left: none; padding-left: 14px; }
   ${CMS_DROPDOWN_CSS}
 </style>
 </head>
@@ -7023,13 +7046,13 @@ ${flashError ? `<div class="flash-error">${flashError}</div>` : ''}
     <table>
       <thead>
         <tr>
-          <th>Client Name</th>
-          <th>Type</th>
-          <th>Instinct</th>
-          <th>Confidence</th>
-          <th>Coach</th>
-          <th>Date</th>
-          <th>Status</th>
+          <th class="sortable" data-col="name" onclick="headerSort('name')">Client Name <span class="sort-ind">⇅</span></th>
+          <th class="sortable" data-col="type" onclick="headerSort('type')">Type <span class="sort-ind">⇅</span></th>
+          <th class="sortable" data-col="instinct" onclick="headerSort('instinct')">Instinct <span class="sort-ind">⇅</span></th>
+          <th class="sortable" data-col="confidence" onclick="headerSort('confidence')">Confidence <span class="sort-ind">⇅</span></th>
+          <th class="sortable" data-col="coach" onclick="headerSort('coach')">Coach <span class="sort-ind">⇅</span></th>
+          <th class="sortable" data-col="date" onclick="headerSort('date')">Date <span class="sort-ind">⇅</span></th>
+          <th class="sortable" data-col="status" onclick="headerSort('status')">Status <span class="sort-ind">⇅</span></th>
           <th>PDF</th>
           <th>Email</th>
           <th>Reports</th>
@@ -7166,6 +7189,149 @@ async function restoreAssessmentUI(assessmentId, name, btn) {
     else { alert(d.error || 'Restore failed'); btn.disabled = false; }
   } catch(e) { alert('Request failed'); btn.disabled = false; }
 }
+// ============ Sortable dashboard table (client-side) ============
+// Two modes: the default CLIENT NAME ascending keeps the client-group accordion intact
+// (groups ordered by client name asc); any other column/direction dissolves the groups
+// into one flat sorted list. The active sort is persisted in localStorage so a reload
+// restores it. All sort logic is reachable from sortAdminTable(column, direction).
+(function () {
+  var SORT_KEY = 'adminDashboardSort';
+  var COLUMNS = ['name', 'type', 'instinct', 'confidence', 'coach', 'date', 'status'];
+  var CONF_RANK = { high: 0, medium: 1, low: 2 };   // HIGH → MEDIUM → LOW (ascending)
+  var tbody, BLOCKS;
+
+  // Snapshot the server-rendered structure into ordered blocks: each block is either a
+  // single ungrouped row, or a group header followed by its collapsed sub-rows. Node
+  // references persist across re-sorts (appendChild moves nodes, never destroys them).
+  function buildBlocks() {
+    var blocks = [], cur = null;
+    Array.prototype.forEach.call(tbody.children, function (node) {
+      var kind = node.getAttribute && node.getAttribute('data-kind');
+      if (kind === 'header') {
+        cur = { kind: 'group', name: node.getAttribute('data-sort-name') || '', nodes: [node] };
+        blocks.push(cur);
+      } else if (node.classList && node.classList.contains('cgroup-row')) {
+        if (cur && cur.kind === 'group') cur.nodes.push(node);
+        else blocks.push({ kind: 'single', name: (node.getAttribute && node.getAttribute('data-sort-name')) || '', nodes: [node] });
+      } else {
+        cur = null;
+        blocks.push({ kind: 'single', name: (node.getAttribute && node.getAttribute('data-sort-name')) || '', nodes: [node] });
+      }
+    });
+    return blocks;
+  }
+
+  function blank(v) { return v === null || v === undefined || v === ''; }
+
+  function readStored() {
+    try {
+      var raw = localStorage.getItem(SORT_KEY);
+      if (!raw) return null;
+      var s = JSON.parse(raw);
+      if (s && COLUMNS.indexOf(s.column) !== -1 && (s.direction === 'asc' || s.direction === 'desc')) return s;
+    } catch (e) {}
+    return null;
+  }
+  function writeStored(column, direction) {
+    try { localStorage.setItem(SORT_KEY, JSON.stringify({ column: column, direction: direction })); } catch (e) {}
+  }
+
+  // Comparator value for a row on a column → { blank } or { num } or { str }.
+  function keyFor(row, column) {
+    if (column === 'date') {
+      var d = row.getAttribute('data-sort-date');
+      return blank(d) ? { blank: true } : { num: parseFloat(d) };
+    }
+    if (column === 'confidence') {
+      var c = row.getAttribute('data-sort-conf');
+      if (blank(c)) return { blank: true };
+      return { num: (c in CONF_RANK) ? CONF_RANK[c] : 3 };   // unknown non-blank: after low, before blank
+    }
+    var v = row.getAttribute('data-sort-' + column);          // name | type | instinct | coach | status
+    return blank(v) ? { blank: true } : { str: v };
+  }
+
+  function comparator(column, direction) {
+    var sign = direction === 'desc' ? -1 : 1;
+    return function (ra, rb) {
+      var a = keyFor(ra, column), b = keyFor(rb, column);
+      if (a.blank && b.blank) return 0;
+      if (a.blank) return 1;            // blanks always last, regardless of direction
+      if (b.blank) return -1;
+      var r = (typeof a.num === 'number') ? (a.num - b.num)
+            : (a.str < b.str ? -1 : a.str > b.str ? 1 : 0);
+      return sign * r;
+    };
+  }
+
+  function updateIndicators(column, direction) {
+    Array.prototype.forEach.call(document.querySelectorAll('thead th.sortable'), function (th) {
+      var ind = th.querySelector('.sort-ind');
+      if (!ind) return;
+      ind.textContent = (th.getAttribute('data-col') === column) ? (direction === 'desc' ? '▼' : '▲') : '⇅';
+    });
+  }
+
+  // Default view: groups intact, ordered by client name ascending (blanks last).
+  function renderGrouped() {
+    tbody.classList.remove('flat-sort');
+    var sorted = BLOCKS.slice().sort(function (x, y) {
+      var xb = blank(x.name), yb = blank(y.name);
+      if (xb && yb) return 0; if (xb) return 1; if (yb) return -1;
+      return x.name < y.name ? -1 : x.name > y.name ? 1 : 0;
+    });
+    sorted.forEach(function (b) {
+      b.nodes.forEach(function (n, i) {
+        tbody.appendChild(n);
+        if (b.kind === 'group') {
+          if (i === 0) { n.style.display = ''; var caret = n.querySelector('.cgroup-caret'); if (caret) caret.textContent = '▶'; }
+          else n.style.display = 'none';   // sub-rows collapsed by default (matches server render)
+        } else {
+          n.style.display = '';
+        }
+      });
+    });
+  }
+
+  // Flat view: groups dissolved — all assessment rows sorted as independent rows.
+  function renderFlat(column, direction) {
+    tbody.classList.add('flat-sort');
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-kind="row"]'));
+    rows.sort(comparator(column, direction));
+    rows.forEach(function (r) { r.style.display = ''; tbody.appendChild(r); });
+    Array.prototype.forEach.call(tbody.querySelectorAll('tr[data-kind="header"]'), function (h) { h.style.display = 'none'; });
+  }
+
+  // Entry point — apply a sort, persist it, and update the header indicators.
+  window.sortAdminTable = function (column, direction) {
+    if (!tbody) return;
+    if (COLUMNS.indexOf(column) === -1) column = 'name';
+    direction = direction === 'desc' ? 'desc' : 'asc';
+    writeStored(column, direction);
+    updateIndicators(column, direction);
+    if (column === 'name' && direction === 'asc') renderGrouped();
+    else renderFlat(column, direction);
+  };
+
+  // Header click: first click on a column sorts ascending; clicking the active column
+  // again flips to descending (then back to ascending on the next click).
+  window.headerSort = function (column) {
+    var cur = readStored() || { column: 'name', direction: 'asc' };
+    var direction = (cur.column === column && cur.direction === 'asc') ? 'desc' : 'asc';
+    window.sortAdminTable(column, direction);
+  };
+
+  function initSort() {
+    tbody = document.querySelector('table tbody');
+    if (!tbody) return;
+    BLOCKS = buildBlocks();
+    var s = readStored() || { column: 'name', direction: 'asc' };   // default: CLIENT NAME asc
+    window.sortAdminTable(s.column, s.direction);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initSort);
+  else initSort();
+})();
+
 // Coach dashboard: collapse/expand a client's grouped assessment rows.
 function toggleClientGroup(clientId) {
   var rows = document.querySelectorAll('.cgroup-' + clientId);
