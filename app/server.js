@@ -771,7 +771,7 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath, opts = {}
     ? (process.env.COACH_EMAIL_MONIQUE || process.env.COACH_EMAIL)
     : (process.env.COACH_EMAIL_CAI    || process.env.COACH_EMAIL);
   const assessmentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  const appUrl = process.env.RAILWAY_PUBLIC_URL || 'https://hive-typing-engine-production.up.railway.app';
+  const appUrl = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
 
   // Read PDFs and encode as base64
   let clientPdfB64 = null;
@@ -1895,7 +1895,7 @@ async function sendInviteEmail(client, token, coachName) {
     console.warn('[invite] SENDGRID_API_KEY not set — invite email skipped');
     return;
   }
-  const appUrl   = process.env.RAILWAY_PUBLIC_URL || 'https://hive-typing-engine-production.up.railway.app';
+  const appUrl   = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
   const link     = `${appUrl}/assessment/${token}`;
   const fromEmail = process.env.SENDGRID_FROM_EMAIL;
   const coachEmail = (coachName === 'Monique Breault')
