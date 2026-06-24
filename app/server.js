@@ -5282,6 +5282,16 @@ function _emSubtype(type, inst) {
   if (!type) return '—';
   return (inst ? inst + ' ' : '') + type;
 }
+// Collapse an EM Lab roster row's engine results into a priority-ordered candidate
+// list for the union MATCH check. Priority: EM Opus → EM Sonnet → SM. Only results
+// with a non-null type are included (a missing engine is skipped, not treated as 0).
+function resolveEngineResults(r) {
+  return [
+    { type: r.em_type_opus,   instinct: r.em_instinct_opus,   source: 'opus' },
+    { type: r.em_type_sonnet, instinct: r.em_instinct_sonnet, source: 'sonnet' },
+    { type: r.sm_type,        instinct: r.sm_instinct,        source: 'sm' },
+  ].filter((c) => c.type != null);
+}
 function _emMatchBadge(status) {
   let cls = 'em-ind-na';
   if (status === 'Exact') cls = 'em-ind-match';
@@ -5962,8 +5972,12 @@ function renderEmLabPage(req, data) {
   // ── Cohort metrics (computed from roster; Sonnet is the auto-fire model) ──
   const withResult = roster.filter((r) => r.has_em_result);
   const declaredRows = roster.filter((r) => r.declared_type != null);
-  const typeMatchElig = roster.filter((r) => r.declared_type != null && r.em_type_sonnet != null);
-  const typeMatchHits = typeMatchElig.filter((r) => Number(r.em_type_sonnet) === Number(r.declared_type));
+  // Type match rate: a row is eligible once it has a declaration and at least one
+  // engine result (EM Opus, EM Sonnet, or SM); it counts as a hit if ANY of those
+  // results matches the declared type (type dimension only).
+  const typeMatchElig = roster.filter((r) => r.declared_type != null && resolveEngineResults(r).length > 0);
+  const typeMatchHits = typeMatchElig.filter((r) =>
+    resolveEngineResults(r).some((c) => Number(c.type) === Number(r.declared_type)));
   const agreeElig = roster.filter((r) => r.sm_type != null && r.em_type_sonnet != null);
   const agreeHits = agreeElig.filter((r) => Number(r.sm_type) === Number(r.em_type_sonnet));
   const pending = withResult.filter((r) => r.declared_type == null);
@@ -5972,7 +5986,7 @@ function renderEmLabPage(req, data) {
   const cards = `
     <div class="em-card-grid">
       <div class="em-metric"><div class="em-metric-n">${roster.length}</div><div class="em-metric-l">Assessments run</div><div class="em-metric-sub">${withResult.length} with EM result</div></div>
-      <div class="em-metric"><div class="em-metric-n">${pct(typeMatchHits.length, typeMatchElig.length)}</div><div class="em-metric-l">Type match rate</div><div class="em-metric-sub">EM vs declared (${typeMatchElig.length})</div></div>
+      <div class="em-metric"><div class="em-metric-n">${pct(typeMatchHits.length, typeMatchElig.length)}</div><div class="em-metric-l">Type match rate</div><div class="em-metric-sub">Engine vs declared (${typeMatchElig.length})</div></div>
       <div class="em-metric"><div class="em-metric-n">${pct(agreeHits.length, agreeElig.length)}</div><div class="em-metric-l">SM vs EM agreement</div><div class="em-metric-sub">${agreeElig.length} comparable</div></div>
       <div class="em-metric"><div class="em-metric-n">${pending.length}</div><div class="em-metric-l">Declarations pending</div><div class="em-metric-sub">EM result, no declaration</div></div>
     </div>`;
@@ -5980,8 +5994,8 @@ function renderEmLabPage(req, data) {
   // ── Roster rows ──
   const rosterRows = roster.map((r) => {
     const name = ((r.first_name || '') + ' ' + (r.last_name || '')).trim() || '(unnamed)';
-    const matchLive = experimentalAnalysis.computeMatchStatus(
-      { type: r.em_type_sonnet, instinct: r.em_instinct_sonnet },
+    const candidates = resolveEngineResults(r);
+    const matchLive = experimentalAnalysis.computeMatchStatus(candidates,
       { type: r.declared_type, instinct: r.declared_instinct });
     const emSon = r.em_type_sonnet != null ? esc(_emSubtype(r.em_type_sonnet, r.em_instinct_sonnet)) : (r.latest_error ? '<span class="em-muted">failed</span>' : '—');
     const emOpu = r.em_type_opus != null ? esc(_emSubtype(r.em_type_opus, r.em_instinct_opus)) : '—';

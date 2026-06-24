@@ -333,17 +333,29 @@ function _highestRawMeanType(snapshot) {
   return best;
 }
 
-// EM-vs-declared match status (design §7.2, decision C-a). Pending when there is no
-// declared_type; Exact when type AND instinct match; partial otherwise; Mismatch when
-// neither matches.
+// EM-vs-declared match status (design §7.2, decision C-a). Accepts either a single
+// engine result { type, instinct } or an array of candidate results; an array is
+// evaluated as a union (Exact if ANY candidate matches both dimensions, etc.). Pending
+// when there is no declared_type or no candidate carries a (non-null) type. Null types
+// are treated as "not present" and skipped — never coerced to 0, so a missing result
+// never registers as a spurious "type 0" Mismatch.
 function computeMatchStatus(em, declared) {
   if (declared == null || declared.type == null) return 'Pending';
-  const typeMatch = Number(em.type) === Number(declared.type);
-  const instMatch = declared.instinct != null && em.instinct != null
-    && String(em.instinct) === String(declared.instinct);
-  if (typeMatch && instMatch) return 'Exact';
-  if (typeMatch) return 'Type only';
-  if (instMatch) return 'Instinct only';
+  const candidates = (Array.isArray(em) ? em : [em])
+    .filter((c) => c != null && c.type != null);
+  if (candidates.length === 0) return 'Pending';
+  let typeOnly = false;
+  let instOnly = false;
+  for (const c of candidates) {
+    const typeMatch = Number(c.type) === Number(declared.type);
+    const instMatch = declared.instinct != null && c.instinct != null
+      && String(c.instinct) === String(declared.instinct);
+    if (typeMatch && instMatch) return 'Exact';
+    if (typeMatch) typeOnly = true;
+    if (instMatch) instOnly = true;
+  }
+  if (typeOnly) return 'Type only';
+  if (instOnly) return 'Instinct only';
   return 'Mismatch';
 }
 
