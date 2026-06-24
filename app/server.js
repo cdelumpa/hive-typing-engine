@@ -5297,7 +5297,37 @@ function _emMatchBadge(status) {
   if (status === 'Exact') cls = 'em-ind-match';
   else if (status === 'Type only' || status === 'Instinct only') cls = 'em-ind-partial';
   else if (status === 'Mismatch') cls = 'em-ind-miss';
+  else if (status === 'Incomplete') cls = 'em-ind-incomplete';
   return '<span class="em-ind ' + cls + '">' + esc(status || 'Pending') + '</span>';
+}
+// DECLARED cell label for the EM Lab roster, per the 5-state declaration matrix.
+// Don't-Know / asterisk cases never route through _emSubtype (which prints "—" for a
+// null type). Legacy partial rows (type set, instinct null, idk false) → Pending.
+function _emDeclaredLabel(r) {
+  const tdk = !!r.declared_type_dont_know;
+  const idk = !!r.declared_instinct_dont_know;
+  const typeSet = r.declared_type != null;
+  const instSet = r.declared_instinct != null;
+  if (typeSet && instSet) return esc(_emSubtype(r.declared_type, r.declared_instinct)); // e.g. SX 4
+  if (typeSet && idk)      return esc(String(r.declared_type) + '*');                    // e.g. 4*
+  if (tdk && instSet)      return esc(String(r.declared_instinct) + '*');               // e.g. SX*
+  if (tdk && idk)          return '<span class="em-badge-dk">Don\'t Know</span>';
+  return '<span class="em-badge-pend">Pending</span>';
+}
+// MATCH cell for the EM Lab roster under the declaration matrix. Both dimensions known
+// → the union check (computeMatchStatus). Exactly one known (other Don't Know) →
+// Incomplete. Both Don't Know, or nothing declared → Pending.
+function _emDeclaredMatch(r, candidates) {
+  const tdk = !!r.declared_type_dont_know;
+  const idk = !!r.declared_instinct_dont_know;
+  const typeSet = r.declared_type != null;
+  const instSet = r.declared_instinct != null;
+  if (typeSet && instSet) {
+    return _emMatchBadge(experimentalAnalysis.computeMatchStatus(candidates,
+      { type: r.declared_type, instinct: r.declared_instinct }));
+  }
+  if ((typeSet && idk) || (tdk && instSet)) return _emMatchBadge('Incomplete');
+  return _emMatchBadge('Pending');
 }
 function _emParse(v) {
   if (v == null) return null;
@@ -5957,6 +5987,43 @@ app.post('/admin/clients/:client_id/analysis-mode', requireSuperAdmin, async (re
   }
 });
 
+// POST set/update the declared type + instinct for one assessment (EM Lab editor).
+// Super-admin only, consistent with every other EM Lab route. Don't-Know wins server
+// -side: the paired value is nulled regardless of what the client sent. Returns the
+// re-rendered DECLARED and MATCH cell HTML (computed from the freshly-persisted roster
+// row) so the Overview updates in place without a reload.
+app.post('/admin/em-lab/declared/:assessment_id', requireSuperAdmin, async (req, res) => {
+  const aid = parseInt(req.params.assessment_id, 10);
+  if (!aid || isNaN(aid)) return res.status(400).json({ ok: false, error: 'Invalid assessment id' });
+  const b = req.body || {};
+  const typeDontKnow = !!b.type_dont_know;
+  const instinctDontKnow = !!b.instinct_dont_know;
+
+  let declaredType = typeDontKnow ? null : b.declared_type;
+  if (declaredType != null) {
+    declaredType = parseInt(declaredType, 10);
+    if (!Number.isInteger(declaredType) || declaredType < 1 || declaredType > 9) {
+      return res.status(400).json({ ok: false, error: 'Invalid type (expected 1–9)' });
+    }
+  }
+  let declaredInstinct = instinctDontKnow ? null : (b.declared_instinct || null);
+  if (declaredInstinct != null && !['SP', 'SO', 'SX'].includes(declaredInstinct)) {
+    return res.status(400).json({ ok: false, error: 'Invalid instinct (expected SP/SO/SX)' });
+  }
+
+  try {
+    await db.upsertDeclaration(aid, { declaredType, typeDontKnow, declaredInstinct, instinctDontKnow });
+    const roster = await db.getEmLabRoster();
+    const r = roster.find((row) => row.assessment_id === aid);
+    if (!r) return res.json({ ok: true, declared_html: '', match_html: '' });
+    const candidates = resolveEngineResults(r);
+    return res.json({ ok: true, declared_html: _emDeclaredLabel(r), match_html: _emDeclaredMatch(r, candidates) });
+  } catch (e) {
+    console.error('[em-lab/declared] failed:', e.message);
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 function renderEmLabPage(req, data) {
   const roster = data.roster || [];
   const settings = data.settings || {};
@@ -5995,19 +6062,18 @@ function renderEmLabPage(req, data) {
   const rosterRows = roster.map((r) => {
     const name = ((r.first_name || '') + ' ' + (r.last_name || '')).trim() || '(unnamed)';
     const candidates = resolveEngineResults(r);
-    const matchLive = experimentalAnalysis.computeMatchStatus(candidates,
-      { type: r.declared_type, instinct: r.declared_instinct });
     const emSon = r.em_type_sonnet != null ? esc(_emSubtype(r.em_type_sonnet, r.em_instinct_sonnet)) : (r.latest_error ? '<span class="em-muted">failed</span>' : '—');
     const emOpu = r.em_type_opus != null ? esc(_emSubtype(r.em_type_opus, r.em_instinct_opus)) : '—';
-    const dec = r.declared_type != null ? esc(_emSubtype(r.declared_type, r.declared_instinct)) : '<span class="em-badge-pend">Pending</span>';
+    const aid = r.assessment_id;
+    const decData = `data-aid="${aid}" data-type="${r.declared_type != null ? r.declared_type : ''}" data-tdk="${r.declared_type_dont_know ? 1 : 0}" data-inst="${r.declared_instinct != null ? esc(r.declared_instinct) : ''}" data-idk="${r.declared_instinct_dont_know ? 1 : 0}"`;
     return `<tr>
-      <td><a href="#" class="em-name-link" onclick="emLoadDetail(${r.assessment_id});return false;">${esc(name)}</a><div class="em-sub">${esc(r.email || '')}</div></td>
+      <td><a href="#" class="em-name-link" onclick="emLoadDetail(${aid});return false;">${esc(name)}</a><div class="em-sub">${esc(r.email || '')}</div></td>
       <td>${esc(_emSubtype(r.sm_type, r.sm_instinct))}</td>
       <td>${emSon}</td>
       <td>${emOpu}</td>
-      <td>${dec}</td>
-      <td>${_emMatchBadge(matchLive)}</td>
-      <td><button class="em-btn em-btn-sm" onclick="emLoadDetail(${r.assessment_id})">View</button></td>
+      <td class="em-dec-cell" id="em-dec-${aid}" ${decData} onclick="emOpenDecl(this)" title="Click to edit declared type">${_emDeclaredLabel(r)}</td>
+      <td id="em-match-${aid}">${_emDeclaredMatch(r, candidates)}</td>
+      <td><button class="em-btn em-btn-sm" onclick="emLoadDetail(${aid})">View</button></td>
     </tr>`;
   }).join('');
   const rosterTable = roster.length
@@ -6104,7 +6170,22 @@ function renderEmLabPage(req, data) {
   .em-ind { font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; white-space:nowrap; }
   .em-ind-match { background:#e6f7ee; color:#1a7a4a; } .em-ind-partial { background:#fef6e0; color:#9a6a00; }
   .em-ind-miss { background:#fdecea; color:#c0392b; } .em-ind-na { background:#f1f1ee; color:#7A8A92; }
+  .em-ind-incomplete { background:#eef1f4; color:#5b6b78; }
   .em-badge-pend { background:#fef6e0; color:#9a6a00; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; }
+  .em-badge-dk { background:#eef1f4; color:#5b6b78; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; }
+  .em-dec-cell { cursor:pointer; } .em-dec-cell:hover { background:#F0F8FA !important; outline:1px solid #BFE3EC; outline-offset:-1px; }
+  .em-modal-overlay { display:none; position:fixed; inset:0; background:rgba(26,43,51,0.45); z-index:1000; align-items:center; justify-content:center; }
+  .em-modal-overlay.open { display:flex; }
+  .em-modal { background:#fff; border-radius:10px; padding:22px 24px; width:340px; max-width:92vw; box-shadow:0 12px 40px rgba(0,0,0,0.25); font-family:Georgia, serif; }
+  .em-modal h3 { margin:0 0 14px; font-size:16px; color:#1A2B33; }
+  .em-modal-row { margin-bottom:14px; }
+  .em-modal-row > label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#7A96A6; margin-bottom:5px; }
+  .em-modal select { width:100%; padding:7px 8px; font-family:Georgia, serif; font-size:13px; border:1px solid #C9D2D8; border-radius:5px; background:#fff; }
+  .em-modal select:disabled { background:#F1F1EE; color:#9FB0B9; }
+  .em-modal-dk { display:flex; align-items:center; gap:6px; margin-top:6px; font-size:12px; color:#1A2B33; font-style:normal; }
+  .em-modal-dk input { margin:0; }
+  .em-modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  .em-btn:disabled { background:#C9D2D8; cursor:not-allowed; }
   .em-muted { color:#9FB0B9; font-style:italic; }
   .em-warn { color:#c0392b; }
   .em-btn { background:#00b1d7; color:#fff; border:none; border-radius:4px; font-family:Georgia, serif; font-size:13px; font-weight:700; padding:8px 14px; cursor:pointer; }
@@ -6165,8 +6246,96 @@ function renderEmLabPage(req, data) {
   </div>
 </div>
 <div id="em-toast"></div>
+<div id="em-decl-modal" class="em-modal-overlay" onclick="if(event.target===this)emCloseDecl()">
+  <div class="em-modal">
+    <h3>Declared Type</h3>
+    <input type="hidden" id="em-decl-aid">
+    <div class="em-modal-row">
+      <label for="em-decl-type">Type</label>
+      <select id="em-decl-type" onchange="emCheckSaveReady()">
+        <option value="">— Select type —</option>
+        ${[1,2,3,4,5,6,7,8,9].map((n) => '<option value="' + n + '">' + esc(_emTypeLabel(n)) + '</option>').join('')}
+      </select>
+      <label class="em-modal-dk"><input type="checkbox" id="em-decl-tdk" onchange="emDkToggle('type')"> Don't Know</label>
+    </div>
+    <div class="em-modal-row">
+      <label for="em-decl-inst">Instinct</label>
+      <select id="em-decl-inst" onchange="emCheckSaveReady()">
+        <option value="">— Select instinct —</option>
+        <option value="SP">SP — Self-Preservation</option>
+        <option value="SO">SO — Social</option>
+        <option value="SX">SX — Sexual / One-to-One</option>
+      </select>
+      <label class="em-modal-dk"><input type="checkbox" id="em-decl-idk" onchange="emDkToggle('inst')"> Don't Know</label>
+    </div>
+    <div class="em-modal-actions">
+      <button class="em-btn em-btn-ghost" onclick="emCloseDecl()">Cancel</button>
+      <button class="em-btn" id="em-decl-save" onclick="emSaveDecl()" disabled>Save</button>
+    </div>
+  </div>
+</div>
 <script>
 function _emToast(m){ var t=document.getElementById('em-toast'); t.textContent=m; t.style.display='block'; setTimeout(function(){t.style.display='none';},2600); }
+var _emDeclCell=null;
+function emOpenDecl(cell){
+  _emDeclCell=cell;
+  var typeSel=document.getElementById('em-decl-type'), instSel=document.getElementById('em-decl-inst');
+  var tdk=document.getElementById('em-decl-tdk'), idk=document.getElementById('em-decl-idk');
+  document.getElementById('em-decl-aid').value=cell.getAttribute('data-aid');
+  typeSel.value=cell.getAttribute('data-type')||'';
+  instSel.value=cell.getAttribute('data-inst')||'';
+  tdk.checked=cell.getAttribute('data-tdk')==='1';
+  idk.checked=cell.getAttribute('data-idk')==='1';
+  emDkToggle('type'); emDkToggle('inst');   // sync disabled state (also runs emCheckSaveReady)
+  document.getElementById('em-decl-modal').classList.add('open');
+}
+function emDkToggle(which){
+  var sel=document.getElementById(which==='type'?'em-decl-type':'em-decl-inst');
+  var dk=document.getElementById(which==='type'?'em-decl-tdk':'em-decl-idk');
+  sel.disabled=dk.checked;
+  if(dk.checked) sel.value='';
+  emCheckSaveReady();
+}
+function emCheckSaveReady(){
+  var typeOk=document.getElementById('em-decl-type').value!=='' || document.getElementById('em-decl-tdk').checked;
+  var instOk=document.getElementById('em-decl-inst').value!=='' || document.getElementById('em-decl-idk').checked;
+  document.getElementById('em-decl-save').disabled=!(typeOk && instOk);
+}
+function emCloseDecl(){
+  document.getElementById('em-decl-modal').classList.remove('open');
+  _emDeclCell=null;
+}
+async function emSaveDecl(){
+  var aid=document.getElementById('em-decl-aid').value;
+  var tdk=document.getElementById('em-decl-tdk').checked, idk=document.getElementById('em-decl-idk').checked;
+  var typeVal=document.getElementById('em-decl-type').value;
+  var instVal=document.getElementById('em-decl-inst').value;
+  var payload={
+    declared_type: tdk ? null : (typeVal!=='' ? parseInt(typeVal,10) : null),
+    type_dont_know: tdk,
+    declared_instinct: idk ? null : (instVal!=='' ? instVal : null),
+    instinct_dont_know: idk
+  };
+  var saveBtn=document.getElementById('em-decl-save');
+  saveBtn.disabled=true; saveBtn.textContent='Saving…';
+  try{
+    var r=await fetch('/admin/em-lab/declared/'+aid,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});
+    var d=await r.json();
+    if(!d.ok){ _emToast('Save failed: '+(d.error||'error')); saveBtn.disabled=false; saveBtn.textContent='Save'; return; }
+    var decCell=document.getElementById('em-dec-'+aid), matchCell=document.getElementById('em-match-'+aid);
+    if(decCell){
+      decCell.innerHTML=d.declared_html;
+      decCell.setAttribute('data-type', payload.declared_type!=null ? payload.declared_type : '');
+      decCell.setAttribute('data-tdk', tdk ? 1 : 0);
+      decCell.setAttribute('data-inst', payload.declared_instinct!=null ? payload.declared_instinct : '');
+      decCell.setAttribute('data-idk', idk ? 1 : 0);
+    }
+    if(matchCell) matchCell.innerHTML=d.match_html;
+    saveBtn.textContent='Save';
+    emCloseDecl();
+    _emToast('Declared type saved');
+  }catch(e){ _emToast('Save error: '+e.message); saveBtn.disabled=false; saveBtn.textContent='Save'; }
+}
 function switchEmTab(n){
   for (var i=1;i<=4;i++){
     document.getElementById('em-tab-btn-'+i).classList.toggle('active', i===n);

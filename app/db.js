@@ -274,6 +274,13 @@ ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declared_instinct VARCHAR(8);
 ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declared_subtype TEXT;
 ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declaration_confidence VARCHAR(8);
 
+-- Explicit "Don't Know" flags for the EM Lab Declared Type editor. A null value
+-- column with its flag FALSE means "not yet declared" (renders Pending); with its
+-- flag TRUE it means the admin explicitly declared Don't Know for that dimension.
+-- DEFAULT FALSE so every existing/backfilled row maps to the "known" matrix states.
+ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declared_type_dont_know     BOOLEAN DEFAULT FALSE;
+ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declared_instinct_dont_know BOOLEAN DEFAULT FALSE;
+
 -- Backfill declared_type / declared_instinct from the self-hypothesis the tester
 -- submitted in the beta survey. The submit path only ever wrote self_hypothesis_types /
 -- self_hypothesis_instincts (each a JSONB object of shape {values:[...], dontKnow:bool}),
@@ -1485,6 +1492,7 @@ async function getEmLabRoster() {
             opu.em_type_opus, opu.em_instinct_opus, opu.em_confidence_opus, opu.ran_at AS opus_ran_at,
             latest.sm_type, latest.sm_instinct, latest.sm_confidence, latest.error_message AS latest_error,
             bf.declared_type, bf.declared_instinct, bf.declared_subtype, bf.declaration_confidence,
+            bf.declared_type_dont_know, bf.declared_instinct_dont_know,
             GREATEST(COALESCE(son.ran_at, to_timestamp(0)), COALESCE(opu.ran_at, to_timestamp(0)),
                      COALESCE(latest.ran_at, to_timestamp(0))) AS last_run_at
        FROM assessments a
@@ -1497,6 +1505,35 @@ async function getEmLabRoster() {
       ORDER BY last_run_at DESC`
   );
   return r ? r.rows : [];
+}
+
+// Set/update the declared type + instinct for an assessment from the EM Lab editor.
+// "Don't Know" is authoritative: when a dont_know flag is true the paired value is
+// forced to NULL regardless of what the caller passed (the route validates too, but
+// we enforce here as the last line of defence). UPDATEs the latest beta_feedback row
+// for the assessment; if the tester has no feedback row yet (the roster is driven by
+// em_reliability_log, not beta_feedback), INSERTs a bare declaration row.
+async function upsertDeclaration(assessmentId, { declaredType, typeDontKnow, declaredInstinct, instinctDontKnow } = {}) {
+  const tdk = !!typeDontKnow;
+  const idk = !!instinctDontKnow;
+  const type = tdk ? null : (Number.isInteger(declaredType) ? declaredType : null);
+  const instinct = idk ? null : (declaredInstinct || null);
+
+  const upd = await query(
+    `UPDATE beta_feedback
+        SET declared_type = $2, declared_type_dont_know = $3,
+            declared_instinct = $4, declared_instinct_dont_know = $5
+      WHERE id = (SELECT id FROM beta_feedback WHERE assessment_id = $1 ORDER BY submitted_at DESC LIMIT 1)`,
+    [assessmentId, type, tdk, instinct, idk]
+  );
+  if (upd && upd.rowCount > 0) return;
+
+  await query(
+    `INSERT INTO beta_feedback
+       (assessment_id, declared_type, declared_type_dont_know, declared_instinct, declared_instinct_dont_know)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [assessmentId, type, tdk, instinct, idk]
+  );
 }
 
 module.exports = {
@@ -1593,4 +1630,5 @@ module.exports = {
   getEmReliabilityLog,
   setClientAnalysisMode,
   getEmLabRoster,
+  upsertDeclaration,
 };
