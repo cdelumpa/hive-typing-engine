@@ -1502,6 +1502,7 @@ async function getEmLabRoster() {
        LEFT JOIN LATERAL (SELECT * FROM em_reliability_log e WHERE e.assessment_id = a.id ORDER BY e.ran_at DESC LIMIT 1) latest ON TRUE
        LEFT JOIN LATERAL (SELECT * FROM beta_feedback b WHERE b.assessment_id = a.id ORDER BY b.submitted_at DESC LIMIT 1) bf ON TRUE
       WHERE EXISTS (SELECT 1 FROM em_reliability_log e WHERE e.assessment_id = a.id)
+        AND a.deleted_at IS NULL
       ORDER BY last_run_at DESC`
   );
   return r ? r.rows : [];
