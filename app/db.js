@@ -274,6 +274,34 @@ ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declared_instinct VARCHAR(8);
 ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declared_subtype TEXT;
 ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declaration_confidence VARCHAR(8);
 
+-- Backfill declared_type / declared_instinct from the self-hypothesis the tester
+-- submitted in the beta survey. The submit path only ever wrote self_hypothesis_types /
+-- self_hypothesis_instincts (each a JSONB object of shape {values:[...], dontKnow:bool}),
+-- while the EM Lab DECLARED column reads declared_type / declared_instinct — so those
+-- stayed NULL and every row rendered "Pending". declared_type takes the first element of
+-- the values array; declared_instinct takes the first instinct value. Older bare-array
+-- shapes (e.g. [7]) are handled via the jsonb_typeof branch. Idempotent: the
+-- declared_type IS NULL guard skips rows already backfilled on later startups, and the
+-- numeric guard leaves "don't know" rows (empty values → NULL) untouched.
+UPDATE beta_feedback
+   SET declared_type = (
+         CASE WHEN jsonb_typeof(self_hypothesis_types) = 'array'
+              THEN self_hypothesis_types->>0
+              ELSE self_hypothesis_types->'values'->>0 END
+       )::integer,
+       declared_instinct = (
+         CASE WHEN jsonb_typeof(self_hypothesis_instincts) = 'array'
+              THEN self_hypothesis_instincts->>0
+              ELSE self_hypothesis_instincts->'values'->>0 END
+       )
+ WHERE declared_type IS NULL
+   AND self_hypothesis_types IS NOT NULL
+   AND (
+         CASE WHEN jsonb_typeof(self_hypothesis_types) = 'array'
+              THEN self_hypothesis_types->>0
+              ELSE self_hypothesis_types->'values'->>0 END
+       ) ~ '^[0-9]+$';
+
 -- EM reliability log: one row per EM run. Stores the SM result, the EM result(s)
 -- (Sonnet and/or Opus), the declared type, and the full EM JSON for prompt tuning.
 -- error_message is populated when an EM run fails (SM is unaffected in all cases).
@@ -1085,10 +1113,30 @@ async function setClientBeta(clientId, isBeta) {
   await query('UPDATE clients SET is_beta = $1 WHERE id = $2', [!!isBeta, clientId]);
 }
 
+// First scalar value out of a self-hypothesis payload. The beta survey sends each as
+// { values: [...], dontKnow: bool }; older callers may pass a bare array. Returns null
+// for "don't know" (empty values) or any unexpected shape.
+function _firstHypothesisValue(h) {
+  if (h == null) return null;
+  if (Array.isArray(h)) return h.length ? h[0] : null;
+  if (Array.isArray(h.values)) return h.values.length ? h.values[0] : null;
+  return null;
+}
+
 // Insert a beta tester's post-submit feedback. JSONB columns are stringified; the
 // pg driver also accepts objects for JSONB, but we stringify to match the rest of
 // this file's insert style (e.g. createAssessment, saveClientSessionState).
 async function insertBetaFeedback({ assessmentId, selfHypothesisTypes, selfHypothesisInstincts, flaggedKeys, blockBAnswers, overallNotes, declaredType, declaredInstinct, declaredSubtype, declarationConfidence }) {
+  // The EM Lab DECLARED column reads declared_type / declared_instinct, but the survey
+  // only carries the self-hypothesis. Derive the declared values from the first
+  // self-hypothesis entry so new rows populate immediately (an explicit declaredType /
+  // declaredInstinct, if a caller ever supplies one, still wins). Mirrors the startup
+  // backfill in SCHEMA_SQL.
+  const rawType = declaredType ?? _firstHypothesisValue(selfHypothesisTypes);
+  const typeInt = Number.isInteger(rawType) ? rawType
+    : (rawType != null && /^[0-9]+$/.test(String(rawType)) ? parseInt(rawType, 10) : null);
+  const instinct = declaredInstinct ?? _firstHypothesisValue(selfHypothesisInstincts);
+
   const r = await query(
     `INSERT INTO beta_feedback
        (assessment_id, self_hypothesis_types, self_hypothesis_instincts, flagged_keys, block_b_answers, overall_notes,
@@ -1102,9 +1150,9 @@ async function insertBetaFeedback({ assessmentId, selfHypothesisTypes, selfHypot
       JSON.stringify(flaggedKeys ?? null),
       JSON.stringify(blockBAnswers ?? null),
       overallNotes ?? null,
-      // Declared type/instinct (EM ground truth) — scalar columns, optional. NULL when absent.
-      declaredType ?? null,
-      declaredInstinct ?? null,
+      // Declared type/instinct (EM ground truth) — derived from the self-hypothesis above.
+      typeInt,
+      instinct ?? null,
       declaredSubtype ?? null,
       declarationConfidence ?? null,
     ]

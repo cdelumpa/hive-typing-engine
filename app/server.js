@@ -1472,7 +1472,9 @@ app.post('/api/beta-feedback', async (req, res) => {
       flaggedKeys:             b.flaggedKeys ?? null,
       blockBAnswers:           b.blockBAnswers ?? null,
       overallNotes:            b.overallNotes ?? null,
-      // Declared type/instinct (EM ground truth) — optional; NULL when absent.
+      // Declared type/instinct (EM ground truth). The frontend doesn't send these
+      // directly; insertBetaFeedback derives them from the self-hypothesis above (first
+      // type / first instinct). Passing the explicit fields lets a caller override.
       declaredType:            b.declared_type ?? null,
       declaredInstinct:        b.declared_instinct ?? null,
       declaredSubtype:         b.declared_subtype ?? null,
