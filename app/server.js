@@ -5132,6 +5132,13 @@ app.post('/admin/beta-review/analyze', requireSuperAdmin, async (req, res) => {
     console.error('[beta-review/analyze] data fetch failed:', e.message);
     return res.status(500).json({ ok: false, error: 'Could not load feedback data.' });
   }
+  // Restrict to the tester selection sent by the page (assessment IDs). Absent/empty
+  // body → analyze all (backward compatible). The inner join to beta_feedback already
+  // bounds the result set to submitted rows, so an unsubmitted ID can't slip through.
+  const ids = Array.isArray(req.body && req.body.assessmentIds)
+    ? req.body.assessmentIds.map(Number).filter(Number.isInteger)
+    : null;
+  if (ids && ids.length) rows = rows.filter((r) => ids.includes(r.assessment_id));
   if (!rows.length) {
     return res.json({ ok: false, error: 'No feedback to analyze yet.' });
   }
@@ -6477,10 +6484,17 @@ function renderBetaReviewPage(req, respondents, analysis) {
     const statusBadge = submitted
       ? `<span class="br-badge br-badge-sub">Submitted</span>`
       : `<span class="br-badge br-badge-pend">Pending</span>`;
+    const newBadge = submitted
+      ? `<span class="br-new-badge" data-aid="${r.assessment_id}" style="display:none">New</span>`
+      : '';
     const nameCell = submitted
-      ? `<a href="#" class="br-name-link" onclick="openBetaTester(${r.client_id});return false;">${esc(name)}</a>`
+      ? `<a href="#" class="br-name-link" onclick="openBetaTester(${r.client_id});return false;">${esc(name)}</a>${newBadge}`
       : `<span class="br-name-pending">${esc(name)}</span>`;
+    const checkCell = submitted
+      ? `<input type="checkbox" class="br-check" value="${r.assessment_id}" onchange="brOnCheck()">`
+      : `<input type="checkbox" disabled class="br-check-disabled">`;
     return `<tr>
+      <td class="br-check-cell">${checkCell}</td>
       <td style="padding:10px 12px;">${nameCell}</td>
       <td style="padding:10px 12px;">${esc(engineType)}</td>
       <td style="padding:10px 12px;">${esc(subtype)}</td>
@@ -6518,6 +6532,11 @@ function renderBetaReviewPage(req, respondents, analysis) {
   .br-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 3px; letter-spacing: 0.04em; }
   .br-badge-sub { background: #e6f7ee; color: #1a7a4a; }
   .br-badge-pend { background: #fef6e0; color: #9a6a00; }
+  .br-check-cell { width: 36px; text-align: center; padding: 10px 8px; }
+  .br-check, #brSelectAll { cursor: pointer; }
+  .br-check-disabled { opacity: 0.35; cursor: not-allowed; }
+  .br-new-badge { display: inline-block; margin-left: 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: #F68625; color: #fff; padding: 2px 7px; border-radius: 3px; vertical-align: middle; }
+  .btn-reanalyze:disabled { background: #B7C4CB; cursor: not-allowed; }
   .btn-reanalyze { background: #00b1d7; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; }
   .btn-reanalyze:hover { background: #009bbf; }
   .btn-clear-analysis { background: #fff; color: #7A96A6; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 9px 16px; cursor: pointer; }
@@ -6587,11 +6606,11 @@ function renderBetaReviewPage(req, respondents, analysis) {
       <h2>Beta testers</h2>
       <div style="display:flex;align-items:center;gap:8px;">
         <button id="btn-clear-analysis" class="btn-clear-analysis" onclick="clearBetaAnalysis(this)" style="display:${hasAnalysis ? 'inline-block' : 'none'};">Clear Analysis</button>
-        <button class="btn-reanalyze" onclick="reanalyzeBeta(this)">Re-analyze</button>
+        <button id="btn-reanalyze" class="btn-reanalyze" onclick="reanalyzeBeta(this)" disabled>Re-analyze</button>
       </div>
     </div>
     ${(respondents && respondents.length) ? `<table class="br-list">
-      <thead><tr><th>Tester</th><th>Engine type</th><th>Subtype</th><th>Feedback date</th><th>Status</th></tr></thead>
+      <thead><tr><th class="br-check-cell"><input type="checkbox" id="brSelectAll" onchange="brToggleSelectAll(this)"></th><th>Tester</th><th>Engine type</th><th>Subtype</th><th>Feedback date</th><th>Status</th></tr></thead>
       <tbody>${rowsHtml}</tbody>
     </table>` : emptyState}
   </div>
@@ -6639,23 +6658,81 @@ async function openBetaTester(clientId){
     t2.innerHTML=d.tab2Html||'<p class="br-muted">Stage-by-stage walkthrough is unavailable for this record (assessment still processing or snapshots missing).</p>';
   }catch(e){ t1.innerHTML='<p class="br-muted">Failed to load tester detail.</p>'; }
 }
+function _brCheckedBoxes(){ return Array.prototype.slice.call(document.querySelectorAll('.br-check')).filter(function(c){return c.checked;}); }
+function _brCheckedIds(){ return _brCheckedBoxes().map(function(c){return parseInt(c.value,10);}).filter(function(n){return !isNaN(n);}); }
 async function reanalyzeBeta(btn){
+  var assessmentIds=_brCheckedIds();
   var orig=btn.textContent; btn.disabled=true; btn.textContent='Analyzing…';
   try{
-    var r=await fetch('/admin/beta-review/analyze',{method:'POST',headers:{Accept:'application/json'}});
+    var r=await fetch('/admin/beta-review/analyze',{method:'POST',headers:{Accept:'application/json','Content-Type':'application/json'},body:JSON.stringify({assessmentIds:assessmentIds})});
     var d=await r.json();
     if(d.ok && d.analysisHtml){
       var panel=document.getElementById('br-analysis-panel');
       if(panel) panel.innerHTML=d.analysisHtml;
       var clearBtn=document.getElementById('btn-clear-analysis');
       if(clearBtn) clearBtn.style.display='inline-block';
+      // Included testers are no longer "new": clear their badges and fold them into
+      // the stored selection.
+      _brCheckedBoxes().forEach(function(c){
+        var badge=document.querySelector('.br-new-badge[data-aid="'+c.value+'"]');
+        if(badge) badge.style.display='none';
+      });
+      brPersistSelection();
       _brToast('Analysis complete.');
     } else {
       _brToast(d.error || 'Analysis failed.');
     }
   }catch(e){ _brToast('Request failed.'); }
-  btn.disabled=false; btn.textContent=orig;
+  btn.textContent=orig;
+  brUpdateReanalyzeState(); // re-derive disabled from selection, not unconditional enable
 }
+var BR_LS_KEY='hive.betaReview.selectedAssessmentIds';
+function brToggleSelectAll(el){
+  Array.prototype.slice.call(document.querySelectorAll('.br-check')).forEach(function(c){ c.checked=el.checked; });
+  brOnCheck();
+}
+function brOnCheck(){ brUpdateReanalyzeState(); brPersistSelection(); }
+function brUpdateReanalyzeState(){
+  var boxes=Array.prototype.slice.call(document.querySelectorAll('.br-check'));
+  var checked=boxes.filter(function(c){return c.checked;}).length;
+  var btn=document.getElementById('btn-reanalyze');
+  if(btn) btn.disabled=(checked===0);
+  var all=document.getElementById('brSelectAll');
+  if(all){
+    all.checked=(boxes.length>0 && checked===boxes.length);
+    all.indeterminate=(checked>0 && checked<boxes.length);
+  }
+}
+function brPersistSelection(){
+  try{ localStorage.setItem(BR_LS_KEY, JSON.stringify(_brCheckedIds())); }catch(e){}
+}
+function brRestoreSelection(){
+  var boxes=Array.prototype.slice.call(document.querySelectorAll('.br-check'));
+  if(!boxes.length){ brUpdateReanalyzeState(); return; } // empty roster — no-op gracefully
+  var submittedIds=boxes.map(function(c){return parseInt(c.value,10);});
+  var stored=null;
+  try{ stored=JSON.parse(localStorage.getItem(BR_LS_KEY)); }catch(e){ stored=null; }
+  var hideAllBadges=function(){ Array.prototype.slice.call(document.querySelectorAll('.br-new-badge')).forEach(function(b){b.style.display='none';}); };
+  // Steps 1+3: invalid/parse-fail or empty intersection → all submitted checked, no New flags.
+  if(!Array.isArray(stored)){
+    boxes.forEach(function(c){c.checked=true;}); hideAllBadges(); brUpdateReanalyzeState(); return;
+  }
+  var storedInts=stored.map(Number).filter(Number.isInteger);
+  var intersection=submittedIds.filter(function(id){return storedInts.indexOf(id)>=0;});
+  if(!intersection.length){
+    boxes.forEach(function(c){c.checked=true;}); hideAllBadges(); brUpdateReanalyzeState(); return;
+  }
+  // Step 4: check exactly the intersection; submitted IDs not in it get unchecked + New badge.
+  boxes.forEach(function(c){
+    var id=parseInt(c.value,10);
+    var inSel=intersection.indexOf(id)>=0;
+    c.checked=inSel;
+    var badge=document.querySelector('.br-new-badge[data-aid="'+c.value+'"]');
+    if(badge) badge.style.display=inSel?'none':'inline-block';
+  });
+  brUpdateReanalyzeState(); // step 5
+}
+document.addEventListener('DOMContentLoaded', brRestoreSelection);
 async function clearBetaAnalysis(btn){
   if(!confirm('Clear the stored analysis? This cannot be undone.')) return;
   btn.disabled=true;
