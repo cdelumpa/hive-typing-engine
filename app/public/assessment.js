@@ -2444,7 +2444,7 @@ function renderStage1() {
     const val = isType ? state.stage1TypeOpen : state.stage1InstinctOpen;
     const prompt = isType
       ? 'Our core motivations are often hard to pin down. If there’s something about what drives you that the previous statements didn’t capture, add it here.'
-      : 'Instinct patterns can be subtle. If there’s something about where your attention and energy naturally go that the statements didn’t quite land on, add it here.';
+      : 'What do you find yourself thinking about when nothing in particular is demanding your attention? Please provide an example or anecdote of how that shows up for you.';
     return `<div class="screen">
       ${header}
       <div class="q-text">${prompt}</div>

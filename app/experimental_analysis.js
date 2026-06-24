@@ -86,7 +86,7 @@ Pass 7 — Open response synthesis
 Read all available open responses:
 Stage 0: self-description (q1), how others describe them (q2), greatest strength (q3), most problematic quality (q4)
 Stage 1 type open response: anything about what drives them the statements didn't capture
-Stage 1 instinct open response: anything about where their attention and energy go
+Stage 1 instinct open response: what they find themselves thinking about in idle moments, with a concrete example of how that shows up for them — may be a narrative or anecdote rather than a direct self-description
 Stage 4 final open response (if present): post-assessment reflection
 For each open response, assess: does the language align with the Core Motivation of the leading type candidate? Does word choice suggest the type's idealization (how they want to see themselves) or shadow (what they avoid seeing)? Does the instinct language confirm or complicate the slider-derived instinct hypothesis? Quote specific language that is particularly diagnostic — these will appear in dimensional_observations.
 If Stage 4 final open response is absent (null), note this and weight the Stage 1 responses more heavily.
