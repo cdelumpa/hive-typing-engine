@@ -760,6 +760,12 @@ function esc(str) {
 }
 
 async function sendEmails(intake, result, clientPdfPath, coachPdfPath, opts = {}) {
+  if (!process.env.SENDGRID_API_KEY) {
+    throw new Error('[email] SENDGRID_API_KEY is not set — email not sent');
+  }
+  if (!process.env.SENDGRID_FROM_EMAIL) {
+    throw new Error('[email] SENDGRID_FROM_EMAIL is not set — email not sent');
+  }
   const h = result.hypothesis;
   const typeName = (h.confirmed_type_name || '').replace(/^Type\s*\d+\s*[—–-]+\s*/i, '').trim() ||
     { 1: 'The Improver', 2: 'The Giver', 3: 'The Performer', 4: 'The Idealist',
@@ -895,19 +901,22 @@ async function sendEmails(intake, result, clientPdfPath, coachPdfPath, opts = {}
   }
   if (coachAttachments.length > 0) coachMsg.attachments = coachAttachments;
 
-  // Send both emails.
+  // Send client email — throws on failure.
   try {
     await sgMail.send(clientMsg);
     console.log(`[email] client email sent to ${intake.email}`);
   } catch (e) {
-    console.error('[email] failed to send client email:', e.message, e.response && e.response.body);
+    const detail = e.response && e.response.body ? JSON.stringify(e.response.body) : e.message;
+    throw new Error(`[email] client email failed to ${intake.email}: ${detail}`);
   }
 
+  // Send coach email — throws on failure.
   try {
     await sgMail.send(coachMsg);
     console.log(`[email] coach email sent to ${coachEmail}`);
   } catch (e) {
-    console.error('[email] failed to send coach email:', e.message, e.response && e.response.body);
+    const detail = e.response && e.response.body ? JSON.stringify(e.response.body) : e.message;
+    throw new Error(`[email] coach email failed to ${coachEmail}: ${detail}`);
   }
 }
 
@@ -1254,7 +1263,7 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     );
   }
 
-  // 7. Send emails
+  // 7. Send emails — email_sent_at and report_delivered only stamp on confirmed delivery to both recipients.
   try {
     await sendEmails(intake, result, clientPdfPath, coachPdfPath);
     if (assessmentId) {
@@ -1263,7 +1272,6 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
         [assessmentId]
       );
     }
-    // PR B: lifecycle audit — report delivered (to client and coach).
     if (clientId) {
       db.logClientEvent({
         clientId, assessmentId,
@@ -1273,7 +1281,8 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
       });
     }
   } catch (e) {
-    console.error('[email] sendEmails threw:', e.message);
+    console.error('[email] report email failed — email_sent_at not stamped:', e.message);
+    // Assessment is complete; email failure is logged but does not block the completion flow.
   }
 
   // 8. Enhanced Mode (EM) auto-fire — PARALLEL MODE ONLY (PR8b R6). Runs after every SM
@@ -8149,11 +8158,17 @@ app.post('/admin/em-rerun/:assessment_id', requireSuperAdmin, async (req, res) =
       [assessmentId]
     );
 
-    await sendEmails(intake, result, clientPdfPath, coachPdfPath);
-    await db.query(
-      `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
-      [assessmentId]
-    );
+    // Send emails — wrapped independently so an email failure does not 500 an otherwise-successful rerun.
+    try {
+      await sendEmails(intake, result, clientPdfPath, coachPdfPath);
+      await db.query(
+        `UPDATE assessments SET email_sent_at = NOW() WHERE id = $1`,
+        [assessmentId]
+      );
+    } catch (e) {
+      console.error('[admin/em-rerun] email delivery failed — rerun succeeded but email not sent:', e.message);
+      // Do not rethrow — the rerun itself succeeded; email failure is logged only.
+    }
 
     db.logClientEvent({
       clientId, assessmentId,
