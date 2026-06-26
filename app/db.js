@@ -281,6 +281,18 @@ ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declaration_confidence VARCHA
 ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declared_type_dont_know     BOOLEAN DEFAULT FALSE;
 ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS declared_instinct_dont_know BOOLEAN DEFAULT FALSE;
 
+-- ─── State-at-time-of-assessment fields (beta mood/environment section) ──────────
+-- Captured in the first section of the beta feedback survey for post-beta correlation
+-- analysis only (zero effect on scoring, AI calls, or report generation). mood_at_time
+-- and environment_at_time are constrained single-selects (validated at the route);
+-- state_reflection_text is optional open text. state_analysis holds a short coach-facing
+-- insight note written server-side by a non-blocking AI call after survey submission —
+-- never sent or edited by the client.
+ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS mood_at_time          VARCHAR(24);
+ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS environment_at_time   VARCHAR(32);
+ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS state_reflection_text TEXT;
+ALTER TABLE beta_feedback ADD COLUMN IF NOT EXISTS state_analysis        TEXT;
+
 -- Backfill declared_type / declared_instinct from the self-hypothesis the tester
 -- submitted in the beta survey. The submit path only ever wrote self_hypothesis_types /
 -- self_hypothesis_instincts (each a JSONB object of shape {values:[...], dontKnow:bool}),
@@ -1133,7 +1145,7 @@ function _firstHypothesisValue(h) {
 // Insert a beta tester's post-submit feedback. JSONB columns are stringified; the
 // pg driver also accepts objects for JSONB, but we stringify to match the rest of
 // this file's insert style (e.g. createAssessment, saveClientSessionState).
-async function insertBetaFeedback({ assessmentId, selfHypothesisTypes, selfHypothesisInstincts, flaggedKeys, blockBAnswers, overallNotes, declaredType, declaredInstinct, declaredSubtype, declarationConfidence }) {
+async function insertBetaFeedback({ assessmentId, selfHypothesisTypes, selfHypothesisInstincts, flaggedKeys, blockBAnswers, overallNotes, declaredType, declaredInstinct, declaredSubtype, declarationConfidence, moodAtTime, environmentAtTime, stateReflectionText }) {
   // The EM Lab DECLARED column reads declared_type / declared_instinct, but the survey
   // only carries the self-hypothesis. Derive the declared values from the first
   // self-hypothesis entry so new rows populate immediately (an explicit declaredType /
@@ -1147,8 +1159,9 @@ async function insertBetaFeedback({ assessmentId, selfHypothesisTypes, selfHypot
   const r = await query(
     `INSERT INTO beta_feedback
        (assessment_id, self_hypothesis_types, self_hypothesis_instincts, flagged_keys, block_b_answers, overall_notes,
-        declared_type, declared_instinct, declared_subtype, declaration_confidence)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        declared_type, declared_instinct, declared_subtype, declaration_confidence,
+        mood_at_time, environment_at_time, state_reflection_text)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      RETURNING id`,
     [
       assessmentId,
@@ -1162,9 +1175,24 @@ async function insertBetaFeedback({ assessmentId, selfHypothesisTypes, selfHypot
       instinct ?? null,
       declaredSubtype ?? null,
       declarationConfidence ?? null,
+      // State-at-time-of-assessment (mood/environment section). state_analysis is written
+      // separately by updateBetaStateAnalysis after the non-blocking AI call resolves.
+      moodAtTime ?? null,
+      environmentAtTime ?? null,
+      stateReflectionText ?? null,
     ]
   );
   return r && r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// Write the coach-facing state-analysis note onto the feedback row for one assessment.
+// Called by the non-blocking AI call after beta survey submission; survey submission
+// never depends on this resolving.
+async function updateBetaStateAnalysis(assessmentId, text) {
+  await query(
+    'UPDATE beta_feedback SET state_analysis = $2 WHERE assessment_id = $1',
+    [assessmentId, text ?? null]
+  );
 }
 
 // Latest feedback row for one assessment, or null if none.
@@ -1602,6 +1630,7 @@ module.exports = {
   stampBetaReport,
   setClientBeta,
   insertBetaFeedback,
+  updateBetaStateAnalysis,
   getBetaFeedback,
   getAllBetaFeedback,
   getBetaReviewRespondents,

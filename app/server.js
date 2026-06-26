@@ -1446,6 +1446,60 @@ app.post('/api/submit', async (req, res) => {
   })();
 });
 
+// State-at-time-of-assessment (mood/environment section) — valid enum values for the
+// two single-selects. Mirrored in the client survey and the admin label maps; the route
+// rejects any out-of-set value with a 400.
+const VALID_MOOD_AT_TIME = ['calm', 'mildly_stressed', 'emotionally_heavy', 'distracted'];
+const VALID_ENVIRONMENT_AT_TIME = ['quiet', 'somewhat_distracted', 'noisy_interrupted'];
+
+// System prompt for the beta state-analysis mini-call (Layer 3). Short, coach-facing,
+// plain-text interpretive note — no JSON wrapper.
+const BETA_STATE_ANALYSIS_SYSTEM = `You are an assistant helping Enneagram coaches Cai and Mo interpret beta tester data. You will be given a tester's self-reported mood and environment at the time of taking an Enneagram self-assessment, along with the engine's confidence level and gap score for that assessment. Write two to three plain-English sentences that note any connection worth investigating — for example, whether the mood or environment may have influenced the result, or whether the engine's confidence is consistent or surprising given the reported state. Be specific, not generic. Write directly to Cai and Mo. Do not use jargon. Do not hedge excessively.`;
+
+// Beta state-analysis mini-call. Fires non-blocking after a beta survey submission,
+// reads the just-submitted mood/environment plus the assessment's engine confidence
+// (assessments row) and gap (Call #1 result on the client), and stores a short
+// coach-facing note on beta_feedback.state_analysis. Never throws to the caller — the
+// survey submission must never fail because of this call. confidence_level/gap may not
+// be populated yet at submit time (Call #2 runs in the background job), so each falls
+// back to a readable placeholder.
+async function runBetaStateAnalysis({ assessmentId, clientId, moodAtTime, environmentAtTime, stateReflectionText }) {
+  try {
+    let confidenceLevel = null;
+    let gap = null;
+    try {
+      const a = await db.getAssessmentById(assessmentId);
+      confidenceLevel = (a && a.confidence_level) || null;
+    } catch (e) { console.error('[beta-state-analysis] confidence lookup failed:', e.message); }
+    try {
+      const c1 = await db.getCall1Result(clientId);
+      gap = (c1 && c1.gap) || null;
+    } catch (e) { console.error('[beta-state-analysis] gap lookup failed:', e.message); }
+
+    const userMessage = `Tester's mood at time of assessment: ${moodAtTime}
+Tester's environment at time of assessment: ${environmentAtTime}
+Tester's own reflection: ${(stateReflectionText && stateReflectionText.trim()) || 'None provided'}
+Engine confidence level: ${confidenceLevel || 'Not yet available'}
+Engine gap: ${gap || 'Not yet available'}`;
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 400,
+      system: [{ type: 'text', text: BETA_STATE_ANALYSIS_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: userMessage }],
+    });
+    const text = ((response.content[0] && response.content[0].text) || '').trim();
+    if (text) {
+      await db.updateBetaStateAnalysis(assessmentId, text);
+      console.log(`[beta-state-analysis] stored for assessment #${assessmentId}`);
+    } else {
+      console.warn(`[beta-state-analysis] empty response for assessment #${assessmentId}`);
+    }
+  } catch (e) {
+    console.error('[beta-state-analysis] failed:', e.message);
+  }
+}
+
 // Beta post-submit feedback (PR-D). Fired by the beta-review screen right after
 // /api/submit. No per-route auth — the in-assessment session bypasses basic auth
 // via req.session.assessmentClientId (see the global middleware), same as /api/submit.
@@ -1465,6 +1519,19 @@ app.post('/api/beta-feedback', async (req, res) => {
   const b = req.body || {};
   const clientId = parseInt(b.client_id, 10);
   if (!clientId || isNaN(clientId)) return res.status(400).json({ ok: false, error: 'Missing client_id' });
+
+  // Lightweight enum validation for the two state single-selects. Reject any value that
+  // is present but out of set; null/absent is allowed (columns are nullable — defensive
+  // for callers that don't send the section).
+  const moodAtTime = b.mood_at_time ?? null;
+  const environmentAtTime = b.environment_at_time ?? null;
+  const stateReflectionText = b.state_reflection_text ?? null;
+  if (moodAtTime != null && !VALID_MOOD_AT_TIME.includes(moodAtTime)) {
+    return res.status(400).json({ ok: false, error: `Invalid mood_at_time: ${moodAtTime}` });
+  }
+  if (environmentAtTime != null && !VALID_ENVIRONMENT_AT_TIME.includes(environmentAtTime)) {
+    return res.status(400).json({ ok: false, error: `Invalid environment_at_time: ${environmentAtTime}` });
+  }
 
   let assessmentId = null;
   for (let attempt = 0; attempt < 4 && !assessmentId; attempt++) {
@@ -1488,8 +1555,20 @@ app.post('/api/beta-feedback', async (req, res) => {
       declaredInstinct:        b.declared_instinct ?? null,
       declaredSubtype:         b.declared_subtype ?? null,
       declarationConfidence:   b.declaration_confidence ?? null,
+      // State-at-time-of-assessment (mood/environment section).
+      moodAtTime,
+      environmentAtTime,
+      stateReflectionText,
     });
     console.log(`[beta-feedback] stored for assessment #${assessmentId} (client #${clientId})`);
+
+    // Fire the state-analysis mini-call non-blocking — do NOT await before responding.
+    // Survey submission must never fail because of the analysis call (errors are logged
+    // inside runBetaStateAnalysis). Only fire when at least mood/environment were given.
+    if (moodAtTime || environmentAtTime) {
+      runBetaStateAnalysis({ assessmentId, clientId, moodAtTime, environmentAtTime, stateReflectionText })
+        .catch((e) => console.error('[beta-state-analysis] unexpected:', e && e.message));
+    }
     return res.json({ ok: true });
   } catch (e) {
     console.error('[beta-feedback] insert failed:', e.message);
@@ -4899,6 +4978,15 @@ const BR_LIKERT_LABELS = {
   clarity: 'Clarity of questions', ease: 'Ease of answering', length: 'Length & pacing',
   navigation: 'Navigation and way-finding', overall: 'Overall experience',
 };
+// Human-readable labels for the state-at-time-of-assessment single-selects (enum → label).
+const BR_MOOD_LABELS = {
+  calm: 'Calm and clear', mildly_stressed: 'Mildly stressed or busy',
+  emotionally_heavy: 'Emotionally heavy or activated', distracted: 'Distracted or scattered',
+};
+const BR_ENVIRONMENT_LABELS = {
+  quiet: 'Quiet and uninterrupted', somewhat_distracted: 'Somewhat distracted',
+  noisy_interrupted: 'Noisy or interrupted',
+};
 
 function brParseMaybe(v) {
   if (v == null) return null;
@@ -4952,7 +5040,30 @@ function renderBetaTab1Html(row, bf) {
       <td style="padding:8px 10px;text-align:right;width:12%;"><span class="br-ind br-ind-${m.cls}">${esc(m.label)}</span></td>
     </tr>`;
 
+  // State-at-time-of-assessment (mood/environment section) — first section.
+  const moodLabel = bf.mood_at_time ? (BR_MOOD_LABELS[bf.mood_at_time] || bf.mood_at_time) : null;
+  const envLabel  = bf.environment_at_time ? (BR_ENVIRONMENT_LABELS[bf.environment_at_time] || bf.environment_at_time) : null;
+  const stateRow = (label, val) => `
+    <tr>
+      <td style="padding:8px 10px;font-size:12px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;width:30%;vertical-align:top;">${esc(label)}</td>
+      <td style="padding:8px 10px;font-size:14px;color:#1A2B33;">${val}</td>
+    </tr>`;
   let html = `<div class="br-tab-section">
+    <div class="br-tab-h">Your Mood/Environment During Testing</div>
+    <table class="br-cmp">
+      ${stateRow('Mood', moodLabel ? esc(moodLabel) : '<span class="br-muted">Not provided</span>')}
+      ${stateRow('Environment', envLabel ? esc(envLabel) : '<span class="br-muted">Not provided</span>')}
+      ${stateRow('Reflection', bf.state_reflection_text ? esc(bf.state_reflection_text) : '<span class="br-muted">None provided</span>')}
+    </table>
+    ${bf.state_analysis
+      ? `<div style="margin-top:12px;padding:12px 14px;background:#F0F8FA;border-left:3px solid #00859f;border-radius:4px;">
+           <div style="font-size:11px;color:#00859f;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:4px;">Hive note</div>
+           <div style="font-size:14px;color:#1A2B33;line-height:1.5;">${esc(bf.state_analysis)}</div>
+         </div>`
+      : `<div style="margin-top:12px;"><span class="br-muted">Analysis pending</span></div>`}
+  </div>`;
+
+  html += `<div class="br-tab-section">
     <div class="br-tab-h">Self-hypothesis vs. engine</div>
     <table class="br-cmp">
       <tr><td></td>

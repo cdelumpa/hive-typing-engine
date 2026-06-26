@@ -1951,6 +1951,7 @@ function renderThankYou() {
 
 function initBetaReview() {
   state._betaReview = {
+    moodAtTime: null, environmentAtTime: null, stateReflectionText: '',
     types: [], typesDontKnow: false,
     instincts: [], instinctsDontKnow: false,
     likert: {},
@@ -1962,6 +1963,25 @@ function initBetaReview() {
 function renderBetaReview() {
   if (!state._betaReview) initBetaReview();
   const r = state._betaReview;
+
+  // State-at-time-of-assessment (mood/environment) — single-select per question.
+  const moodOpts = [
+    ['calm', 'Calm and clear'],
+    ['mildly_stressed', 'Mildly stressed or busy'],
+    ['emotionally_heavy', 'Emotionally heavy or activated'],
+    ['distracted', 'Distracted or scattered'],
+  ];
+  const envOpts = [
+    ['quiet', 'Quiet and uninterrupted'],
+    ['somewhat_distracted', 'Somewhat distracted'],
+    ['noisy_interrupted', 'Noisy or interrupted'],
+  ];
+  const moodBtns = moodOpts.map(([v, label]) =>
+    `<button type="button" class="br-chip${r.moodAtTime === v ? ' active' : ''}" data-br-mood="${v}">${esc(label)}</button>`
+  ).join('');
+  const envBtns = envOpts.map(([v, label]) =>
+    `<button type="button" class="br-chip${r.environmentAtTime === v ? ' active' : ''}" data-br-env="${v}">${esc(label)}</button>`
+  ).join('');
 
   // Block 0 — type (max 3) + instinct (max 2) multi-select, each with a mutually
   // exclusive "I don't know".
@@ -2011,6 +2031,16 @@ function renderBetaReview() {
   return `<div class="screen br-screen">
     <h1 class="br-headline">Before we show you your results, we have a few questions.</h1>
     <div id="br-err" class="br-err" style="display:none;"></div>
+
+    <section class="br-block">
+      <h2 class="br-block-title">Your Mood/Environment During Testing</h2>
+      <p class="br-block-sub">How would you describe your emotional state while taking the assessment?</p>
+      <div class="br-chips" id="br-mood">${moodBtns}</div>
+      <p class="br-block-sub br-block-title-2">What was your physical environment like?</p>
+      <div class="br-chips" id="br-env">${envBtns}</div>
+      <p class="br-block-sub br-block-title-2">Is there anything about your state or surroundings that you think may have affected how you answered? (Optional)</p>
+      <textarea class="text-input" id="br-state-reflection" placeholder="Anything about your state or surroundings that may have affected your answers?">${esc(r.stateReflectionText || '')}</textarea>
+    </section>
 
     <section class="br-block">
       <h2 class="br-block-title">What type do you think you are?</h2>
@@ -2065,20 +2095,21 @@ function syncBetaReviewBlock0() {
   if (idk) idk.classList.toggle('active', r.instinctsDontKnow);
 }
 
-// Submit gate: Block 0 complete (type + instinct each chosen or "I don't know"),
-// all 5 Likert dimensions rated, and every flagged statement either has text or was
-// toggled off (reconsidered). Block C is ungated.
+// Submit gate: mood + environment both selected, Block 0 complete (type + instinct each
+// chosen or "I don't know"), all 5 Likert dimensions rated, and every flagged statement
+// either has text or was toggled off (reconsidered). State reflection and Block C are ungated.
 function refreshBetaReviewGate() {
   const r = state._betaReview;
   const btn = document.getElementById('btn-br-submit');
   if (!r || !btn) return;
+  const stateSection = !!r.moodAtTime && !!r.environmentAtTime;
   const block0 = (r.types.length >= 1 || r.typesDontKnow) && (r.instincts.length >= 1 || r.instinctsDontKnow);
   const blockB = BETA_LIKERT_DIMS.every((d) => r.likert[d.key] !== undefined);
   const blockA = Object.keys(state.betaFlaggedQuestions || {}).every((k) => {
     const e = state.betaFlaggedQuestions[k];
     return e.reconsidered ? true : (r.flagComments[k] || '').trim().length > 0;
   });
-  btn.disabled = !(block0 && blockB && blockA);
+  btn.disabled = !(stateSection && block0 && blockB && blockA);
 }
 
 async function submitBetaReview() {
@@ -2099,6 +2130,11 @@ async function submitBetaReview() {
 
   const payload = {
     client_id: state.intake.client_id,
+    // State-at-time-of-assessment section. snake_case keys to match the EM-era field
+    // convention the server route reads.
+    mood_at_time:          r.moodAtTime,
+    environment_at_time:   r.environmentAtTime,
+    state_reflection_text: (r.stateReflectionText || '').trim() || null,
     selfHypothesisTypes:     { dontKnow: r.typesDontKnow,     values: r.typesDontKnow ? [] : r.types },
     selfHypothesisInstincts: { dontKnow: r.instinctsDontKnow, values: r.instinctsDontKnow ? [] : r.instincts },
     flaggedKeys,
@@ -2776,6 +2812,28 @@ function attachHandlers() {
   if (state.phase === 'beta-review') {
     if (!state._betaReview) initBetaReview();
     const r = state._betaReview;
+
+    // State section — mood (single-select).
+    document.querySelectorAll('[data-br-mood]').forEach((el) => {
+      el.addEventListener('click', () => {
+        r.moodAtTime = el.getAttribute('data-br-mood');
+        document.querySelectorAll('[data-br-mood]').forEach((b) =>
+          b.classList.toggle('active', b === el));
+        refreshBetaReviewGate();
+      });
+    });
+    // State section — environment (single-select).
+    document.querySelectorAll('[data-br-env]').forEach((el) => {
+      el.addEventListener('click', () => {
+        r.environmentAtTime = el.getAttribute('data-br-env');
+        document.querySelectorAll('[data-br-env]').forEach((b) =>
+          b.classList.toggle('active', b === el));
+        refreshBetaReviewGate();
+      });
+    });
+    // State section — optional reflection text.
+    const reflectionEl = document.getElementById('br-state-reflection');
+    if (reflectionEl) reflectionEl.addEventListener('input', () => { r.stateReflectionText = reflectionEl.value; });
 
     // Block 0 — types (max 3), mutually exclusive with "I don't know".
     document.querySelectorAll('[data-br-type]').forEach((el) => {
