@@ -25,7 +25,7 @@
 const { TYPE_STATEMENTS, INSTINCT_STATEMENTS, TYPE_GEOMETRY } = require('./stage1_labels');
 
 // ── Config (prompt spec §1) ──────────────────────────────────────────────────────
-const PROMPT_VERSION = 'EM-v1.1';
+const PROMPT_VERSION = 'EM-v1.2';
 const EM_MAX_TOKENS = 6000;   // raised from spec §1's 3000 — that cap truncated real runs (spec §6.3 underestimated output); flagged for spec v1.1
 const EM_MODEL_SONNET = 'claude-sonnet-4-6';   // primary
 const EM_MODEL_OPUS = 'claude-opus-4-6';       // parallel run (consumed in PR5)
@@ -98,6 +98,7 @@ Note any unresolved tensions between passes — where the evidence points in dif
 State explicitly whether the final verdict confirms or overrides the raw slider ranking from Pass 0, and why
 Set confidence level based on the dimensional evidence alone — not on Stage 3/4 outcomes
 Your alternate_candidate must be the type with the second-highest dimensional confidence score from your analytical passes unless you can explicitly name a specific reason — grounded in the dimensional evidence — why a lower-ranked type is a stronger alternate. If you depart from the dimensional ranking for the alternate, state the reason in alternate_rationale. Do not override the dimensional ranking based on general Enneagram knowledge or training data.
+When naming wings, stress points, or security points anywhere in your reasoning narrative, retrieve them exclusively from the TYPE GEOMETRY REFERENCE TABLE above. Do not draw on training knowledge for structural relationships. The table governs.
 Confidence calibration guidelines:
   HIGH — Within-type coherence is tight (spread ≤ 15), geometric neighborhood is elevated, instinct stack is clear (gap ≥ 20), open response language confirms the core motivation. All passes point in the same direction.
   MEDIUM_HIGH — Most passes confirm the leading type but 1–2 create tension. Dimensional coherence is good but not tight. Alternate hypothesis is present but clearly secondary.
@@ -123,7 +124,7 @@ const _SCHEMA = `{
   "confidence_rationale": <string — one sentence explaining the confidence level>,
   "leading_candidate": <integer 1-9>,
   "alternate_candidate": <integer 1-9>,
-  "alternate_rationale": <string — one sentence on what makes alternate a live hypothesis>,
+  "alternate_rationale": <string — one sentence on what makes alternate a live hypothesis. When referencing geometric relationships (wings, stress point, security point), use only the values from the TYPE GEOMETRY REFERENCE TABLE — never training knowledge.>,
   "dominant_instinct_hypothesis": <"SP" | "SO" | "SX">,
   "em_instinct_confidence": <"HIGH" | "MEDIUM_HIGH" | "MEDIUM" | "LOW">,
   "ranking_override": <boolean — true if synthesis departs from raw slider mean ranking>,
@@ -167,9 +168,11 @@ const _SCHEMA = `{
   ],
   "reasoning": <string — 2-3 paragraphs in plain English summarizing how
     the hypothesis was reached. Written for a coach, not a client.
-    Use hypothesis language throughout.>,
+    Use hypothesis language throughout. When referencing geometric
+    relationships (wings, stress point, security point), use only the values
+    from the TYPE GEOMETRY REFERENCE TABLE — never training knowledge.>,
   "meta": {
-    "prompt_version": "EM-v1.1",
+    "prompt_version": "EM-v1.2",
     "pass0_raw_ranking": [
       { "type": <1-9>, "mean": <0-100> },
       ... all 9 types, mean-descending
