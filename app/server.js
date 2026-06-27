@@ -2040,7 +2040,7 @@ async function sendInviteEmail(client, token, coachName) {
 // Build a plain-English summary of what changed between two DB records
 function buildChangeSummary(recordType, before, after) {
   const fields = recordType === 'coach'
-    ? [['name', 'name'], ['email', 'email']]
+    ? [['name', 'name'], ['email', 'email'], ['organization', 'organization']]
     : [['first_name', 'first name'], ['last_name', 'last name'], ['email', 'email'], ['organization', 'organization']];
 
   const changes = [];
@@ -2493,6 +2493,7 @@ function _renderCoachView(data){
   h+='<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">';
   h+=_profileRow('Name',c.name);
   h+=_profileRow('Email',c.email);
+  h+=_profileRow('Organization',c.organization || '—');
   h+=_profileRowRaw('Admin',adminBadge);
   h+=_profileRowRaw('Status',activeBadge);
   h+='</table>';
@@ -2518,6 +2519,7 @@ window._editCoachMode = function(){
   h+='<div id="modal-err" style="display:none;background:#fdecea;color:#c0392b;border-radius:4px;padding:10px 14px;font-size:13px;margin-bottom:14px;"></div>';
   h+=_editInput('m_cname','Full Name',c.name,true);
   h+=_editInput('m_cemail','Email',c.email,true,'email');
+  h+=_editInput('m_corg','Organization',c.organization || '',false);
   h+='<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">';
   h+=_profileRowRaw('Admin',adminBadge);
   h+=_profileRowRaw('Status',activeBadge);
@@ -2538,6 +2540,7 @@ window._saveCoachProfile = async function(){
   var saveBtn=document.getElementById('modal-save-btn');
   var name=(document.getElementById('m_cname').value||'').trim();
   var email=(document.getElementById('m_cemail').value||'').trim();
+  var organization=(document.getElementById('m_corg').value||'').trim();
   var note=(document.getElementById('m_note').value||'').trim();
   errDiv.style.display='none';
   if(!name){errDiv.textContent='Full name is required.';errDiv.style.display='';return;}
@@ -2545,12 +2548,12 @@ window._saveCoachProfile = async function(){
   saveBtn.disabled=true; saveBtn.textContent='Saving…';
   try{
     var coachId=_hiveRec.coach.id;
-    var resp=await fetch('/admin/coaches/'+coachId+'/update',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({name:name,email:email,note:note||null})});
+    var resp=await fetch('/admin/coaches/'+coachId+'/update',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({name:name,email:email,organization:organization||null,note:note||null})});
     var data=await resp.json();
     if(!resp.ok||!data.success){errDiv.textContent=data.error||'Update failed.';errDiv.style.display='';saveBtn.disabled=false;saveBtn.textContent='Save Changes';return;}
     // Update coach name links in page
     document.querySelectorAll('[data-entity="coach-'+coachId+'"]').forEach(function(el){el.textContent=name;});
-    _hiveRec.coach=Object.assign({},_hiveRec.coach,{name:name,email:email});
+    _hiveRec.coach=Object.assign({},_hiveRec.coach,{name:name,email:email,organization:organization||null});
     if(data.historyEntry) (_hiveRec.history=_hiveRec.history||[]).unshift(data.historyEntry);
     _hideModal(); _showToast('Profile updated.');
   }catch(e){errDiv.textContent='Request failed: '+e.message;errDiv.style.display='';saveBtn.disabled=false;saveBtn.textContent='Save Changes';}
@@ -3311,6 +3314,7 @@ function renderCoachesPage(coaches, errorMsg, flashMsg, isSuperAdmin = false) {
   const coachRowPairs = coaches.map(co => {
     const name        = esc(co.name);
     const email       = esc(co.email);
+    const organization = co.organization ? esc(co.organization) : '—';
     const isAdminFlag = co.is_admin ? '<span style="color:#1a7a4a;font-weight:700;">Yes</span>' : 'No';
     const isActive    = co.is_active !== false;
     const statusLabel = isActive
@@ -3344,6 +3348,7 @@ function renderCoachesPage(coaches, errorMsg, flashMsg, isSuperAdmin = false) {
     const coachRow = `<tr id="coach-row-${co.id}">
       <td><a href="#" data-entity="coach-${co.id}" onclick="openCoachProfile(${co.id});return false;" style="color:#00b1d7;text-decoration:underline;text-decoration-style:dotted;font-weight:600;" onmouseover="this.style.textDecorationStyle='solid'" onmouseout="this.style.textDecorationStyle='dotted'">${name}</a></td>
       <td style="color:#7A96A6;font-size:12px;">${email}</td>
+      <td style="color:#7A96A6;font-size:12px;">${organization}</td>
       <td>${isAdminFlag}</td>
       <td>${statusLabel}</td>
       <td style="text-align:center;">${clientsLink}</td>
@@ -3351,7 +3356,7 @@ function renderCoachesPage(coaches, errorMsg, flashMsg, isSuperAdmin = false) {
     </tr>`;
 
     const accordionRow = `<tr id="accordion-${co.id}" style="display:none;">
-      <td colspan="6" style="padding:0;background:#f7f5f2;border-bottom:2px solid #00b1d7;">
+      <td colspan="7" style="padding:0;background:#f7f5f2;border-bottom:2px solid #00b1d7;">
         <div id="accordion-content-${co.id}" style="padding:16px 20px;"></div>
       </td>
     </tr>`;
@@ -3360,7 +3365,7 @@ function renderCoachesPage(coaches, errorMsg, flashMsg, isSuperAdmin = false) {
   }).join('\n');
 
   const body = coaches.length === 0
-    ? '<tr><td colspan="6" style="text-align:center;padding:40px;color:#7A96A6;">No coaches found.</td></tr>'
+    ? '<tr><td colspan="7" style="text-align:center;padding:40px;color:#7A96A6;">No coaches found.</td></tr>'
     : coachRowPairs;
 
   return `<!DOCTYPE html>
@@ -3390,7 +3395,7 @@ function renderCoachesPage(coaches, errorMsg, flashMsg, isSuperAdmin = false) {
   tbody tr:last-child { border-bottom: none; }
   tbody tr:hover { background: #fafaf8; }
   tbody td { padding: 11px 14px; vertical-align: middle; }
-  .add-form { padding: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
+  .add-form { padding: 20px; display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
   .add-form label { display: block; font-size: 11px; color: #7A96A6; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; margin-bottom: 5px; }
   .add-form input { width: 100%; padding: 9px 11px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; color: #1A2B33; outline: none; }
   .add-form input:focus { border-color: #00b1d7; }
@@ -3424,6 +3429,7 @@ ${errorMsg   ? `<div class="flash-error">${errorMsg}</div>`     : ''}
         <tr>
           <th>Name</th>
           <th>Email</th>
+          <th>Organization</th>
           <th>Admin</th>
           <th>Status</th>
           <th style="text-align:center;">Clients</th>
@@ -3444,6 +3450,10 @@ ${errorMsg   ? `<div class="flash-error">${errorMsg}</div>`     : ''}
       <div>
         <label for="coach_email">Email</label>
         <input type="email" id="coach_email" name="email" required placeholder="jane@example.com">
+      </div>
+      <div>
+        <label for="coach_organization">Organization</label>
+        <input type="text" id="coach_organization" name="organization" placeholder="Organization (optional)">
       </div>
       <div>
         <label for="coach_password">Temporary Password</label>
@@ -7042,7 +7052,7 @@ app.get('/admin/coaches/active', requireAdmin, async (req, res) => {
 
 app.post('/admin/coaches/new', requireAdmin, async (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  const { name, email, password } = req.body;
+  const { name, email, password, organization } = req.body;
 
   if (!name || !email || !password) {
     const coaches = await db.getAllCoaches().catch(() => []);
@@ -7055,7 +7065,7 @@ app.post('/admin/coaches/new', requireAdmin, async (req, res) => {
 
   try {
     const passwordHash = await bcrypt.hash(password, 12);
-    const newId = await db.addCoach(name.trim(), email.trim().toLowerCase(), passwordHash);
+    const newId = await db.addCoach(name.trim(), email.trim().toLowerCase(), passwordHash, organization ? organization.trim() : null);
     if (!newId) {
       const coaches = await db.getAllCoaches().catch(() => []);
       return res.send(renderCoachesPage(coaches, 'Failed to add coach — email may already be in use.', null));
@@ -8418,7 +8428,7 @@ app.post('/admin/coaches/:coach_id/update', requireAdmin, async (req, res) => {
   const coachId = parseInt(req.params.coach_id, 10);
   if (!coachId || isNaN(coachId)) return res.status(400).json({ error: 'Invalid coach ID' });
 
-  const { name, email, note } = req.body;
+  const { name, email, organization, note } = req.body;
 
   // Validate
   if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required.' });
@@ -8433,7 +8443,7 @@ app.post('/admin/coaches/:coach_id/update', requireAdmin, async (req, res) => {
   const before = await db.getCoachById(coachId);
   if (!before) return res.status(404).json({ error: 'Coach not found.' });
 
-  const after = { name: name.trim(), email: emailTrimmed };
+  const after = { name: name.trim(), email: emailTrimmed, organization: organization && organization.trim() ? organization.trim() : null };
   const changeSummary = buildChangeSummary('coach', before, after);
 
   await db.updateCoach(coachId, after, req.session.coach_name);

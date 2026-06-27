@@ -29,6 +29,7 @@ ALTER TABLE coaches ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 ALTER TABLE coaches ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT FALSE;
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS organization VARCHAR(255);
 
 CREATE TABLE IF NOT EXISTS clients (
   id SERIAL PRIMARY KEY,
@@ -786,7 +787,7 @@ async function getCoachByEmail(email) {
 
 async function getCoachById(id) {
   const r = await query(
-    'SELECT id, name, email, password_hash, is_admin, is_active, updated_at, updated_by FROM coaches WHERE id = $1 LIMIT 1',
+    'SELECT id, name, email, organization, password_hash, is_admin, is_active, updated_at, updated_by FROM coaches WHERE id = $1 LIMIT 1',
     [id]
   );
   return r && r.rows.length > 0 ? r.rows[0] : null;
@@ -794,8 +795,8 @@ async function getCoachById(id) {
 
 async function updateCoach(coachId, fields, editorName) {
   await query(
-    `UPDATE coaches SET name = $1, email = $2, updated_at = NOW(), updated_by = $3 WHERE id = $4`,
-    [fields.name, fields.email, editorName, coachId]
+    `UPDATE coaches SET name = $1, email = $2, organization = $3, updated_at = NOW(), updated_by = $4 WHERE id = $5`,
+    [fields.name, fields.email, fields.organization || null, editorName, coachId]
   );
 }
 
@@ -853,7 +854,7 @@ async function getClientHistory(clientId) {
 
 async function getAllCoaches() {
   const r = await query(`
-    SELECT co.id, co.name, co.email, co.is_admin, co.is_active,
+    SELECT co.id, co.name, co.email, co.organization, co.is_admin, co.is_active,
            COUNT(c.id) AS client_count
     FROM coaches co
     LEFT JOIN clients c ON c.coach_id = co.id
@@ -863,11 +864,11 @@ async function getAllCoaches() {
   return r ? r.rows : [];
 }
 
-async function addCoach(name, email, passwordHash) {
+async function addCoach(name, email, passwordHash, organization) {
   const r = await query(
-    `INSERT INTO coaches (name, email, password_hash, is_admin, is_active)
-     VALUES ($1, $2, $3, FALSE, TRUE) RETURNING id`,
-    [name, email, passwordHash]
+    `INSERT INTO coaches (name, email, organization, password_hash, is_admin, is_active)
+     VALUES ($1, $2, $3, $4, FALSE, TRUE) RETURNING id`,
+    [name, email, organization || null, passwordHash]
   );
   return r && r.rows.length > 0 ? r.rows[0].id : null;
 }
