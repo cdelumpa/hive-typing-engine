@@ -1070,7 +1070,8 @@ async function updateCoachDebrief(assessmentId, { coach_confirmed_type, coach_co
 
 async function getClientWithCoach(clientId) {
   const r = await query(`
-    SELECT c.first_name, c.last_name, c.email, c.organization, co.name AS coach_name
+    SELECT c.first_name, c.last_name, c.email, c.organization, co.name AS coach_name,
+           co.email AS coach_email, co.organization AS coach_organization
     FROM clients c
     JOIN coaches co ON co.id = c.coach_id
     WHERE c.id = $1
