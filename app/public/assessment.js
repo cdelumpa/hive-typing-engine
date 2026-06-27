@@ -236,9 +236,9 @@ const STAGE1_TYPE_STATEMENTS = {
   ],
   8: [
     { id: 'S8-1',  dimension: 'Core motivation',        text: 'I prioritize being strong and in control so I can protect myself and the people I care about.' },
-    { id: 'S8-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to power dynamics, fairness, and any move to control, take advantage, or show weakness.' },
-    { id: 'S8-2b', dimension: 'Resulting preoccupation', text: 'I find myself moving toward action, confronting what’s wrong head-on, and protecting against any sign of vulnerability.' },
-    { id: 'S8-3',  dimension: 'Energy',                  text: 'My energy goes to taking action, asserting my will, and taking a stand against what’s unjust or unfair.' },
+    { id: 'S8-2a', dimension: 'Focus of attention',     text: 'My attention naturally goes to power dynamics, what’s fair or unfair, and any move to control or take advantage of me or others I care about.' },
+    { id: 'S8-2b', dimension: 'Resulting preoccupation', text: 'I find myself moving into action, confronting injustice or unfairness head-on, and keeping vulnerability at bay.' },
+    { id: 'S8-3',  dimension: 'Energy',                  text: 'My energy goes to asserting my will, making important things happen, and taking charge when no one else steps up.' },
     { id: 'S8-4',  dimension: 'Avoidance',               text: 'I tend to avoid feeling vulnerable, being controlled, and being dependent on others.' },
   ],
   5: [

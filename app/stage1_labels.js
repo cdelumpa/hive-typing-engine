@@ -59,9 +59,9 @@ const TYPE_STATEMENTS = [
   { id: "S7-4", type: 7, typeName: "The Enthusiast", dimension: "Avoidance", text: "I tend to avoid people and situations that limit my options or require me to sit with pain or difficulty." },
 
   { id: "S8-1", type: 8, typeName: "The Protector", dimension: "Core Motivation", text: "I prioritize being strong and in control so I can protect myself and the people I care about." },
-  { id: "S8-2a", type: 8, typeName: "The Protector", dimension: "Focus of Attention", text: "My attention naturally goes to power dynamics, fairness, and any move to control, take advantage, or show weakness." },
-  { id: "S8-2b", type: 8, typeName: "The Protector", dimension: "Resulting Preoccupation", text: "I find myself moving toward action, confronting what's wrong head-on, and protecting against any sign of vulnerability." },
-  { id: "S8-3", type: 8, typeName: "The Protector", dimension: "Energy", text: "My energy goes to taking action, asserting my will, and taking a stand against what's unjust or unfair." },
+  { id: "S8-2a", type: 8, typeName: "The Protector", dimension: "Focus of Attention", text: "My attention naturally goes to power dynamics, what's fair or unfair, and any move to control or take advantage of me or others I care about." },
+  { id: "S8-2b", type: 8, typeName: "The Protector", dimension: "Resulting Preoccupation", text: "I find myself moving into action, confronting injustice or unfairness head-on, and keeping vulnerability at bay." },
+  { id: "S8-3", type: 8, typeName: "The Protector", dimension: "Energy", text: "My energy goes to asserting my will, making important things happen, and taking charge when no one else steps up." },
   { id: "S8-4", type: 8, typeName: "The Protector", dimension: "Avoidance", text: "I tend to avoid feeling vulnerable, being controlled, and being dependent on others." },
 
   { id: "S9-1", type: 9, typeName: "The Peacemaker", dimension: "Core Motivation", text: "I prioritize keeping the peace and maintaining harmony, inside myself and with others." },
