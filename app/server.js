@@ -1980,34 +1980,33 @@ app.post('/api/analyze', async (req, res) => {
 
 // =================== INVITE EMAIL ===================
 
-async function sendInviteEmail(client, token, coachName) {
+async function sendInviteEmail(client, token, coach) {
   if (!process.env.SENDGRID_API_KEY) {
     console.warn('[invite] SENDGRID_API_KEY not set — invite email skipped');
     return;
   }
   const appUrl   = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
   const link     = `${appUrl}/assessment/${token}`;
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const coachEmail = (coachName === 'Monique Breault')
-    ? (process.env.COACH_EMAIL_MONIQUE || process.env.COACH_EMAIL)
-    : (process.env.COACH_EMAIL_CAI    || process.env.COACH_EMAIL);
-
   const msg = {
     to:      client.email,
-    from:    { name: 'InsightOut by Hive', email: coachEmail },
-    subject: `Your Hive Enneagram Assessment`,
+    from:    { name: 'InsightOut by Hive', email: process.env.SENDGRID_FROM_EMAIL },
+    replyTo: { name: coach.name, email: coach.email },
+    subject: `Your InsightOut Enneagram Assessment is Ready!`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1A2B33; line-height: 1.7;">
         <div style="border-top: 4px solid #00b1d7; padding-top: 28px; margin-bottom: 24px;">
-          <p style="font-size: 11px; color: #7A96A6; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px;">Hive Enneagram Type Tool</p>
-          <h1 style="font-size: 22px; color: #00b1d7; margin: 0; font-weight: 700;">Your Assessment is Ready</h1>
+          <h1 style="font-size: 22px; color: #00b1d7; margin: 0; font-weight: 700;">Welcome to the Enneagram!</h1>
         </div>
 
-        <p style="font-size: 15px;">Hi ${esc(client.first_name)},</p>
+        <p style="font-size:15px;color:#333333;margin:0 0 16px 0;">Hi ${esc(client.first_name)},</p>
 
-        <p>I've set up your Hive Enneagram assessment. It takes about 30–45 minutes to complete, and you can do it at any time before our session.</p>
+        <p style="font-size:15px;">Your journey to discover your Enneagram type starts here.</p>
 
-        <p>The assessment walks you through a series of questions designed to surface your instinctive patterns and help us arrive at a working hypothesis for your Enneagram type. There are no right or wrong answers — just respond as honestly as you can.</p>
+        <p style="font-size:15px;">The InsightOut Enneagram Assessment walks you through a series of questions about how you think, what you care about, and how you tend to move through the world. Your responses will help us form a hypothesis about your Enneagram type.</p>
+
+        <p style="font-size:15px;">There are no right or wrong answers — just respond as honestly and as thoroughly as you can. For open-ended questions, the more detail you provide, the more we have to work with.</p>
+
+        <p style="font-size:15px;">It takes about 15–20 minutes to complete, and you'll receive your full report by email shortly after. If you have any questions or run into any bumps in the road, reach out to me at <a href="mailto:${coach.email}">${esc(coach.email)}</a>. Click "Begin My Assessment" below when you're ready.</p>
 
         <p style="margin: 32px 0;">
           <a href="${link}" style="display:inline-block;background:#00b1d7;color:#fff;padding:14px 28px;border-radius:4px;font-weight:700;text-decoration:none;font-size:15px;">Begin My Assessment →</a>
@@ -2017,8 +2016,9 @@ async function sendInviteEmail(client, token, coachName) {
           <a href="${link}" style="color:#00b1d7;">${link}</a>
         </p>
 
-        <p style="font-size: 13px; color: #4A6070;">Looking forward to our conversation.</p>
-        <p style="font-size: 13px; color: #4A6070; margin: 0;">Warm regards,<br><strong style="color: #1A2B33;">${esc(coachName)}</strong><br>Hive Leadership</p>
+        <p style="font-size:15px;color:#333333;margin:24px 0 4px 0;">${esc(coach.name)}</p>
+        ${coach.organization ? `<p style="font-size:15px;color:#333333;margin:0 0 4px 0;">${esc(coach.organization)}</p>` : ''}
+        <p style="font-size:15px;color:#333333;margin:0 0 24px 0;"><a href="mailto:${coach.email}" style="color:#00b1d7;text-decoration:none;">${esc(coach.email)}</a></p>
 
         <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #E0E8EC; font-size: 11px; color: #7A96A6;">
           This link is personal to you and expires in 30 days. © 2026 Hive, Inc. All rights reserved.
@@ -2916,7 +2916,8 @@ app.post('/admin/clients/new', requireAdminSession, async (req, res) => {
     await db.createClientToken(clientId, token, expiresAt);
 
     const clientRow = { first_name: first_name.trim(), last_name: last_name.trim(), email: email.trim().toLowerCase() };
-    await sendInviteEmail(clientRow, token, req.session.coach_name);
+    const coach = await db.getCoachById(req.session.coach_id);
+    await sendInviteEmail(clientRow, token, coach);
     // PR B: lifecycle audit — invitation sent.
     db.logClientEvent({
       clientId, assessmentId: null,
@@ -2949,7 +2950,8 @@ app.post('/admin/clients/resend/:client_id', requireAdminSession, async (req, re
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await db.resendInviteTransaction(clientId, token, expiresAt);
-    await sendInviteEmail({ first_name: client.first_name, last_name: client.last_name, email: client.email }, token, req.session.coach_name);
+    const coach = await db.getCoachById(req.session.coach_id);
+    await sendInviteEmail({ first_name: client.first_name, last_name: client.last_name, email: client.email }, token, coach);
     // PR B: lifecycle audit — invitation re-sent.
     db.logClientEvent({
       clientId, assessmentId: null,
@@ -2984,12 +2986,16 @@ app.post('/admin/clients/:client_id/retake', requireSuperAdmin, async (req, res)
 
     // Invite is sent from the client's own coach, not the acting super-admin.
     const clientInfo = await db.getClientWithCoach(clientId);
-    const coachName = clientInfo ? clientInfo.coach_name : req.session.coach_name;
+    const coach = {
+      name: clientInfo.coach_name,
+      email: clientInfo.coach_email,
+      organization: clientInfo.coach_organization,
+    };
 
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await db.retakeTransaction(clientId, token, expiresAt);
-    await sendInviteEmail({ first_name: client.first_name, last_name: client.last_name, email: client.email }, token, coachName);
+    await sendInviteEmail({ first_name: client.first_name, last_name: client.last_name, email: client.email }, token, coach);
 
     // PR B: lifecycle audit — retake issued by a super-admin. The retake's own
     // "started/completed/report delivered" events are logged through the normal
