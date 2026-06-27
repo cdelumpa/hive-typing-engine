@@ -11,3 +11,4 @@ app/reports/
 .phase6_out/
 # Word lock/temp files — never commit
 ~$*.docx
+scripts/.question_bank_data.json
