@@ -921,7 +921,8 @@ async function getTokenWithClient(token) {
            c.first_name, c.last_name, c.email, c.organization, c.status AS client_status,
            c.stage0_signal, c.ct_adjustment, c.responses_snapshot,
            c.session_state, c.is_beta,
-           co.name AS coach_name, co.id AS coach_id, co.email AS coach_email
+           co.name AS coach_name, co.id AS coach_id, co.email AS coach_email,
+           co.organization AS coach_organization
     FROM client_tokens ct
     JOIN clients c ON c.id = ct.client_id
     JOIN coaches co ON co.id = c.coach_id
