@@ -73,23 +73,23 @@ const TYPE_STATEMENTS = [
 
 // 15 instinct statements, SP → SO → SX order.
 const INSTINCT_STATEMENTS = [
-  { id: "I1-SP-1", instinct: "SP", subdomain: "Body & comfort", text: "I pay close attention to my physical comfort — things like temperature, hunger, rest, and whether my body feels okay." },
-  { id: "I1-SP-2", instinct: "SP", subdomain: "Enough / resources", text: "I keep track of whether I have enough resources (money, supplies, energy, time, etc) to ensure comfort and survival." },
-  { id: "I1-SP-3", instinct: "SP", subdomain: "Security (protective)", text: "I keep the people and things I depend on safe." },
+  { id: "I1-SP-1", instinct: "SP", subdomain: "Body & comfort", text: "I pay close attention to my physical comfort — things like temperature, hunger, rest, and how my body is feeling from moment to moment." },
+  { id: "I1-SP-2", instinct: "SP", subdomain: "Enough / resources", text: "I keep track of whether I have enough of the practical, material things I need to feel secure and comfortable." },
+  { id: "I1-SP-3", instinct: "SP", subdomain: "Security / nest", text: "I find myself regularly checking that the practical foundations of my life — home, health, finances — are stable and in order." },
   { id: "I1-SP-4", instinct: "SP", subdomain: "Self-reliance", text: "I prefer to handle things myself rather than counting on others." },
-  { id: "I1-SP-5", instinct: "SP", subdomain: "Energy direction", text: "I recharge by being on my own, in my own space, with no demands on me." },
+  { id: "I1-SP-5", instinct: "SP", subdomain: "Energy direction", text: "I restore my energy by returning to my own familiar environment and meeting my basic needs for rest, nourishment, and self-care." },
 
-  { id: "I1-SO-1", instinct: "SO", subdomain: "Place in the group", text: "I pay attention to where I stand in a group and how I'm coming across to the people in it." },
-  { id: "I1-SO-2", instinct: "SO", subdomain: "Trust / reciprocity", text: "I pay attention to who in a group is reliable and can be counted on, and who can't." },
-  { id: "I1-SO-3", instinct: "SO", subdomain: "Social landscape", text: "I notice the social landscape — who's connected to whom, who's in, who's on the outside." },
-  { id: "I1-SO-4", instinct: "SO", subdomain: "Larger belonging", text: "I am pulled toward something larger than myself: a cause, a community, a group I want to be part of." },
-  { id: "I1-SO-5", instinct: "SO", subdomain: "Energy direction", text: "I get my energy by being part of a community." },
+  { id: "I1-SO-1", instinct: "SO", subdomain: "Place in the group", text: "I pay attention to my place in a group — whether I belong, what role I play, and my standing within it." },
+  { id: "I1-SO-2", instinct: "SO", subdomain: "Trust / reciprocity", text: "I pay attention to whether people in a group are showing up, pulling their weight, and treating each other respectfully." },
+  { id: "I1-SO-3", instinct: "SO", subdomain: "Social landscape", text: "I naturally read a room, quickly picking up on who has influence, how people relate to each other, and where I fit." },
+  { id: "I1-SO-4", instinct: "SO", subdomain: "Larger belonging", text: "I’m pulled toward being part of something bigger than myself, whether that’s a cause, a community, or a shared mission." },
+  { id: "I1-SO-5", instinct: "SO", subdomain: "Energy direction", text: "I invest my energy in the relationships, obligations, and communities that make up my social network." },
 
-  { id: "I1-SX-1", instinct: "SX", subdomain: "Magnetized attention", text: "My attention gets pulled strongly toward specific people or things, sometimes to the point of crowding out everything else." },
-  { id: "I1-SX-2", instinct: "SX", subdomain: "Energy direction", text: "I find intense one-on-one conversations energizing." },
-  { id: "I1-SX-3", instinct: "SX", subdomain: "Override", text: "When I'm captivated by someone or something, the pull can override my better judgment about what I should be doing." },
-  { id: "I1-SX-4", instinct: "SX", subdomain: "Asserting", text: "When I want something, I go after it directly and don't hold back." },
-  { id: "I1-SX-5", instinct: "SX", subdomain: "Impressing", text: "I want to have a real impact on the people and things that matter to me, even if I don't make it obvious." },
+  { id: "I1-SX-1", instinct: "SX", subdomain: "Intensity", text: "I’m drawn to experiences, conversations, and people that have real depth and intensity." },
+  { id: "I1-SX-2", instinct: "SX", subdomain: "Attraction", text: "When something or someone captures my attention, the pull is immediate, strong, and hard to ignore." },
+  { id: "I1-SX-3", instinct: "SX", subdomain: "Bonding", text: "I prefer direct, face-to-face connection where both of us feel fully met and fully seen." },
+  { id: "I1-SX-4", instinct: "SX", subdomain: "Transmitting", text: "I bring a lot of energy and presence to the people and things I care about." },
+  { id: "I1-SX-5", instinct: "SX", subdomain: "Vitality", text: "There’s a quality of aliveness I look for in relationships and experiences and I know immediately if it’s there or not." },
 ];
 
 // Canonical Enneagram structural relationships (prompt spec §2.2 / design §5.3).
