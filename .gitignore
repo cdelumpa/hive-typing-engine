@@ -12,3 +12,5 @@ app/reports/
 # Word lock/temp files — never commit
 ~$*.docx
 scripts/.question_bank_data.json
+# Claude Code personal settings — never commit
+.claude/settings.local.json
