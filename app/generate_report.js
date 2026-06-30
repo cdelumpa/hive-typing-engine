@@ -13,6 +13,7 @@ const fs   = require('fs');
 const { Pool } = require(path.join(APP_MODULES, 'pg'));
 
 const { buildBetaHTML, buildPdfOptions } = require(path.join(ROOT, 'renderer'));
+const { STAGE1_TYPE_STATEMENTS, STAGE1_INSTINCT_STATEMENTS } = require(path.join(ROOT, 'public', 'stage1_data'));
 
 // ─── Question data (mirrored from assessment.js — single source of truth) ───
 
@@ -727,68 +728,15 @@ async function runCli() {
 // identify the question unambiguously; only the displayed wording may differ slightly
 // from what the tester saw. Reconcile by extracting these constants into a single
 // shared data module consumed by both the SPA and the server.
-const BETA_STAGE1_STATEMENT_TEXT = {
-  'S3-1': 'I prioritize achieving my goals and being recognized for what I accomplish.',
-  'S3-2a': 'My attention naturally goes to what needs to be accomplished and how others perceive me.',
-  'S3-2b': 'I find myself so focused on what needs to get done that feelings — mine or others’ — go into the background.',
-  'S3-3': 'My energy goes to staying productive, performing well, and projecting a capable, successful image.',
-  'S3-4': 'I tend to avoid failure, slowing down, or being seen as unsuccessful or incapable.',
-  'S6-1': 'I prioritize feeling safe, secure, and prepared for whatever might happen.',
-  'S6-2a': 'My attention naturally goes to what could go wrong, what’s unsafe, and who I can trust.',
-  'S6-2b': 'I find myself questioning whether people and situations can really be trusted, and anticipating worst-case scenarios.',
-  'S6-3': 'My energy goes to scanning for danger, contingency planning, and seeking reassurance.',
-  'S6-4': 'I tend to avoid uncertainty, unpredictability, and being caught unprepared.',
-  'S9-1': 'I prioritize keeping the peace, seeking harmony, and maintaining a sense of belonging.',
-  'S9-2a': 'My attention naturally goes to potential conflict, other people’s agendas, and disturbances to my inner peace and immediate environment.',
-  'S9-2b': 'I find myself drifting toward whatever keeps things easy and comfortable, my own priorities quietly fading into the background.',
-  'S9-3': 'My energy goes to accommodating others, being affable, and keeping myself occupied.',
-  'S9-4': 'I tend to avoid conflict, actively asserting my position, and disconnection from others.',
-  'S1-1': 'I prioritize doing things right and being a good, responsible person.',
-  'S1-2a': 'My attention naturally goes to what’s wrong, imprecise, or not meeting the standard in situations, in others, and in myself.',
-  'S1-2b': 'I find myself monitoring, correcting, and comparing, driven by a relentless internal critic.',
-  'S1-3': 'My energy goes to improving things, maintaining standards, and keeping myself and my work above reproach.',
-  'S1-4': 'I tend to avoid making mistakes, being wrong, and letting my own anger or impulses show.',
-  'S4-1': 'I prioritize being authentic and true to myself, and feeling a deep connection to what’s real and meaningful.',
-  'S4-2a': 'My attention naturally goes to what is missing or unavailable to me, and my internal emotional landscape.',
-  'S4-2b': 'I find myself drawn toward what would make me feel unique or special and away from the ordinary or mundane.',
-  'S4-3': 'My energy goes to processing my emotions, seeking depth, and being seen as unique and authentic.',
-  'S4-4': 'I tend to avoid being ordinary, feeling cut off from my feelings, and settling for the superficial.',
-  'S2-1': 'I prioritize being deeply valued and appreciated for how I care for and support others.',
-  'S2-2a': 'My attention naturally goes to other people’s feelings and needs and the emotional temperature of our relationship.',
-  'S2-2b': 'I find myself anticipating what others need, often before they know, and making myself indispensable.',
-  'S2-3': 'My energy goes to building connection, helping, and supporting others.',
-  'S2-4': 'I tend to avoid being seen as needy, naming what I need, and feeling rejected or unappreciated.',
-  'S8-1': 'I prioritize being strong and in control so I can protect myself and the people I care about.',
-  'S8-2a': 'My attention naturally goes to power dynamics, what’s fair or unfair, and any move to control or take advantage of me or others I care about.',
-  'S8-2b': 'I find myself moving into action, confronting injustice or unfairness head-on, and keeping vulnerability at bay.',
-  'S8-3': 'My energy goes to asserting my will, making important things happen, and taking charge when no one else steps up.',
-  'S8-4': 'I tend to avoid feeling vulnerable, being controlled, and being dependent on others.',
-  'S5-1': 'I prioritize understanding the world and having enough knowledge and resources to be self-sufficient.',
-  'S5-2a': 'My attention naturally goes to ideas, concepts, and phenomena I want to understand, and to potential intrusions on my time, energy, or privacy.',
-  'S5-2b': 'I find myself retreating into my mind, observing from a distance and mentally cataloguing and compartmentalizing the world around me.',
-  'S5-3': 'My energy goes to gathering knowledge, figuring things out, protecting my privacy, and conserving my resources.',
-  'S5-4': 'I tend to avoid emotional demands, intrusion on my space, and being caught without enough knowledge or resources.',
-  'S7-1': 'I prioritize living a life that feels free, expansive, and full of possibility.',
-  'S7-2a': 'My attention naturally goes to what’s exciting or possible, and to anything that feels limiting, painful, or constraining.',
-  'S7-2b': 'I find myself planning for pleasurable possibilities, generating new options, and reframing whatever feels limiting or painful.',
-  'S7-3': 'My energy goes to staying positive, planning for pleasurable possibilities, and keeping my options open.',
-  'S7-4': 'I tend to avoid situations that limit my options or require me to sit with pain, difficulty, or boredom.',
-  'I1-SP-1': 'I pay close attention to my physical comfort — things like temperature, hunger, rest, and how my body is feeling from moment to moment.',
-  'I1-SP-2': 'I keep track of whether I have enough of the practical, material things I need to feel secure and comfortable.',
-  'I1-SP-3': 'I find myself regularly checking that the practical foundations of my life — home, health, finances — are stable and in order.',
-  'I1-SP-4': 'I prefer to handle things myself rather than counting on others.',
-  'I1-SP-5': 'I restore my energy by returning to my own familiar environment and meeting my basic needs for rest, nourishment, and self-care.',
-  'I1-SO-1': 'I pay attention to my place in a group — whether I belong, what role I play, and my standing within it.',
-  'I1-SO-2': 'I pay attention to whether people in a group are showing up, pulling their weight, and treating each other respectfully.',
-  'I1-SO-3': 'I naturally read a room, quickly picking up on who has influence, how people relate to each other, and where I fit.',
-  'I1-SO-4': 'I’m pulled toward being part of something bigger than myself, whether that’s a cause, a community, or a shared mission.',
-  'I1-SO-5': 'I invest my energy in the relationships, obligations, and communities that make up my social network.',
-  'I1-SX-1': 'I’m drawn to experiences, conversations, and people that have real depth and intensity.',
-  'I1-SX-2': 'When something or someone captures my attention, the pull is immediate, strong, and hard to ignore.',
-  'I1-SX-3': 'I prefer direct, face-to-face connection where both of us feel fully met and fully seen.',
-  'I1-SX-4': 'I bring a lot of energy and presence to the people and things I care about.',
-  'I1-SX-5': 'There’s a quality of aliveness I look for in relationships and experiences and I know immediately if it’s there or not.',
-};
+// Flat id -> text map for all 60 Stage 1 statements, derived from the canonical
+// app/public/stage1_data.js module (formerly a hand-maintained inline copy — this is
+// the "extract into a shared data module" reconciliation noted just above).
+const BETA_STAGE1_STATEMENT_TEXT = (() => {
+  const map = {};
+  Object.values(STAGE1_TYPE_STATEMENTS).forEach((rows) => rows.forEach((s) => { map[s.id] = s.text; }));
+  Object.values(STAGE1_INSTINCT_STATEMENTS).forEach((rows) => rows.forEach((s) => { map[s.id] = s.text; }));
+  return map;
+})();
 
 const BETA_QUESTION_TEXT = (() => {
   const map = {};
