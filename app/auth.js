@@ -272,6 +272,89 @@ function checkResetRateLimit(email) {
   return recent.length > RESET_RATE_LIMIT_MAX;
 }
 
+// ═══ IAA v1.2 — Phase D: role management + embargo orchestration ════════════════
+// Thin wrappers over db helpers that also invalidate sessions and write auth_events,
+// keeping all authorization mutation logic in one auditable module (per IAA §5).
+
+// Detect embargo match_type from a raw value. Exported for unit testing; returns
+// { matchType, value } on success or { error } on ambiguous input (no silent guess).
+function detectEmbargoType(rawValue) {
+  const v = (rawValue || '').trim().toLowerCase();
+  if (v.startsWith('@')) return { matchType: 'domain', value: v };
+  if (v.includes('@')) return { matchType: 'exact', value: v };
+  return { error: 'Invalid embargo value. Enter an email address or a domain starting with @.' };
+}
+
+// Grant a single role; new role takes effect immediately (session re-hydrated at next
+// request after invalidation).
+async function grantRole(userId, roleName, grantedByUserId, req) {
+  await db.assignRole(userId, roleName, grantedByUserId);
+  await invalidateAllSessions(userId);
+  await logAuthEvent(userId, 'role_granted', req, { role: roleName, granted_by: grantedByUserId });
+  return { ok: true };
+}
+
+// Revoke a single role, guarding self-revoke and last-super_admin lockout (IAA §5.4).
+async function revokeRole(userId, roleName, actorUserId, req) {
+  if (roleName === 'super_admin' && userId === actorUserId) {
+    return { ok: false, error: 'You cannot revoke your own super_admin role.' };
+  }
+  if (roleName === 'super_admin') {
+    const count = await db.countRoleHolders('super_admin');
+    if (count <= 1) return { ok: false, error: 'Cannot revoke the last super_admin role.' };
+  }
+  await db.revokeRole(userId, roleName);
+  await invalidateAllSessions(userId);
+  await logAuthEvent(userId, 'role_revoked', req, { role: roleName, revoked_by: actorUserId });
+  return { ok: true };
+}
+
+// Full ban (users.is_active = FALSE). Guards self-ban and last-super_admin lockout.
+async function banUser(userId, actorUserId, req) {
+  if (userId === actorUserId) {
+    return { ok: false, error: 'You cannot ban your own account.' };
+  }
+  const roles = await getUserRoles(userId);
+  if (roles.includes('super_admin')) {
+    const count = await db.countRoleHolders('super_admin');
+    if (count <= 1) return { ok: false, error: 'Cannot ban the last super_admin.' };
+  }
+  await db.setUserActive(userId, false);
+  await invalidateAllSessions(userId);
+  await logAuthEvent(userId, 'user_banned', req, { banned_by: actorUserId });
+  return { ok: true };
+}
+
+// Restore a banned account. Roles are re-granted manually; no live sessions to kill.
+async function unbanUser(userId, actorUserId, req) {
+  await db.setUserActive(userId, true);
+  await logAuthEvent(userId, 'user_unsuspended', req, { unbanned_by: actorUserId });
+  return { ok: true };
+}
+
+// Add an embargo entry: auto-detect type, reject ambiguous input, invalidate any
+// existing matching users' sessions (IAA §3.6 enforcement point 3).
+async function addEmbargoEntry(value, reason, actorUserId, req) {
+  const detected = detectEmbargoType(value);
+  if (detected.error) return { ok: false, error: detected.error };
+  const { matchType, value: v } = detected;
+  const newId = await db.addEmbargo(v, matchType, reason, actorUserId);
+  if (newId === null) return { ok: false, error: 'This value is already on the embargo list.' };
+  const userRows = await db.getUsersByEmbargo(v, matchType);
+  for (const row of userRows) {
+    await invalidateAllSessions(row.id);
+  }
+  await logAuthEvent(actorUserId, 'user_embargoed', req, { value: v, match_type: matchType });
+  return { ok: true };
+}
+
+// Remove an embargo entry. Does not restore any banned user (is_active stays FALSE).
+async function removeEmbargoEntry(embargoId, actorUserId, req) {
+  await db.removeEmbargo(embargoId);
+  await logAuthEvent(actorUserId, 'user_unembargoed', req, { embargo_id: embargoId });
+  return { ok: true };
+}
+
 module.exports = {
   validatePasswordStrength,
   checkEmbargo,
@@ -292,4 +375,11 @@ module.exports = {
   validateResetToken,
   redeemResetToken,
   checkResetRateLimit,
+  detectEmbargoType,
+  grantRole,
+  revokeRole,
+  banUser,
+  unbanUser,
+  addEmbargoEntry,
+  removeEmbargoEntry,
 };

@@ -991,7 +991,7 @@ async function getCoachByEmail(email) {
 
 async function getCoachById(id) {
   const r = await query(
-    'SELECT id, name, email, organization, password_hash, is_admin, is_active, updated_at, updated_by FROM coaches WHERE id = $1 LIMIT 1',
+    'SELECT id, name, email, organization, password_hash, is_admin, is_active, user_id, updated_at, updated_by FROM coaches WHERE id = $1 LIMIT 1',
     [id]
   );
   return r && r.rows.length > 0 ? r.rows[0] : null;
@@ -1080,6 +1080,16 @@ async function addCoach(name, email, passwordHash, organization) {
 async function setCoachActive(coachId, isActive) {
   await query(
     'UPDATE coaches SET is_active = $1 WHERE id = $2',
+    [isActive, coachId]
+  );
+  // IAA §6 (Concern #6): login now authenticates against users.is_active, so a coach
+  // deactivation must also flip the linked users row — otherwise "Deactivate" would
+  // not actually block sign-in. Mirrored here (one place) rather than in each route.
+  // No-op when the coach has no linked user_id (pre-migration / client-less rows).
+  await query(
+    `UPDATE users SET is_active = $1
+      WHERE id = (SELECT user_id FROM coaches WHERE id = $2)
+        AND (SELECT user_id FROM coaches WHERE id = $2) IS NOT NULL`,
     [isActive, coachId]
   );
 }
@@ -1819,6 +1829,104 @@ async function invalidateUserResetTokens(userId) {
   );
 }
 
+// ═══ IAA v1.2 — Phase D: role management + embargo helpers ══════════════════════
+
+// All four roles (static reference) for the role-management checkboxes.
+async function getAllRoles() {
+  const r = await query('SELECT id, name, description FROM roles ORDER BY id');
+  return r ? r.rows : [];
+}
+
+// A user's roles with grant metadata (granted_at / granted_by) for the modal.
+async function getUserRolesWithMeta(userId) {
+  const r = await query(
+    `SELECT r.id, r.name, ur.granted_at, ur.granted_by
+       FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+      WHERE ur.user_id = $1
+      ORDER BY r.id`,
+    [userId]
+  );
+  return r ? r.rows : [];
+}
+
+// Grant a single role (idempotent via the composite PK). granted_by records the actor.
+async function assignRole(userId, roleName, grantedBy) {
+  await query(
+    `INSERT INTO user_roles (user_id, role_id, granted_by)
+     SELECT $1, r.id, $3 FROM roles r WHERE r.name = $2
+     ON CONFLICT (user_id, role_id) DO NOTHING`,
+    [userId, roleName, grantedBy]
+  );
+}
+
+// Revoke a single role. Returns rowCount so callers can detect a no-op.
+async function revokeRole(userId, roleName) {
+  const r = await query(
+    `DELETE FROM user_roles
+      WHERE user_id = $1
+        AND role_id = (SELECT id FROM roles WHERE name = $2)`,
+    [userId, roleName]
+  );
+  return r ? r.rowCount : 0;
+}
+
+// How many users hold a given role — the last-super_admin guard reads this.
+async function countRoleHolders(roleName) {
+  const r = await query(
+    `SELECT COUNT(*)::int AS count
+       FROM user_roles ur
+       JOIN roles r ON r.id = ur.role_id
+      WHERE r.name = $1`,
+    [roleName]
+  );
+  return r && r.rows.length > 0 ? r.rows[0].count : 0;
+}
+
+// Identity-level active flag (full ban / restore). Distinct from coaches.is_active.
+async function setUserActive(userId, isActive) {
+  await query('UPDATE users SET is_active = $2 WHERE id = $1', [userId, isActive]);
+}
+
+// Embargo list for the management page (with the adding super-admin's email).
+async function getEmbargoList() {
+  const r = await query(
+    `SELECT e.id, e.value, e.match_type, e.reason,
+            e.embargoed_by, e.created_at,
+            u.email AS embargoed_by_email
+       FROM embargo_list e
+       LEFT JOIN users u ON u.id = e.embargoed_by
+      ORDER BY e.created_at DESC`
+  );
+  return r ? r.rows : [];
+}
+
+// Add an embargo entry. Returns the new id, or null if the value already existed.
+async function addEmbargo(value, matchType, reason, embargoedBy) {
+  const r = await query(
+    `INSERT INTO embargo_list (value, match_type, reason, embargoed_by)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (value) DO NOTHING
+     RETURNING id`,
+    [value, matchType, reason || null, embargoedBy]
+  );
+  return r && r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+async function removeEmbargo(id) {
+  await query('DELETE FROM embargo_list WHERE id = $1', [id]);
+}
+
+// Existing users matching a new embargo entry — their sessions get invalidated.
+// Exact: email equality. Domain: email ending in the '@domain.com' suffix.
+async function getUsersByEmbargo(value, matchType) {
+  const sql = matchType === 'domain'
+    ? `SELECT id FROM users WHERE email LIKE '%' || $1`
+    : `SELECT id FROM users WHERE email = $1`;
+  const r = await query(sql, [value]);
+  return r ? r.rows : [];
+}
+
 module.exports = {
   pool,
   initDb,
@@ -1921,4 +2029,15 @@ module.exports = {
   getPasswordResetToken,
   markResetTokenUsed,
   invalidateUserResetTokens,
+  // IAA Phase D — role management + embargo
+  getAllRoles,
+  getUserRolesWithMeta,
+  assignRole,
+  revokeRole,
+  countRoleHolders,
+  setUserActive,
+  getEmbargoList,
+  addEmbargo,
+  removeEmbargo,
+  getUsersByEmbargo,
 };

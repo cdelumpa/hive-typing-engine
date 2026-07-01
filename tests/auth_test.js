@@ -92,5 +92,38 @@ check('returns a promise and does not throw synchronously', () => {
   p.catch(() => {}); // no DB in the test env; swallow any async rejection
 });
 
+// ── detectEmbargoType (Phase D — pure match_type detection) ──────────────────────
+console.log('detectEmbargoType:');
+check('a value starting with @ is identified as domain', () => {
+  const r = auth.detectEmbargoType('@Spam.com');
+  assert.strictEqual(r.matchType, 'domain');
+  assert.strictEqual(r.value, '@spam.com'); // trimmed + lowercased
+});
+check('a value containing @ but not starting with it is exact', () => {
+  const r = auth.detectEmbargoType('  Evil@Example.com ');
+  assert.strictEqual(r.matchType, 'exact');
+  assert.strictEqual(r.value, 'evil@example.com');
+});
+check('a value with no @ returns a validation error', () => {
+  const r = auth.detectEmbargoType('spam.com');
+  assert.ok(r.error && !r.matchType);
+});
+
+// ── revokeRole self-revoke guard (pure condition) ────────────────────────────────
+// revokeRole is async/DB-bound, and the runner's check() is synchronous (it can't
+// await), so we test the guard's condition expression directly per the plan: a
+// super_admin revoke targeting the actor's own id must trip the guard.
+console.log('revokeRole self-revoke guard:');
+const selfRevokeGuard = (roleName, userId, actorUserId) => roleName === 'super_admin' && userId === actorUserId;
+check('trips when actor revokes their own super_admin', () => {
+  assert.strictEqual(selfRevokeGuard('super_admin', 42, 42), true);
+});
+check('does not trip when revoking another user\'s super_admin', () => {
+  assert.strictEqual(selfRevokeGuard('super_admin', 42, 7), false);
+});
+check('does not trip for a non-super_admin self-revoke', () => {
+  assert.strictEqual(selfRevokeGuard('coach', 42, 42), false);
+});
+
 console.log(`\n=== RESULT: ${passed} passed, 0 failed ===\n`);
 process.exit(0);

@@ -2513,6 +2513,7 @@ function _renderCoachView(data){
   h+=_profileRowRaw('Status',activeBadge);
   h+='</table>';
   h+=lu;
+  h+=_renderRolesSection(data);
   h+='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">';
   h+='<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Edit History</p>';
   h+=_renderHistory(hist);
@@ -2523,6 +2524,85 @@ function _renderCoachView(data){
   h+='</div></div>';
   _content().innerHTML=h; _showModal();
 }
+
+// IAA Phase D — Roles & Access section for the coach profile modal. Super-admin only.
+// Reads data.user_id / data.roles / data.user_is_active / data.is_self from the
+// profile JSON. Checkboxes carry user_id + role in data-* attrs so no quote-escaping
+// is needed; changes POST to the role routes and re-render the modal on success.
+function _renderRolesSection(data){
+  if(!_IS_SUPER_ADMIN) return '';
+  var uid = data.user_id;
+  var head = '<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">'
+    + '<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Roles &amp; Access</p>';
+  if(!uid){
+    return head + '<p style="font-size:13px;color:#7A96A6;margin:0;">No linked user account — roles unavailable.</p></div>';
+  }
+  var held = {};
+  (data.roles||[]).forEach(function(r){ held[r.name]=r.granted_at; });
+  var isSelf = !!data.is_self;
+  var ROLE_DEFS = [['client','Client'],['coach','Coach'],['admin','Admin'],['super_admin','Super Admin']];
+  var rows = ROLE_DEFS.map(function(rd){
+    var nm=rd[0], label=rd[1];
+    var checked = held.hasOwnProperty(nm);
+    var when = (checked && held[nm]) ? ' <span style="color:#7A96A6;font-size:11px;">granted '+_esc(_fmtFull(held[nm]))+'</span>' : '';
+    var disabled = (nm==='super_admin' && isSelf) ? 'disabled title="You cannot change your own super_admin role."' : '';
+    return '<label style="display:block;margin-bottom:6px;font-size:13px;color:#1A2B33;">'
+      + '<input type="checkbox" data-user-id="'+uid+'" data-role="'+nm+'" '+(checked?'checked':'')+' '+disabled+' onchange="window._toggleRole(this)" style="margin-right:8px;vertical-align:middle;">'
+      + label + when + '</label>';
+  }).join('');
+  var statusBlock;
+  if(data.user_is_active===false){
+    statusBlock = '<span style="background:#fdecea;color:#c0392b;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">Banned</span>'
+      + ' <button onclick="window._unbanUserAction('+uid+')" style="background:#1a7a4a;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;margin-left:8px;">Restore user</button>';
+  } else {
+    var banAttr = isSelf ? 'disabled title="You cannot ban your own account." style="background:#c0392b;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:12px;font-weight:700;padding:6px 12px;margin-left:8px;opacity:0.5;cursor:not-allowed;"' : 'style="background:#c0392b;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;margin-left:8px;"';
+    statusBlock = '<span style="background:#e6f7ee;color:#1a7a4a;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;">Active</span>'
+      + ' <button onclick="window._banUserAction('+uid+')" '+banAttr+'>Ban user</button>';
+  }
+  return head
+    + '<div id="role-msg" style="display:none;background:#fdecea;color:#c0392b;border-radius:4px;padding:8px 12px;font-size:12px;margin-bottom:10px;"></div>'
+    + rows
+    + '<p style="font-size:11px;color:#7A96A6;margin:8px 0 14px;">Role changes take effect immediately and invalidate active sessions.</p>'
+    + '<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Account Status</p>'
+    + '<div>'+statusBlock+'</div>'
+    + '</div>';
+}
+
+function _roleErr(msg){
+  var m=document.getElementById('role-msg');
+  if(m){ m.textContent=msg; m.style.display='block'; } else { alert(msg); }
+}
+function _refreshCoachModal(){
+  if(_hiveRec && _hiveRec.coach) window.openCoachProfile(_hiveRec.coach.id);
+}
+
+window._toggleRole = function(el){
+  var uid=el.dataset.userId, role=el.dataset.role, grant=el.checked;
+  el.disabled=true;
+  var url='/admin/users/'+uid+'/roles/'+(grant?'grant':'revoke');
+  fetch(url,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({role:role})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok){ _refreshCoachModal(); }
+      else { _roleErr(d.error||'Action failed'); el.checked=!grant; el.disabled=false; }
+    })
+    .catch(function(){ _roleErr('Request failed'); el.checked=!grant; el.disabled=false; });
+};
+
+window._banUserAction = function(uid){
+  if(!confirm('Ban this user? They will be signed out and unable to log in.')) return;
+  fetch('/admin/users/'+uid+'/ban',{method:'POST',headers:{Accept:'application/json'}})
+    .then(function(r){return r.json();})
+    .then(function(d){ if(d.ok){ _refreshCoachModal(); } else { _roleErr(d.error||'Ban failed'); } })
+    .catch(function(){ _roleErr('Request failed'); });
+};
+
+window._unbanUserAction = function(uid){
+  fetch('/admin/users/'+uid+'/unban',{method:'POST',headers:{Accept:'application/json'}})
+    .then(function(r){return r.json();})
+    .then(function(d){ if(d.ok){ _refreshCoachModal(); } else { _roleErr(d.error||'Restore failed'); } })
+    .catch(function(){ _roleErr('Request failed'); });
+};
 
 window._editCoachMode = function(){
   var data=_hiveRec; if(!data)return;
@@ -7803,7 +7883,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   <div style="display:flex;align-items:center;gap:16px;">
     <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
     ${auth.hasRole(req, 'admin') || auth.hasRole(req, 'super_admin') ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
-    ${auth.hasRole(req, 'super_admin') ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/em-lab" class="nav-link">EM Lab</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span>` : ''}
+    ${auth.hasRole(req, 'super_admin') ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/em-lab" class="nav-link">EM Lab</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span><a href="/admin/embargo" class="nav-link">Embargo List</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/password" class="nav-link">Change password</a>
     <span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>
@@ -8798,7 +8878,27 @@ app.get('/admin/coaches/:coach_id/profile', requireAdmin, async (req, res) => {
   if (!coach) return res.status(404).json({ error: 'Coach not found' });
 
   const history = await db.getEditHistory('coach', coachId);
-  return res.json({ coach, history });
+
+  // IAA Phase D: role/account data for the modal's Roles & Access section. is_self is
+  // computed here (rather than injecting the current user id client-side) so the modal
+  // can disable self-revoke/self-ban controls; the server still enforces both guards.
+  let roles = [];
+  let userIsActive = true;
+  let isSelf = false;
+  if (coach.user_id) {
+    roles = await db.getUserRolesWithMeta(coach.user_id);
+    const u = await db.getUserById(coach.user_id);
+    userIsActive = u ? u.is_active !== false : true;
+    isSelf = coach.user_id === req.session.user_id;
+  }
+  return res.json({
+    coach,
+    history,
+    user_id: coach.user_id || null,
+    roles,
+    user_is_active: userIsActive,
+    is_self: isSelf,
+  });
 });
 
 app.get('/admin/coaches/:coach_id/edit-history', requireAdmin, async (req, res) => {
@@ -8850,6 +8950,184 @@ app.post('/admin/coaches/:coach_id/update', requireAdmin, async (req, res) => {
 
   console.log(`[admin/coaches/update] updated coach #${coachId}: ${changeSummary}`);
   return res.json({ success: true, updated: after, historyEntry });
+});
+
+// ═══ IAA v1.2 — Phase D: embargo management page ════════════════════════════════
+function renderEmbargoPage(embargoList, flashMsg, errorMsg) {
+  const fmt = (ts) => { try { return new Date(ts).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); } catch (e) { return '—'; } };
+  const rows = (embargoList || []).map((e) => {
+    const typeBadge = e.match_type === 'domain'
+      ? '<span style="background:#ede9fe;color:#7c3aed;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;">Domain</span>'
+      : '<span style="background:#e6f7ee;color:#1a7a4a;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;">Exact</span>';
+    return `<tr>
+      <td style="font-family:monospace;font-size:12px;">${esc(e.value)}</td>
+      <td>${typeBadge}</td>
+      <td style="color:#7A96A6;font-size:12px;">${e.reason ? esc(e.reason) : '—'}</td>
+      <td style="color:#7A96A6;font-size:12px;">${e.embargoed_by_email ? esc(e.embargoed_by_email) : '—'}</td>
+      <td style="color:#7A96A6;font-size:12px;">${fmt(e.created_at)}</td>
+      <td>
+        <form method="POST" action="/admin/embargo/${e.id}/remove" style="display:inline;" onsubmit="return confirm('Remove ${esc(e.value)} from the embargo list?');">
+          <button type="submit" style="background:none;border:none;cursor:pointer;font-size:12px;color:#c0392b;text-decoration:underline;padding:0;">Remove</button>
+        </form>
+      </td>
+    </tr>`;
+  }).join('\n');
+  const body = (embargoList && embargoList.length)
+    ? rows
+    : '<tr><td colspan="6" style="text-align:center;padding:40px;color:#7A96A6;">No embargo entries.</td></tr>';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Admin — Embargo List</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; padding: 0; }
+  .top-bar { background: #1A2B33; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .top-bar h1 { color: #00b1d7; font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar span { color: #7A96A6; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .top-bar .nav-link { color: #7A96A6; font-size: 12px; text-decoration: none; font-family: Georgia, serif; }
+  .top-bar .nav-link:hover { color: #fff; }
+  .top-bar .nav-sep { color: #3A4B55; font-size: 12px; margin: 0 8px; }
+  .flash-success { background: #e6f7ee; color: #1a7a4a; border-left: 4px solid #1a7a4a; padding: 12px 20px; font-size: 13px; }
+  .flash-error { background: #fdecea; color: #c0392b; border-left: 4px solid #c0392b; padding: 12px 20px; font-size: 13px; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
+  .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; margin-bottom: 32px; }
+  .card-header { padding: 18px 20px; border-bottom: 1px solid #EFE8E0; font-size: 13px; font-weight: 700; color: #1A2B33; text-transform: uppercase; letter-spacing: 0.08em; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #00b1d7; color: #fff; text-align: left; padding: 12px 14px; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700; }
+  tbody tr { border-bottom: 1px solid #EFE8E0; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 11px 14px; vertical-align: middle; }
+  .add-form { padding: 20px; display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
+  .add-form label { display: block; font-size: 11px; color: #7A96A6; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; margin-bottom: 5px; }
+  .add-form input { width: 100%; padding: 9px 11px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; color: #1A2B33; outline: none; }
+  .add-form input:focus { border-color: #00b1d7; }
+  .btn-add { background: #00b1d7; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 10px 18px; cursor: pointer; white-space: nowrap; }
+  .btn-add:hover { background: #009bbf; }
+  .help { padding: 0 20px 20px; font-size: 12px; color: #7A96A6; }
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <div>
+    <div><span>Hive Enneagram Type Tool</span></div>
+    <h1>Embargo List</h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <a href="/admin" class="nav-link">← Dashboard</a>
+    <span class="nav-sep">|</span>
+    <a href="/admin/logout" class="nav-link">Sign out</a>
+  </div>
+</div>
+${flashMsg ? `<div class="flash-success">${esc(flashMsg)}</div>` : ''}
+${errorMsg ? `<div class="flash-error">${esc(errorMsg)}</div>` : ''}
+<div class="container">
+  <div class="card">
+    <div class="card-header">Embargoed Identities</div>
+    <table>
+      <thead>
+        <tr><th>Value</th><th>Type</th><th>Reason</th><th>Added by</th><th>Date</th><th>Action</th></tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Add to Embargo List</div>
+    <form method="POST" action="/admin/embargo" class="add-form">
+      <div>
+        <label for="embargo_value">Value</label>
+        <input type="text" id="embargo_value" name="value" required placeholder="email@example.com or @domain.com">
+      </div>
+      <div>
+        <label for="embargo_reason">Reason</label>
+        <input type="text" id="embargo_reason" name="reason" placeholder="Reason (optional)">
+      </div>
+      <div>
+        <button type="submit" class="btn-add">Add to Embargo List</button>
+      </div>
+    </form>
+    <p class="help">Enter an email address for an exact match, or a domain starting with @ (e.g. @spam.com) to block all addresses from that domain.</p>
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+// ═══ IAA v1.2 — Phase D: role management + embargo routes (all super-admin) ══════
+
+// Current roles + account status for a user (feeds the coach-profile modal).
+app.get('/admin/users/:user_id/roles', requireSuperAdmin, async (req, res) => {
+  const userId = parseInt(req.params.user_id, 10);
+  if (!userId || isNaN(userId)) return res.status(400).json({ ok: false, error: 'Invalid user ID' });
+  const user = await db.getUserById(userId);
+  if (!user) return res.status(404).json({ ok: false, error: 'User not found' });
+  const roles = await db.getUserRolesWithMeta(userId);
+  return res.json({ user: { id: user.id, email: user.email, is_active: user.is_active }, roles });
+});
+
+app.post('/admin/users/:user_id/roles/grant', requireSuperAdmin, async (req, res) => {
+  const userId = parseInt(req.params.user_id, 10);
+  if (!userId || isNaN(userId)) return res.status(400).json({ ok: false, error: 'Invalid user ID' });
+  const role = (req.body && req.body.role) || '';
+  if (!['client', 'coach', 'admin', 'super_admin'].includes(role)) {
+    return res.status(400).json({ ok: false, error: 'Invalid role.' });
+  }
+  const result = await auth.grantRole(userId, role, req.session.user_id, req);
+  return res.json(result);
+});
+
+app.post('/admin/users/:user_id/roles/revoke', requireSuperAdmin, async (req, res) => {
+  const userId = parseInt(req.params.user_id, 10);
+  if (!userId || isNaN(userId)) return res.status(400).json({ ok: false, error: 'Invalid user ID' });
+  const role = (req.body && req.body.role) || '';
+  if (!['client', 'coach', 'admin', 'super_admin'].includes(role)) {
+    return res.status(400).json({ ok: false, error: 'Invalid role.' });
+  }
+  const result = await auth.revokeRole(userId, role, req.session.user_id, req);
+  return res.json(result);
+});
+
+app.post('/admin/users/:user_id/ban', requireSuperAdmin, async (req, res) => {
+  const userId = parseInt(req.params.user_id, 10);
+  if (!userId || isNaN(userId)) return res.status(400).json({ ok: false, error: 'Invalid user ID' });
+  const result = await auth.banUser(userId, req.session.user_id, req);
+  return res.json(result);
+});
+
+app.post('/admin/users/:user_id/unban', requireSuperAdmin, async (req, res) => {
+  const userId = parseInt(req.params.user_id, 10);
+  if (!userId || isNaN(userId)) return res.status(400).json({ ok: false, error: 'Invalid user ID' });
+  const result = await auth.unbanUser(userId, req.session.user_id, req);
+  return res.json(result);
+});
+
+app.get('/admin/embargo', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  let flashMsg = null;
+  if (req.query.flash === 'embargo_added')        flashMsg = 'Embargo entry added.';
+  else if (req.query.flash === 'embargo_removed') flashMsg = 'Embargo entry removed.';
+  const list = await db.getEmbargoList().catch(() => []);
+  res.send(renderEmbargoPage(list, flashMsg, null));
+});
+
+app.post('/admin/embargo', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const { value, reason } = req.body || {};
+  const result = await auth.addEmbargoEntry(value || '', reason || null, req.session.user_id, req);
+  if (result.ok) return res.redirect('/admin/embargo?flash=embargo_added');
+  const list = await db.getEmbargoList().catch(() => []);
+  return res.send(renderEmbargoPage(list, null, result.error));
+});
+
+app.post('/admin/embargo/:id/remove', requireSuperAdmin, async (req, res) => {
+  const embargoId = parseInt(req.params.id, 10);
+  if (embargoId && !isNaN(embargoId)) {
+    await auth.removeEmbargoEntry(embargoId, req.session.user_id, req);
+  }
+  return res.redirect('/admin/embargo?flash=embargo_removed');
 });
 
 app.get('/admin/clients/:client_id/profile', requireAdminSession, async (req, res) => {
