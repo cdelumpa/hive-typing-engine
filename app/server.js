@@ -2935,6 +2935,44 @@ async function sendPasswordResetEmail(toEmail, resetUrl) {
   }
 }
 
+// Best-effort security notification sent after any admin password change (reset flow
+// or authenticated change-password form). Never throws — the route behavior and
+// redirect are unchanged regardless of send outcome.
+async function sendPasswordChangedEmail(toEmail) {
+  if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_FROM_EMAIL) {
+    console.warn('[auth] SendGrid not configured — password changed email not sent');
+    return;
+  }
+  const msg = {
+    to:      toEmail,
+    from:    { name: 'InsightOut by Hive', email: process.env.SENDGRID_FROM_EMAIL },
+    subject: 'Your InsightOut admin password was changed',
+    html: `
+      <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1A2B33; line-height: 1.7;">
+        <div style="border-top: 4px solid #00b1d7; padding-top: 28px; margin-bottom: 24px;">
+          <h1 style="font-size: 22px; color: #00b1d7; margin: 0; font-weight: 700;">Password changed</h1>
+        </div>
+        <p style="font-size: 15px;">Your InsightOut admin password was recently changed.</p>
+        <p style="font-size: 15px;">If you made this change, no action is needed.</p>
+        <p style="font-size: 15px;">If you did not make this change, please contact us immediately at
+          <a href="mailto:${process.env.SENDGRID_FROM_EMAIL}" style="color:#00b1d7;">
+            ${process.env.SENDGRID_FROM_EMAIL}
+          </a>.
+        </p>
+        <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #E0E8EC; font-size: 11px; color: #7A96A6;">
+          This is an automated security notification from InsightOut by Hive.
+        </div>
+      </div>
+    `,
+  };
+  try {
+    await sgMail.send(msg);
+    console.log(`[auth] password changed notification sent to ${toEmail}`);
+  } catch (e) {
+    console.error('[auth] password changed email failed:', e.message);
+  }
+}
+
 // The generic confirmation returned for every forgot-password outcome (unknown email,
 // rate-limited, or sent) — never reveals whether an account exists.
 const RESET_GENERIC_CONFIRMATION = 'If that email is registered, a reset link is on its way.';
@@ -3015,6 +3053,10 @@ app.post('/admin/reset-password/:token', async (req, res) => {
   }
 
   await auth.logAuthEvent(result.userId, 'password_changed', req, { source: 'reset' });
+  const changedUser = await db.getUserById(result.userId);
+  if (changedUser && changedUser.email) {
+    await sendPasswordChangedEmail(changedUser.email).catch(() => {});
+  }
   res.redirect('/admin/login?flash=password_reset');
 });
 
@@ -3099,6 +3141,10 @@ app.post('/admin/password', requireAdminSession, async (req, res) => {
   await auth.logAuthEvent(req.session.user_id, 'password_changed', req, { source: 'change_form' });
   console.log(`[admin/password] password updated for user #${req.session.user_id}`);
   await auth.invalidateAllSessions(req.session.user_id);
+  const pwUser = await db.getUserById(req.session.user_id);
+  if (pwUser && pwUser.email) {
+    await sendPasswordChangedEmail(pwUser.email).catch(() => {});
+  }
   res.redirect('/admin/login?flash=password_changed');
 });
 
