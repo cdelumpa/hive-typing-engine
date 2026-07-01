@@ -396,6 +396,120 @@ ALTER TABLE em_rerun_reports ADD COLUMN IF NOT EXISTS rerun_coach_pdf_path  VARC
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS rerun_at             TIMESTAMPTZ;
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS rerun_by             TEXT;
 ALTER TABLE assessments ADD COLUMN IF NOT EXISTS pre_rerun_api_result JSONB;
+
+-- ═══ IAA v1.2 — Phase A: Identity & Access Architecture (DDL) ═══════════════════
+-- Purely additive. Establishes the identity/auth/role foundation. NO existing code
+-- path reads these tables yet (that is Phase B). All idempotent.
+--
+-- Execution-order note: the spec lists the updated_at trigger first, but a trigger
+-- (and the FK columns below) cannot be created before the users table exists.
+-- Statements are therefore ordered by PostgreSQL dependency — all CREATE TABLEs
+-- (users first) → function + trigger → additive FK columns. Statement text is
+-- unchanged from the spec; only execution order is corrected.
+
+-- ── Table: users ── identity + authentication single source of truth.
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash TEXT,
+  auth_provider VARCHAR(50) DEFAULT 'local',
+  provider_id VARCHAR(255),
+  confirmed_type INTEGER,
+  -- TODO: confirmed_type is pre-positioned for Pocket Coach / Coach Companion.
+  -- Populated post-debrief when a coach confirms a client's Enneagram type.
+  -- Write path is a future build item — do not add writes to this column in this PR.
+  dominant_instinct VARCHAR(10),
+  -- TODO: dominant_instinct is pre-positioned for Pocket Coach / Coach Companion.
+  -- Populated post-debrief when a coach confirms a client's dominant instinct (SP/SO/SX).
+  -- Write path is a future build item — do not add writes to this column in this PR.
+  last_login_at TIMESTAMPTZ,
+  last_login_ip VARCHAR(45),
+  failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until TIMESTAMPTZ,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  gdpr_consent_given BOOLEAN,
+  gdpr_consent_at TIMESTAMPTZ,
+  gdpr_consent_version VARCHAR(20),
+  erasure_requested_at TIMESTAMPTZ,
+  anonymized_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Table: roles ── static reference; populated once in SEED_SQL, never mutated by app code.
+CREATE TABLE IF NOT EXISTS roles (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL UNIQUE,
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Table: user_roles ── many-to-many join with audit (granted_by / granted_at).
+CREATE TABLE IF NOT EXISTS user_roles (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  granted_by INTEGER REFERENCES users(id),
+  granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, role_id)
+);
+
+-- ── Table: auth_events ── append-only auth audit log.
+CREATE TABLE IF NOT EXISTS auth_events (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  event_type VARCHAR(50) NOT NULL,
+  ip_address VARCHAR(45),
+  user_agent TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Table: password_reset_tokens ── single-use, time-limited; token stored hashed.
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Table: embargo_list ── permanent identity block; exact-email or domain-suffix match.
+CREATE TABLE IF NOT EXISTS embargo_list (
+  id SERIAL PRIMARY KEY,
+  value VARCHAR(255) NOT NULL UNIQUE,
+  match_type VARCHAR(10) NOT NULL CHECK (match_type IN ('exact', 'domain')),
+  reason TEXT,
+  embargoed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Function + trigger: maintain users.updated_at on every UPDATE ──
+-- CREATE OR REPLACE FUNCTION is idempotent; DROP TRIGGER IF EXISTS before CREATE
+-- TRIGGER makes the trigger idempotent. Ordered after CREATE TABLE users above.
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
+CREATE TRIGGER update_users_updated_at
+  BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ── Additive columns on existing domain tables (FK -> users; require users to exist) ──
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS client_context_summary TEXT;
+-- TODO: client_context_summary is pre-positioned for the Pocket Coach system prompt.
+-- Populated at assessment completion by the AI pipeline.
+-- Write path is a future build item — do not add writes to this column in this PR.
 `;
 
 const SEED_SQL = `
@@ -417,6 +531,96 @@ WHERE email IN ('cai@hiveleadership.com', 'monique@hiveleadership.com');
 
 -- Remove temporary test coaches created during access-control verification
 DELETE FROM coaches WHERE email IN ('testadmin@hiveleadership.com', 'testcoach@hiveleadership.com');
+
+-- ═══ IAA v1.2 — Phase A: data migration (DML) ══════════════════════════════════
+-- Runs on every boot AFTER all DDL above. Every statement is idempotent
+-- (ON CONFLICT DO NOTHING / NOT EXISTS guards) so re-runs never duplicate or error.
+-- Ordering: roles seed → users insert → coaches.user_id link → client role → elevated roles.
+
+-- 1) Seed the four roles (static reference data, never changes).
+INSERT INTO roles (name, description) VALUES
+  ('client', 'Has taken or is taking the assessment'),
+  ('coach', 'Certified InsightOut coach; manages client assessments and records'),
+  ('admin', 'Coach plus content editing, coach provisioning, dashboard access'),
+  ('super_admin', 'Admin plus platform controls: Re-Run, EM Lab, delete, retake approval, embargo')
+ON CONFLICT (name) DO NOTHING;
+
+-- 2) Migrate existing coaches into users — email and password_hash copied verbatim so
+--    existing credentials keep working after Phase B's login cutover (no forced reset).
+INSERT INTO users (email, password_hash, auth_provider, is_active, created_at, updated_at)
+SELECT
+  email,
+  password_hash,
+  'local',
+  is_active,
+  created_at,
+  NOW()
+FROM coaches
+WHERE email IS NOT NULL
+ON CONFLICT (email) DO NOTHING;
+
+-- 3) Link coaches.user_id back to the new users rows.
+UPDATE coaches
+SET user_id = users.id
+FROM users
+WHERE coaches.email = users.email
+AND coaches.user_id IS NULL;
+
+-- 4) Assign the client role to all users.
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM users u
+CROSS JOIN roles r
+WHERE r.name = 'client'
+AND NOT EXISTS (
+  SELECT 1 FROM user_roles ur
+  WHERE ur.user_id = u.id AND ur.role_id = r.id
+);
+
+-- 5) Assign elevated roles to Cai and Mo based on their current coaches flags.
+--    DELIBERATE DEVIATION FROM SPEC: IAA v1.2 states all existing users receive the
+--    client role only during migration — a safeguard against mass unintended elevation
+--    across a large user base. With exactly two users in production, both confirmed
+--    super-admins, that rule would deadlock: after Phase B's login cutover no one could
+--    reach /admin to grant elevated roles. Therefore Cai and Mo receive their full
+--    current role set (coach + admin + super_admin), mapped from their existing
+--    coaches.is_admin / coaches.is_super_admin flags. This deviation is documented and
+--    deliberate, approved for the two-person production migration.
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM users u
+JOIN coaches c ON c.email = u.email
+CROSS JOIN roles r
+WHERE r.name = 'coach'
+AND (c.is_admin = TRUE OR c.is_super_admin = TRUE)
+AND NOT EXISTS (
+  SELECT 1 FROM user_roles ur
+  WHERE ur.user_id = u.id AND ur.role_id = r.id
+);
+
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM users u
+JOIN coaches c ON c.email = u.email
+CROSS JOIN roles r
+WHERE r.name = 'admin'
+AND c.is_admin = TRUE
+AND NOT EXISTS (
+  SELECT 1 FROM user_roles ur
+  WHERE ur.user_id = u.id AND ur.role_id = r.id
+);
+
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id
+FROM users u
+JOIN coaches c ON c.email = u.email
+CROSS JOIN roles r
+WHERE r.name = 'super_admin'
+AND c.is_super_admin = TRUE
+AND NOT EXISTS (
+  SELECT 1 FROM user_roles ur
+  WHERE ur.user_id = u.id AND ur.role_id = r.id
+);
 
 `;
 
