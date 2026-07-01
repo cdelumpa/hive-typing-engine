@@ -8341,7 +8341,7 @@ app.post('/admin/resend/:client_id', requireAdminSession, async (req, res) => {
   if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
 
   const ownerCoachId = await db.getClientCoachId(clientId);
-  const isSuperAdmin = req.session.coach_is_admin === true;
+  const isSuperAdmin = req.session.coach_is_super_admin === true;
   if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) {
     return res.status(403).json({ error: 'Forbidden' });
   }
@@ -8498,7 +8498,7 @@ app.get('/admin/clients/:client_id/profile', requireAdminSession, async (req, re
   if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
 
   const ownerCoachId = await db.getClientCoachId(clientId);
-  const isSuperAdmin = req.session.coach_is_admin === true;
+  const isSuperAdmin = req.session.coach_is_super_admin === true;
   if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
 
   // Fetch client + coach name
@@ -8535,7 +8535,7 @@ app.get('/admin/clients/:client_id/edit-history', requireAdminSession, async (re
   if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
 
   const ownerCoachId = await db.getClientCoachId(clientId);
-  const isSuperAdmin = req.session.coach_is_admin === true;
+  const isSuperAdmin = req.session.coach_is_super_admin === true;
   if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
 
   const history = await db.getEditHistory('client', clientId);
@@ -8547,7 +8547,7 @@ app.post('/admin/clients/:client_id/update', requireAdminSession, async (req, re
   if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
 
   const ownerCoachId = await db.getClientCoachId(clientId);
-  const isSuperAdmin = req.session.coach_is_admin === true;
+  const isSuperAdmin = req.session.coach_is_super_admin === true;
   if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
 
   const { first_name, last_name, email, organization, note } = req.body;
@@ -8600,7 +8600,7 @@ app.post('/admin/assessments/:assessment_id/coach-debrief', requireAdminSession,
 
   const ownerCoachId = await db.getAssessmentOwnerCoachId(assessmentId);
   if (ownerCoachId === null) return res.status(404).json({ error: 'Assessment not found.' });
-  const isSuperAdmin = req.session.coach_is_admin === true;
+  const isSuperAdmin = req.session.coach_is_super_admin === true;
   if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
 
   const body = req.body || {};
