@@ -33,6 +33,7 @@ const { buildBetaData, BETA_QUESTION_TEXT } = require('./generate_report');
 const reportPrep = require('./report_prep');          // buildClientModel — for /admin/content preview
 const { TYPE_NAMES: CMS_TYPE_NAMES, INSTINCT_NAME: EM_INSTINCT_NAME } = require('./type_meta');  // canonical type/instinct names (distinct from the dashboard's local TYPE_NAMES)
 const db = require('./db');
+const auth = require('./auth');
 const experimentalAnalysis = require('./experimental_analysis');  // EM prompt builder + engine (PR4/PR5)
 const { adaptEmToContract } = require('./em_report_adapter');     // EM two-call output -> SM api_result contract (PR8b)
 const { applyCall2DeterministicStamps } = require('./call2_stamp'); // Call #2 deterministic stamping + REDIRECT fixes (Defects #2/#3/#4)
@@ -66,6 +67,9 @@ const app = express();
 
 // Session middleware — must run before basic auth so req.session is available for exemption checks
 const PgSession = require('connect-pg-simple')(session);
+// IAA §6.4: behind Railway's TLS-terminating proxy, trust the first proxy hop so
+// req.ip is the real client IP and secure cookies are emitted over the proxied HTTPS.
+app.set('trust proxy', 1);
 app.use(session({
   store: new PgSession({
     conString: process.env.DATABASE_URL,
@@ -75,7 +79,11 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'hive-session-secret-dev',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 },
+  cookie: {
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+  },
 }));
 
 // Basic auth — protects all routes except /admin (session auth) and token-based assessment sessions
@@ -154,27 +162,25 @@ app.get('/content/type_library.json', (req, res) => {
   res.json(typeLibrary);
 });
 
-// Session auth guard for admin routes
+// Requires a valid authenticated session (any role).
 function requireAdminSession(req, res, next) {
-  if (req.session && req.session.coach_id) return next();
+  if (req.session && req.session.user_id) return next();
   res.redirect('/admin/login');
 }
 
-// Super-admin guard — requires is_admin flag in session
+// Requires admin or super_admin role.
 function requireAdmin(req, res, next) {
-  if (!req.session || !req.session.coach_id) return res.redirect('/admin/login');
-  if (req.session.coach_is_admin !== true) {
+  if (!req.session || !req.session.user_id) return res.redirect('/admin/login');
+  if (!auth.hasRole(req, 'admin') && !auth.hasRole(req, 'super_admin')) {
     return res.redirect('/admin?error=admin_required');
   }
   next();
 }
 
-// Super-admin guard — requires is_super_admin flag in session (a strict subset of
-// admins; only cai@/monique@ are seeded super). Used for the /admin/content editor.
-// Existing sessions gain the flag on next login (same pattern as coach_is_admin).
+// Requires super_admin role. Preserves JSON-aware 403 for API callers.
 function requireSuperAdmin(req, res, next) {
-  if (!req.session || !req.session.coach_id) return res.redirect('/admin/login');
-  if (req.session.coach_is_super_admin !== true) {
+  if (!req.session || !req.session.user_id) return res.redirect('/admin/login');
+  if (!auth.hasRole(req, 'super_admin')) {
     const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
     if (wantsJson) {
       return res.status(403).json({ ok: false, error: 'Super-admin access required.' });
@@ -2717,43 +2723,82 @@ function renderLoginPage(errorMsg) {
 }
 
 app.get('/admin/login', (req, res) => {
-  if (req.session && req.session.coach_id) return res.redirect('/admin');
+  if (req.session && req.session.user_id) return res.redirect('/admin');
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(renderLoginPage(null));
 });
 
 app.post('/admin/login', async (req, res) => {
-  const { email, password } = req.body;
+  const email = (req.body.email || '').toLowerCase().trim();
+  const password = req.body.password || '';
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
 
-  const coach = await db.getCoachByEmail((email || '').toLowerCase().trim());
-  if (!coach || !coach.password_hash) {
+  // 1) Rate limit by IP (IAA §4.1). Counts every attempt; blocks past the window cap.
+  if (auth.checkRateLimit(req.ip)) {
+    await auth.logAuthEvent(null, 'login_rate_limited', req, { email });
+    return res.send(renderLoginPage('Too many sign-in attempts. Please wait 15 minutes.'));
+  }
+
+  // 2) Embargo check (IAA §4.3/§4.4) — generic error, never reveal the block.
+  if (await auth.checkEmbargo(email)) {
+    await auth.logAuthEvent(null, 'login_embargoed', req, { email });
     return res.send(renderLoginPage('Invalid email or password.'));
   }
 
-  const match = await bcrypt.compare(password || '', coach.password_hash);
-  if (!match) {
+  // 3) User lookup. Generic error whether the email is unknown or has no password.
+  const user = await auth.getUserByEmail(email);
+  if (!user || !user.password_hash) {
+    await auth.logAuthEvent(null, 'login_failed', req, { email, reason: 'user_not_found' });
     return res.send(renderLoginPage('Invalid email or password.'));
   }
 
-  if (coach.is_active === false) {
+  // 4) Full ban — inactive account.
+  if (user.is_active === false) {
+    await auth.logAuthEvent(user.id, 'login_account_inactive', req);
     return res.send(renderLoginPage('This account has been deactivated. Please contact an administrator.'));
   }
 
-  req.session.regenerate((err) => {
+  // 5) Account lockout (IAA §4.2).
+  if (auth.checkAccountLock(user)) {
+    await auth.logAuthEvent(user.id, 'login_account_locked', req);
+    return res.send(renderLoginPage('Account temporarily locked. Please try again later.'));
+  }
+
+  // 6) Verify password. On failure, increment the lockout counter.
+  const match = await bcrypt.compare(password, user.password_hash);
+  if (!match) {
+    await auth.incrementFailedAttempts(user.id);
+    await auth.logAuthEvent(user.id, 'login_failed', req, { reason: 'bad_password' });
+    return res.send(renderLoginPage('Invalid email or password.'));
+  }
+
+  // 7) Success path — load the role set and resolve the coach domain row (may be
+  //    null for a future client-only user).
+  const roles = await auth.getUserRoles(user.id);
+  const coach = await auth.resolveCoachByUserId(user.id);
+
+  // 8) Fresh session (fixation protection); populate identity + roles. The two
+  //    coach_is_* booleans are intentionally gone — access derives from roles.
+  req.session.regenerate(async (err) => {
     if (err) {
       console.error('[admin/login] session regenerate error:', err.message);
       return res.send(renderLoginPage('Sign-in failed — please try again.'));
     }
-    req.session.coach_id             = coach.id;
-    req.session.coach_name           = coach.name;
-    req.session.coach_is_admin       = coach.is_admin === true;
-    req.session.coach_is_super_admin = coach.is_super_admin === true;
+    req.session.user_id    = user.id;
+    req.session.roles      = roles;
+    req.session.coach_id   = coach ? coach.id : null;
+    req.session.coach_name = coach ? coach.name : null;
+    await auth.recordLoginSuccess(user.id, req);
+    await auth.logAuthEvent(user.id, 'login_success', req);
     res.redirect('/admin');
   });
 });
 
-app.get('/admin/logout', (req, res) => {
+app.get('/admin/logout', async (req, res) => {
+  const userId = req.session.user_id;
+  if (userId) {
+    await auth.logAuthEvent(userId, 'logout', req).catch(() => {});
+  }
   req.session.destroy(() => res.redirect('/admin/login'));
 });
 
@@ -4246,7 +4291,7 @@ function renderContentPage(overrides, req) {
   <div style="display:flex;align-items:center;gap:10px;">
     <a href="/admin" class="nav-link">← Dashboard</a><span class="nav-sep">|</span>
     ${cmsContentMenu('global')}<span class="nav-sep">|</span>
-    ${req.session.coach_is_super_admin ? `<a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>` : ''}
+    ${auth.hasRole(req, 'super_admin') ? `<a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
@@ -4553,7 +4598,7 @@ function renderSubtypesPage(overrides, req) {
   <div style="display:flex;align-items:center;gap:10px;">
     <a href="/admin" class="nav-link">← Dashboard</a><span class="nav-sep">|</span>
     ${cmsContentMenu('subtypes')}<span class="nav-sep">|</span>
-    ${req.session.coach_is_super_admin ? `<a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>` : ''}
+    ${auth.hasRole(req, 'super_admin') ? `<a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
@@ -4840,7 +4885,7 @@ function renderTypesPage(overrides, req) {
   <div style="display:flex;align-items:center;gap:10px;">
     <a href="/admin" class="nav-link">← Dashboard</a><span class="nav-sep">|</span>
     ${cmsContentMenu('types')}<span class="nav-sep">|</span>
-    ${req.session.coach_is_super_admin ? `<a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>` : ''}
+    ${auth.hasRole(req, 'super_admin') ? `<a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
@@ -7061,7 +7106,7 @@ app.get('/admin/coaches', requireAdmin, async (req, res) => {
   let coaches = [];
   try { coaches = await db.getAllCoaches(); } catch (e) { console.error('[admin/coaches] query error:', e.message); }
 
-  res.send(renderCoachesPage(coaches, null, flashMsg, req.session.coach_is_super_admin === true));
+  res.send(renderCoachesPage(coaches, null, flashMsg, auth.hasRole(req, 'super_admin')));
 });
 
 app.get('/admin/coaches/active', requireAdmin, async (req, res) => {
@@ -7088,6 +7133,18 @@ app.post('/admin/coaches/new', requireAdmin, async (req, res) => {
     if (!newId) {
       const coaches = await db.getAllCoaches().catch(() => []);
       return res.send(renderCoachesPage(coaches, 'Failed to add coach — email may already be in use.', null));
+    }
+    // Create corresponding users row and assign client + coach roles
+    const newUserId = await auth.createUserWithRoles(
+      email.toLowerCase().trim(),
+      passwordHash,
+      ['client', 'coach']
+    );
+    if (newUserId) {
+      await db.query(
+        'UPDATE coaches SET user_id = $1 WHERE email = $2',
+        [newUserId, email.toLowerCase().trim()]
+      );
     }
     console.log(`[admin/coaches/new] added coach #${newId}: ${name} <${email}>`);
     res.redirect('/admin/coaches?flash=coach_added');
@@ -7177,7 +7234,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   let rows = [];
   try {
     // Super-admins see every client across all coaches; other coaches see only their own.
-    rows = req.session.coach_is_super_admin === true
+    rows = auth.hasRole(req, 'super_admin')
       ? await db.getAllAdminRows()
       : await db.getAdminRowsByCoach(req.session.coach_id);
   } catch (e) { console.error('[admin] query error:', e.message); }
@@ -7186,8 +7243,8 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   // em_only assessments. Self-contained (never throws); leaves the flag false on any error.
   try { await annotateEmRerunEligibility(rows); } catch (e) { console.error('[admin] em-rerun annotate failed:', e.message); }
 
-  const isAdmin = req.session.coach_is_admin === true;
-  const isSuperAdmin = req.session.coach_is_super_admin === true;
+  const isAdmin = auth.hasRole(req, 'admin') || auth.hasRole(req, 'super_admin');
+  const isSuperAdmin = auth.hasRole(req, 'super_admin');
 
   // Per-row cells (the 11 <td>s, no <tr> wrapper) so the same builder feeds both the
   // flat super-admin table and the coach client-grouped accordion. Tombstones are
@@ -7294,7 +7351,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       // while preserving the prior results. Gated on client status (issuing a retake
       // resets the client to not_started, handing off to "Resend invite") and on
       // is_latest_complete so exactly one Retake button shows per client.
-      const retakeAction = (req.session.coach_is_super_admin === true && clientStatus === 'complete' && r.is_latest_complete)
+      const retakeAction = (auth.hasRole(req, 'super_admin') && clientStatus === 'complete' && r.is_latest_complete)
         ? `<button onclick="adminRetake(${clientId},'${jsName}',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#7c3aed;padding:0;text-decoration:underline;margin-right:6px;">Retake</button>`
         : '';
 
@@ -7443,8 +7500,8 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   </div>
   <div style="display:flex;align-items:center;gap:16px;">
     <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
-    ${req.session.coach_is_admin ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
-    ${req.session.coach_is_super_admin ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/em-lab" class="nav-link">EM Lab</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span>` : ''}
+    ${auth.hasRole(req, 'admin') || auth.hasRole(req, 'super_admin') ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
+    ${auth.hasRole(req, 'super_admin') ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/em-lab" class="nav-link">EM Lab</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/password" class="nav-link">Change password</a>
     <span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>
@@ -7753,7 +7810,7 @@ function toggleClientGroup(clientId) {
   if (caret) caret.textContent = collapse ? '▶' : '▼';
 }
 </script>
-${sharedModalHTML(req.session.coach_is_admin === true, req.session.coach_is_super_admin === true)}
+${sharedModalHTML(auth.hasRole(req, 'admin') || auth.hasRole(req, 'super_admin'), auth.hasRole(req, 'super_admin'))}
 </body>
 </html>`);
 });
@@ -7771,7 +7828,7 @@ app.get('/reports/token/:filename', requireAdminSession, async (req, res) => {
   // Preserve coach-scope check from the old route: client/coach PDFs are scoped
   // to the owning coach; beta PDFs require super-admin.
   if (/^beta_/.test(filename)) {
-    if (!req.session.coach_is_admin) return res.status(403).send('Forbidden');
+    if (!auth.hasRole(req, 'super_admin')) return res.status(403).send('Forbidden');
   } else {
     const ownerCoachId = await db.getReportCoachId(filename);
     if (ownerCoachId !== null && ownerCoachId !== req.session.coach_id) {
@@ -7816,7 +7873,7 @@ app.get('/reports/view/:token', async (req, res) => {
 // Helper: the coach who owns a given assessment (via its client). Used to gate
 // coaches to their own assessments; super-admins bypass.
 async function assertAssessmentAccess(req, res, assessmentId) {
-  if (req.session.coach_is_super_admin === true) return true;
+  if (auth.hasRole(req, 'super_admin')) return true;
   const ownerCoachId = await db.getAssessmentOwnerCoachId(assessmentId);
   if (ownerCoachId !== null && ownerCoachId !== req.session.coach_id) {
     res.status(403).json({ error: 'Forbidden' });
@@ -8341,7 +8398,7 @@ app.post('/admin/resend/:client_id', requireAdminSession, async (req, res) => {
   if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
 
   const ownerCoachId = await db.getClientCoachId(clientId);
-  const isSuperAdmin = req.session.coach_is_super_admin === true;
+  const isSuperAdmin = auth.hasRole(req, 'super_admin');
   if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) {
     return res.status(403).json({ error: 'Forbidden' });
   }
@@ -8418,7 +8475,7 @@ app.get('/admin/coaches/:coach_id/clients', requireAdmin, async (req, res) => {
   try {
     // Super-admins see all three states (active / pending / tombstone) in the
     // accordion; plain admins and coaches never receive tombstone data (D1).
-    const includeDeleted = req.session.coach_is_super_admin === true;
+    const includeDeleted = auth.hasRole(req, 'super_admin');
     const rows = await db.getAdminRowsByCoach(coachId, { includeDeleted });
     // Tag em_rerun_eligible so the client-side accordion can gate the Re-Run Analysis button.
     try { await annotateEmRerunEligibility(rows); } catch (e) { console.error('[admin/coaches/clients] em-rerun annotate failed:', e.message); }
@@ -8498,7 +8555,7 @@ app.get('/admin/clients/:client_id/profile', requireAdminSession, async (req, re
   if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
 
   const ownerCoachId = await db.getClientCoachId(clientId);
-  const isSuperAdmin = req.session.coach_is_super_admin === true;
+  const isSuperAdmin = auth.hasRole(req, 'super_admin');
   if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
 
   // Fetch client + coach name
@@ -8524,7 +8581,7 @@ app.get('/admin/clients/:client_id/profile', requireAdminSession, async (req, re
   const history = await db.getEditHistory('client', clientId);
   // PR B: lifecycle audit trail for the History tab. Super-admin only — defense-in-depth:
   // regular coaches never receive the data even though the route is admin-session gated.
-  const clientHistory = req.session.coach_is_super_admin === true
+  const clientHistory = auth.hasRole(req, 'super_admin')
     ? await db.getClientHistory(clientId)
     : [];
   return res.json({ client, assessment, history, clientHistory });
@@ -8535,7 +8592,7 @@ app.get('/admin/clients/:client_id/edit-history', requireAdminSession, async (re
   if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
 
   const ownerCoachId = await db.getClientCoachId(clientId);
-  const isSuperAdmin = req.session.coach_is_super_admin === true;
+  const isSuperAdmin = auth.hasRole(req, 'super_admin');
   if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
 
   const history = await db.getEditHistory('client', clientId);
@@ -8547,7 +8604,7 @@ app.post('/admin/clients/:client_id/update', requireAdminSession, async (req, re
   if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
 
   const ownerCoachId = await db.getClientCoachId(clientId);
-  const isSuperAdmin = req.session.coach_is_super_admin === true;
+  const isSuperAdmin = auth.hasRole(req, 'super_admin');
   if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
 
   const { first_name, last_name, email, organization, note } = req.body;
@@ -8600,7 +8657,7 @@ app.post('/admin/assessments/:assessment_id/coach-debrief', requireAdminSession,
 
   const ownerCoachId = await db.getAssessmentOwnerCoachId(assessmentId);
   if (ownerCoachId === null) return res.status(404).json({ error: 'Assessment not found.' });
-  const isSuperAdmin = req.session.coach_is_super_admin === true;
+  const isSuperAdmin = auth.hasRole(req, 'super_admin');
   if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) return res.status(403).json({ error: 'Forbidden' });
 
   const body = req.body || {};
