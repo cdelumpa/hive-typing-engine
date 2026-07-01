@@ -2717,6 +2717,12 @@ function renderLoginPage(errorMsg) {
     <input type="password" id="password" name="password" required autocomplete="current-password">
     <button type="submit">Sign In</button>
   </form>
+  <p style="text-align:center;margin-top:16px;margin-bottom:0;">
+    <a href="/admin/forgot-password"
+       style="font-size:13px;color:#7A96A6;text-decoration:none;">
+      Forgot your password?
+    </a>
+  </p>
 </div>
 </body>
 </html>`;
@@ -2802,6 +2808,216 @@ app.get('/admin/logout', async (req, res) => {
   req.session.destroy(() => res.redirect('/admin/login'));
 });
 
+// ═══ IAA v1.2 — Phase C: password reset flow ════════════════════════════════════
+
+// Shared card chrome (matches renderLoginPage exactly) + success/muted/backlink styles.
+const RESET_PAGE_STYLE = `
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.1); padding: 48px 40px; width: 100%; max-width: 400px; }
+  .logo-bar { border-top: 4px solid #00b1d7; padding-top: 20px; margin-bottom: 32px; }
+  .logo-bar p { font-size: 11px; color: #7A96A6; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px; }
+  .logo-bar h1 { font-size: 20px; color: #00b1d7; margin: 0; font-weight: 700; }
+  label { display: block; font-size: 11px; color: #7A96A6; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; margin-bottom: 6px; }
+  input[type=email], input[type=password] { width: 100%; padding: 10px 12px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 14px; color: #1A2B33; outline: none; margin-bottom: 20px; }
+  input:focus { border-color: #00b1d7; }
+  button[type=submit] { width: 100%; padding: 12px; background: #00b1d7; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 15px; font-weight: 700; cursor: pointer; }
+  button[type=submit]:hover { background: #009bbf; }
+  .error { background: #fdecea; color: #c0392b; border-radius: 4px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
+  .success { background: #eafaf1; color: #1e8449; border-radius: 4px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
+  .muted { font-size: 12px; color: #7A96A6; margin: -8px 0 0; }
+  .backlink { display: block; text-align: center; margin-top: 20px; font-size: 13px; color: #7A96A6; text-decoration: none; }
+  .backlink:hover { color: #00b1d7; }
+`;
+
+function renderForgotPasswordPage(message, isError) {
+  // Success message hides the form (nothing more to do); errors keep the form so the
+  // user can request a fresh link inline.
+  const showForm = !(message && !isError);
+  const banner = message
+    ? (isError ? `<div class="error">${message}</div>` : `<div class="success">${message}</div>`)
+    : '';
+  const form = showForm ? `
+  <form method="POST" action="/admin/forgot-password">
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" required autocomplete="username">
+    <button type="submit">Send Reset Link</button>
+  </form>` : '';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Admin — Reset Password</title>
+<style>${RESET_PAGE_STYLE}</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-bar">
+    <p>Hive Enneagram Type Tool</p>
+    <h1>Reset Password</h1>
+  </div>
+  ${banner}${form}
+  <a href="/admin/login" class="backlink">← Back to sign in</a>
+</div>
+</body>
+</html>`;
+}
+
+function renderResetPasswordPage(errorMsg, token) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Admin — Set New Password</title>
+<style>${RESET_PAGE_STYLE}</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-bar">
+    <p>Hive Enneagram Type Tool</p>
+    <h1>Set New Password</h1>
+  </div>
+  ${errorMsg ? `<div class="error">${errorMsg}</div>` : ''}
+  <form method="POST" action="/admin/reset-password/${token}">
+    <label for="new_password">New Password</label>
+    <input type="password" id="new_password" name="new_password" required autocomplete="new-password">
+    <label for="confirm_password">Confirm New Password</label>
+    <input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password">
+    <p class="muted">Minimum 10 characters, one uppercase letter, one number.</p>
+    <button type="submit" style="margin-top:20px;">Set New Password</button>
+  </form>
+  <a href="/admin/login" class="backlink">← Back to sign in</a>
+</div>
+</body>
+</html>`;
+}
+
+// Best-effort reset email (mirrors sendInviteEmail): logs on failure, never throws —
+// enumeration safety requires the route response be identical regardless of outcome.
+async function sendPasswordResetEmail(toEmail, resetUrl) {
+  if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_FROM_EMAIL) {
+    console.warn('[auth] SendGrid not configured — reset email not sent');
+    return;
+  }
+  const msg = {
+    to:      toEmail,
+    from:    { name: 'InsightOut by Hive', email: process.env.SENDGRID_FROM_EMAIL },
+    subject: 'Reset your InsightOut admin password',
+    html: `
+      <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1A2B33; line-height: 1.7;">
+        <div style="border-top: 4px solid #00b1d7; padding-top: 28px; margin-bottom: 24px;">
+          <h1 style="font-size: 22px; color: #00b1d7; margin: 0; font-weight: 700;">Reset your password</h1>
+        </div>
+
+        <p style="font-size:15px;">We received a request to reset the password for this admin account. Click the button below to set a new password.</p>
+
+        <p style="margin: 32px 0;">
+          <a href="${resetUrl}" style="display:inline-block;background:#00b1d7;color:#fff;padding:14px 28px;border-radius:4px;font-weight:700;text-decoration:none;font-size:15px;">Reset Password →</a>
+        </p>
+
+        <p style="font-size: 13px; color: #4A6070;">Or copy this link:<br>
+          <a href="${resetUrl}" style="color:#00b1d7;">${resetUrl}</a>
+        </p>
+
+        <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #E0E8EC; font-size: 11px; color: #7A96A6;">
+          This link expires in 1 hour. If you didn't request this, you can safely ignore this email.
+        </div>
+      </div>
+    `,
+  };
+  try {
+    await sgMail.send(msg);
+    console.log(`[auth] reset email sent to ${toEmail}`);
+  } catch (e) {
+    console.error('[auth] reset email send failed:', e.message);
+  }
+}
+
+// The generic confirmation returned for every forgot-password outcome (unknown email,
+// rate-limited, or sent) — never reveals whether an account exists.
+const RESET_GENERIC_CONFIRMATION = 'If that email is registered, a reset link is on its way.';
+
+app.get('/admin/forgot-password', (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(renderForgotPasswordPage(null, false));
+});
+
+app.post('/admin/forgot-password', async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const email = (req.body.email || '').toLowerCase().trim();
+
+  // 1) Rate limit by email — console-only (no auth_events: no user_id, and logging
+  //    would confirm the address exists).
+  if (auth.checkResetRateLimit(email)) {
+    console.warn('[auth] reset rate limit hit');
+    return res.send(renderForgotPasswordPage(RESET_GENERIC_CONFIRMATION, false));
+  }
+
+  // 2) Look up the user. Unknown email → identical response (enumeration safety).
+  const user = await auth.getUserByEmail(email);
+  if (!user) {
+    console.warn('[auth] reset requested for unknown email');
+    return res.send(renderForgotPasswordPage(RESET_GENERIC_CONFIRMATION, false));
+  }
+
+  // 3) Mint a token, email the link, audit the request.
+  const rawToken = await auth.generateResetToken(user.id);
+  const appUrl = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
+  const resetUrl = `${appUrl}/admin/reset-password/${rawToken}`;
+  await sendPasswordResetEmail(user.email, resetUrl);
+  await auth.logAuthEvent(user.id, 'password_reset_requested', req, null);
+  return res.send(renderForgotPasswordPage(RESET_GENERIC_CONFIRMATION, false));
+});
+
+app.get('/admin/reset-password/:token', async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const token = req.params.token;
+  const result = await auth.validateResetToken(token);
+  if (!result.valid) {
+    const messages = {
+      expired: 'This reset link has expired. Please request a new one.',
+      already_used: 'This reset link has already been used. Please request a new one.',
+      not_found: 'This reset link is invalid. Please request a new one.',
+    };
+    const msg = messages[result.reason] || messages.not_found;
+    return res.send(renderForgotPasswordPage(msg, true));
+  }
+  return res.send(renderResetPasswordPage(null, token));
+});
+
+app.post('/admin/reset-password/:token', async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const token = req.params.token;
+  const { new_password, confirm_password } = req.body;
+
+  if ((new_password || '') !== (confirm_password || '')) {
+    return res.send(renderResetPasswordPage('Passwords do not match.', token));
+  }
+
+  const strength = auth.validatePasswordStrength(new_password || '');
+  if (!strength.valid) {
+    return res.send(renderResetPasswordPage(strength.reason, token));
+  }
+
+  const newHash = await bcrypt.hash(new_password, 12);
+  const result = await auth.redeemResetToken(token, newHash);
+  if (!result.ok) {
+    // Token may have expired or been used between GET and POST.
+    const messages = {
+      expired: 'This reset link has expired. Please request a new one.',
+      already_used: 'This reset link has already been used. Please request a new one.',
+      not_found: 'This reset link is invalid. Please request a new one.',
+    };
+    const msg = messages[result.reason] || messages.not_found;
+    return res.send(renderForgotPasswordPage(msg, true));
+  }
+
+  await auth.logAuthEvent(result.userId, 'password_changed', req, { source: 'reset' });
+  res.redirect('/admin/login?flash=password_reset');
+});
+
 // ── Change Password ───────────────────────────────────────────────────────────
 
 function renderChangePasswordPage(errorMsg) {
@@ -2859,12 +3075,12 @@ app.post('/admin/password', requireAdminSession, async (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   const { current_password, new_password, confirm_password } = req.body;
 
-  const coach = await db.getCoachById(req.session.coach_id);
-  if (!coach || !coach.password_hash) {
+  const user = await db.getUserById(req.session.user_id);
+  if (!user || !user.password_hash) {
     return res.send(renderChangePasswordPage('Could not verify current password.'));
   }
 
-  const currentMatch = await bcrypt.compare(current_password || '', coach.password_hash);
+  const currentMatch = await bcrypt.compare(current_password || '', user.password_hash);
   if (!currentMatch) {
     return res.send(renderChangePasswordPage('Current password is incorrect.'));
   }
@@ -2873,15 +3089,17 @@ app.post('/admin/password', requireAdminSession, async (req, res) => {
     return res.send(renderChangePasswordPage('New passwords do not match.'));
   }
 
-  if ((new_password || '').length < 8) {
-    return res.send(renderChangePasswordPage('New password must be at least 8 characters.'));
+  const strength = auth.validatePasswordStrength(new_password || '');
+  if (!strength.valid) {
+    return res.send(renderChangePasswordPage(strength.reason));
   }
 
   const newHash = await bcrypt.hash(new_password, 12);
-  await db.updateCoachPassword(req.session.coach_id, newHash);
-  console.log(`[admin/password] password updated for coach #${req.session.coach_id}`);
-
-  res.redirect('/admin?flash=password_updated');
+  await auth.updateUserPassword(req.session.user_id, newHash);
+  await auth.logAuthEvent(req.session.user_id, 'password_changed', req, { source: 'change_form' });
+  console.log(`[admin/password] password updated for user #${req.session.user_id}`);
+  await auth.invalidateAllSessions(req.session.user_id);
+  res.redirect('/admin/login?flash=password_changed');
 });
 
 // ── New Client Intake ────────────────────────────────────────────────────────

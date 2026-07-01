@@ -7,6 +7,7 @@
 // opens its own pool. Per IAA §5: security review reads one file; extraction to a
 // standalone auth service moves one file behind a stable interface.
 
+const crypto = require('crypto');
 const db = require('./db');
 
 // ─── 1.1 Password strength policy (IAA §6.1) ────────────────────────────────────
@@ -209,6 +210,68 @@ async function createUserWithRoles(email, passwordHash, roleNames) {
   return userId;
 }
 
+// ═══ IAA v1.2 — Phase C: password reset flow ════════════════════════════════════
+// DELIBERATE DEVIATION FROM SPEC (approved): the IAA spec's literal wording stores
+// the reset token as a bcrypt hash. We use SHA-256 instead. bcrypt is salted and
+// non-deterministic, so it cannot support an indexed lookup by hash — you'd be
+// forced into an O(n) per-row bcrypt.compare scan or leaking the row id in the URL.
+// A 256-bit crypto.randomBytes token has ample entropy, so a fast deterministic
+// digest (SHA-256) is the correct OWASP approach for high-entropy secrets and keeps
+// the lookup a single indexed WHERE token_hash = $1.
+
+// Internal only — NOT exported. Shared by generate + validate so both sides agree.
+function hashToken(rawToken) {
+  return crypto.createHash('sha256').update(rawToken).digest('hex');
+}
+
+// ─── Generate a single-use reset token (1-hour TTL) ─────────────────────────────
+// Returns the RAW token (for the email link only); the DB stores only its hash.
+async function generateResetToken(userId) {
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  await db.invalidateUserResetTokens(userId);          // expire any outstanding tokens
+  const hash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  await db.createPasswordResetToken(userId, hash, expiresAt);
+  return rawToken;
+}
+
+// ─── Validate a raw reset token ─────────────────────────────────────────────────
+async function validateResetToken(rawToken) {
+  const hash = hashToken(rawToken);
+  const row = await db.getPasswordResetToken(hash);
+  if (!row) return { valid: false, reason: 'not_found' };
+  if (row.used_at) return { valid: false, reason: 'already_used' };
+  if (new Date(row.expires_at) < new Date()) return { valid: false, reason: 'expired' };
+  return { valid: true, userId: row.user_id, tokenId: row.id };
+}
+
+// ─── Redeem a reset token: set the new password, burn the token, kill sessions ──
+async function redeemResetToken(rawToken, newPasswordHash) {
+  const result = await validateResetToken(rawToken);
+  if (!result.valid) return { ok: false, reason: result.reason };
+  await updateUserPassword(result.userId, newPasswordHash);
+  await db.markResetTokenUsed(result.tokenId);
+  await invalidateAllSessions(result.userId);
+  await logAuthEvent(result.userId, 'password_reset_used', null, null);
+  return { ok: true, userId: result.userId };
+}
+
+// ─── Reset-request rate limiter (IAA §6.6): 3 per email per 60-minute window ─────
+// Separate Map from the login limiter — different key (email), limit (3), window (1h).
+const RESET_RATE_LIMIT_MAX = 3;
+const RESET_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const resetRateLimitHits = new Map(); // email -> [timestamps]
+
+function checkResetRateLimit(email) {
+  const key = (email || '').toLowerCase().trim() || 'unknown';
+  const now = Date.now();
+  const cutoff = now - RESET_RATE_LIMIT_WINDOW_MS;
+  const recent = (resetRateLimitHits.get(key) || []).filter(ts => ts > cutoff);
+  recent.push(now);
+  resetRateLimitHits.set(key, recent);
+  return recent.length > RESET_RATE_LIMIT_MAX;
+}
+
 module.exports = {
   validatePasswordStrength,
   checkEmbargo,
@@ -225,4 +288,8 @@ module.exports = {
   hasRole,
   updateUserPassword,
   createUserWithRoles,
+  generateResetToken,
+  validateResetToken,
+  redeemResetToken,
+  checkResetRateLimit,
 };
