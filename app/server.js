@@ -102,7 +102,7 @@ const basicAuthMiddleware = basicAuth({
 // SPA-served token entry). These are pure client assets; admin, API, reports, the
 // '/' entry, and the data layer all stay gated.
 const SPA_ASSET_PATHS = new Set([
-  '/styles.css', '/state.js', '/ui.js', '/assessment.js', '/app.js',
+  '/styles.css', '/state.js', '/ui.js', '/stage1_data.js', '/assessment.js', '/app.js',
   '/content/type_library.json', '/favicon.svg',
 ]);
 app.use((req, res, next) => {
@@ -3299,7 +3299,15 @@ app.post('/admin/clients/new', requireAdminSession, async (req, res) => {
       coachId
     );
     if (!clientId) {
-      return res.send(renderNewClientPage('Failed to create client — please try again.', req.body));
+      // createClient returns null when its INSERT throws (db.query swallows the
+      // error). The one throw source on the current schema is the clients_email_key
+      // UNIQUE index — so a null return almost always means the email already
+      // exists. Surface that specifically instead of the opaque generic message.
+      const existing = await db.getClientByEmail(email.trim().toLowerCase()).catch(() => null);
+      const msg = existing
+        ? 'A client with this email already exists. Use the existing client, or enter a different email.'
+        : 'Failed to create client — please try again.';
+      return res.send(renderNewClientPage(msg, req.body));
     }
     // PR B: lifecycle audit — client created by a coach/super-admin.
     db.logClientEvent({

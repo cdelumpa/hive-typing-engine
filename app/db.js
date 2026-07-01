@@ -1122,6 +1122,16 @@ async function getClientById(clientId) {
   return r && r.rows.length > 0 ? r.rows[0] : null;
 }
 
+// Lookup by email (case-insensitive) — used to give the "create client" flow a
+// specific message when createClient returns null because the clients_email_key
+// UNIQUE index rejected a duplicate email (the error is otherwise swallowed by
+// query() and surfaces only as a generic failure).
+async function getClientByEmail(email) {
+  if (!email) return null;
+  const r = await query('SELECT id, coach_id FROM clients WHERE LOWER(email) = LOWER($1) LIMIT 1', [email]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
 async function createClientToken(clientId, token, expiresAt) {
   await query(
     `INSERT INTO client_tokens (client_id, token, expires_at) VALUES ($1, $2, $3)`,
@@ -1968,6 +1978,7 @@ module.exports = {
   permanentlyDeleteAssessment,
   getDeletedAssessments,
   getClientById,
+  getClientByEmail,
   createClientToken,
   getTokenWithClient,
   updateTokenUsedAt,
