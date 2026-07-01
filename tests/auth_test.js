@@ -68,5 +68,29 @@ check('returns true when role is in the array', () => {
   assert.strictEqual(auth.hasRole({ session: { roles: ['client', 'admin'] } }, 'admin'), true);
 });
 
+// ── checkResetRateLimit ─────────────────────────────────────────────────────────
+console.log('checkResetRateLimit:');
+check('first 3 requests for an email are under the limit', () => {
+  const email = 'rate-a@example.com';
+  assert.strictEqual(auth.checkResetRateLimit(email), false);
+  assert.strictEqual(auth.checkResetRateLimit(email), false);
+  assert.strictEqual(auth.checkResetRateLimit(email), false);
+});
+check('4th request for the same email exceeds the limit', () => {
+  // rate-a already has 3 hits from the previous test; the 4th trips it.
+  assert.strictEqual(auth.checkResetRateLimit('rate-a@example.com'), true);
+});
+check('a different email is unaffected by another email\'s count', () => {
+  assert.strictEqual(auth.checkResetRateLimit('rate-b@example.com'), false);
+});
+
+// ── reset-token helpers (async, DB-bound — smoke-check only) ─────────────────────
+console.log('validateResetToken:');
+check('returns a promise and does not throw synchronously', () => {
+  const p = auth.validateResetToken('not-a-real-token');
+  assert.ok(p && typeof p.then === 'function');
+  p.catch(() => {}); // no DB in the test env; swallow any async rejection
+});
+
 console.log(`\n=== RESULT: ${passed} passed, 0 failed ===\n`);
 process.exit(0);

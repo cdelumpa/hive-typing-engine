@@ -1772,6 +1772,53 @@ async function upsertDeclaration(assessmentId, { declaredType, typeDontKnow, dec
   );
 }
 
+// ═══ IAA v1.2 — Phase C: password reset + identity lookups ══════════════════════
+
+// User lookup by id — the credential of record for the change-password flow (login
+// and password writes both key on the users table post-Phase-B).
+async function getUserById(userId) {
+  const r = await query(
+    'SELECT id, email, password_hash, is_active FROM users WHERE id = $1 LIMIT 1',
+    [userId]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// Store a reset token. Only the SHA-256 hash is persisted (never the plaintext).
+async function createPasswordResetToken(userId, tokenHash, expiresAt) {
+  const r = await query(
+    `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+     VALUES ($1, $2, $3) RETURNING id`,
+    [userId, tokenHash, expiresAt]
+  );
+  return r && r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+async function getPasswordResetToken(tokenHash) {
+  const r = await query(
+    `SELECT id, user_id, expires_at, used_at
+       FROM password_reset_tokens WHERE token_hash = $1 LIMIT 1`,
+    [tokenHash]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// Single-use enforcement: only flips an as-yet-unused token.
+async function markResetTokenUsed(tokenId) {
+  await query(
+    `UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1 AND used_at IS NULL`,
+    [tokenId]
+  );
+}
+
+// Expire any outstanding unused tokens for a user (called when issuing a new one).
+async function invalidateUserResetTokens(userId) {
+  await query(
+    `UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL`,
+    [userId]
+  );
+}
+
 module.exports = {
   pool,
   initDb,
@@ -1868,4 +1915,10 @@ module.exports = {
   setClientAnalysisMode,
   getEmLabRoster,
   upsertDeclaration,
+  // IAA Phase C — password reset + identity lookups
+  getUserById,
+  createPasswordResetToken,
+  getPasswordResetToken,
+  markResetTokenUsed,
+  invalidateUserResetTokens,
 };
