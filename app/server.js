@@ -4024,7 +4024,13 @@ function renderAccordionTable(coachId, rows) {
       var inviteResendBtn = (r.client_status === 'not_started' && !isPending && !isTombstone)
         ? '<button onclick="accordionResendInvite('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;" title="Resend invite email">Resend invite</button>'
         : '';
-      actionsCell = reassignBtn+reRunBtn+regenBtn+resendBtn+inviteResendBtn+deleteBtn;
+      // Retake — super-admin, completed clients only (mirrors the main dashboard's
+      // Retake). Gated on is_latest_complete so exactly one shows per client; issuing
+      // a retake resets the client to not_started (handing off to Resend invite).
+      var retakeBtn = (window.__IS_SUPER_ADMIN && status === 'complete' && r.is_latest_complete)
+        ? '<button onclick="accordionRetake('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#7c3aed;padding:0;text-decoration:underline;margin-right:4px;">Retake</button>'
+        : '';
+      actionsCell = reassignBtn+reRunBtn+regenBtn+resendBtn+retakeBtn+inviteResendBtn+deleteBtn;
     }
 
     // §9.3.1 clock icon — render only on Complete rows that captured timing. Stash the
@@ -4257,6 +4263,21 @@ async function accordionRestore(assessmentId, name, coachId) {
     if (d.ok) { showToast('Assessment restored.'); reloadAccordion(coachId); }
     else { alert(d.error || 'Restore failed'); }
   } catch(e) { alert('Request failed'); }
+}
+
+// Retake (super-admin, completed clients only): issue a fresh assessment while
+// preserving the prior results. Mirrors adminRetake on the main dashboard, but
+// reloads just this coach's accordion (re-rendering badges/actions) instead of the
+// whole page, so the accordion stays open. POSTs to the same requireSuperAdmin route.
+async function accordionRetake(clientId, name, btn, coachId) {
+  if (!confirm('Issue a new assessment for '+name+'? Their previous results will be preserved.')) return;
+  var orig = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try {
+    var r = await fetch('/admin/clients/'+clientId+'/retake', {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.success) { showToast('Retake issued — a fresh invite has been sent.'); reloadAccordion(coachId); }
+    else { alert(d.error || 'Retake failed'); btn.disabled = false; btn.textContent = orig; }
+  } catch(e) { alert('Request failed'); btn.disabled = false; btn.textContent = orig; }
 }
 
 // adminRetry / adminRegen / adminResend also used on main dashboard — define here too for coaches page
