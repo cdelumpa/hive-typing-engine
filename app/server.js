@@ -3255,20 +3255,36 @@ app.post('/admin/clients/new', requireAdminSession, async (req, res) => {
 // ── Resend Invite ─────────────────────────────────────────────────────────────
 
 app.post('/admin/clients/resend/:client_id', requireAdminSession, async (req, res) => {
+  // Content-negotiated: the dashboard POST form expects a redirect (+ flash); the
+  // coach-accordion fetch sends Accept: application/json and expects { ok }.
+  const wantsJson = req.headers.accept && req.headers.accept.includes('application/json');
   const clientId = parseInt(req.params.client_id, 10);
-  if (!clientId || isNaN(clientId)) return res.status(400).send('Invalid client ID');
+  if (!clientId || isNaN(clientId)) {
+    if (wantsJson) return res.status(400).json({ ok: false, error: 'Invalid client ID' });
+    return res.status(400).send('Invalid client ID');
+  }
 
   const ownerCoachId = await db.getClientCoachId(clientId);
-  if (ownerCoachId !== req.session.coach_id) return res.status(403).send('Forbidden');
+  const isSuperAdmin = auth.hasRole(req, 'super_admin');
+  if (!isSuperAdmin && ownerCoachId !== req.session.coach_id) {
+    if (wantsJson) return res.status(403).json({ ok: false, error: 'Forbidden' });
+    return res.status(403).send('Forbidden');
+  }
 
   try {
     const client = await db.getClientById(clientId);
-    if (!client) return res.status(404).send('Client not found');
+    if (!client) {
+      if (wantsJson) return res.status(404).json({ ok: false, error: 'Client not found' });
+      return res.status(404).send('Client not found');
+    }
 
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await db.resendInviteTransaction(clientId, token, expiresAt);
-    const coach = await db.getCoachById(req.session.coach_id);
+    // Invite identity is the client's OWNING coach (reply-to / signature), not the
+    // actor — a super-admin resending another coach's invite must still send it from
+    // that coach. Falls back to the actor's coach when the owner is unknown.
+    const coach = await db.getCoachById(ownerCoachId || req.session.coach_id);
     await sendInviteEmail({ first_name: client.first_name, last_name: client.last_name, email: client.email }, token, coach);
     // PR B: lifecycle audit — invitation re-sent.
     db.logClientEvent({
@@ -3279,9 +3295,11 @@ app.post('/admin/clients/resend/:client_id', requireAdminSession, async (req, re
     });
 
     console.log(`[admin/clients/resend] resent invite for client #${clientId}`);
+    if (wantsJson) return res.json({ ok: true });
     res.redirect('/admin?flash=invite_resent');
   } catch (e) {
     console.error('[admin/clients/resend] error:', e.message);
+    if (wantsJson) return res.status(500).json({ ok: false, error: 'Resend failed' });
     res.redirect('/admin');
   }
 });
@@ -3912,7 +3930,13 @@ function renderAccordionTable(coachId, rows) {
         : '<span style="color:#9AA3AD;">—</span>';
     } else {
       var deleteBtn = asmtId ? '<button onclick="accordionMarkDeleted('+asmtId+',\\''+name.replace(/'/g,"\\\\'")+'\\','+coachId+')" title="Delete assessment" style="background:none;border:none;cursor:pointer;font-size:13px;color:#c0392b;padding:0;">&#128465;</button>' : '';
-      actionsCell = reassignBtn+reRunBtn+regenBtn+resendBtn+deleteBtn;
+      // Resend invite — not-started clients only (mirrors the main dashboard control).
+      // Fetch-based (Accept: application/json) so it hits the content-negotiated JSON
+      // branch of /admin/clients/resend/:client_id rather than the form redirect.
+      var inviteResendBtn = (r.client_status === 'not_started' && !isPending && !isTombstone)
+        ? '<button onclick="accordionResendInvite('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this)" style="background:none;border:none;cursor:pointer;font-size:12px;color:#00b1d7;padding:0;text-decoration:underline;margin-right:6px;" title="Resend invite email">Resend invite</button>'
+        : '';
+      actionsCell = reassignBtn+reRunBtn+regenBtn+resendBtn+inviteResendBtn+deleteBtn;
     }
 
     // §9.3.1 clock icon — render only on Complete rows that captured timing. Stash the
@@ -4096,6 +4120,20 @@ async function accordionResend(clientId, email, btn) {
     } else { alert(d.error || 'Resend failed'); }
   } catch(e) { alert('Request failed'); }
   btn.disabled = false; btn.textContent = orig;
+}
+
+// Resend the INVITE email for a not-started client (distinct from accordionResend,
+// which re-sends the results email post-completion). Sends Accept: application/json so
+// the content-negotiated route returns { ok } instead of a redirect.
+async function accordionResendInvite(clientId, clientName, btn) {
+  if (!confirm('Resend invite to '+clientName+'?')) return;
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    var r = await fetch('/admin/clients/resend/'+clientId, {method:'POST',headers:{Accept:'application/json'}});
+    var d = await r.json();
+    if (d.ok) { btn.textContent = 'Sent ✓'; btn.style.color = '#27ae60'; }
+    else { btn.textContent = 'Failed'; btn.style.color = '#c0392b'; btn.disabled = false; }
+  } catch(e) { btn.textContent = 'Failed'; btn.style.color = '#c0392b'; btn.disabled = false; }
 }
 
 // Re-fetch and re-render one coach's accordion (used after mark-deleted / restore,
