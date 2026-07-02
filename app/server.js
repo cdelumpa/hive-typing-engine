@@ -1524,9 +1524,11 @@ app.post('/api/submit', async (req, res) => {
         console.warn('[api/submit] transition race on assessmentId', assessmentId, '— aborting background job');
         return;
       }
-      // NOTE: isRetake for a transitioned row is carried by its retake_of_assessment_id
-      // (stamped at retake time). Not re-derived here — retake logging on the transition
-      // path is a PR8-era follow-up; this path is inert until PR8 provisioning is live.
+      // PR8: derive isRetake from the pre-created row's linkage — the retake route stamps
+      // retake_of_assessment_id at retake time, so a non-null value means this transition
+      // is a retake (drives runBackgroundJob's completion-event logging).
+      const transitionedRow = await db.getAssessmentById(assessmentId);
+      isRetake = !!(transitionedRow?.retake_of_assessment_id);
       console.log(`[submit] assessment #${assessmentId} transitioned to processing for client #${resolvedClientId}`);
     } else {
       // Fallback = today's behavior. Retake linkage: a client who already has an assessment
@@ -3403,20 +3405,16 @@ app.post('/admin/clients/new', requireAdminSession, async (req, res) => {
 
   try {
     const coachId = req.session.coach_id;
-    const clientId = await db.createClient(
+    // PR8: createClient returns { id, created } since PR5 (ON CONFLICT upsert). created=false
+    // means the email already belongs to a client. This route preserves the current UX —
+    // surface the duplicate and stop (silent attach-to-existing is the /admin/clients/provision
+    // flow). A genuine DB failure throws CLIENT_LOOKUP_FAILED, caught by the outer try below.
+    const { id: clientId, created } = await db.createClient(
       { firstName: first_name.trim(), lastName: last_name.trim(), email: email.trim().toLowerCase(), organization: organization ? organization.trim() : null },
       coachId
     );
-    if (!clientId) {
-      // createClient returns null when its INSERT throws (db.query swallows the
-      // error). The one throw source on the current schema is the clients_email_key
-      // UNIQUE index — so a null return almost always means the email already
-      // exists. Surface that specifically instead of the opaque generic message.
-      const existing = await db.getClientByEmail(email.trim().toLowerCase()).catch(() => null);
-      const msg = existing
-        ? 'A client with this email already exists. Use the existing client, or enter a different email.'
-        : 'Failed to create client — please try again.';
-      return res.send(renderNewClientPage(msg, req.body));
+    if (!created) {
+      return res.send(renderNewClientPage('A client with this email already exists. Use the existing client, or enter a different email.', req.body));
     }
     // PR B: lifecycle audit — client created by a coach/super-admin.
     db.logClientEvent({
@@ -3441,11 +3439,157 @@ app.post('/admin/clients/new', requireAdminSession, async (req, res) => {
       actor: req.session.coach_name,
     });
 
+    // PR8: consume a credit and pre-create the not_started assessment so /api/submit finds
+    // a row to transition. Wrapped in try/catch — this route predates the credit system, so
+    // a credit/provisioning error must never break the client creation + invite that already
+    // succeeded above (belt-and-suspenders; enforcement is off at launch so consume won't throw).
+    try {
+      const accountId = await db.getAccountByCoachId(coachId);
+      if (accountId) {
+        const { transactionId } = await db.consumeCredit(accountId, 'standard_assessment', null, req.session.user_id);
+        const provAssessmentId = await db.createProvisionalAssessment(
+          clientId,
+          'coach_provisioned',
+          false,   // autoSendReport — coach controls report delivery (D5 default)
+          true,    // autoSendInvitation — invite already sent above
+          null     // retakeOfAssessmentId — new provisioning
+        );
+        // Link the consume ledger row to the assessment so cancelAssessment can restore the
+        // credit (getConsumedCreditTx filters credit_transactions by assessment_id).
+        if (provAssessmentId && transactionId) {
+          await db.query('UPDATE credit_transactions SET assessment_id = $1 WHERE id = $2', [provAssessmentId, transactionId]);
+        }
+      } else {
+        console.warn('[admin/clients/new] no billing account for coach', coachId, '— assessment not provisioned');
+      }
+    } catch (err) {
+      console.error('[admin/clients/new] provisioning error:', err.message);
+    }
+
     console.log(`[admin/clients/new] created client #${clientId} and sent invite`);
     res.redirect('/admin?flash=invite_sent');
   } catch (e) {
     console.error('[admin/clients/new] error:', e.message);
     res.send(renderNewClientPage('An error occurred — please try again.', req.body));
+  }
+});
+
+// ── Provisioning endpoint (PR8) ────────────────────────────────────────────────
+// JSON/fetch API behind the PR12 provisioning modal. Upserts the client, debits a credit,
+// pre-creates the not_started assessment (stamped with client_source + send flags +
+// requested_report_types), links the consume ledger row to the assessment (so cancellation
+// can restore the credit), and optionally sends the invite. Credit is consumed BEFORE the
+// assessment is created so an INSUFFICIENT_CREDITS abort never leaves an orphan assessment.
+app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
+  const b = req.body || {};
+  // a. Parse + validate.
+  const firstName = (b.firstName || '').trim();
+  const lastName  = (b.lastName || '').trim();
+  const email     = (b.email || '').trim().toLowerCase();
+  const coachId   = parseInt(b.coachId, 10);
+  const creditTypeName = b.creditTypeName || 'standard_assessment';
+  const autoSendReport = b.autoSendReport === true || b.autoSendReport === 'true';
+  const autoSendInvitation = (b.autoSendInvitation === undefined)
+    ? true
+    : (b.autoSendInvitation === true || b.autoSendInvitation === 'true');
+  const requestedReportTypes = Array.isArray(b.requestedReportTypes) ? b.requestedReportTypes : ['standard_assessment'];
+  const organization = b.organization ? String(b.organization).trim() : null;
+  const notes = b.notes ? String(b.notes) : null;
+
+  if (!firstName || !lastName) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'First and last name are required.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'A valid email is required.' });
+  if (!coachId || isNaN(coachId)) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'A valid coachId is required.' });
+
+  try {
+    // b. Coach exists.
+    const coach = await db.getCoachById(coachId);
+    if (!coach) return res.status(404).json({ error: 'COACH_NOT_FOUND' });
+
+    // c. Billing account.
+    const accountId = await db.getAccountByCoachId(coachId);
+    if (!accountId) return res.status(400).json({ error: 'ACCOUNT_NOT_FOUND', message: 'No billing account found for this coach.' });
+
+    // d. Upsert client. created=false means an existing client — coaches can provision
+    //    additional assessments for an existing client, so this is not an error.
+    const { id: clientId, created } = await db.createClient({ firstName, lastName, email, organization }, coachId);
+    if (!clientId) return res.status(500).json({ error: 'PROVISIONING_ERROR', message: 'Client creation failed.' });
+    if (!created) console.log(`[admin/clients/provision] provisioning additional assessment for existing client #${clientId}`);
+
+    // e. Consume a credit (assessment_id linked in step f once the row exists).
+    let creditResult;
+    try {
+      creditResult = await db.consumeCredit(accountId, creditTypeName, null, req.session.user_id);
+    } catch (err) {
+      if (err.message === 'INSUFFICIENT_CREDITS') {
+        return res.status(402).json({ error: 'INSUFFICIENT_CREDITS', message: 'This account has no credits of this type.' });
+      }
+      console.error('[admin/clients/provision] credit error:', err.message);
+      return res.status(500).json({ error: 'CREDIT_ERROR' });
+    }
+
+    // f. Provisional assessment.
+    let assessmentId = null;
+    try {
+      assessmentId = await db.createProvisionalAssessment(clientId, 'coach_provisioned', autoSendReport, autoSendInvitation, null);
+    } catch (err) {
+      assessmentId = null;
+    }
+    if (!assessmentId) {
+      // CRITICAL: credit consumed but no assessment row. Log identifiers for manual recovery.
+      console.error('[admin/clients/provision] CRITICAL: credit consumed but assessment creation failed —',
+        'accountId', accountId, 'lotId', creditResult?.lotId, 'txId', creditResult?.transactionId,
+        'coachId', coachId, 'clientId', clientId);
+      return res.status(500).json({ error: 'PROVISIONING_ERROR', message: 'Assessment creation failed after credit debit. Please contact support.' });
+    }
+
+    // Link the consume ledger row to the assessment so cancelAssessment can restore the
+    // credit (getConsumedCreditTx filters credit_transactions by assessment_id).
+    if (creditResult?.transactionId) {
+      await db.query('UPDATE credit_transactions SET assessment_id = $1 WHERE id = $2', [assessmentId, creditResult.transactionId]);
+    }
+
+    // g. Stamp requested_report_types (JSONB array of credit_types.name strings).
+    await db.query('UPDATE assessments SET requested_report_types = $1 WHERE id = $2', [JSON.stringify(requestedReportTypes), assessmentId]);
+
+    // h. Audit event (best-effort; never abort provisioning on a logging failure).
+    try {
+      db.logClientEvent({
+        clientId, assessmentId,
+        eventType: 'assessment_provisioned',
+        eventDescription: notes ? `Assessment provisioned — ${notes}` : 'Assessment provisioned',
+        actor: req.session.user_id,
+      });
+    } catch (_) {}
+
+    // i. Optional invite (gated on autoSendInvitation; best-effort — an email failure must
+    //    not roll back a successful provisioning). When FALSE, the coach sends the token
+    //    URL manually (PR12 surfaces it); the system sends no invite.
+    let invitationSent = false;
+    if (autoSendInvitation) {
+      try {
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        await db.createClientToken(clientId, token, expiresAt);
+        await sendInviteEmail({ first_name: firstName, last_name: lastName, email }, token, coach);
+        db.logClientEvent({ clientId, assessmentId, eventType: 'invitation_sent', eventDescription: 'Invitation sent', actor: req.session.user_id });
+        invitationSent = true;
+      } catch (err) {
+        console.error('[admin/clients/provision] invite send failed:', err.message);
+      }
+    }
+
+    // j. Success.
+    return res.status(200).json({
+      ok: true,
+      clientId,
+      assessmentId,
+      created,
+      creditConsumed: true,
+      invitationSent,
+    });
+  } catch (e) {
+    console.error('[admin/clients/provision] error:', e.message);
+    return res.status(500).json({ error: 'PROVISIONING_ERROR', message: e.message });
   }
 });
 

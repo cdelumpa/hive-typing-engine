@@ -2515,6 +2515,35 @@ async function grantCredits(toAccountId, creditTypeName, quantity, grantedBy, no
   }
 }
 
+// ── ACCOUNT LOOKUP HELPERS (PR8) ────────────────────────────────────
+// Resolve which billing account a provisioning consume should debit. Both return a scalar
+// account id (or null), read-only via query(); a null query() result (DB error) surfaces as
+// DB_ERROR so the caller never mistakes an error for "no account".
+
+// A coach's own billing account (1:1 via the accounts_coach_id_key partial unique index).
+async function getAccountByCoachId(coachId) {
+  const r = await query(
+    `SELECT id FROM accounts
+      WHERE coach_id = $1
+        AND account_type = 'coach'
+      LIMIT 1`,
+    [coachId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// The single house account (coach_id NULL) — bills D2C / house-provisioned assessments.
+async function getHouseAccount() {
+  const r = await query(
+    `SELECT id FROM accounts
+      WHERE account_type = 'house'
+      LIMIT 1`
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].id : null;
+}
+
 // ── PROVISIONING/CANCELLATION HELPERS (PR5) ──────────────────────────
 // Placed directly below the PR4 credit block because cancellation is credit-adjacent
 // (it restores a consumed credit). account_id / lot_id are NOT stored on assessments;
@@ -2746,6 +2775,9 @@ module.exports = {
   consumeCredit,
   restoreCredit,
   grantCredits,
+  // Provisioning & Commerce PR8 — account lookup
+  getAccountByCoachId,
+  getHouseAccount,
   // Provisioning & Commerce PR5 — upsert, cancellation, assignment
   insertAssignmentEvent,
   getConsumedCreditTx,
