@@ -2918,6 +2918,14 @@ window._submitProvision = async function(){
       var tuText = document.getElementById('provision-token-url-text');
       if(tuText) tuText.textContent = d.tokenUrl || '';
       if(tuWrap) tuWrap.style.display = 'block';
+      // Gray out the submit button — prevent double-submission. btn (provision-submit-btn)
+      // is already disabled from the fetch guard above; here we relabel + restyle it. The
+      // shared-overlay modal has no #provision-modal wrapper, so target the button by id.
+      if(btn){
+        btn.disabled = true;
+        btn.textContent = 'Assessment Provisioned ✓';
+        btn.style.cssText += ';background:#ccc;color:#666;cursor:not-allowed;border-color:#ccc';
+      }
       // Leave the modal open so the coach can copy the link.
     } else {
       var map = {
