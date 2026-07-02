@@ -105,6 +105,15 @@ const SPA_ASSET_PATHS = new Set([
   '/styles.css', '/state.js', '/ui.js', '/stage1_data.js', '/assessment.js', '/app.js',
   '/content/type_library.json', '/favicon.svg',
 ]);
+
+// ThriveCart SKU → credit grant map (PR9). Each SKU maps to a creditTypeName, quantity,
+// and pricePaidCents (the price stored on the purchased lot for refund accounting).
+// PLACEHOLDERS — Cai will update the SKU names and prices before launch.
+const THRIVECART_SKU_MAP = {
+  'insightout-5-pack':  { creditTypeName: 'standard_assessment', quantity: 5,  pricePaidCents: 49500 },  // $495 — update before launch
+  'insightout-10-pack': { creditTypeName: 'standard_assessment', quantity: 10, pricePaidCents: 89500 },  // $895 — update before launch
+  'insightout-single':  { creditTypeName: 'standard_assessment', quantity: 1,  pricePaidCents: 9900  },  // $99  — update before launch
+};
 app.use((req, res, next) => {
   if (req.path === '/admin/login' || req.path.startsWith('/admin')) return next();
   if (req.path.startsWith('/assessment/')) return next();
@@ -7830,6 +7839,123 @@ app.post('/admin/coaches/new', requireAdmin, async (req, res) => {
     console.error('[admin/coaches/new] error:', e.message);
     const coaches = await db.getAllCoaches().catch(() => []);
     res.send(renderCoachesPage(coaches, 'An error occurred — email may already be in use.', null));
+  }
+});
+
+// ── ThriveCart coach-provisioning webhook (PR9) ────────────────────────────────
+// External endpoint — NO admin middleware (those 302-redirect a sessionless caller).
+// /admin/* bypasses the global basic-auth gate, so this route is reachable and
+// self-authenticates via the shared secret in the request body. Idempotent: a retried
+// order is a safe no-op (recordPurchasedCredits dedupes on purchase_reference), so
+// returning 500 on transient errors — which makes ThriveCart retry — is safe.
+app.post('/admin/coaches/provision', async (req, res) => {
+  // a. Verify the shared secret (read at request time, not boot — fail closed if unset).
+  const secret = process.env.THRIVECART_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error('[thrivecart] THRIVECART_WEBHOOK_SECRET not set');
+    return res.status(500).json({ error: 'SERVER_CONFIG_ERROR' });
+  }
+  if (req.body.thrivecart_secret !== secret) {
+    console.warn('[thrivecart] invalid secret — rejected');
+    return res.status(401).json({ error: 'UNAUTHORIZED' });
+  }
+
+  try {
+    // b. Validate required payload fields.
+    const b = req.body || {};
+    const required = ['order_id', 'product_id', 'customer_email', 'customer_first_name', 'customer_last_name', 'order_total'];
+    for (const f of required) {
+      if (b[f] === undefined || b[f] === null || String(b[f]).trim() === '') {
+        return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Missing required field: ${f}` });
+      }
+    }
+    const orderId       = String(b.order_id);
+    const productId     = String(b.product_id);
+    const customerEmail = String(b.customer_email).toLowerCase().trim();
+    const firstName     = String(b.customer_first_name).trim();
+    const lastName      = String(b.customer_last_name).trim();
+    const priceCents    = Math.round(parseFloat(b.order_total) * 100);
+
+    // c. Look up the SKU.
+    const skuConfig = THRIVECART_SKU_MAP[productId];
+    if (!skuConfig) {
+      console.warn('[thrivecart] unknown product_id:', productId, 'order:', orderId);
+      return res.status(400).json({ error: 'UNKNOWN_SKU', message: `Unrecognised product_id: ${productId}` });
+    }
+
+    // d. Find or create the coach.
+    let coach = await db.getCoachByEmail(customerEmail);
+    if (!coach) {
+      const tempPassword = crypto.randomBytes(8).toString('hex');
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      const fullName = `${firstName} ${lastName}`.trim();
+      // addCoach is positional: (name, email, passwordHash, organization).
+      const newCoachId = await db.addCoach(fullName, customerEmail, hashedPassword, null);
+      if (!newCoachId) throw new Error('COACH_CREATE_FAILED');
+      // Mirror /admin/coaches/new: create the users row + roles, link coaches.user_id.
+      const newUserId = await auth.createUserWithRoles(customerEmail, hashedPassword, ['client', 'coach']);
+      if (newUserId) {
+        await db.query('UPDATE coaches SET user_id = $1 WHERE id = $2', [newUserId, newCoachId]);
+        // Send a password-reset email so the coach sets their own password (the temp one is
+        // never shared). Mirrors the forgot-password flow.
+        try {
+          const rawToken = await auth.generateResetToken(newUserId);
+          const appUrl = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
+          // TODO: redirect to /coach once the coach portal is built (currently lands on /admin).
+          const resetUrl = `${appUrl}/admin/reset-password/${rawToken}`;
+          await sendPasswordResetEmail(customerEmail, resetUrl);
+        } catch (mailErr) {
+          console.error('[thrivecart] welcome/reset email failed:', mailErr.message);
+        }
+      }
+      coach = await db.getCoachByEmail(customerEmail);
+      console.log('[thrivecart] new coach created:', customerEmail);
+    } else {
+      console.log('[thrivecart] existing coach:', customerEmail);
+    }
+    if (!coach) throw new Error('COACH_RESOLVE_FAILED');
+
+    // e. Find or create the coach's billing account.
+    let accountId = await db.getAccountByCoachId(coach.id);
+    if (!accountId) {
+      const accRes = await db.query(
+        `INSERT INTO accounts (coach_id, account_type) VALUES ($1, 'coach') RETURNING id`,
+        [coach.id]
+      );
+      accountId = accRes && accRes.rows.length ? accRes.rows[0].id : null;
+      if (!accountId) throw new Error('ACCOUNT_CREATE_FAILED');
+      console.log('[thrivecart] created account for coach:', coach.id);
+    }
+
+    // f. Record purchased credits (idempotent on order_id / purchase_reference).
+    const result = await db.recordPurchasedCredits(
+      accountId,
+      skuConfig.creditTypeName,
+      skuConfig.quantity,
+      orderId,
+      priceCents,
+      coach.id,
+      `ThriveCart order ${orderId}`
+    );
+    if (result && result.alreadyProcessed) {
+      console.log('[thrivecart] duplicate order ignored:', orderId);
+      return res.status(200).json({ ok: true, alreadyProcessed: true });
+    }
+
+    // g. Success.
+    console.log('[thrivecart] credits granted — order:', orderId, 'coach:', customerEmail, 'qty:', skuConfig.quantity);
+    return res.status(200).json({
+      ok: true,
+      alreadyProcessed: false,
+      coachId: coach.id,
+      creditsGranted: skuConfig.quantity,
+    });
+  } catch (e) {
+    // Log identifiers for ops recovery; 500 makes ThriveCart retry, which the
+    // purchase_reference idempotency guard makes safe.
+    console.error('[thrivecart] webhook error — order:', req.body && req.body.order_id,
+      'email:', req.body && req.body.customer_email, '—', e.message);
+    return res.status(500).json({ error: 'WEBHOOK_ERROR' });
   }
 });
 

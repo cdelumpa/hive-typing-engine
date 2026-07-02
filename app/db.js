@@ -558,6 +558,11 @@ CREATE TABLE IF NOT EXISTS credit_lots (
 );
 CREATE INDEX IF NOT EXISTS credit_lots_account_type_idx
   ON credit_lots (account_id, credit_type_id);
+-- PR9: atomic idempotency for the ThriveCart webhook — a repeated purchase (same
+-- purchase_reference) can INSERT at most once. Partial (WHERE NOT NULL) so the many
+-- granted/consumed lots with a NULL reference are exempt from the uniqueness rule.
+CREATE UNIQUE INDEX IF NOT EXISTS credit_lots_purchase_reference_key
+  ON credit_lots (purchase_reference) WHERE purchase_reference IS NOT NULL;
 
 -- ── Table: credit_transactions ── append-only ledger of every credit event
 -- (auth_events pattern). lot_id is nullable (a restore may not target a single lot);
@@ -2515,6 +2520,66 @@ async function grantCredits(toAccountId, creditTypeName, quantity, grantedBy, no
   }
 }
 
+// ── PURCHASED CREDIT HELPER (PR9) ───────────────────────────────────
+// Record a PAID credit lot (source='purchased', with price + purchase_reference) and log
+// the ledger row — distinct from grantCredits (free grants). Idempotent: the partial unique
+// index credit_lots_purchase_reference_key + ON CONFLICT DO NOTHING means a duplicate
+// purchaseReference (ThriveCart retry) inserts nothing and returns { alreadyProcessed: true }
+// WITHOUT throwing, so the webhook can answer 200 on a retry. Single transaction; the
+// event_type stays 'granted' to match the credit_transactions CHECK (consumed|restored|granted).
+async function recordPurchasedCredits(toAccountId, creditTypeName, quantity, purchaseReference, pricePaidCents, grantedBy, notes) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // a. Resolve credit type name → id.
+    const typeRes = await client.query('SELECT id FROM credit_types WHERE name = $1', [creditTypeName]);
+    if (typeRes.rows.length === 0) throw new Error('UNKNOWN_CREDIT_TYPE');
+    const creditTypeId = typeRes.rows[0].id;
+
+    // b. Insert the purchased lot, guarded by the purchase_reference unique index.
+    const lotRes = await client.query(
+      `INSERT INTO credit_lots
+         (account_id, credit_type_id, quantity, quantity_remaining,
+          source, price_paid_cents, purchase_reference)
+       VALUES ($1, $2, $3, $3, 'purchased', $4, $5)
+       ON CONFLICT (purchase_reference) DO NOTHING
+       RETURNING id`,
+      [toAccountId, creditTypeId, quantity, pricePaidCents ?? null, purchaseReference]
+    );
+    if (lotRes.rows.length === 0) {
+      // Conflict → this purchase_reference was already recorded. Idempotent no-op.
+      await client.query('ROLLBACK');
+      return { alreadyProcessed: true };
+    }
+    const newLotId = lotRes.rows[0].id;
+
+    // c. Log the grant transaction.
+    const tx = await insertCreditTransaction(client, {
+      accountId: toAccountId,
+      creditTypeId,
+      lotId: newLotId,
+      eventType: 'granted',
+      quantity,
+      assessmentId: null,
+      createdBy: grantedBy,
+      notes,
+    });
+
+    await client.query('COMMIT');
+    return { lotId: newLotId, transactionId: tx.id, alreadyProcessed: false };
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (e.message !== 'UNKNOWN_CREDIT_TYPE') {
+      console.error('[db] recordPurchasedCredits failed:', e.message);
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 // ── ACCOUNT LOOKUP HELPERS (PR8) ────────────────────────────────────
 // Resolve which billing account a provisioning consume should debit. Both return a scalar
 // account id (or null), read-only via query(); a null query() result (DB error) surfaces as
@@ -2775,6 +2840,8 @@ module.exports = {
   consumeCredit,
   restoreCredit,
   grantCredits,
+  // Provisioning & Commerce PR9 — purchased credits (ThriveCart)
+  recordPurchasedCredits,
   // Provisioning & Commerce PR8 — account lookup
   getAccountByCoachId,
   getHouseAccount,
