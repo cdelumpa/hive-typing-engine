@@ -905,6 +905,66 @@ async function createAssessment(clientId, responses, retakeOfAssessmentId = null
   return r && r.rows.length > 0 ? r.rows[0].id : null;
 }
 
+// ── PROVISIONAL ASSESSMENT HELPERS (PR7a) ───────────────────────────
+// The assessment-at-provisioning lifecycle flip: the row is now born at provisioning
+// time as 'not_started' (createProvisionalAssessment) and later transitioned to
+// 'processing' at submit (transitionAssessmentToProcessing), instead of being created
+// 'processing' at submit by createAssessment. PR7a adds the helpers; PR7b/PR8 wire them
+// into /api/submit and the provisioning routes.
+
+// Create the assessment row at provisioning time with status='not_started'. status is set
+// EXPLICITLY (the base column DEFAULT 'pending' is dead). client_source and the two send
+// flags are stamped here (set by the provisioning modal in PR8). is_beta is mirrored from
+// the client row via subselect — same atomic pattern as createAssessment — so a provisional
+// row inherits the beta flag without a second round-trip.
+async function createProvisionalAssessment(clientId, clientSource, autoSendReport, autoSendInvitation, retakeOfAssessmentId) {
+  const r = await query(
+    `INSERT INTO assessments (
+       client_id,
+       status,
+       client_source,
+       auto_send_report,
+       auto_send_invitation,
+       retake_of_assessment_id,
+       is_beta
+     )
+     VALUES (
+       $1,
+       'not_started',
+       $2,
+       $3,
+       $4,
+       $5,
+       COALESCE((SELECT is_beta FROM clients WHERE id = $1), FALSE)
+     )
+     RETURNING id`,
+    [clientId, clientSource ?? null, autoSendReport, autoSendInvitation, retakeOfAssessmentId ?? null]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// Transition a pre-existing 'not_started' row → 'processing' and write the responses
+// payload. Called by /api/submit (PR7b) in place of createAssessment. The
+// WHERE status='not_started' clause is the atomic application-level guard against
+// double-submission / concurrent transitions (there is no DB uniqueness on
+// (client_id, status)): only the first submit matches and updates a row; a second submit
+// matches zero rows and gets null back. Distinguish a DB error (query() → null → throw)
+// from a no-match race (zero rows → return null cleanly) via result.rows.length.
+async function transitionAssessmentToProcessing(assessmentId, responses) {
+  const r = await query(
+    `UPDATE assessments
+        SET status = 'processing',
+            responses = $2
+      WHERE id = $1
+        AND status = 'not_started'
+      RETURNING id`,
+    [assessmentId, responses == null ? null : (typeof responses === 'string' ? responses : JSON.stringify(responses))]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].id : null;
+}
+
 // Latest assessment id for a client (by created_at), or null if none. Used by
 // /api/submit to stamp retake_of_assessment_id: a client who already has an
 // assessment is taking a retake, so the new row points at the prior one.
@@ -2558,6 +2618,9 @@ module.exports = {
   completeAssessment,
   failAssessment,
   updateAssessmentTiming,
+  // Provisioning & Commerce PR7a — provisional assessment lifecycle
+  createProvisionalAssessment,
+  transitionAssessmentToProcessing,
   createReport,
   getAllAdminRows,
   getAdminRowsByCoach,
