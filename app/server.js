@@ -2945,6 +2945,37 @@ window._copyProvisionUrl = function(){
   });
 };
 
+// ── PR13: Cancel an assessment from the roster ──────────────────────────────
+// Eligible rows only (not_started + not cancelled). Confirms, POSTs to the cancel route,
+// and reloads on success so the Cancelled badge appears and the Cancel button drops off.
+window._cancelAssessment = async function(assessmentId, btnEl){
+  if(!confirm('Cancel this assessment and restore the credit? This cannot be undone.')) return;
+
+  var originalText = btnEl.textContent;
+  btnEl.disabled = true;
+  btnEl.textContent = 'Cancelling...';
+
+  try {
+    var res = await fetch('/admin/assessments/' + assessmentId + '/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ reason: 'Cancelled via admin roster' })
+    });
+    var d = await res.json();
+    if(d.ok){
+      window.location.reload();
+    } else {
+      alert(d.message || 'Cancellation failed. Please try again.');
+      btnEl.disabled = false;
+      btnEl.textContent = originalText;
+    }
+  } catch(err){
+    alert('Network error — please try again.');
+    btnEl.disabled = false;
+    btnEl.textContent = originalText;
+  }
+};
+
 window._editCoachMode = function(){
   var data=_hiveRec; if(!data)return;
   var c=data.coach;
@@ -4597,7 +4628,12 @@ function renderAccordionTable(coachId, rows) {
       var retakeBtn = (window.__IS_SUPER_ADMIN && status === 'complete' && r.is_latest_complete)
         ? '<button onclick="accordionRetake('+clientId+',\\''+name.replace(/'/g,"\\\\'")+'\\',this,'+coachId+')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#7c3aed;padding:0;text-decoration:underline;margin-right:4px;">Retake</button>'
         : '';
-      actionsCell = reassignBtn+reRunBtn+regenBtn+resendBtn+retakeBtn+inviteResendBtn+deleteBtn;
+      // Cancel — eligible only while not_started and not already cancelled (mirrors the
+      // cancelAssessment route). Cancels the assessment and auto-restores the credit (D3).
+      var cancelBtn = (status === 'not_started' && !r.cancelled_at && asmtId)
+        ? '<button onclick="window._cancelAssessment('+asmtId+',this)" title="Cancel this assessment and restore credit" style="font-size:11px;padding:2px 8px;border:1px solid #c0392b;border-radius:4px;background:#fff;color:#c0392b;cursor:pointer;margin-left:6px;">Cancel</button>'
+        : '';
+      actionsCell = reassignBtn+reRunBtn+regenBtn+resendBtn+retakeBtn+inviteResendBtn+deleteBtn+cancelBtn;
     }
 
     // §9.3.1 clock icon — render only on Complete rows that captured timing. Stash the
@@ -8461,7 +8497,13 @@ app.get('/admin', requireAdminSession, async (req, res) => {
         ? `<button onclick="markAssessmentDeleted(${assessmentId},'${jsName}',this)" title="Delete assessment" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;color:#c0392b;">&#128465;</button>`
         : '';
 
-      actionCell = `${reassignAction}${reRunAction}${regenAction}${resendAction}${retakeAction}${inviteResendAction}${trashAction}`;
+      // Cancel — eligible only while not_started and not already cancelled (mirrors the
+      // cancelAssessment route). Cancels the assessment and auto-restores the credit (D3).
+      const cancelAction = (status === 'not_started' && !r.cancelled_at && assessmentId)
+        ? `<button onclick="window._cancelAssessment(${assessmentId},this)" title="Cancel this assessment and restore credit" style="font-size:11px;padding:2px 8px;border:1px solid #c0392b;border-radius:4px;background:#fff;color:#c0392b;cursor:pointer;margin-left:6px;">Cancel</button>`
+        : '';
+
+      actionCell = `${reassignAction}${reRunAction}${regenAction}${resendAction}${retakeAction}${inviteResendAction}${trashAction}${cancelAction}`;
     }
 
     const retakeBadge = r.retake_of_assessment_id
