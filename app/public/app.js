@@ -127,8 +127,11 @@ async function fireCtMiniCall() {
 // re-entry with unchanged answers reuses the cached result.
 // Returns true when state.call1Result holds a usable result after the call
 // (or a cached one is reused), false on any failure — the interstitial uses this
-// to drive its retry loop and never unlocks Continue on a false.
-async function fireCall1() {
+// to drive its retry loop and never unlocks Continue on a false. An optional
+// AbortSignal lets the caller cap a slow attempt; an abort rejects the fetch,
+// which the catch below turns into a clean `false` (call1Result stays null) so a
+// timed-out attempt can never quietly resolve a result after we've given up.
+async function fireCall1(signal) {
   const s = state.scores;
   if (!s) return false;
 
@@ -147,6 +150,7 @@ async function fireCall1() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ client_id: clientId, contextBlock }),
+      signal,
     });
     const data = await res.json();
     if (data && data.ok && data.result) {

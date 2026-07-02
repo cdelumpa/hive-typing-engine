@@ -2294,21 +2294,29 @@ function renderPart1Complete() {
   </div>`;
 }
 
-// Drive AI Call #1 with a bounded retry loop. Each attempt is capped so a hung
-// request can't strand the user on the spinner; a late-resolving attempt writing
-// call1Result after we've moved on is harmless (a retry re-fires from a cleared
-// snapshot). On success we unlock Continue (_call1Done); on exhaustion we surface
-// the failed state (_call1Failed) — we never advance without a result.
+// Drive AI Call #1 with a bounded retry loop. Each attempt is capped by aborting
+// the fetch (NOT by racing a timer against it): a Promise.race timeout only wins
+// the race, leaving the real request in flight to resolve a result *after* we've
+// already given up — so a slow-but-successful Call #1 was being scored as a
+// failure and the interstitial stuck on "Try again" forever even though the API
+// succeeded. Awaiting fireCall1 directly makes state.call1Result the single
+// source of truth; the abort turns an over-cap attempt into a clean false with no
+// late write. On success we unlock Continue (_call1Done); on exhaustion we
+// surface the failed state (_call1Failed) — we never advance without a result.
 async function runCall1WithRetries() {
   const MAX_ATTEMPTS = 3;
   const PER_ATTEMPT_MS = 20000;
   const BACKOFF_MS = 1500;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const ok = await Promise.race([
-      fireCall1(),
-      new Promise((resolve) => setTimeout(() => resolve(false), PER_ATTEMPT_MS)),
-    ]);
+    const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    const capTimer = setTimeout(() => { if (controller) controller.abort(); }, PER_ATTEMPT_MS);
+    let ok;
+    try {
+      ok = await fireCall1(controller ? controller.signal : undefined);
+    } finally {
+      clearTimeout(capTimer);
+    }
     if (ok && state.call1Result) {
       state._call1InFlight = false;
       state._call1Done = true;
