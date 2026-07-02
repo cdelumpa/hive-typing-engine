@@ -4707,7 +4707,7 @@ function renderAccordionTable(coachId, rows) {
     html += '<tr class="cgroup-header" style="cursor:pointer;background:#eef6f9;" onclick="toggleClientGroup('+first.client_id+')">'
       + '<td colspan="11" style="font-weight:700;color:#1A2B33;">'
       + '<span id="cgroup-caret-'+first.client_id+'" style="display:inline-block;width:12px;color:#00b1d7;">&#9654;</span> '
-      + _esc(gname)
+      + String(gname).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
       + ' <span style="color:#7A96A6;font-weight:400;font-size:12px;">— '+g.length+' assessments</span> '
       + _statusBadge(prim.status, prim.cancelled_at)
       + '</td></tr>';
