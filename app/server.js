@@ -3433,6 +3433,15 @@ app.post('/admin/clients/new', requireAdminSession, async (req, res) => {
       actor: req.session.coach_name,
     });
 
+    // PR10: log the first assignment event (client → coach). No created gate needed — the
+    // duplicate branch above already returned, so reaching here always means a new client.
+    // Best-effort — never abort client creation for an assignment-log failure.
+    try {
+      await db.insertAssignmentEvent(clientId, null, coachId, req.session.user_id, 'created');
+    } catch (err) {
+      console.error('[admin/clients/new] assignment event error:', err.message);
+    }
+
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await db.createClientToken(clientId, token, expiresAt);
@@ -3569,6 +3578,16 @@ app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
         actor: req.session.user_id,
       });
     } catch (_) {}
+
+    // Log the first assignment event — only for a newly created client (an existing client
+    // keeps its current coach on provisioning, so no coach change occurred). Best-effort.
+    if (created) {
+      try {
+        await db.insertAssignmentEvent(clientId, null, coachId, req.session.user_id, 'provisioned');
+      } catch (err) {
+        console.error('[admin/clients/provision] assignment event error:', err.message);
+      }
+    }
 
     // i. Optional invite (gated on autoSendInvitation; best-effort — an email failure must
     //    not roll back a successful provisioning). When FALSE, the coach sends the token
@@ -7997,7 +8016,7 @@ app.post('/admin/coaches/:coach_id/reassign', requireAdmin, async (req, res) => 
     return res.send(renderCoachesPage(coaches, 'Cannot reassign clients to the same coach.', null));
   }
 
-  await db.reassignClients(fromCoachId, toCoachId).catch(e => console.error('[admin/coaches/reassign]', e.message));
+  await db.reassignClients(fromCoachId, toCoachId, req.session.user_id, 'bulk_reassign').catch(e => console.error('[admin/coaches/reassign]', e.message));
   console.log(`[admin/coaches] reassigned clients from coach #${fromCoachId} to #${toCoachId}`);
   res.redirect('/admin/coaches?flash=clients_reassigned');
 });
@@ -9739,7 +9758,7 @@ app.post('/admin/clients/:client_id/reassign', requireAdmin, async (req, res) =>
 
   const clientRow = await db.getClientById(clientId).catch(() => null);
 
-  await db.reassignClientToCoach(clientId, newCoachId);
+  await db.reassignClientToCoach(clientId, newCoachId, req.session.user_id, 'single_reassign');
   await db.insertEditHistory({
     record_type:    'client',
     record_id:      clientId,
