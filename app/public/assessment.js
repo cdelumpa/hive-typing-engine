@@ -955,6 +955,12 @@ function resolveStage4Path(call1, s3) {
     };
   }
 
+  // Every non-counter-type path below needs the AI Call #1 top-two. Reaching here
+  // with a null call1 means Call #1 failed and we should never have advanced — the
+  // interstitial now blocks Continue on a null result, so this is a hard invariant.
+  if (!call1) {
+    throw new Error('[stage4] resolveStage4Path called without a Call #1 result — Stage 4 cannot be routed without leading/alternate candidates.');
+  }
   const leadType = +call1.leading_candidate;
   const secondType = +call1.alternate_candidate;
 
@@ -1411,6 +1417,9 @@ function buildCall2Context(s) {
 
 const SAVE_LATER_PHASES = new Set([
   'stage0', 'stage1', 'stage2', 'stage3', 'stage4', 'finalopen',
+  // The Part-complete interstitials also carry Save — they're the one screen
+  // where the user can be waiting on AI Call #1 and may want an escape hatch.
+  'part1-complete', 'part2-complete',
 ]);
 
 // =================== CHROME SYSTEM (PR1) ===================
@@ -2285,12 +2294,50 @@ function renderPart1Complete() {
   </div>`;
 }
 
+// Drive AI Call #1 with a bounded retry loop. Each attempt is capped so a hung
+// request can't strand the user on the spinner; a late-resolving attempt writing
+// call1Result after we've moved on is harmless (a retry re-fires from a cleared
+// snapshot). On success we unlock Continue (_call1Done); on exhaustion we surface
+// the failed state (_call1Failed) — we never advance without a result.
+async function runCall1WithRetries() {
+  const MAX_ATTEMPTS = 3;
+  const PER_ATTEMPT_MS = 20000;
+  const BACKOFF_MS = 1500;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const ok = await Promise.race([
+      fireCall1(),
+      new Promise((resolve) => setTimeout(() => resolve(false), PER_ATTEMPT_MS)),
+    ]);
+    if (ok && state.call1Result) {
+      state._call1InFlight = false;
+      state._call1Done = true;
+      render();
+      saveSessionState();
+      return;
+    }
+    console.warn(`[call1] attempt ${attempt}/${MAX_ATTEMPTS} yielded no result`);
+    if (attempt < MAX_ATTEMPTS) {
+      await new Promise((resolve) => setTimeout(resolve, BACKOFF_MS));
+    }
+  }
+
+  // Retries exhausted — show the retry affordance; leave Continue locked.
+  console.error('[call1] all attempts failed — surfacing retry state');
+  state._call1InFlight = false;
+  state._call1Failed = true;
+  render();
+  saveSessionState();
+}
+
 // ---- Part 2 Complete interstitial (§0F) ----
-// Shown after Stage 2, before Stage 3. Two states gated by AI Call #1: A while
-// the call is in flight, B once state._call1Done. Orange "PART 2 COMPLETE" @ 68%.
-// Continue (locked until B) builds the Stage 3 routing and advances.
+// Shown after Stage 2, before Stage 3. Three states gated by AI Call #1: in-flight
+// (spinner), ready once state._call1Done (Continue unlocks), and failed once
+// state._call1Failed (retries exhausted → a Try-again affordance, Continue stays
+// locked). Orange "PART 2 COMPLETE" @ 68%.
 function renderPart2Complete() {
   const ready = !!state._call1Done;
+  const failed = !!state._call1Failed;
   const partmap = renderPartmap('part34', { part34: 'Paired comparisons' });
 
   return `<div class="screen interstitial">
@@ -2309,11 +2356,17 @@ function renderPart2Complete() {
         <div class="primer-body">You’ve answered a lot of questions — thank you! Your answer to this last one really helps us sharpen the read and bring your report to life. So don’t hold back — the richer the detail, the more we have to work with.</div>
       </div>
     </div>
-    ${interstitialStatus(ready, 'Selecting your final questions…', 'Your final questions are ready.')}
+    ${failed
+      ? `<div class="error-text" style="margin-top:24px;">We couldn’t select your final questions just now. Your responses are safely saved — please try again, and if it keeps happening we’ll follow up by email.</div>
+    <div class="nav-row">
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="btn-call1-retry">Try again</button>
+    </div>`
+      : `${interstitialStatus(ready, 'Selecting your final questions…', 'Your final questions are ready.')}
     <div class="nav-row">
       <div class="spacer"></div>
       <button class="btn btn-primary" id="btn-next" ${ready ? '' : 'disabled'}>Continue</button>
-    </div>
+    </div>`}
   </div>`;
 }
 
@@ -2958,7 +3011,8 @@ function attachHandlers() {
       stage1Idx: 0, stage1TypeSliders: {}, stage1InstinctSliders: {},
       stage1TypeOpen: '', stage1InstinctOpen: '', _stage1StaleNotice: false,
       stage2Idx: 0, stage2Answers: [],
-      call1Result: null, call1LastSnapshot: null, _call1Done: false, noPairwise: false,
+      call1Result: null, call1LastSnapshot: null, _call1Done: false,
+      _call1Failed: false, _call1InFlight: false, noPairwise: false,
       stage3Mode: null, stage3Idx: 0, stage3Answers: [],
       stage4Sequence: [], stage4Idx: 0, stage4Answers: [], stage4Shuffles: [],
       resultsTab: 'client',
@@ -3402,8 +3456,11 @@ function attachHandlers() {
       } else {
         // Done with Stage 2 — hand off to AI Call #1 (the reasoning layer). The
         // part2-complete interstitial fires the call, stores the §6.3 result, and
-        // (on Continue) builds the Stage 3 routing off state.call1Result.
+        // (on Continue) builds the Stage 3 routing off state.call1Result. Clear all
+        // three gate flags so an edit-and-return from Stage 2 re-fires from scratch.
         state._call1Done = false;
+        state._call1Failed = false;
+        state._call1InFlight = false;
         state.phase = 'part2-complete';
         render();
         saveSessionState();
@@ -3422,33 +3479,28 @@ function attachHandlers() {
       && contextBlock === state.call1LastSnapshot
       && !!state.call1Result;
 
-    const finish = () => {
-      if (state.phase === 'part2-complete' && !state._call1Done) {
-        state._call1Done = true;
-        render();
-        saveSessionState();
+    // Kick off Call #1 exactly once per interstitial entry. _call1Done (success)
+    // and _call1Failed (retries exhausted) are terminal states; _call1InFlight
+    // guards against re-firing on the re-renders those transitions trigger.
+    // Downstream routing (buildStage3Routing / resolveStage4Path) cannot run
+    // without a result, so we NEVER unlock Continue on a null — a failed call
+    // surfaces a retry affordance instead of a dead-end (was: a 20s timeout that
+    // unlocked Continue and then crashed on the null call1Result).
+    if (!state._call1Done && !state._call1Failed && !state._call1InFlight) {
+      if (unchanged) {
+        // Cached result from a prior call — mark ready. Deferred so render() (which
+        // re-runs attachHandlers) doesn't re-enter this handler on the current stack.
+        state._call1InFlight = true;
+        setTimeout(() => {
+          state._call1InFlight = false;
+          state._call1Done = true;
+          render();
+          saveSessionState();
+        }, 0);
+      } else {
+        state._call1InFlight = true;
+        runCall1WithRetries();
       }
-    };
-
-    if (unchanged) {
-      setTimeout(finish, 200);
-    } else {
-      let finished = false;
-      const timer = setTimeout(() => {
-        if (!finished) {
-          finished = true;
-          console.warn('[call1] 20s timeout — proceeding without a result');
-          finish();
-        }
-      }, 20000);
-
-      fireCall1().finally(() => {
-        if (!finished) {
-          finished = true;
-          clearTimeout(timer);
-          finish();
-        }
-      });
     }
 
     // Continue (shown once _call1Done) — build Stage 3 routing and advance.
@@ -3474,6 +3526,18 @@ function attachHandlers() {
         state.noPairwise = false;
         state.phase = 'stage3';
       }
+      render();
+      saveSessionState();
+    });
+
+    // Try again (shown in the failed state) — clear the terminal flags and drop
+    // the snapshot so the next render re-fires Call #1 from a clean slate.
+    const btnRetryC1 = document.getElementById('btn-call1-retry');
+    if (btnRetryC1) btnRetryC1.addEventListener('click', () => {
+      state._call1Failed = false;
+      state._call1Done = false;
+      state._call1InFlight = false;
+      state.call1LastSnapshot = null;
       render();
       saveSessionState();
     });

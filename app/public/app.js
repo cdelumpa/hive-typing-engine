@@ -125,14 +125,17 @@ async function fireCtMiniCall() {
 // persisted server-side to clients.call1_result. Snapshot-guarded on the
 // context block so an edit-and-return from Stage 2 re-fires, but a plain
 // re-entry with unchanged answers reuses the cached result.
+// Returns true when state.call1Result holds a usable result after the call
+// (or a cached one is reused), false on any failure — the interstitial uses this
+// to drive its retry loop and never unlocks Continue on a false.
 async function fireCall1() {
   const s = state.scores;
-  if (!s) return;
+  if (!s) return false;
 
   const contextBlock = buildContextBlock(s);
   if (state.call1LastSnapshot !== null && contextBlock === state.call1LastSnapshot && state.call1Result) {
     console.log('[call1] inputs unchanged — skipping re-fire');
-    return;
+    return true;
   }
 
   // Record the snapshot up-front so a re-entry mid-flight doesn't double-fire.
@@ -149,13 +152,15 @@ async function fireCall1() {
     if (data && data.ok && data.result) {
       state.call1Result = data.result;
       console.log('[call1] received', data.result);
-    } else {
-      state.call1Result = null;
-      console.warn('[call1] no result returned');
+      return true;
     }
+    state.call1Result = null;
+    console.warn('[call1] no result returned');
+    return false;
   } catch (err) {
     state.call1Result = null;
     console.error('[call1] request failed:', err && err.message);
+    return false;
   }
 }
 
