@@ -2633,6 +2633,7 @@ function _renderCoachView(data){
   h+=_profileRowRaw('Status',activeBadge);
   h+='</table>';
   h+=lu;
+  h+=_renderCreditsSection(data);
   h+=_renderRolesSection(data);
   h+='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">';
   h+='<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Edit History</p>';
@@ -2643,6 +2644,42 @@ function _renderCoachView(data){
   h+='<button onclick="_hideModal()" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Close</button>';
   h+='</div></div>';
   _content().innerHTML=h; _showModal();
+}
+
+// PR11 — Credits section for the coach profile modal. The per-type balances (read from
+// data.creditBalances) are visible to any admin; the Grant Credits form is gated on
+// _IS_SUPER_ADMIN client-side (the POST route also enforces requireSuperAdmin server-side).
+// On a successful grant, window._grantCredits re-fetches the modal so the balance updates.
+function _renderCreditsSection(data){
+  var cid = data.coach.id;
+  var bal = data.creditBalances || {};
+  var TYPE_LABELS = [['standard_assessment','Standard Assessment'],['leadership_report','Leadership Report'],['team_report','Team Report']];
+  var head = '<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">'
+    + '<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Credits</p>';
+  var rows = '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;">';
+  TYPE_LABELS.forEach(function(t){
+    var n = (bal[t[0]] != null) ? bal[t[0]] : 0;
+    rows += '<tr style="border-bottom:1px solid #F3EEE8;">'
+      + '<td style="padding:6px 0;font-size:13px;color:#1A2B33;">'+t[1]+'</td>'
+      + '<td style="padding:6px 0;font-size:13px;font-weight:700;color:#1A2B33;text-align:right;">'+n+'</td></tr>';
+  });
+  rows += '</table>';
+
+  var grant = '';
+  if(_IS_SUPER_ADMIN){
+    var opts = TYPE_LABELS.map(function(t){ return '<option value="'+t[0]+'">'+t[1]+'</option>'; }).join('');
+    grant = '<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Grant Credits</p>'
+      + '<form id="grant-credits-form-'+cid+'" onsubmit="return false;" style="margin-bottom:6px;">'
+      + '<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">'
+      + '<select name="creditTypeName" style="flex:1;min-width:150px;padding:8px 10px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;color:#1A2B33;box-sizing:border-box;">'+opts+'</select>'
+      + '<input name="quantity" type="number" min="1" max="100" value="1" style="width:80px;padding:8px 10px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;color:#1A2B33;box-sizing:border-box;">'
+      + '</div>'
+      + '<input name="notes" type="text" placeholder="Reason for grant" style="width:100%;padding:8px 10px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;color:#1A2B33;box-sizing:border-box;margin-bottom:8px;">'
+      + '<button type="button" onclick="window._grantCredits('+cid+')" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:8px 16px;cursor:pointer;">Grant</button>'
+      + '</form>'
+      + '<div id="grant-credits-msg-'+cid+'" style="font-size:12px;margin-top:4px;"></div>';
+  }
+  return head + rows + grant + '</div>';
 }
 
 // IAA Phase D — Roles & Access section for the coach profile modal. Super-admin only.
@@ -2722,6 +2759,45 @@ window._unbanUserAction = function(uid){
     .then(function(r){return r.json();})
     .then(function(d){ if(d.ok){ _refreshCoachModal(); } else { _roleErr(d.error||'Restore failed'); } })
     .catch(function(){ _roleErr('Request failed'); });
+};
+
+// PR11 — Grant Credits (super-admin). POSTs the form to the grant-credits route and, on
+// success, re-fetches the modal (_refreshCoachModal reads the current coach from _hiveRec)
+// so the balance updates in place — same refresh pattern as the role toggles above.
+window._grantCredits = async function(coachId){
+  var form = document.getElementById('grant-credits-form-'+coachId);
+  var msgEl = document.getElementById('grant-credits-msg-'+coachId);
+  var creditTypeName = form.querySelector('[name="creditTypeName"]').value;
+  var quantity = parseInt(form.querySelector('[name="quantity"]').value, 10);
+  var notes = form.querySelector('[name="notes"]').value;
+
+  if(!quantity || quantity < 1){
+    msgEl.textContent = 'Please enter a valid quantity.';
+    msgEl.style.color = 'red';
+    return;
+  }
+  msgEl.textContent = 'Granting...';
+  msgEl.style.color = '';
+
+  try{
+    var res = await fetch('/admin/coaches/'+coachId+'/grant-credits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ creditTypeName: creditTypeName, quantity: quantity, notes: notes })
+    });
+    var d = await res.json();
+    if(d.ok){
+      msgEl.textContent = 'Credits granted successfully.';
+      msgEl.style.color = 'green';
+      setTimeout(function(){ _refreshCoachModal(coachId); }, 1000);
+    } else {
+      msgEl.textContent = d.message || 'Grant failed.';
+      msgEl.style.color = 'red';
+    }
+  } catch(err){
+    msgEl.textContent = 'Network error — please try again.';
+    msgEl.style.color = 'red';
+  }
 };
 
 window._editCoachMode = function(){
@@ -9330,6 +9406,21 @@ app.get('/admin/coaches/:coach_id/profile', requireAdmin, async (req, res) => {
     userIsActive = u ? u.is_active !== false : true;
     isSelf = coach.user_id === req.session.user_id;
   }
+
+  // PR11: resolve credit balances for all three types (0 when the coach has no account
+  // row yet — an account is auto-created on the first grant).
+  const CREDIT_TYPES = ['standard_assessment', 'leadership_report', 'team_report'];
+  let accountId = await db.getAccountByCoachId(coach.id);
+  const creditBalances = {};
+  for (const typeName of CREDIT_TYPES) {
+    if (accountId) {
+      const result = await db.getAccountBalance(accountId, typeName);
+      creditBalances[typeName] = result?.balance ?? 0;
+    } else {
+      creditBalances[typeName] = 0;
+    }
+  }
+
   return res.json({
     coach,
     history,
@@ -9337,7 +9428,57 @@ app.get('/admin/coaches/:coach_id/profile', requireAdmin, async (req, res) => {
     roles,
     user_is_active: userIsActive,
     is_self: isSelf,
+    accountId,        // null if no account exists yet
+    creditBalances,   // { standard_assessment, leadership_report, team_report }
   });
+});
+
+// PR11 — Grant credits to a coach (super-admin only). JSON. Auto-creates the coach's
+// billing account if missing (a coach may predate the credit-ledger backfill). grantCredits
+// records a free 'granted' lot; grantedBy is the acting user (users(id) FK).
+app.post('/admin/coaches/:coach_id/grant-credits', requireSuperAdmin, async (req, res) => {
+  // a. Validate.
+  const coachId = parseInt(req.params.coach_id, 10);
+  if (!coachId || isNaN(coachId)) return res.status(400).json({ ok: false, error: 'INVALID_COACH_ID' });
+
+  const { creditTypeName, quantity, notes } = req.body || {};
+  const VALID_TYPES = ['standard_assessment', 'leadership_report', 'team_report'];
+  if (!VALID_TYPES.includes(creditTypeName)) {
+    return res.status(400).json({ ok: false, error: 'INVALID_CREDIT_TYPE', message: 'Invalid credit type.' });
+  }
+  const qty = parseInt(quantity, 10);
+  if (!qty || qty < 1 || qty > 100) {
+    return res.status(400).json({ ok: false, error: 'INVALID_QUANTITY', message: 'Quantity must be between 1 and 100.' });
+  }
+
+  // b. Coach exists.
+  const coach = await db.getCoachById(coachId);
+  if (!coach) return res.status(404).json({ ok: false, error: 'COACH_NOT_FOUND' });
+
+  // c. Resolve or auto-create the coach's billing account.
+  let accountId = await db.getAccountByCoachId(coachId);
+  if (!accountId) {
+    const newAccount = await db.query(
+      `INSERT INTO accounts (coach_id, account_type) VALUES ($1, 'coach') RETURNING id`,
+      [coachId]
+    );
+    if (!newAccount || newAccount.rows.length === 0) return res.status(500).json({ ok: false, error: 'ACCOUNT_ERROR' });
+    accountId = newAccount.rows[0].id;
+    console.log('[grant-credits] created account for coach:', coachId);
+  }
+
+  // d. Grant.
+  try {
+    const { lotId, transactionId } = await db.grantCredits(accountId, creditTypeName, qty, req.session.user_id, notes || null);
+    console.log('[grant-credits] granted', qty, creditTypeName, 'to coach', coachId, '— lot', lotId, 'tx', transactionId);
+    return res.status(200).json({ ok: true, lotId, transactionId, creditsGranted: qty });
+  } catch (err) {
+    if (err.message === 'UNKNOWN_CREDIT_TYPE') {
+      return res.status(400).json({ ok: false, error: 'UNKNOWN_CREDIT_TYPE', message: 'Credit type not found in ledger.' });
+    }
+    console.error('[grant-credits] error:', err.message);
+    return res.status(500).json({ ok: false, error: 'GRANT_ERROR' });
+  }
 });
 
 app.get('/admin/coaches/:coach_id/edit-history', requireAdmin, async (req, res) => {
