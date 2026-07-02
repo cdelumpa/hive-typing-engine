@@ -4569,7 +4569,9 @@ function renderAccordionTable(coachId, rows) {
     '<th>Date</th><th>Status</th><th>PDF</th><th>Email</th><th>Reports</th><th>Actions</th>' +
     '</tr></thead><tbody>';
 
-  rows.forEach(function(r) {
+  // Per-assessment row builder. groupCid (a client_id) non-null → render as a collapsible
+  // subrow (hidden by default, toggled by toggleClientGroup via the .cgroup-<cid> class).
+  function accRow(r, groupCid) {
     var name = ((r.first_name||'') + ' ' + (r.last_name||'')).trim() || '—';
     var typeNum = r.confirmed_type;
     var typeLabel = typeNum ? ('Type '+typeNum+' — '+(_typeNames[typeNum]||'')) : '—';
@@ -4656,7 +4658,10 @@ function renderAccordionTable(coachId, rows) {
       clockCell = '<button title="View completion time" onclick="openTimingModal('+clientId+')" style="background:none;border:none;cursor:pointer;padding:0;margin-right:5px;vertical-align:middle;opacity:0.75;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.75">'+CLOCK_SVG+'</button>';
     }
 
-    html += '<tr id="acc-row-'+clientId+'">' +
+    var _trOpen = groupCid
+      ? '<tr id="acc-row-'+clientId+'" class="cgroup-'+groupCid+'" style="display:none;">'
+      : '<tr id="acc-row-'+clientId+'">';
+    return _trOpen +
       '<td>'+nameLink+'</td>' +
       '<td>'+typeLabel+'</td>' +
       '<td>'+instinct+'</td>' +
@@ -4669,10 +4674,62 @@ function renderAccordionTable(coachId, rows) {
       '<td>'+pdfLinks+'</td>' +
       '<td>'+actionsCell+'</td>' +
       '</tr>';
+  }
+
+  // Primary assessment for a client's collapsed header badge: latest non-cancelled by
+  // status priority (processing > not_started > complete > failed); if all cancelled, newest.
+  function _accPrimary(g) {
+    var order = { processing:0, not_started:1, complete:2, failed:3 };
+    var live = g.filter(function(x){ return !x.cancelled_at; });
+    var pool = live.length ? live : g;   // g is sorted newest-first below
+    var best = pool[0];
+    pool.forEach(function(x){
+      var xo = order[x.status] != null ? order[x.status] : 9;
+      var bo = order[best.status] != null ? order[best.status] : 9;
+      if (xo < bo) best = x;
+    });
+    return best;
+  }
+
+  // Group a client's assessments (first-seen order). Single → flat row; multi → a collapsible
+  // client header (with the primary status badge) + hidden subrows, mirroring the main dashboard.
+  var groups = [], gidx = {};
+  rows.forEach(function(r){
+    if (gidx[r.client_id] === undefined) { gidx[r.client_id] = groups.length; groups.push([]); }
+    groups[gidx[r.client_id]].push(r);
   });
+  groups.forEach(function(g){
+    if (g.length === 1) { html += accRow(g[0], null); return; }
+    g.sort(function(a,b){ return new Date(b.created_at) - new Date(a.created_at); });   // newest first
+    var first = g[0];
+    var gname = ((first.first_name||'') + ' ' + (first.last_name||'')).trim() || '—';
+    var prim = _accPrimary(g);
+    html += '<tr class="cgroup-header" style="cursor:pointer;background:#eef6f9;" onclick="toggleClientGroup('+first.client_id+')">'
+      + '<td colspan="11" style="font-weight:700;color:#1A2B33;">'
+      + '<span id="cgroup-caret-'+first.client_id+'" style="display:inline-block;width:12px;color:#00b1d7;">&#9654;</span> '
+      + _esc(gname)
+      + ' <span style="color:#7A96A6;font-weight:400;font-size:12px;">— '+g.length+' assessments</span> '
+      + _statusBadge(prim.status, prim.cancelled_at)
+      + '</td></tr>';
+    g.forEach(function(r){ html += accRow(r, first.client_id); });
+  });
+
   html += '</tbody></table>';
   return html;
 }
+
+// Collapse/expand a client's assessment group (coach accordion). Lives in the shared script
+// so the /admin/coaches accordion can reach it via the header onclick; the /admin dashboard
+// defines its own identical copy inline. Selects subrows by the .cgroup-<clientId> class and
+// flips the caret. window-scoped so the inline onclick attribute resolves it.
+window.toggleClientGroup = function(clientId) {
+  var rows = document.querySelectorAll('.cgroup-' + clientId);
+  if (!rows.length) return;
+  var collapse = rows[0].style.display !== 'none';
+  rows.forEach(function(row){ row.style.display = collapse ? 'none' : ''; });
+  var caret = document.getElementById('cgroup-caret-' + clientId);
+  if (caret) caret.textContent = collapse ? '\\u25B6' : '\\u25BC';
+};
 
 // §9.3.2 timing modal. Same-day (session_days===1) shows times only; multi-day shows
 // full date + time. Duration min 1 (Math.round, not floor). Dismiss: close button,
@@ -8578,13 +8635,38 @@ app.get('/admin', requireAdminSession, async (req, res) => {
       if (idx[r.client_id] === undefined) { idx[r.client_id] = groups.length; groups.push([]); }
       groups[idx[r.client_id]].push(r);
     });
+    // Primary assessment for the collapsed header badge: latest non-cancelled by status
+    // priority (processing > not_started > complete > failed); if all cancelled, newest.
+    const pickPrimary = (g) => {
+      const order = { processing:0, not_started:1, complete:2, failed:3 };
+      const live = g.filter(x => !x.cancelled_at);
+      const pool = (live.length ? live : g).slice().sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+      let best = pool[0];
+      pool.forEach(x => {
+        const xo = order[x.status] != null ? order[x.status] : 9;
+        const bo = order[best.status] != null ? order[best.status] : 9;
+        if (xo < bo) best = x;
+      });
+      return best;
+    };
+    const badgeFor = (r) => {
+      let col, bg, lab;
+      if (r.cancelled_at)               { col='#c0392b'; bg='#fdecea'; lab='Cancelled'; }
+      else if (r.status==='complete')   { col='#1a7a4a'; bg='#e6f7ee'; lab='Complete'; }
+      else if (r.status==='processing') { col='#b07800'; bg='#fff8e1'; lab='Processing'; }
+      else if (r.status==='failed')     { col='#c0392b'; bg='#fdecea'; lab='Failed'; }
+      else if (r.status==='in_progress'){ col='#8b6914'; bg='#fff3cd'; lab='In Progress'; }
+      else if (r.status==='not_started'){ col='#666';    bg='#f4f4f4'; lab='Not Started'; }
+      else                              { col='#666';    bg='#f4f4f4'; lab=r.status; }
+      return `<span style="background:${bg};color:${col};padding:2px 8px;border-radius:3px;font-size:12px;font-weight:600;margin-left:8px;">${lab}</span>`;
+    };
     body = groups.map(g => {
       if (g.length === 1) return `<tr id="${rowId(g[0])}" data-kind="row" data-client-id="${g[0].client_id}" ${rowSortAttrs(g[0])}>${rowCells(g[0])}</tr>`;
       const first = g[0];
       const gName = esc(`${first.first_name || ''} ${first.last_name || ''}`.trim()) || '—';
       const gNameKey = `${first.first_name || ''} ${first.last_name || ''}`.trim().toLowerCase();
       const header = `<tr class="cgroup-header" data-kind="header" data-client-id="${first.client_id}" data-sort-name="${esc(gNameKey)}" onclick="toggleClientGroup(${first.client_id})">
-        <td colspan="11"><span id="cgroup-caret-${first.client_id}" class="cgroup-caret">▶</span> ${gName} <span class="cgroup-count">— ${g.length} assessments</span></td>
+        <td colspan="11"><span id="cgroup-caret-${first.client_id}" class="cgroup-caret">▶</span> ${gName} <span class="cgroup-count">— ${g.length} assessments</span>${badgeFor(pickPrimary(g))}</td>
       </tr>`;
       const subRows = g.map(r => `<tr id="${rowId(r)}" class="cgroup-row cgroup-${first.client_id}" data-kind="row" data-client-id="${first.client_id}" ${rowSortAttrs(r)} style="display:none;">${rowCells(r)}</tr>`).join('\n');
       return header + '\n' + subRows;
