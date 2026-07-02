@@ -19,6 +19,7 @@
     "express-session": "^1.19.0",
     "pg": "^8.20.0",
     "puppeteer": "^24.42.0",
-    "puppeteer-core": "^24.42.0"
+    "puppeteer-core": "^24.42.0",
+    "undici": "^6.27.0"
   }
 }
