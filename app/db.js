@@ -870,13 +870,25 @@ async function findOrCreateCoach(coachName) {
   return r && r.rows.length > 0 ? r.rows[0].id : null;
 }
 
+// D1 upsert: attach to an existing client on duplicate email instead of throwing.
+// ON CONFLICT (email) DO NOTHING returns no row on a conflict, so a null result means
+// either "email already exists" or a swallowed query() error — disambiguated by the
+// case-insensitive getClientByEmail fallback (the unique index is case-sensitive, so the
+// fallback also catches a differing-case duplicate the ON CONFLICT target would miss).
+// Returns { id, created } — created=true only when a brand-new row was inserted.
+// NOTE: return shape changed from a bare id; server.js call sites must be updated (PR8).
 async function createClient(intake, coachId) {
   const r = await query(
     `INSERT INTO clients (coach_id, first_name, last_name, email, organization)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (email) DO NOTHING
+     RETURNING id`,
     [coachId, intake.firstName, intake.lastName, intake.email, intake.organization || null]
   );
-  return r && r.rows.length > 0 ? r.rows[0].id : null;
+  if (r && r.rows.length > 0) return { id: r.rows[0].id, created: true };
+  const existing = await getClientByEmail(intake.email);
+  if (existing) return { id: existing.id, created: false };
+  throw new Error('CLIENT_LOOKUP_FAILED');
 }
 
 async function createAssessment(clientId, responses, retakeOfAssessmentId = null) {
@@ -1310,15 +1322,54 @@ async function setCoachActive(coachId, isActive) {
   );
 }
 
-async function reassignClients(fromCoachId, toCoachId) {
+// Append one row to the append-only assignment_events audit trail (PR5). Called by the
+// reassign helpers below and by the provisioning path (PR8). previousCoachId is null on a
+// first assignment; reason is nullable. Uses the query() wrapper (no transaction needed).
+async function insertAssignmentEvent(clientId, previousCoachId, newCoachId, assignedBy, reason) {
+  const r = await query(
+    `INSERT INTO assignment_events
+       (client_id, previous_coach_id, new_coach_id, assigned_by, reason)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [clientId, previousCoachId ?? null, newCoachId, assignedBy ?? null, reason ?? null]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows[0];
+}
+
+// Bulk reassignment (all of one coach's clients → another). assignedBy/reason are new
+// optional trailing params (default null) so existing 2-arg call sites keep working.
+// Captures the affected client ids BEFORE the update, then logs one assignment_event per
+// moved client. The audit write is best-effort (try/catch, no rethrow) so a logging
+// failure never aborts the reassignment — preserving this helper's original never-throw
+// contract, matching logClientEvent's documented discipline.
+async function reassignClients(fromCoachId, toCoachId, assignedBy = null, reason = null) {
+  const before = await query('SELECT id FROM clients WHERE coach_id = $1', [fromCoachId]);
   await query(
     'UPDATE clients SET coach_id = $1 WHERE coach_id = $2',
     [toCoachId, fromCoachId]
   );
+  try {
+    if (before) {
+      for (const row of before.rows) {
+        await insertAssignmentEvent(row.id, fromCoachId, toCoachId, assignedBy, reason);
+      }
+    }
+  } catch (e) {
+    console.error('[db] reassignClients: assignment_events log failed:', e.message);
+  }
 }
 
-async function reassignClientToCoach(clientId, newCoachId) {
+// Single reassignment. assignedBy/reason are new optional trailing params (default null).
+// previousCoachId is read before the update; the audit write is best-effort (see above).
+async function reassignClientToCoach(clientId, newCoachId, assignedBy = null, reason = null) {
+  const prevCoachId = await getClientCoachId(clientId);
   await query('UPDATE clients SET coach_id = $1 WHERE id = $2', [newCoachId, clientId]);
+  try {
+    await insertAssignmentEvent(clientId, prevCoachId, newCoachId, assignedBy, reason);
+  } catch (e) {
+    console.error('[db] reassignClientToCoach: assignment_events log failed:', e.message);
+  }
 }
 
 async function getClientCoachId(clientId) {
@@ -2385,6 +2436,112 @@ async function grantCredits(toAccountId, creditTypeName, quantity, grantedBy, no
   }
 }
 
+// ── PROVISIONING/CANCELLATION HELPERS (PR5) ──────────────────────────
+// Placed directly below the PR4 credit block because cancellation is credit-adjacent
+// (it restores a consumed credit). account_id / lot_id are NOT stored on assessments;
+// they are recovered from the credit_transactions ledger via getConsumedCreditTx.
+
+// The 'consumed' ledger row for an assessment — the source of truth for which account,
+// lot, and credit type a provisioning consume drew from (there is no account_id column on
+// assessments). Earliest consume wins. Returns the row, or null if none. A null query()
+// result (DB error) is surfaced as DB_ERROR; zero rows returns null (caller handles the
+// no-ledger case — e.g. an assessment provisioned before the credit ledger existed).
+async function getConsumedCreditTx(assessmentId) {
+  const r = await query(
+    `SELECT id, account_id, lot_id, credit_type_id
+       FROM credit_transactions
+      WHERE assessment_id = $1
+        AND event_type = 'consumed'
+      ORDER BY created_at ASC
+      LIMIT 1`,
+    [assessmentId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// Cancel a not_started assessment and restore its credit in one transaction (D3: cancel ≠
+// soft-delete — this stamps only cancelled_at/cancellation_reason/credit_restored_at and
+// never touches deleted_at/status). Eligibility is 'not_started' AND not already cancelled;
+// once status advances past not_started the credit is consumed and cancellation is offline
+// (Cai/Mo). The restoreCredit logic is INLINED on the same txClient (rather than calling the
+// exported restoreCredit, which opens its own connection) to avoid a nested transaction.
+async function cancelAssessment(assessmentId, reason, cancelledBy) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // a. Lock the assessment. account_id is intentionally NOT selected — the column does
+    //    not exist on assessments; account/lot come from the ledger in step b.
+    const aRes = await client.query(
+      `SELECT id, status, cancelled_at FROM assessments WHERE id = $1 FOR UPDATE`,
+      [assessmentId]
+    );
+    if (aRes.rows.length === 0) throw new Error('ASSESSMENT_NOT_FOUND');
+    // Guard both the status AND an already-cancelled row: re-cancelling would restore a
+    // second credit (double-credit), since cancellation leaves status = 'not_started'.
+    if (aRes.rows[0].status !== 'not_started' || aRes.rows[0].cancelled_at !== null) {
+      throw new Error('CANCELLATION_INELIGIBLE');
+    }
+
+    // b. Recover the consumed credit from the ledger and restore it (inlined restoreCredit).
+    const tx = await getConsumedCreditTx(assessmentId);
+    let creditRestored = false;
+    if (tx) {
+      const typeRes = await client.query('SELECT name FROM credit_types WHERE id = $1', [tx.credit_type_id]);
+      // Restore into the original lot when there is one. A consume made under
+      // enforcement_disabled logs a null lot_id (no lot existed); we still record the
+      // matching 'restored' ledger row so the ledger nets to zero, just without a lot bump.
+      if (tx.lot_id != null) {
+        const lotRes = await client.query(
+          `UPDATE credit_lots
+              SET quantity_remaining = quantity_remaining + 1
+            WHERE id = $1 AND account_id = $2
+            RETURNING id`,
+          [tx.lot_id, tx.account_id]
+        );
+        if (lotRes.rows.length === 0) throw new Error('LOT_NOT_FOUND');
+      }
+      await insertCreditTransaction(client, {
+        accountId: tx.account_id,
+        creditTypeId: tx.credit_type_id,
+        lotId: tx.lot_id ?? null,
+        eventType: 'restored',
+        quantity: 1,
+        assessmentId,
+        createdBy: cancelledBy,
+        notes: null,
+      });
+      creditRestored = true;
+    } else {
+      console.warn('[db] cancelAssessment: no consumed credit tx for assessment', assessmentId,
+        '— cancelling without credit restore');
+    }
+
+    // c. Stamp the cancellation columns. credit_restored_at only when a credit was restored.
+    await client.query(
+      `UPDATE assessments
+          SET cancelled_at = NOW(),
+              cancellation_reason = $2,
+              credit_restored_at = CASE WHEN $3 THEN NOW() ELSE credit_restored_at END
+        WHERE id = $1`,
+      [assessmentId, reason ?? null, creditRestored]
+    );
+
+    await client.query('COMMIT');
+    return { assessmentId, creditRestored };
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (!['ASSESSMENT_NOT_FOUND', 'CANCELLATION_INELIGIBLE', 'LOT_NOT_FOUND'].includes(e.message)) {
+      console.error('[db] cancelAssessment failed:', e.message);
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   pool,
   initDb,
@@ -2505,4 +2662,8 @@ module.exports = {
   consumeCredit,
   restoreCredit,
   grantCredits,
+  // Provisioning & Commerce PR5 — upsert, cancellation, assignment
+  insertAssignmentEvent,
+  getConsumedCreditTx,
+  cancelAssessment,
 };
