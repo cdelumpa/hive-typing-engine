@@ -1896,9 +1896,11 @@ app.post('/api/call1', async (req, res) => {
     });
     console.log(`[call1] usage — ${JSON.stringify(response.usage)}`);
     const text = response.content[0].text;
+    console.log('[call1-debug] raw response text:', text.substring(0, 500));
     const stripped = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
     const clean = extractFirstJsonObject(stripped);
     const parsed = JSON.parse(clean);
+    console.log('[call1-debug] parsed ranking length:', parsed && parsed.ranking ? parsed.ranking.length : 'NO RANKING');
     if (parsed && Array.isArray(parsed.ranking) && parsed.ranking.length === 9) {
       // Gap coherence: derive the label from the top two scores so it can never
       // disagree with the arithmetic. The model mislabels gaps even mid-range
