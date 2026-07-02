@@ -802,6 +802,42 @@ AND NOT EXISTS (
   WHERE ur.user_id = u.id AND ur.role_id = r.id
 );
 
+-- ═══ Provisioning & Commerce v1.0 — PR3: seed data ══════════════════════════════
+-- Runs on every boot after all DDL. Idempotent (ON CONFLICT DO NOTHING / WHERE NOT
+-- EXISTS) so re-runs never duplicate. Depends on PR1 tables + the coaches seed above.
+
+-- 1) credit_types — static reference (spec §5.1). Only standard_assessment is sold at
+--    October launch; the other two ship now so the ledger is typed from day one and
+--    never needs a retrofit migration once coaches hold real balances.
+INSERT INTO credit_types (name, description) VALUES
+  ('standard_assessment',
+   'One InsightOut Enneagram Assessment with client and coach report'),
+  ('leadership_report',
+   'Leadership Report overlay — requires a completed assessment'),
+  ('team_report',
+   'Team Report — requires completed assessments for all members')
+ON CONFLICT (name) DO NOTHING;
+
+-- 2) House account (coach_id NULL) — bills Cai/Mo D2C assessments (handoff F6). One
+--    only; guarded on WHERE NOT EXISTS since the partial unique index does not cover
+--    NULL coach_id.
+INSERT INTO accounts (coach_id, account_type)
+  SELECT NULL, 'house'
+  WHERE NOT EXISTS (
+    SELECT 1 FROM accounts WHERE account_type = 'house'
+  );
+
+-- 3) One 'coach' account per existing coach. NOT EXISTS guard is idempotent and also
+--    backfills any coach added before this seed ran; the accounts_coach_id_key partial
+--    unique index is the hard backstop against duplicates.
+INSERT INTO accounts (coach_id, account_type)
+  SELECT c.id, 'coach'
+  FROM coaches c
+  WHERE NOT EXISTS (
+    SELECT 1 FROM accounts a
+    WHERE a.coach_id = c.id
+  );
+
 `;
 
 async function initDb() {
