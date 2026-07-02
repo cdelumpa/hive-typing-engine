@@ -965,6 +965,25 @@ async function transitionAssessmentToProcessing(assessmentId, responses) {
   return r.rows.length > 0 ? r.rows[0].id : null;
 }
 
+// Find the client's pre-provisioned not_started assessment row (created at provisioning
+// by PR8). /api/submit calls this to locate the row to transition; a null return means
+// none exists, and the caller falls back to createAssessment (self-serve path, and any
+// submit before PR8 provisioning is deployed). Newest-first in the unlikely event more
+// than one not_started row exists. Throws DB_ERROR on a swallowed query() error; returns
+// null cleanly on zero rows.
+async function getNotStartedAssessmentId(clientId) {
+  const r = await query(
+    `SELECT id FROM assessments
+      WHERE client_id = $1
+        AND status = 'not_started'
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [clientId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].id : null;
+}
+
 // Latest assessment id for a client (by created_at), or null if none. Used by
 // /api/submit to stamp retake_of_assessment_id: a client who already has an
 // assessment is taking a retake, so the new row points at the prior one.
@@ -2621,6 +2640,8 @@ module.exports = {
   // Provisioning & Commerce PR7a — provisional assessment lifecycle
   createProvisionalAssessment,
   transitionAssessmentToProcessing,
+  // Provisioning & Commerce PR7b — not_started finder
+  getNotStartedAssessmentId,
   createReport,
   getAllAdminRows,
   getAdminRowsByCoach,

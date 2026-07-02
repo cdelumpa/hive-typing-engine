@@ -1490,7 +1490,9 @@ app.post('/api/submit', async (req, res) => {
   try {
     if (!resolvedClientId) {
       const coachId = await db.findOrCreateCoach(intake?.coach || 'Cai Delumpa');
-      resolvedClientId = await db.createClient(intake || {}, coachId);
+      // PR7b: createClient returns { id, created } since PR5 — destructure the id.
+      const clientResult = await db.createClient(intake || {}, coachId);
+      resolvedClientId = clientResult?.id || null;
       // PR B: lifecycle audit — client created via the self-serve submit fallback (no
       // admin actor available, so 'system').
       if (resolvedClientId) {
@@ -1502,14 +1504,39 @@ app.post('/api/submit', async (req, res) => {
         });
       }
     }
-    // Retake linkage: if this client already has an assessment, the row we're about
-    // to create is a retake — point retake_of_assessment_id at the most recent prior
-    // assessment. First-time clients have no prior row, so this stays null. (The retake
-    // flow is the only path that reopens a completed client, so "has a prior" == retake.)
-    const priorAssessmentId = resolvedClientId ? await db.getLatestAssessmentId(resolvedClientId) : null;
-    isRetake = priorAssessmentId != null;
-    assessmentId = await db.createAssessment(resolvedClientId, { systemPrompt, userMessage, intake }, priorAssessmentId);
-    if (assessmentId) console.log(`[submit] assessment #${assessmentId} created for client #${resolvedClientId}`);
+    // PR7b: find the pre-provisioned not_started row (created by PR8 at provisioning) and
+    // transition it → processing. Falls back to createAssessment when none exists — the
+    // self-serve path (no provisioning step) and any submit before PR8 is deployed.
+    // NOTE: assessmentId / isRetake are the outer `let`s declared above — assign, never
+    // redeclare with `let` here (a shadow would leave the outer assessmentId null and break
+    // runBackgroundJob at the bottom of the handler).
+    assessmentId = resolvedClientId ? await db.getNotStartedAssessmentId(resolvedClientId) : null;
+    if (assessmentId) {
+      // Transition the pre-existing row. Returns null when another submit already claimed it
+      // (WHERE status='not_started' matched zero rows) — a race we abort on.
+      const transitioned = await db.transitionAssessmentToProcessing(
+        assessmentId,
+        { systemPrompt, userMessage, intake }
+      );
+      if (!transitioned) {
+        // Lost the race — another submit already claimed this row. Abort silently
+        // (res.json was already sent above); do not run a second background job.
+        console.warn('[api/submit] transition race on assessmentId', assessmentId, '— aborting background job');
+        return;
+      }
+      // NOTE: isRetake for a transitioned row is carried by its retake_of_assessment_id
+      // (stamped at retake time). Not re-derived here — retake logging on the transition
+      // path is a PR8-era follow-up; this path is inert until PR8 provisioning is live.
+      console.log(`[submit] assessment #${assessmentId} transitioned to processing for client #${resolvedClientId}`);
+    } else {
+      // Fallback = today's behavior. Retake linkage: a client who already has an assessment
+      // is taking a retake, so point retake_of_assessment_id at the most recent prior row;
+      // first-time clients have no prior row, so this stays null.
+      const priorAssessmentId = resolvedClientId ? await db.getLatestAssessmentId(resolvedClientId) : null;
+      isRetake = priorAssessmentId != null;
+      assessmentId = await db.createAssessment(resolvedClientId, { systemPrompt, userMessage, intake }, priorAssessmentId);
+      if (assessmentId) console.log(`[submit] assessment #${assessmentId} created for client #${resolvedClientId}`);
+    }
     // §9 timing: write the computed metrics onto the fresh assessment row. Guarded
     // on a captured start time — if none (client never saved during Stage 0), skip
     // and the admin clock icon stays hidden (gated on elapsed_seconds IS NOT NULL).
@@ -3502,6 +3529,20 @@ app.post('/admin/clients/:client_id/retake', requireSuperAdmin, async (req, res)
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await db.retakeTransaction(clientId, token, expiresAt);
     await sendInviteEmail({ first_name: client.first_name, last_name: client.last_name, email: client.email }, token, coach);
+
+    // PR7b: pre-create the not_started assessment row at retake time so /api/submit finds
+    // it ready to transition. Resolve the prior assessment id NOW — before the new row
+    // exists — so retake_of_assessment_id is stamped explicitly (retiring the
+    // getLatestAssessmentId-at-submit heuristic). If this insert fails, /api/submit's
+    // create-if-missing fallback still recovers the retake.
+    const priorAssessmentId = await db.getLatestAssessmentId(clientId);
+    await db.createProvisionalAssessment(
+      clientId,
+      'coach_provisioned',  // retakes are always coach-initiated
+      false,                // autoSendReport — default false; PR8 provisioning modal sets this
+      true,                 // autoSendInvitation — invite already sent by retakeTransaction above
+      priorAssessmentId     // explicit retake linkage — not a heuristic
+    );
 
     // PR B: lifecycle audit — retake issued by a super-admin. The retake's own
     // "started/completed/report delivered" events are logged through the normal
