@@ -1888,12 +1888,20 @@ app.post('/api/call1', async (req, res) => {
 
   let result = null;
   try {
-    const response = await client.messages.create({
+    // Stream Call #1 rather than a plain create(): a non-streaming POST held open
+    // for the full reasoning call is the shape PaaS proxies (Railway) reap mid-
+    // response, surfacing as an APIConnectionError / "Premature close" that never
+    // yields a result. Streaming keeps the connection active with incremental data
+    // — Anthropic's documented remedy for long-request connection drops. We don't
+    // need per-token handling, so .finalMessage() reassembles the same Message the
+    // create() call returned (same .content / .usage shape downstream).
+    const stream = client.messages.stream({
       model: 'claude-sonnet-4-6',
       max_tokens: 2000,
       system: [{ type: 'text', text: CALL1_SYSTEM, cache_control: { type: 'ephemeral' } }],
       messages: [{ role: 'user', content: userMessage }],
     });
+    const response = await stream.finalMessage();
     console.log(`[call1] usage — ${JSON.stringify(response.usage)}`);
     const text = response.content[0].text;
     const stripped = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
@@ -1933,7 +1941,11 @@ app.post('/api/call1', async (req, res) => {
       console.warn('[call1] parsed payload missing 9-entry ranking array');
     }
   } catch (err) {
-    console.error('[call1] failed:', err.message);
+    // Log name + cause, not just message: an APIConnectionError's message is a
+    // generic "Connection error." — the underlying "Premature close" / "terminated"
+    // lives on err.cause, and err.name distinguishes a connection drop from a
+    // timeout or a downstream JSON parse failure.
+    console.error(`[call1] failed: ${err.name}: ${err.message}`, err.cause ? `(cause: ${err.cause})` : '');
   }
 
   if (client_id) {
