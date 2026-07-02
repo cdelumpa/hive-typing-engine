@@ -1161,6 +1161,7 @@ const ADMIN_ROWS_SELECT = `
     a.deleted_at,
     a.pre_deletion_status,
     a.permanently_deleted,
+    a.cancelled_at,
     co.name         AS coach_name,
     COALESCE(a.created_at, c.created_at) AS created_at,
     COALESCE(a.status, c.status, 'unknown') AS status,

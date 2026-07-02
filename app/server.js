@@ -2800,6 +2800,151 @@ window._grantCredits = async function(coachId){
   }
 };
 
+// ── PR12: Provisioning modal ────────────────────────────────────────────────
+// Renders into the shared modal overlay (same idiom as openCoachProfile / openReassignModal):
+// build the HTML, inject via _content().innerHTML, _showModal(). POSTs to /admin/clients/provision
+// and, on success, reveals the always-returned token URL (D5) for the coach to copy.
+window._provisionCoaches = [];
+
+window.openProvisionModal = async function(){
+  var LBL = 'font-size:11px;color:#7A96A6;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin:0 0 5px;display:block;';
+  var INP = 'width:100%;padding:9px 11px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;color:#1A2B33;outline:none;box-sizing:border-box;margin-bottom:14px;';
+  var RADLBL = 'display:block;margin-bottom:6px;font-size:13px;color:#1A2B33;';
+  var h = _modalHeader('Provisioning','Provision New Assessment','#f58527');
+  h += '<div id="provision-msg" style="display:none;border-radius:4px;padding:8px 12px;font-size:12px;margin-bottom:12px;"></div>';
+
+  h += '<label style="'+LBL+'">Coach <span style="color:#c0392b;">*</span></label>';
+  h += '<select id="provision-coach-select" name="coachId" style="'+INP+'"><option value="">Select a coach…</option></select>';
+
+  h += '<label style="'+LBL+'">First Name <span style="color:#c0392b;">*</span></label>';
+  h += '<input type="text" id="provision-first" name="firstName" style="'+INP+'">';
+  h += '<label style="'+LBL+'">Last Name <span style="color:#c0392b;">*</span></label>';
+  h += '<input type="text" id="provision-last" name="lastName" style="'+INP+'">';
+  h += '<label style="'+LBL+'">Email <span style="color:#c0392b;">*</span></label>';
+  h += '<input type="email" id="provision-email" name="email" style="'+INP+'">';
+  h += '<label style="'+LBL+'">Organization <span style="font-weight:400;text-transform:none;">(optional)</span></label>';
+  h += '<input type="text" id="provision-org" name="organization" style="'+INP+'">';
+
+  h += '<label style="'+LBL+'">Report Delivery</label>';
+  h += '<label style="'+RADLBL+'"><input type="radio" name="autoSendReport" value="false" checked style="margin-right:8px;vertical-align:middle;">Hold report — I\\'ll deliver manually</label>';
+  h += '<label style="'+RADLBL+'margin-bottom:14px;"><input type="radio" name="autoSendReport" value="true" style="margin-right:8px;vertical-align:middle;">Send automatically when ready</label>';
+
+  h += '<label style="'+LBL+'">Send Invitation</label>';
+  h += '<label style="'+RADLBL+'"><input type="radio" name="autoSendInvitation" value="false" checked style="margin-right:8px;vertical-align:middle;">Don\\'t send — I\\'ll share the link</label>';
+  h += '<label style="'+RADLBL+'margin-bottom:14px;"><input type="radio" name="autoSendInvitation" value="true" style="margin-right:8px;vertical-align:middle;">Send invitation email now</label>';
+
+  h += '<label style="'+LBL+'">Notes <span style="font-weight:400;text-transform:none;">(optional)</span></label>';
+  h += '<input type="text" id="provision-notes" name="notes" placeholder="Internal note (optional)" style="'+INP+'">';
+
+  // Token URL — hidden until a successful provision.
+  h += '<div id="provision-token-url" style="display:none;background:#f4f8fa;border:1px solid #D0DCE4;border-radius:4px;padding:12px;margin-bottom:14px;">';
+  h += '<p style="font-size:12px;color:#7A96A6;margin:0 0 6px;">Assessment link (share with the client if needed):</p>';
+  h += '<code id="provision-token-url-text" style="display:block;font-size:12px;color:#1A2B33;word-break:break-all;margin-bottom:8px;"></code>';
+  h += '<button type="button" id="provision-copy-btn" onclick="window._copyProvisionUrl()" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;">Copy Link</button>';
+  h += '</div>';
+
+  h += '<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 0 24px;">';
+  h += '<button type="button" id="provision-submit-btn" onclick="window._submitProvision()" style="background:#f58527;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;">Provision Assessment</button>';
+  h += '<button type="button" onclick="window._closeProvisionModal()" style="background:#fff;color:#7A96A6;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;padding:9px 18px;cursor:pointer;">Close</button>';
+  h += '</div></div>';
+
+  _content().innerHTML = h; _showModal();
+
+  // Populate the coach dropdown (fetch active coaches).
+  try {
+    var r = await fetch('/admin/coaches/active', { headers: { Accept: 'application/json' } });
+    _provisionCoaches = await r.json() || [];
+    var sel = document.getElementById('provision-coach-select');
+    if (sel) {
+      _provisionCoaches.forEach(function(c){
+        var o = document.createElement('option');
+        o.value = c.id; o.textContent = c.name;
+        sel.appendChild(o);
+      });
+    }
+  } catch(e){ /* dropdown keeps just the placeholder; validation will require a selection */ }
+};
+
+window._closeProvisionModal = function(){ _hideModal(); };
+
+window._provisionMsg = function(text, color){
+  var m = document.getElementById('provision-msg');
+  if(!m) return;
+  m.textContent = text; m.style.display = 'block';
+  m.style.background = color === 'red' ? '#fdecea' : (color === 'green' ? '#e6f7ee' : '#f4f4f4');
+  m.style.color = color === 'red' ? '#c0392b' : (color === 'green' ? '#1a7a4a' : '#666');
+};
+
+window._submitProvision = async function(){
+  var coachId = parseInt((document.getElementById('provision-coach-select').value || ''), 10);
+  var firstName = (document.getElementById('provision-first').value || '').trim();
+  var lastName = (document.getElementById('provision-last').value || '').trim();
+  var email = (document.getElementById('provision-email').value || '').trim();
+  var organization = (document.getElementById('provision-org').value || '').trim();
+  var notes = (document.getElementById('provision-notes').value || '').trim();
+  var autoSendReport = document.querySelector('input[name="autoSendReport"]:checked');
+  var autoSendInvitation = document.querySelector('input[name="autoSendInvitation"]:checked');
+
+  if(!coachId){ _provisionMsg('Please select a coach.', 'red'); return; }
+  if(!firstName || !lastName){ _provisionMsg('First and last name are required.', 'red'); return; }
+  if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){ _provisionMsg('Please enter a valid email.', 'red'); return; }
+
+  var body = {
+    coachId: coachId,
+    firstName: firstName,
+    lastName: lastName,
+    email: email,
+    organization: organization,
+    autoSendReport: autoSendReport ? autoSendReport.value === 'true' : false,
+    autoSendInvitation: autoSendInvitation ? autoSendInvitation.value === 'true' : false,
+    notes: notes
+  };
+
+  var btn = document.getElementById('provision-submit-btn');
+  if(btn) btn.disabled = true;
+  _provisionMsg('Provisioning…', '');
+
+  try {
+    var res = await fetch('/admin/clients/provision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    var d = await res.json();
+    if(d.ok){
+      _provisionMsg((d.created ? 'New client provisioned.' : 'Assessment provisioned for existing client.')
+        + (d.invitationSent ? ' Invitation sent.' : ' No invitation email sent.'), 'green');
+      var tuWrap = document.getElementById('provision-token-url');
+      var tuText = document.getElementById('provision-token-url-text');
+      if(tuText) tuText.textContent = d.tokenUrl || '';
+      if(tuWrap) tuWrap.style.display = 'block';
+      // Leave the modal open so the coach can copy the link.
+    } else {
+      var map = {
+        INSUFFICIENT_CREDITS: 'This coach has no available credits. Grant credits before provisioning.',
+        COACH_NOT_FOUND: 'Coach not found.',
+        ACCOUNT_NOT_FOUND: 'No billing account found for this coach.',
+        VALIDATION_ERROR: d.message || 'Please check the form and try again.'
+      };
+      _provisionMsg(map[d.error] || d.message || 'Provisioning failed. Please try again.', 'red');
+      if(btn) btn.disabled = false;
+    }
+  } catch(err){
+    _provisionMsg('Network error — please try again.', 'red');
+    if(btn) btn.disabled = false;
+  }
+};
+
+window._copyProvisionUrl = function(){
+  var url = document.getElementById('provision-token-url-text').textContent;
+  navigator.clipboard.writeText(url).then(function(){
+    var b = document.getElementById('provision-copy-btn');
+    if(!b) return;
+    var orig = b.textContent; b.textContent = 'Copied!';
+    setTimeout(function(){ b.textContent = orig; }, 1500);
+  });
+};
+
 window._editCoachMode = function(){
   var data=_hiveRec; if(!data)return;
   var c=data.coach;
@@ -3582,10 +3727,11 @@ app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
   const email     = (b.email || '').trim().toLowerCase();
   const coachId   = parseInt(b.coachId, 10);
   const creditTypeName = b.creditTypeName || 'standard_assessment';
+  // D5: both send flags default to manual (FALSE) when not supplied. Same true/'true'
+  // coercion for both (handles JSON booleans and form strings; a missing/anything-else value
+  // is FALSE — not the `?? false` form, which would treat the string 'false' as truthy).
   const autoSendReport = b.autoSendReport === true || b.autoSendReport === 'true';
-  const autoSendInvitation = (b.autoSendInvitation === undefined)
-    ? true
-    : (b.autoSendInvitation === true || b.autoSendInvitation === 'true');
+  const autoSendInvitation = b.autoSendInvitation === true || b.autoSendInvitation === 'true';
   const requestedReportTypes = Array.isArray(b.requestedReportTypes) ? b.requestedReportTypes : ['standard_assessment'];
   const organization = b.organization ? String(b.organization).trim() : null;
   const notes = b.notes ? String(b.notes) : null;
@@ -3665,15 +3811,17 @@ app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
       }
     }
 
-    // i. Optional invite (gated on autoSendInvitation; best-effort — an email failure must
-    //    not roll back a successful provisioning). When FALSE, the coach sends the token
-    //    URL manually (PR12 surfaces it); the system sends no invite.
+    // i. Token — ALWAYS created so the coach can share the link manually even when the
+    //    system doesn't email it (D5). The token is stored regardless; only the invite
+    //    EMAIL is gated on autoSendInvitation.
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await db.createClientToken(clientId, token, expiresAt);
+
     let invitationSent = false;
     if (autoSendInvitation) {
+      // Best-effort invite email — a send failure must not roll back the provisioning.
       try {
-        const token = crypto.randomBytes(32).toString('hex');
-        const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-        await db.createClientToken(clientId, token, expiresAt);
         await sendInviteEmail({ first_name: firstName, last_name: lastName, email }, token, coach);
         db.logClientEvent({ clientId, assessmentId, eventType: 'invitation_sent', eventDescription: 'Invitation sent', actor: req.session.user_id });
         invitationSent = true;
@@ -3681,6 +3829,9 @@ app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
         console.error('[admin/clients/provision] invite send failed:', err.message);
       }
     }
+
+    const appUrl = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
+    const tokenUrl = `${appUrl}/assessment/${token}`;
 
     // j. Success.
     return res.status(200).json({
@@ -3690,10 +3841,50 @@ app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
       created,
       creditConsumed: true,
       invitationSent,
+      tokenUrl,   // always present — the shareable assessment link
     });
   } catch (e) {
     console.error('[admin/clients/provision] error:', e.message);
     return res.status(500).json({ error: 'PROVISIONING_ERROR', message: e.message });
+  }
+});
+
+// ── Cancel an assessment (PR12) ────────────────────────────────────────────────
+// Wires the PR5 cancelAssessment helper: only a not_started (not-yet-cancelled) assessment
+// is eligible; the credit is restored automatically (D3). A non-admin coach may cancel only
+// their own client's assessment. Cancellation ≠ soft-delete — status stays not_started and
+// only cancelled_at/cancellation_reason/credit_restored_at are stamped.
+app.post('/admin/assessments/:assessment_id/cancel', requireAdminSession, async (req, res) => {
+  const assessmentId = parseInt(req.params.assessment_id, 10);
+  if (!assessmentId || isNaN(assessmentId)) return res.status(400).json({ ok: false, error: 'INVALID_ASSESSMENT_ID' });
+
+  const { reason } = req.body || {};
+
+  // Existence + ownership. Any admin/super-admin may cancel; a plain coach only their own.
+  const assessment = await db.getAssessmentById(assessmentId);
+  if (!assessment) return res.status(404).json({ ok: false, error: 'ASSESSMENT_NOT_FOUND' });
+
+  const isAdmin = auth.hasRole(req, 'admin') || auth.hasRole(req, 'super_admin');
+  if (!isAdmin) {
+    const ownerCoachId = await db.getAssessmentOwnerCoachId(assessmentId);
+    if (ownerCoachId !== req.session.coach_id) {
+      return res.status(403).json({ ok: false, error: 'FORBIDDEN' });
+    }
+  }
+
+  try {
+    const result = await db.cancelAssessment(assessmentId, reason || 'Cancelled by admin', req.session.user_id);
+    console.log('[cancel-assessment] cancelled assessmentId:', assessmentId, 'creditRestored:', result.creditRestored);
+    return res.status(200).json({ ok: true, assessmentId, creditRestored: result.creditRestored });
+  } catch (err) {
+    if (err.message === 'ASSESSMENT_NOT_FOUND') {
+      return res.status(404).json({ ok: false, error: 'ASSESSMENT_NOT_FOUND' });
+    }
+    if (err.message === 'CANCELLATION_INELIGIBLE') {
+      return res.status(409).json({ ok: false, error: 'CANCELLATION_INELIGIBLE', message: 'Only not_started assessments can be cancelled.' });
+    }
+    console.error('[cancel-assessment] error:', err.message);
+    return res.status(500).json({ ok: false, error: 'CANCEL_ERROR' });
   }
 });
 
@@ -4299,7 +4490,12 @@ function _fmt(ts) {
   return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 }
 
-function _statusBadge(status) {
+function _statusBadge(status, cancelledAt) {
+  // PR12: a cancelled assessment (cancelled_at set, status still not_started) shows a red
+  // Cancelled badge, taking priority over its underlying status.
+  if (cancelledAt) {
+    return '<span style="background:#fdecea;color:#c0392b;padding:2px 7px;border-radius:3px;font-size:11px;font-weight:600;">Cancelled</span>';
+  }
   var map = {
     complete: ['#e6f7ee','#1a7a4a','Complete'],
     processing: ['#fff8e1','#b07800','Processing'],
@@ -4419,7 +4615,7 @@ function renderAccordionTable(coachId, rows) {
       '<td>'+conf+'</td>' +
       '<td id="acc-coach-cell-'+clientId+'">'+coach+'</td>' +
       '<td>'+clockCell+date+'</td>' +
-      '<td>'+_statusBadge(status)+delBadge+'</td>' +
+      '<td>'+_statusBadge(status, r.cancelled_at)+delBadge+'</td>' +
       '<td id="acc-pdf-'+clientId+'" style="font-size:11px;">'+_pdfStatusHtml(r)+'</td>' +
       '<td id="acc-email-'+clientId+'" style="font-size:11px;">'+_emailStatusHtml(r)+'</td>' +
       '<td>'+pdfLinks+'</td>' +
@@ -8160,7 +8356,11 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     const clientStatus = r.client_status || status;
 
     let statusColor, statusBg, statusLabel;
-    if (status === 'complete') {
+    // PR12: a cancelled assessment (cancelled_at set, status still not_started) takes
+    // visual priority over its underlying status — show a red Cancelled badge.
+    if (r.cancelled_at) {
+      statusColor = '#c0392b'; statusBg = '#fdecea'; statusLabel = 'Cancelled';
+    } else if (status === 'complete') {
       statusColor = '#1a7a4a'; statusBg = '#e6f7ee'; statusLabel = 'Complete';
     } else if (status === 'processing') {
       statusColor = '#b07800'; statusBg = '#fff8e1'; statusLabel = 'Processing';
@@ -8399,6 +8599,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
   </div>
   <div style="display:flex;align-items:center;gap:16px;">
     <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
+    <button onclick="openProvisionModal()" style="background:#f58527;color:#fff;font-family:Georgia,serif;font-size:12px;font-weight:700;border:none;border-radius:4px;padding:7px 14px;cursor:pointer;">+ Provision Client</button>
     ${auth.hasRole(req, 'admin') || auth.hasRole(req, 'super_admin') ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
     ${auth.hasRole(req, 'super_admin') ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/em-lab" class="nav-link">EM Lab</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span><a href="/admin/embargo" class="nav-link">Embargo List</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/password" class="nav-link">Change password</a>
