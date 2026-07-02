@@ -642,6 +642,54 @@ CREATE TABLE IF NOT EXISTS assignment_events (
 );
 CREATE INDEX IF NOT EXISTS assignment_events_client_idx
   ON assignment_events (client_id);
+
+-- ═══ Provisioning & Commerce v1.0 — PR2: existing-table columns + backfill ════════
+-- Additive columns on assessments / reports / app_settings (spec §10.2, with the
+-- D1/D7 override that moves client_source + auto_send_invitation onto assessments,
+-- not clients). Must follow the PR1 block above: reports.team_id FKs teams(id).
+
+-- ── assessments ── cancellation audit trail (D3: orthogonal to soft-delete — these
+-- three columns are distinct from deleted_at/pre_deletion_status/permanently_deleted),
+-- the two per-assessment send flags (nullable, no column DEFAULT — written explicitly
+-- at provisioning in PR8, backfilled below for pre-launch rows), requested_report_types
+-- (JSONB array of credit_types.name strings), and client_source (D7).
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS cancelled_at           TIMESTAMPTZ;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS cancellation_reason    TEXT;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS credit_restored_at     TIMESTAMPTZ;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS auto_send_report       BOOLEAN;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS auto_send_invitation   BOOLEAN;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS requested_report_types JSONB;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS client_source          TEXT;
+
+-- ── reports ── Team Report versioning (spec §7.2/§10.2). Nullable, no FK backfill;
+-- parent_report_id self-references reports; team_id FKs the PR1 teams table.
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS version_number   INTEGER;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS parent_report_id INTEGER REFERENCES reports(id);
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS team_id          INTEGER REFERENCES teams(id);
+
+-- ── app_settings ── global credit-enforcement kill switch. FALSE at launch: the
+-- house account still calls consumeCredit() and logs the ledger row, but no balance
+-- floor is enforced until this flips TRUE (handoff F2). Mirrors the em_* flag style.
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS credit_enforcement_enabled BOOLEAN DEFAULT FALSE;
+
+-- ── Send-flag backfill (handoff G — the re-flip trap) ──
+-- auto_send_report / auto_send_invitation carry NO column-level DEFAULT, so new rows
+-- are NULL until PR8 stamps them at provisioning. Existing pre-launch rows must be
+-- TRUE to preserve today's automatic send behavior. This one-time backfill is guarded
+-- by a FIXED cutoff so it never re-flips a post-launch row that a coach intentionally
+-- set to FALSE: SCHEMA_SQL runs on every boot, and a naive "IS NULL → TRUE" (or a
+-- column DEFAULT TRUE) would silently re-enable auto-send on every restart.
+DO $$ BEGIN
+  UPDATE assessments
+    SET auto_send_report = TRUE
+    WHERE auto_send_report IS NULL
+      AND created_at < '2026-07-01 12:00:00+00';
+
+  UPDATE assessments
+    SET auto_send_invitation = TRUE
+    WHERE auto_send_invitation IS NULL
+      AND created_at < '2026-07-01 12:00:00+00';
+END $$;
 `;
 
 const SEED_SQL = `
