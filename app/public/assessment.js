@@ -2305,7 +2305,9 @@ function renderPart1Complete() {
 // surface the failed state (_call1Failed) — we never advance without a result.
 async function runCall1WithRetries() {
   const MAX_ATTEMPTS = 3;
-  const PER_ATTEMPT_MS = 20000;
+  // Real-world Call #1 latency runs ~165s average (regression tests), so the cap
+  // is 180s — well under 20s was aborting legitimately-slow-but-successful calls.
+  const PER_ATTEMPT_MS = 180000;
   const BACKOFF_MS = 1500;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
