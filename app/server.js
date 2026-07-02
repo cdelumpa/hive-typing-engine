@@ -11,21 +11,6 @@ const fs         = require('fs');
 const path       = require('path');
 const archiver   = require('archiver');   // A2: stream the EM Lab Full Context Package ZIP
 
-// Force HTTP/1.1 for all outbound fetch (the Anthropic SDK uses global fetch).
-// Railway's egress path to api.anthropic.com breaks HTTP/2 mid-stream — every
-// Call #1/#2 request surfaced as "Premature close" — while HTTP/1.1 completes
-// cleanly (confirmed from the Railway container: curl --http1.1 works, H2 does
-// not). setGlobalDispatcher swaps the dispatcher behind globalThis.fetch, so no
-// per-client change is needed. Guarded: if undici can't load, we log and keep
-// running rather than crashing the whole server on a startup require.
-try {
-  const { setGlobalDispatcher, Agent } = require('undici');
-  setGlobalDispatcher(new Agent({ allowH2: false }));
-  console.log('[startup] outbound fetch pinned to HTTP/1.1 (undici allowH2:false)');
-} catch (e) {
-  console.error('[startup] could not pin HTTP/1.1 via undici:', e.message);
-}
-
 // override: true lets values in .env authoritatively replace ambient shell env.
 require('dotenv').config({ override: true });
 
@@ -205,7 +190,25 @@ function requireSuperAdmin(req, res, next) {
   next();
 }
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// Pin the Anthropic client to HTTP/1.1. Railway's egress to api.anthropic.com
+// breaks HTTP/2 mid-stream ("Premature close"); HTTP/1.1 completes cleanly.
+// setGlobalDispatcher didn't reach the SDK's fetch (userland undici's global
+// dispatcher isn't shared with the SDK's global fetch in this runtime), so we
+// inject an allowH2:false dispatcher directly via a custom fetch on the client.
+// Guarded: a require failure degrades to a plain client rather than crashing boot.
+let anthropicFetch;
+try {
+  const { fetch: undiciFetch, Agent } = require('undici');
+  const h1Agent = new Agent({ allowH2: false });
+  anthropicFetch = (url, init) => undiciFetch(url, { ...init, dispatcher: h1Agent });
+  console.log('[startup] Anthropic client pinned to HTTP/1.1 (undici allowH2:false)');
+} catch (e) {
+  console.error('[startup] could not pin Anthropic HTTP/1.1 via undici:', e.message);
+}
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  ...(anthropicFetch ? { fetch: anthropicFetch } : {}),
+});
 
 // =================== PROMPT CONSTANTS ===================
 // Moved from app/public/app.js — these are server-only concerns.
