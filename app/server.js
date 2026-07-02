@@ -2912,8 +2912,12 @@ window._submitProvision = async function(){
     });
     var d = await res.json();
     if(d.ok){
-      _provisionMsg((d.created ? 'New client provisioned.' : 'Assessment provisioned for existing client.')
-        + (d.invitationSent ? ' Invitation sent.' : ' No invitation email sent.'), 'green');
+      var baseMsg = d.created
+        ? 'Assessment provisioned successfully for new client.'
+        : 'Assessment provisioned for existing client — a new assessment has been added to their record. Name and organization fields were not updated.';
+      // Preserve the invitation-status suffix (orthogonal to new/existing) so the coach
+      // still sees whether the client was emailed.
+      _provisionMsg(baseMsg + (d.invitationSent ? ' Invitation sent.' : ' No invitation email sent.'), 'green');
       var tuWrap = document.getElementById('provision-token-url');
       var tuText = document.getElementById('provision-token-url-text');
       if(tuText) tuText.textContent = d.tokenUrl || '';
