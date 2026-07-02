@@ -510,6 +510,138 @@ ALTER TABLE assessments ADD COLUMN IF NOT EXISTS client_context_summary TEXT;
 -- TODO: client_context_summary is pre-positioned for the Pocket Coach system prompt.
 -- Populated at assessment completion by the AI pipeline.
 -- Write path is a future build item — do not add writes to this column in this PR.
+
+-- ═══ Provisioning & Commerce v1.0 — PR1: new tables (DDL only) ════════════════════
+-- Additive extension of IAA v1.2 (spec §10.1). Nothing here revises a ratified table.
+-- Ordered by PostgreSQL FK dependency: accounts → credit_types → credit_lots →
+-- credit_transactions → certifications → teams → team_members → team_reports →
+-- assignment_events. Every table FKs into users/coaches/clients/assessments, all of
+-- which are defined above, so this block must remain at the tail of SCHEMA_SQL.
+-- teams / team_members / team_reports ship schema-only this build (no logic yet).
+
+-- ── Table: accounts ── billing account abstraction. 1:1 with a coach today, modeled
+-- so a future multi-coach practice needs no migration. The house account (Cai/Mo D2C)
+-- has coach_id NULL; a coach's own account carries their coach_id. The partial unique
+-- index enforces one 'coach' account per coach while leaving the NULL-coach_id house
+-- row exempt (multiple NULLs would otherwise collide under a plain UNIQUE).
+CREATE TABLE IF NOT EXISTS accounts (
+  id           SERIAL PRIMARY KEY,
+  coach_id     INTEGER REFERENCES coaches(id),
+  account_type VARCHAR(10) NOT NULL CHECK (account_type IN ('coach', 'house')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS accounts_coach_id_key
+  ON accounts (coach_id) WHERE coach_id IS NOT NULL;
+
+-- ── Table: credit_types ── static reference (roles pattern). Seeded in PR3, never
+-- mutated by app code. name is the machine key referenced by requested_report_types.
+CREATE TABLE IF NOT EXISTS credit_types (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(50) NOT NULL UNIQUE,
+  description TEXT
+);
+
+-- ── Table: credit_lots ── lot-based credit tracking (spec §5.3), not a flat balance.
+-- Each purchase or grant is its own lot with its own price and remaining count, so a
+-- cancellation can restore at the price actually paid. source distinguishes paid vs
+-- free; price_paid_cents is NULL for granted lots.
+CREATE TABLE IF NOT EXISTS credit_lots (
+  id                 SERIAL PRIMARY KEY,
+  account_id         INTEGER NOT NULL REFERENCES accounts(id),
+  credit_type_id     INTEGER NOT NULL REFERENCES credit_types(id),
+  quantity           INTEGER NOT NULL,
+  quantity_remaining INTEGER NOT NULL,
+  source             VARCHAR(10) NOT NULL CHECK (source IN ('purchased', 'granted')),
+  price_paid_cents   INTEGER,
+  purchase_reference TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS credit_lots_account_type_idx
+  ON credit_lots (account_id, credit_type_id);
+
+-- ── Table: credit_transactions ── append-only ledger of every credit event
+-- (auth_events pattern). lot_id is nullable (a restore may not target a single lot);
+-- assessment_id links a consume/restore to the assessment it provisioned; created_by
+-- is the acting user (SET NULL so the audit row survives user deletion).
+CREATE TABLE IF NOT EXISTS credit_transactions (
+  id             SERIAL PRIMARY KEY,
+  account_id     INTEGER NOT NULL REFERENCES accounts(id),
+  credit_type_id INTEGER NOT NULL REFERENCES credit_types(id),
+  lot_id         INTEGER REFERENCES credit_lots(id),
+  event_type     VARCHAR(10) NOT NULL CHECK (event_type IN ('consumed', 'restored', 'granted')),
+  quantity       INTEGER NOT NULL,
+  assessment_id  INTEGER REFERENCES assessments(id),
+  created_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  notes          TEXT
+);
+CREATE INDEX IF NOT EXISTS credit_transactions_account_idx
+  ON credit_transactions (account_id);
+CREATE INDEX IF NOT EXISTS credit_transactions_assessment_idx
+  ON credit_transactions (assessment_id);
+
+-- ── Table: certifications ── dedicated certification record, separate from the coach
+-- role grant, to support ICF CCE audit requirements (spec §4). user_id is the
+-- certified person; evaluator_id is the Cai/Mo assessor (both → users, SET NULL).
+CREATE TABLE IF NOT EXISTS certifications (
+  id                          SERIAL PRIMARY KEY,
+  user_id                     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  program_version             VARCHAR(50),
+  completion_date             DATE,
+  evaluator_id                INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  debrief_evaluation_outcome  TEXT,
+  icf_cce_units               NUMERIC,
+  notes                       TEXT,
+  created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Table: teams ── (schema-only this build) roster of clients grouped for a Team
+-- Report, decoupled from billing. leader_client_id is the designated report recipient.
+CREATE TABLE IF NOT EXISTS teams (
+  id                  SERIAL PRIMARY KEY,
+  name                VARCHAR(255),
+  organization        VARCHAR(255),
+  leader_client_id    INTEGER REFERENCES clients(id),
+  created_by_coach_id INTEGER REFERENCES coaches(id),
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Table: team_members ── (schema-only) join of teams↔clients, independent of how
+-- any member's assessment was paid for. Composite PK prevents duplicate membership.
+CREATE TABLE IF NOT EXISTS team_members (
+  team_id   INTEGER NOT NULL REFERENCES teams(id),
+  client_id INTEGER NOT NULL REFERENCES clients(id),
+  added_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (team_id, client_id)
+);
+
+-- ── Table: team_reports ── (schema-only) versioned Team Report records — each re-run
+-- is a new row, not an overwrite. credit_transaction_id links the consuming ledger row.
+CREATE TABLE IF NOT EXISTS team_reports (
+  id                    SERIAL PRIMARY KEY,
+  team_id               INTEGER NOT NULL REFERENCES teams(id),
+  version_number        INTEGER,
+  status                VARCHAR(50),
+  generated_at          TIMESTAMPTZ,
+  pdf_path              VARCHAR(500),
+  bonus_rerun_used      BOOLEAN DEFAULT FALSE,
+  credit_transaction_id INTEGER REFERENCES credit_transactions(id)
+);
+
+-- ── Table: assignment_events ── append-only audit trail for coach assignment and
+-- reassignment (v1.2 didn't anticipate clients moving between coaches). previous/new
+-- coach nullable (a first assignment has no previous); assigned_by → users (SET NULL).
+CREATE TABLE IF NOT EXISTS assignment_events (
+  id                SERIAL PRIMARY KEY,
+  client_id         INTEGER NOT NULL REFERENCES clients(id),
+  previous_coach_id INTEGER REFERENCES coaches(id),
+  new_coach_id      INTEGER REFERENCES coaches(id),
+  assigned_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  reason            TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS assignment_events_client_idx
+  ON assignment_events (client_id);
 `;
 
 const SEED_SQL = `
