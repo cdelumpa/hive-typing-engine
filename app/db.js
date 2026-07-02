@@ -2545,7 +2545,7 @@ async function recordPurchasedCredits(toAccountId, creditTypeName, quantity, pur
          (account_id, credit_type_id, quantity, quantity_remaining,
           source, price_paid_cents, purchase_reference)
        VALUES ($1, $2, $3, $3, 'purchased', $4, $5)
-       ON CONFLICT (purchase_reference) DO NOTHING
+       ON CONFLICT (purchase_reference) WHERE purchase_reference IS NOT NULL DO NOTHING
        RETURNING id`,
       [toAccountId, creditTypeId, quantity, pricePaidCents ?? null, purchaseReference]
     );
