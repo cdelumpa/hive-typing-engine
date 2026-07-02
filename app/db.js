@@ -2153,6 +2153,238 @@ async function getUsersByEmbargo(value, matchType) {
   return r ? r.rows : [];
 }
 
+// ── CREDIT HELPERS (PR4) ────────────────────────────────────────────
+// Lot-based credit ledger (spec §5.3). Every mutation is transactional and uses
+// pool.connect() directly (NOT the query() wrapper, which swallows errors and returns
+// null) so a mid-transaction failure ROLLs BACK and re-throws — mirroring
+// resendInviteTransaction. credit_transactions is append-only; credit_lots.quantity_remaining
+// is the spendable count. insertCreditTransaction takes a caller-supplied pg client and is
+// only ever called INSIDE one of these transactions (never standalone).
+
+// Current spendable balance for an account + credit type: sum of quantity_remaining
+// across non-exhausted lots. Read-only, so it uses the query() wrapper — but a null
+// return means the statement threw (query() swallows), which we surface as DB_ERROR
+// rather than silently reporting a zero balance.
+async function getAccountBalance(accountId, creditTypeName) {
+  const r = await query(
+    `SELECT COALESCE(SUM(cl.quantity_remaining), 0) AS balance
+       FROM credit_lots cl
+       JOIN credit_types ct ON cl.credit_type_id = ct.id
+      WHERE cl.account_id = $1
+        AND ct.name = $2
+        AND cl.quantity_remaining > 0`,
+    [accountId, creditTypeName]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return { balance: Number(r.rows[0].balance) };
+}
+
+// Append one row to the append-only credit_transactions ledger. ALWAYS called with a
+// caller-supplied pg client (txClient) inside an open transaction — never standalone —
+// so a failure propagates to the caller's catch/ROLLBACK. lotId, assessmentId, and notes
+// are all nullable. Returns the inserted row.
+async function insertCreditTransaction(client, { accountId, creditTypeId, lotId, eventType, quantity, assessmentId, createdBy, notes }) {
+  const r = await client.query(
+    `INSERT INTO credit_transactions
+       (account_id, credit_type_id, lot_id, event_type, quantity,
+        assessment_id, created_by, notes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING *`,
+    [accountId, creditTypeId, lotId ?? null, eventType, quantity,
+     assessmentId ?? null, createdBy ?? null, notes ?? null]
+  );
+  return r.rows[0];
+}
+
+// FIFO consume of one credit at provisioning time. Locks the oldest non-exhausted lot
+// (FOR UPDATE) to avoid a concurrent double-spend, decrements it by 1, and logs a
+// 'consumed' transaction — all in one transaction. When no lot is available the behavior
+// depends on app_settings.credit_enforcement_enabled (the singleton column, read via
+// getAppSettings): FALSE (launch default) logs an enforcement_disabled transaction with a
+// null lot and succeeds so the ledger stays accurate for the eventual enforcement flip
+// (handoff F2); TRUE (or unreadable settings) rejects with INSUFFICIENT_CREDITS.
+async function consumeCredit(accountId, creditTypeName, assessmentId, createdBy) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // a. Resolve credit type name → id.
+    const typeRes = await client.query('SELECT id FROM credit_types WHERE name = $1', [creditTypeName]);
+    if (typeRes.rows.length === 0) throw new Error('UNKNOWN_CREDIT_TYPE');
+    const creditTypeId = typeRes.rows[0].id;
+
+    // b. Oldest non-exhausted lot, row-locked against concurrent consumers.
+    const lotRes = await client.query(
+      `SELECT id, quantity_remaining
+         FROM credit_lots
+        WHERE account_id = $1
+          AND credit_type_id = $2
+          AND quantity_remaining > 0
+        ORDER BY created_at ASC
+        LIMIT 1
+        FOR UPDATE`,
+      [accountId, creditTypeId]
+    );
+
+    // c. No lot available → enforcement decides.
+    if (lotRes.rows.length === 0) {
+      const settings = await getAppSettings();
+      const enforcementEnabled = !settings || settings.credit_enforcement_enabled === true;
+      if (enforcementEnabled) {
+        await client.query('ROLLBACK');
+        throw new Error('INSUFFICIENT_CREDITS');
+      }
+      const tx = await insertCreditTransaction(client, {
+        accountId,
+        creditTypeId,
+        lotId: null,
+        eventType: 'consumed',
+        quantity: 1,
+        assessmentId,
+        createdBy,
+        notes: 'enforcement_disabled',
+      });
+      await client.query('COMMIT');
+      return { lotId: null, transactionId: tx.id };
+    }
+
+    // d. Decrement the located lot by 1.
+    const lotId = lotRes.rows[0].id;
+    await client.query(
+      `UPDATE credit_lots SET quantity_remaining = quantity_remaining - 1 WHERE id = $1`,
+      [lotId]
+    );
+
+    // e. Log the consume.
+    const tx = await insertCreditTransaction(client, {
+      accountId,
+      creditTypeId,
+      lotId,
+      eventType: 'consumed',
+      quantity: 1,
+      assessmentId,
+      createdBy,
+      notes: null,
+    });
+
+    await client.query('COMMIT');
+    return { lotId, transactionId: tx.id };
+  } catch (e) {
+    // ROLLBACK is a no-op if the transaction is already rolled back (e.g. the
+    // INSUFFICIENT_CREDITS path above); guarded so it never masks the original error.
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (e.message !== 'INSUFFICIENT_CREDITS' && e.message !== 'UNKNOWN_CREDIT_TYPE') {
+      console.error('[db] consumeCredit failed:', e.message);
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// Restore exactly one credit to the SAME lot it was consumed from (cancellation path,
+// PR5). Increments quantity_remaining on that lot and logs a 'restored' transaction.
+// The lot must belong to the given account, else LOT_NOT_FOUND (guards against restoring
+// into someone else's lot). Single transaction.
+async function restoreCredit(accountId, creditTypeName, assessmentId, lotId, createdBy) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // a. Resolve credit type name → id.
+    const typeRes = await client.query('SELECT id FROM credit_types WHERE name = $1', [creditTypeName]);
+    if (typeRes.rows.length === 0) throw new Error('UNKNOWN_CREDIT_TYPE');
+    const creditTypeId = typeRes.rows[0].id;
+
+    // b. Increment the original lot, scoped to this account.
+    const lotRes = await client.query(
+      `UPDATE credit_lots
+          SET quantity_remaining = quantity_remaining + 1
+        WHERE id = $1 AND account_id = $2
+        RETURNING id, quantity_remaining`,
+      [lotId, accountId]
+    );
+    if (lotRes.rows.length === 0) throw new Error('LOT_NOT_FOUND');
+    const newQuantityRemaining = lotRes.rows[0].quantity_remaining;
+
+    // c. Log the restore.
+    const tx = await insertCreditTransaction(client, {
+      accountId,
+      creditTypeId,
+      lotId,
+      eventType: 'restored',
+      quantity: 1,
+      assessmentId,
+      createdBy,
+      notes: null,
+    });
+
+    await client.query('COMMIT');
+    return { lotId, newQuantityRemaining, transactionId: tx.id };
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (e.message !== 'LOT_NOT_FOUND' && e.message !== 'UNKNOWN_CREDIT_TYPE') {
+      console.error('[db] restoreCredit failed:', e.message);
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// Create a new granted (free) lot and log a 'granted' transaction. Used by the admin
+// Grant Credits UI (PR11) and the ThriveCart webhook (PR9). source='granted', so
+// price_paid_cents / purchase_reference are NULL. quantity_remaining seeds equal to
+// quantity. Single transaction.
+async function grantCredits(toAccountId, creditTypeName, quantity, grantedBy, notes) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // a. Resolve credit type name → id.
+    const typeRes = await client.query('SELECT id FROM credit_types WHERE name = $1', [creditTypeName]);
+    if (typeRes.rows.length === 0) throw new Error('UNKNOWN_CREDIT_TYPE');
+    const creditTypeId = typeRes.rows[0].id;
+
+    // b. Create the granted lot.
+    const lotRes = await client.query(
+      `INSERT INTO credit_lots
+         (account_id, credit_type_id, quantity, quantity_remaining,
+          source, price_paid_cents, purchase_reference)
+       VALUES ($1, $2, $3, $3, 'granted', NULL, NULL)
+       RETURNING id`,
+      [toAccountId, creditTypeId, quantity]
+    );
+    const newLotId = lotRes.rows[0].id;
+
+    // c. Log the grant.
+    const tx = await insertCreditTransaction(client, {
+      accountId: toAccountId,
+      creditTypeId,
+      lotId: newLotId,
+      eventType: 'granted',
+      quantity,
+      assessmentId: null,
+      createdBy: grantedBy,
+      notes,
+    });
+
+    await client.query('COMMIT');
+    return { lotId: newLotId, transactionId: tx.id };
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (e.message !== 'UNKNOWN_CREDIT_TYPE') {
+      console.error('[db] grantCredits failed:', e.message);
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   pool,
   initDb,
@@ -2267,4 +2499,10 @@ module.exports = {
   addEmbargo,
   removeEmbargo,
   getUsersByEmbargo,
+  // Provisioning & Commerce PR4 — credit ledger
+  getAccountBalance,
+  insertCreditTransaction,
+  consumeCredit,
+  restoreCredit,
+  grantCredits,
 };
