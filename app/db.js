@@ -510,6 +510,191 @@ ALTER TABLE assessments ADD COLUMN IF NOT EXISTS client_context_summary TEXT;
 -- TODO: client_context_summary is pre-positioned for the Pocket Coach system prompt.
 -- Populated at assessment completion by the AI pipeline.
 -- Write path is a future build item — do not add writes to this column in this PR.
+
+-- ═══ Provisioning & Commerce v1.0 — PR1: new tables (DDL only) ════════════════════
+-- Additive extension of IAA v1.2 (spec §10.1). Nothing here revises a ratified table.
+-- Ordered by PostgreSQL FK dependency: accounts → credit_types → credit_lots →
+-- credit_transactions → certifications → teams → team_members → team_reports →
+-- assignment_events. Every table FKs into users/coaches/clients/assessments, all of
+-- which are defined above, so this block must remain at the tail of SCHEMA_SQL.
+-- teams / team_members / team_reports ship schema-only this build (no logic yet).
+
+-- ── Table: accounts ── billing account abstraction. 1:1 with a coach today, modeled
+-- so a future multi-coach practice needs no migration. The house account (Cai/Mo D2C)
+-- has coach_id NULL; a coach's own account carries their coach_id. The partial unique
+-- index enforces one 'coach' account per coach while leaving the NULL-coach_id house
+-- row exempt (multiple NULLs would otherwise collide under a plain UNIQUE).
+CREATE TABLE IF NOT EXISTS accounts (
+  id           SERIAL PRIMARY KEY,
+  coach_id     INTEGER REFERENCES coaches(id),
+  account_type VARCHAR(10) NOT NULL CHECK (account_type IN ('coach', 'house')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS accounts_coach_id_key
+  ON accounts (coach_id) WHERE coach_id IS NOT NULL;
+
+-- ── Table: credit_types ── static reference (roles pattern). Seeded in PR3, never
+-- mutated by app code. name is the machine key referenced by requested_report_types.
+CREATE TABLE IF NOT EXISTS credit_types (
+  id          SERIAL PRIMARY KEY,
+  name        VARCHAR(50) NOT NULL UNIQUE,
+  description TEXT
+);
+
+-- ── Table: credit_lots ── lot-based credit tracking (spec §5.3), not a flat balance.
+-- Each purchase or grant is its own lot with its own price and remaining count, so a
+-- cancellation can restore at the price actually paid. source distinguishes paid vs
+-- free; price_paid_cents is NULL for granted lots.
+CREATE TABLE IF NOT EXISTS credit_lots (
+  id                 SERIAL PRIMARY KEY,
+  account_id         INTEGER NOT NULL REFERENCES accounts(id),
+  credit_type_id     INTEGER NOT NULL REFERENCES credit_types(id),
+  quantity           INTEGER NOT NULL,
+  quantity_remaining INTEGER NOT NULL,
+  source             VARCHAR(10) NOT NULL CHECK (source IN ('purchased', 'granted')),
+  price_paid_cents   INTEGER,
+  purchase_reference TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS credit_lots_account_type_idx
+  ON credit_lots (account_id, credit_type_id);
+-- PR9: atomic idempotency for the ThriveCart webhook — a repeated purchase (same
+-- purchase_reference) can INSERT at most once. Partial (WHERE NOT NULL) so the many
+-- granted/consumed lots with a NULL reference are exempt from the uniqueness rule.
+CREATE UNIQUE INDEX IF NOT EXISTS credit_lots_purchase_reference_key
+  ON credit_lots (purchase_reference) WHERE purchase_reference IS NOT NULL;
+
+-- ── Table: credit_transactions ── append-only ledger of every credit event
+-- (auth_events pattern). lot_id is nullable (a restore may not target a single lot);
+-- assessment_id links a consume/restore to the assessment it provisioned; created_by
+-- is the acting user (SET NULL so the audit row survives user deletion).
+CREATE TABLE IF NOT EXISTS credit_transactions (
+  id             SERIAL PRIMARY KEY,
+  account_id     INTEGER NOT NULL REFERENCES accounts(id),
+  credit_type_id INTEGER NOT NULL REFERENCES credit_types(id),
+  lot_id         INTEGER REFERENCES credit_lots(id),
+  event_type     VARCHAR(10) NOT NULL CHECK (event_type IN ('consumed', 'restored', 'granted')),
+  quantity       INTEGER NOT NULL,
+  assessment_id  INTEGER REFERENCES assessments(id),
+  created_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  notes          TEXT
+);
+CREATE INDEX IF NOT EXISTS credit_transactions_account_idx
+  ON credit_transactions (account_id);
+CREATE INDEX IF NOT EXISTS credit_transactions_assessment_idx
+  ON credit_transactions (assessment_id);
+
+-- ── Table: certifications ── dedicated certification record, separate from the coach
+-- role grant, to support ICF CCE audit requirements (spec §4). user_id is the
+-- certified person; evaluator_id is the Cai/Mo assessor (both → users, SET NULL).
+CREATE TABLE IF NOT EXISTS certifications (
+  id                          SERIAL PRIMARY KEY,
+  user_id                     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  program_version             VARCHAR(50),
+  completion_date             DATE,
+  evaluator_id                INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  debrief_evaluation_outcome  TEXT,
+  icf_cce_units               NUMERIC,
+  notes                       TEXT,
+  created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Table: teams ── (schema-only this build) roster of clients grouped for a Team
+-- Report, decoupled from billing. leader_client_id is the designated report recipient.
+CREATE TABLE IF NOT EXISTS teams (
+  id                  SERIAL PRIMARY KEY,
+  name                VARCHAR(255),
+  organization        VARCHAR(255),
+  leader_client_id    INTEGER REFERENCES clients(id),
+  created_by_coach_id INTEGER REFERENCES coaches(id),
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ── Table: team_members ── (schema-only) join of teams↔clients, independent of how
+-- any member's assessment was paid for. Composite PK prevents duplicate membership.
+CREATE TABLE IF NOT EXISTS team_members (
+  team_id   INTEGER NOT NULL REFERENCES teams(id),
+  client_id INTEGER NOT NULL REFERENCES clients(id),
+  added_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (team_id, client_id)
+);
+
+-- ── Table: team_reports ── (schema-only) versioned Team Report records — each re-run
+-- is a new row, not an overwrite. credit_transaction_id links the consuming ledger row.
+CREATE TABLE IF NOT EXISTS team_reports (
+  id                    SERIAL PRIMARY KEY,
+  team_id               INTEGER NOT NULL REFERENCES teams(id),
+  version_number        INTEGER,
+  status                VARCHAR(50),
+  generated_at          TIMESTAMPTZ,
+  pdf_path              VARCHAR(500),
+  bonus_rerun_used      BOOLEAN DEFAULT FALSE,
+  credit_transaction_id INTEGER REFERENCES credit_transactions(id)
+);
+
+-- ── Table: assignment_events ── append-only audit trail for coach assignment and
+-- reassignment (v1.2 didn't anticipate clients moving between coaches). previous/new
+-- coach nullable (a first assignment has no previous); assigned_by → users (SET NULL).
+CREATE TABLE IF NOT EXISTS assignment_events (
+  id                SERIAL PRIMARY KEY,
+  client_id         INTEGER NOT NULL REFERENCES clients(id),
+  previous_coach_id INTEGER REFERENCES coaches(id),
+  new_coach_id      INTEGER REFERENCES coaches(id),
+  assigned_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  reason            TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS assignment_events_client_idx
+  ON assignment_events (client_id);
+
+-- ═══ Provisioning & Commerce v1.0 — PR2: existing-table columns + backfill ════════
+-- Additive columns on assessments / reports / app_settings (spec §10.2, with the
+-- D1/D7 override that moves client_source + auto_send_invitation onto assessments,
+-- not clients). Must follow the PR1 block above: reports.team_id FKs teams(id).
+
+-- ── assessments ── cancellation audit trail (D3: orthogonal to soft-delete — these
+-- three columns are distinct from deleted_at/pre_deletion_status/permanently_deleted),
+-- the two per-assessment send flags (nullable, no column DEFAULT — written explicitly
+-- at provisioning in PR8, backfilled below for pre-launch rows), requested_report_types
+-- (JSONB array of credit_types.name strings), and client_source (D7).
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS cancelled_at           TIMESTAMPTZ;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS cancellation_reason    TEXT;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS credit_restored_at     TIMESTAMPTZ;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS auto_send_report       BOOLEAN;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS auto_send_invitation   BOOLEAN;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS requested_report_types JSONB;
+ALTER TABLE assessments ADD COLUMN IF NOT EXISTS client_source          TEXT;
+
+-- ── reports ── Team Report versioning (spec §7.2/§10.2). Nullable, no FK backfill;
+-- parent_report_id self-references reports; team_id FKs the PR1 teams table.
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS version_number   INTEGER;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS parent_report_id INTEGER REFERENCES reports(id);
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS team_id          INTEGER REFERENCES teams(id);
+
+-- ── app_settings ── global credit-enforcement kill switch. FALSE at launch: the
+-- house account still calls consumeCredit() and logs the ledger row, but no balance
+-- floor is enforced until this flips TRUE (handoff F2). Mirrors the em_* flag style.
+ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS credit_enforcement_enabled BOOLEAN DEFAULT FALSE;
+
+-- ── Send-flag backfill (handoff G — the re-flip trap) ──
+-- auto_send_report / auto_send_invitation carry NO column-level DEFAULT, so new rows
+-- are NULL until PR8 stamps them at provisioning. Existing pre-launch rows must be
+-- TRUE to preserve today's automatic send behavior. This one-time backfill is guarded
+-- by a FIXED cutoff so it never re-flips a post-launch row that a coach intentionally
+-- set to FALSE: SCHEMA_SQL runs on every boot, and a naive "IS NULL → TRUE" (or a
+-- column DEFAULT TRUE) would silently re-enable auto-send on every restart.
+DO $$ BEGIN
+  UPDATE assessments
+    SET auto_send_report = TRUE
+    WHERE auto_send_report IS NULL
+      AND created_at < '2026-07-01 12:00:00+00';
+
+  UPDATE assessments
+    SET auto_send_invitation = TRUE
+    WHERE auto_send_invitation IS NULL
+      AND created_at < '2026-07-01 12:00:00+00';
+END $$;
 `;
 
 const SEED_SQL = `
@@ -622,6 +807,42 @@ AND NOT EXISTS (
   WHERE ur.user_id = u.id AND ur.role_id = r.id
 );
 
+-- ═══ Provisioning & Commerce v1.0 — PR3: seed data ══════════════════════════════
+-- Runs on every boot after all DDL. Idempotent (ON CONFLICT DO NOTHING / WHERE NOT
+-- EXISTS) so re-runs never duplicate. Depends on PR1 tables + the coaches seed above.
+
+-- 1) credit_types — static reference (spec §5.1). Only standard_assessment is sold at
+--    October launch; the other two ship now so the ledger is typed from day one and
+--    never needs a retrofit migration once coaches hold real balances.
+INSERT INTO credit_types (name, description) VALUES
+  ('standard_assessment',
+   'One InsightOut Enneagram Assessment with client and coach report'),
+  ('leadership_report',
+   'Leadership Report overlay — requires a completed assessment'),
+  ('team_report',
+   'Team Report — requires completed assessments for all members')
+ON CONFLICT (name) DO NOTHING;
+
+-- 2) House account (coach_id NULL) — bills Cai/Mo D2C assessments (handoff F6). One
+--    only; guarded on WHERE NOT EXISTS since the partial unique index does not cover
+--    NULL coach_id.
+INSERT INTO accounts (coach_id, account_type)
+  SELECT NULL, 'house'
+  WHERE NOT EXISTS (
+    SELECT 1 FROM accounts WHERE account_type = 'house'
+  );
+
+-- 3) One 'coach' account per existing coach. NOT EXISTS guard is idempotent and also
+--    backfills any coach added before this seed ran; the accounts_coach_id_key partial
+--    unique index is the hard backstop against duplicates.
+INSERT INTO accounts (coach_id, account_type)
+  SELECT c.id, 'coach'
+  FROM coaches c
+  WHERE NOT EXISTS (
+    SELECT 1 FROM accounts a
+    WHERE a.coach_id = c.id
+  );
+
 `;
 
 async function initDb() {
@@ -654,13 +875,25 @@ async function findOrCreateCoach(coachName) {
   return r && r.rows.length > 0 ? r.rows[0].id : null;
 }
 
+// D1 upsert: attach to an existing client on duplicate email instead of throwing.
+// ON CONFLICT (email) DO NOTHING returns no row on a conflict, so a null result means
+// either "email already exists" or a swallowed query() error — disambiguated by the
+// case-insensitive getClientByEmail fallback (the unique index is case-sensitive, so the
+// fallback also catches a differing-case duplicate the ON CONFLICT target would miss).
+// Returns { id, created } — created=true only when a brand-new row was inserted.
+// NOTE: return shape changed from a bare id; server.js call sites must be updated (PR8).
 async function createClient(intake, coachId) {
   const r = await query(
     `INSERT INTO clients (coach_id, first_name, last_name, email, organization)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (email) DO NOTHING
+     RETURNING id`,
     [coachId, intake.firstName, intake.lastName, intake.email, intake.organization || null]
   );
-  return r && r.rows.length > 0 ? r.rows[0].id : null;
+  if (r && r.rows.length > 0) return { id: r.rows[0].id, created: true };
+  const existing = await getClientByEmail(intake.email);
+  if (existing) return { id: existing.id, created: false };
+  throw new Error('CLIENT_LOOKUP_FAILED');
 }
 
 async function createAssessment(clientId, responses, retakeOfAssessmentId = null) {
@@ -675,6 +908,85 @@ async function createAssessment(clientId, responses, retakeOfAssessmentId = null
     [clientId, JSON.stringify(responses), retakeOfAssessmentId]
   );
   return r && r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// ── PROVISIONAL ASSESSMENT HELPERS (PR7a) ───────────────────────────
+// The assessment-at-provisioning lifecycle flip: the row is now born at provisioning
+// time as 'not_started' (createProvisionalAssessment) and later transitioned to
+// 'processing' at submit (transitionAssessmentToProcessing), instead of being created
+// 'processing' at submit by createAssessment. PR7a adds the helpers; PR7b/PR8 wire them
+// into /api/submit and the provisioning routes.
+
+// Create the assessment row at provisioning time with status='not_started'. status is set
+// EXPLICITLY (the base column DEFAULT 'pending' is dead). client_source and the two send
+// flags are stamped here (set by the provisioning modal in PR8). is_beta is mirrored from
+// the client row via subselect — same atomic pattern as createAssessment — so a provisional
+// row inherits the beta flag without a second round-trip.
+async function createProvisionalAssessment(clientId, clientSource, autoSendReport, autoSendInvitation, retakeOfAssessmentId) {
+  const r = await query(
+    `INSERT INTO assessments (
+       client_id,
+       status,
+       client_source,
+       auto_send_report,
+       auto_send_invitation,
+       retake_of_assessment_id,
+       is_beta
+     )
+     VALUES (
+       $1,
+       'not_started',
+       $2,
+       $3,
+       $4,
+       $5,
+       COALESCE((SELECT is_beta FROM clients WHERE id = $1), FALSE)
+     )
+     RETURNING id`,
+    [clientId, clientSource ?? null, autoSendReport, autoSendInvitation, retakeOfAssessmentId ?? null]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// Transition a pre-existing 'not_started' row → 'processing' and write the responses
+// payload. Called by /api/submit (PR7b) in place of createAssessment. The
+// WHERE status='not_started' clause is the atomic application-level guard against
+// double-submission / concurrent transitions (there is no DB uniqueness on
+// (client_id, status)): only the first submit matches and updates a row; a second submit
+// matches zero rows and gets null back. Distinguish a DB error (query() → null → throw)
+// from a no-match race (zero rows → return null cleanly) via result.rows.length.
+async function transitionAssessmentToProcessing(assessmentId, responses) {
+  const r = await query(
+    `UPDATE assessments
+        SET status = 'processing',
+            responses = $2
+      WHERE id = $1
+        AND status = 'not_started'
+      RETURNING id`,
+    [assessmentId, responses == null ? null : (typeof responses === 'string' ? responses : JSON.stringify(responses))]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// Find the client's pre-provisioned not_started assessment row (created at provisioning
+// by PR8). /api/submit calls this to locate the row to transition; a null return means
+// none exists, and the caller falls back to createAssessment (self-serve path, and any
+// submit before PR8 provisioning is deployed). Newest-first in the unlikely event more
+// than one not_started row exists. Throws DB_ERROR on a swallowed query() error; returns
+// null cleanly on zero rows.
+async function getNotStartedAssessmentId(clientId) {
+  const r = await query(
+    `SELECT id FROM assessments
+      WHERE client_id = $1
+        AND status = 'not_started'
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [clientId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].id : null;
 }
 
 // Latest assessment id for a client (by created_at), or null if none. Used by
@@ -849,6 +1161,7 @@ const ADMIN_ROWS_SELECT = `
     a.deleted_at,
     a.pre_deletion_status,
     a.permanently_deleted,
+    a.cancelled_at,
     co.name         AS coach_name,
     COALESCE(a.created_at, c.created_at) AS created_at,
     COALESCE(a.status, c.status, 'unknown') AS status,
@@ -1094,15 +1407,54 @@ async function setCoachActive(coachId, isActive) {
   );
 }
 
-async function reassignClients(fromCoachId, toCoachId) {
+// Append one row to the append-only assignment_events audit trail (PR5). Called by the
+// reassign helpers below and by the provisioning path (PR8). previousCoachId is null on a
+// first assignment; reason is nullable. Uses the query() wrapper (no transaction needed).
+async function insertAssignmentEvent(clientId, previousCoachId, newCoachId, assignedBy, reason) {
+  const r = await query(
+    `INSERT INTO assignment_events
+       (client_id, previous_coach_id, new_coach_id, assigned_by, reason)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [clientId, previousCoachId ?? null, newCoachId, assignedBy ?? null, reason ?? null]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows[0];
+}
+
+// Bulk reassignment (all of one coach's clients → another). assignedBy/reason are new
+// optional trailing params (default null) so existing 2-arg call sites keep working.
+// Captures the affected client ids BEFORE the update, then logs one assignment_event per
+// moved client. The audit write is best-effort (try/catch, no rethrow) so a logging
+// failure never aborts the reassignment — preserving this helper's original never-throw
+// contract, matching logClientEvent's documented discipline.
+async function reassignClients(fromCoachId, toCoachId, assignedBy = null, reason = null) {
+  const before = await query('SELECT id FROM clients WHERE coach_id = $1', [fromCoachId]);
   await query(
     'UPDATE clients SET coach_id = $1 WHERE coach_id = $2',
     [toCoachId, fromCoachId]
   );
+  try {
+    if (before) {
+      for (const row of before.rows) {
+        await insertAssignmentEvent(row.id, fromCoachId, toCoachId, assignedBy, reason);
+      }
+    }
+  } catch (e) {
+    console.error('[db] reassignClients: assignment_events log failed:', e.message);
+  }
 }
 
-async function reassignClientToCoach(clientId, newCoachId) {
+// Single reassignment. assignedBy/reason are new optional trailing params (default null).
+// previousCoachId is read before the update; the audit write is best-effort (see above).
+async function reassignClientToCoach(clientId, newCoachId, assignedBy = null, reason = null) {
+  const prevCoachId = await getClientCoachId(clientId);
   await query('UPDATE clients SET coach_id = $1 WHERE id = $2', [newCoachId, clientId]);
+  try {
+    await insertAssignmentEvent(clientId, prevCoachId, newCoachId, assignedBy, reason);
+  } catch (e) {
+    console.error('[db] reassignClientToCoach: assignment_events log failed:', e.message);
+  }
 }
 
 async function getClientCoachId(clientId) {
@@ -1937,6 +2289,433 @@ async function getUsersByEmbargo(value, matchType) {
   return r ? r.rows : [];
 }
 
+// ── CREDIT HELPERS (PR4) ────────────────────────────────────────────
+// Lot-based credit ledger (spec §5.3). Every mutation is transactional and uses
+// pool.connect() directly (NOT the query() wrapper, which swallows errors and returns
+// null) so a mid-transaction failure ROLLs BACK and re-throws — mirroring
+// resendInviteTransaction. credit_transactions is append-only; credit_lots.quantity_remaining
+// is the spendable count. insertCreditTransaction takes a caller-supplied pg client and is
+// only ever called INSIDE one of these transactions (never standalone).
+
+// Current spendable balance for an account + credit type: sum of quantity_remaining
+// across non-exhausted lots. Read-only, so it uses the query() wrapper — but a null
+// return means the statement threw (query() swallows), which we surface as DB_ERROR
+// rather than silently reporting a zero balance.
+async function getAccountBalance(accountId, creditTypeName) {
+  const r = await query(
+    `SELECT COALESCE(SUM(cl.quantity_remaining), 0) AS balance
+       FROM credit_lots cl
+       JOIN credit_types ct ON cl.credit_type_id = ct.id
+      WHERE cl.account_id = $1
+        AND ct.name = $2
+        AND cl.quantity_remaining > 0`,
+    [accountId, creditTypeName]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return { balance: Number(r.rows[0].balance) };
+}
+
+// Append one row to the append-only credit_transactions ledger. ALWAYS called with a
+// caller-supplied pg client (txClient) inside an open transaction — never standalone —
+// so a failure propagates to the caller's catch/ROLLBACK. lotId, assessmentId, and notes
+// are all nullable. Returns the inserted row.
+async function insertCreditTransaction(client, { accountId, creditTypeId, lotId, eventType, quantity, assessmentId, createdBy, notes }) {
+  const r = await client.query(
+    `INSERT INTO credit_transactions
+       (account_id, credit_type_id, lot_id, event_type, quantity,
+        assessment_id, created_by, notes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING *`,
+    [accountId, creditTypeId, lotId ?? null, eventType, quantity,
+     assessmentId ?? null, createdBy ?? null, notes ?? null]
+  );
+  return r.rows[0];
+}
+
+// FIFO consume of one credit at provisioning time. Locks the oldest non-exhausted lot
+// (FOR UPDATE) to avoid a concurrent double-spend, decrements it by 1, and logs a
+// 'consumed' transaction — all in one transaction. When no lot is available the behavior
+// depends on app_settings.credit_enforcement_enabled (the singleton column, read via
+// getAppSettings): FALSE (launch default) logs an enforcement_disabled transaction with a
+// null lot and succeeds so the ledger stays accurate for the eventual enforcement flip
+// (handoff F2); TRUE (or unreadable settings) rejects with INSUFFICIENT_CREDITS.
+async function consumeCredit(accountId, creditTypeName, assessmentId, createdBy) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // a. Resolve credit type name → id.
+    const typeRes = await client.query('SELECT id FROM credit_types WHERE name = $1', [creditTypeName]);
+    if (typeRes.rows.length === 0) throw new Error('UNKNOWN_CREDIT_TYPE');
+    const creditTypeId = typeRes.rows[0].id;
+
+    // b. Oldest non-exhausted lot, row-locked against concurrent consumers.
+    const lotRes = await client.query(
+      `SELECT id, quantity_remaining
+         FROM credit_lots
+        WHERE account_id = $1
+          AND credit_type_id = $2
+          AND quantity_remaining > 0
+        ORDER BY created_at ASC
+        LIMIT 1
+        FOR UPDATE`,
+      [accountId, creditTypeId]
+    );
+
+    // c. No lot available → enforcement decides.
+    if (lotRes.rows.length === 0) {
+      const settings = await getAppSettings();
+      const enforcementEnabled = !settings || settings.credit_enforcement_enabled === true;
+      if (enforcementEnabled) {
+        await client.query('ROLLBACK');
+        throw new Error('INSUFFICIENT_CREDITS');
+      }
+      const tx = await insertCreditTransaction(client, {
+        accountId,
+        creditTypeId,
+        lotId: null,
+        eventType: 'consumed',
+        quantity: 1,
+        assessmentId,
+        createdBy,
+        notes: 'enforcement_disabled',
+      });
+      await client.query('COMMIT');
+      return { lotId: null, transactionId: tx.id };
+    }
+
+    // d. Decrement the located lot by 1.
+    const lotId = lotRes.rows[0].id;
+    await client.query(
+      `UPDATE credit_lots SET quantity_remaining = quantity_remaining - 1 WHERE id = $1`,
+      [lotId]
+    );
+
+    // e. Log the consume.
+    const tx = await insertCreditTransaction(client, {
+      accountId,
+      creditTypeId,
+      lotId,
+      eventType: 'consumed',
+      quantity: 1,
+      assessmentId,
+      createdBy,
+      notes: null,
+    });
+
+    await client.query('COMMIT');
+    return { lotId, transactionId: tx.id };
+  } catch (e) {
+    // ROLLBACK is a no-op if the transaction is already rolled back (e.g. the
+    // INSUFFICIENT_CREDITS path above); guarded so it never masks the original error.
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (e.message !== 'INSUFFICIENT_CREDITS' && e.message !== 'UNKNOWN_CREDIT_TYPE') {
+      console.error('[db] consumeCredit failed:', e.message);
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// Restore exactly one credit to the SAME lot it was consumed from (cancellation path,
+// PR5). Increments quantity_remaining on that lot and logs a 'restored' transaction.
+// The lot must belong to the given account, else LOT_NOT_FOUND (guards against restoring
+// into someone else's lot). Single transaction.
+async function restoreCredit(accountId, creditTypeName, assessmentId, lotId, createdBy) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // a. Resolve credit type name → id.
+    const typeRes = await client.query('SELECT id FROM credit_types WHERE name = $1', [creditTypeName]);
+    if (typeRes.rows.length === 0) throw new Error('UNKNOWN_CREDIT_TYPE');
+    const creditTypeId = typeRes.rows[0].id;
+
+    // b. Increment the original lot, scoped to this account.
+    const lotRes = await client.query(
+      `UPDATE credit_lots
+          SET quantity_remaining = quantity_remaining + 1
+        WHERE id = $1 AND account_id = $2
+        RETURNING id, quantity_remaining`,
+      [lotId, accountId]
+    );
+    if (lotRes.rows.length === 0) throw new Error('LOT_NOT_FOUND');
+    const newQuantityRemaining = lotRes.rows[0].quantity_remaining;
+
+    // c. Log the restore.
+    const tx = await insertCreditTransaction(client, {
+      accountId,
+      creditTypeId,
+      lotId,
+      eventType: 'restored',
+      quantity: 1,
+      assessmentId,
+      createdBy,
+      notes: null,
+    });
+
+    await client.query('COMMIT');
+    return { lotId, newQuantityRemaining, transactionId: tx.id };
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (e.message !== 'LOT_NOT_FOUND' && e.message !== 'UNKNOWN_CREDIT_TYPE') {
+      console.error('[db] restoreCredit failed:', e.message);
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// Create a new granted (free) lot and log a 'granted' transaction. Used by the admin
+// Grant Credits UI (PR11) and the ThriveCart webhook (PR9). source='granted', so
+// price_paid_cents / purchase_reference are NULL. quantity_remaining seeds equal to
+// quantity. Single transaction.
+async function grantCredits(toAccountId, creditTypeName, quantity, grantedBy, notes) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // a. Resolve credit type name → id.
+    const typeRes = await client.query('SELECT id FROM credit_types WHERE name = $1', [creditTypeName]);
+    if (typeRes.rows.length === 0) throw new Error('UNKNOWN_CREDIT_TYPE');
+    const creditTypeId = typeRes.rows[0].id;
+
+    // b. Create the granted lot.
+    const lotRes = await client.query(
+      `INSERT INTO credit_lots
+         (account_id, credit_type_id, quantity, quantity_remaining,
+          source, price_paid_cents, purchase_reference)
+       VALUES ($1, $2, $3, $3, 'granted', NULL, NULL)
+       RETURNING id`,
+      [toAccountId, creditTypeId, quantity]
+    );
+    const newLotId = lotRes.rows[0].id;
+
+    // c. Log the grant.
+    const tx = await insertCreditTransaction(client, {
+      accountId: toAccountId,
+      creditTypeId,
+      lotId: newLotId,
+      eventType: 'granted',
+      quantity,
+      assessmentId: null,
+      createdBy: grantedBy,
+      notes,
+    });
+
+    await client.query('COMMIT');
+    return { lotId: newLotId, transactionId: tx.id };
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (e.message !== 'UNKNOWN_CREDIT_TYPE') {
+      console.error('[db] grantCredits failed:', e.message);
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// ── PURCHASED CREDIT HELPER (PR9) ───────────────────────────────────
+// Record a PAID credit lot (source='purchased', with price + purchase_reference) and log
+// the ledger row — distinct from grantCredits (free grants). Idempotent: the partial unique
+// index credit_lots_purchase_reference_key + ON CONFLICT DO NOTHING means a duplicate
+// purchaseReference (ThriveCart retry) inserts nothing and returns { alreadyProcessed: true }
+// WITHOUT throwing, so the webhook can answer 200 on a retry. Single transaction; the
+// event_type stays 'granted' to match the credit_transactions CHECK (consumed|restored|granted).
+async function recordPurchasedCredits(toAccountId, creditTypeName, quantity, purchaseReference, pricePaidCents, grantedBy, notes) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // a. Resolve credit type name → id.
+    const typeRes = await client.query('SELECT id FROM credit_types WHERE name = $1', [creditTypeName]);
+    if (typeRes.rows.length === 0) throw new Error('UNKNOWN_CREDIT_TYPE');
+    const creditTypeId = typeRes.rows[0].id;
+
+    // b. Insert the purchased lot, guarded by the purchase_reference unique index.
+    const lotRes = await client.query(
+      `INSERT INTO credit_lots
+         (account_id, credit_type_id, quantity, quantity_remaining,
+          source, price_paid_cents, purchase_reference)
+       VALUES ($1, $2, $3, $3, 'purchased', $4, $5)
+       ON CONFLICT (purchase_reference) DO NOTHING
+       RETURNING id`,
+      [toAccountId, creditTypeId, quantity, pricePaidCents ?? null, purchaseReference]
+    );
+    if (lotRes.rows.length === 0) {
+      // Conflict → this purchase_reference was already recorded. Idempotent no-op.
+      await client.query('ROLLBACK');
+      return { alreadyProcessed: true };
+    }
+    const newLotId = lotRes.rows[0].id;
+
+    // c. Log the grant transaction.
+    const tx = await insertCreditTransaction(client, {
+      accountId: toAccountId,
+      creditTypeId,
+      lotId: newLotId,
+      eventType: 'granted',
+      quantity,
+      assessmentId: null,
+      createdBy: grantedBy,
+      notes,
+    });
+
+    await client.query('COMMIT');
+    return { lotId: newLotId, transactionId: tx.id, alreadyProcessed: false };
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (e.message !== 'UNKNOWN_CREDIT_TYPE') {
+      console.error('[db] recordPurchasedCredits failed:', e.message);
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// ── ACCOUNT LOOKUP HELPERS (PR8) ────────────────────────────────────
+// Resolve which billing account a provisioning consume should debit. Both return a scalar
+// account id (or null), read-only via query(); a null query() result (DB error) surfaces as
+// DB_ERROR so the caller never mistakes an error for "no account".
+
+// A coach's own billing account (1:1 via the accounts_coach_id_key partial unique index).
+async function getAccountByCoachId(coachId) {
+  const r = await query(
+    `SELECT id FROM accounts
+      WHERE coach_id = $1
+        AND account_type = 'coach'
+      LIMIT 1`,
+    [coachId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// The single house account (coach_id NULL) — bills D2C / house-provisioned assessments.
+async function getHouseAccount() {
+  const r = await query(
+    `SELECT id FROM accounts
+      WHERE account_type = 'house'
+      LIMIT 1`
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// ── PROVISIONING/CANCELLATION HELPERS (PR5) ──────────────────────────
+// Placed directly below the PR4 credit block because cancellation is credit-adjacent
+// (it restores a consumed credit). account_id / lot_id are NOT stored on assessments;
+// they are recovered from the credit_transactions ledger via getConsumedCreditTx.
+
+// The 'consumed' ledger row for an assessment — the source of truth for which account,
+// lot, and credit type a provisioning consume drew from (there is no account_id column on
+// assessments). Earliest consume wins. Returns the row, or null if none. A null query()
+// result (DB error) is surfaced as DB_ERROR; zero rows returns null (caller handles the
+// no-ledger case — e.g. an assessment provisioned before the credit ledger existed).
+async function getConsumedCreditTx(assessmentId) {
+  const r = await query(
+    `SELECT id, account_id, lot_id, credit_type_id
+       FROM credit_transactions
+      WHERE assessment_id = $1
+        AND event_type = 'consumed'
+      ORDER BY created_at ASC
+      LIMIT 1`,
+    [assessmentId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// Cancel a not_started assessment and restore its credit in one transaction (D3: cancel ≠
+// soft-delete — this stamps only cancelled_at/cancellation_reason/credit_restored_at and
+// never touches deleted_at/status). Eligibility is 'not_started' AND not already cancelled;
+// once status advances past not_started the credit is consumed and cancellation is offline
+// (Cai/Mo). The restoreCredit logic is INLINED on the same txClient (rather than calling the
+// exported restoreCredit, which opens its own connection) to avoid a nested transaction.
+async function cancelAssessment(assessmentId, reason, cancelledBy) {
+  if (!pool) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // a. Lock the assessment. account_id is intentionally NOT selected — the column does
+    //    not exist on assessments; account/lot come from the ledger in step b.
+    const aRes = await client.query(
+      `SELECT id, status, cancelled_at FROM assessments WHERE id = $1 FOR UPDATE`,
+      [assessmentId]
+    );
+    if (aRes.rows.length === 0) throw new Error('ASSESSMENT_NOT_FOUND');
+    // Guard both the status AND an already-cancelled row: re-cancelling would restore a
+    // second credit (double-credit), since cancellation leaves status = 'not_started'.
+    if (aRes.rows[0].status !== 'not_started' || aRes.rows[0].cancelled_at !== null) {
+      throw new Error('CANCELLATION_INELIGIBLE');
+    }
+
+    // b. Recover the consumed credit from the ledger and restore it (inlined restoreCredit).
+    const tx = await getConsumedCreditTx(assessmentId);
+    let creditRestored = false;
+    if (tx) {
+      const typeRes = await client.query('SELECT name FROM credit_types WHERE id = $1', [tx.credit_type_id]);
+      // Restore into the original lot when there is one. A consume made under
+      // enforcement_disabled logs a null lot_id (no lot existed); we still record the
+      // matching 'restored' ledger row so the ledger nets to zero, just without a lot bump.
+      if (tx.lot_id != null) {
+        const lotRes = await client.query(
+          `UPDATE credit_lots
+              SET quantity_remaining = quantity_remaining + 1
+            WHERE id = $1 AND account_id = $2
+            RETURNING id`,
+          [tx.lot_id, tx.account_id]
+        );
+        if (lotRes.rows.length === 0) throw new Error('LOT_NOT_FOUND');
+      }
+      await insertCreditTransaction(client, {
+        accountId: tx.account_id,
+        creditTypeId: tx.credit_type_id,
+        lotId: tx.lot_id ?? null,
+        eventType: 'restored',
+        quantity: 1,
+        assessmentId,
+        createdBy: cancelledBy,
+        notes: null,
+      });
+      creditRestored = true;
+    } else {
+      console.warn('[db] cancelAssessment: no consumed credit tx for assessment', assessmentId,
+        '— cancelling without credit restore');
+    }
+
+    // c. Stamp the cancellation columns. credit_restored_at only when a credit was restored.
+    await client.query(
+      `UPDATE assessments
+          SET cancelled_at = NOW(),
+              cancellation_reason = $2,
+              credit_restored_at = CASE WHEN $3 THEN NOW() ELSE credit_restored_at END
+        WHERE id = $1`,
+      [assessmentId, reason ?? null, creditRestored]
+    );
+
+    await client.query('COMMIT');
+    return { assessmentId, creditRestored };
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (!['ASSESSMENT_NOT_FOUND', 'CANCELLATION_INELIGIBLE', 'LOT_NOT_FOUND'].includes(e.message)) {
+      console.error('[db] cancelAssessment failed:', e.message);
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   pool,
   initDb,
@@ -1953,6 +2732,11 @@ module.exports = {
   completeAssessment,
   failAssessment,
   updateAssessmentTiming,
+  // Provisioning & Commerce PR7a — provisional assessment lifecycle
+  createProvisionalAssessment,
+  transitionAssessmentToProcessing,
+  // Provisioning & Commerce PR7b — not_started finder
+  getNotStartedAssessmentId,
   createReport,
   getAllAdminRows,
   getAdminRowsByCoach,
@@ -2051,4 +2835,19 @@ module.exports = {
   addEmbargo,
   removeEmbargo,
   getUsersByEmbargo,
+  // Provisioning & Commerce PR4 — credit ledger
+  getAccountBalance,
+  insertCreditTransaction,
+  consumeCredit,
+  restoreCredit,
+  grantCredits,
+  // Provisioning & Commerce PR9 — purchased credits (ThriveCart)
+  recordPurchasedCredits,
+  // Provisioning & Commerce PR8 — account lookup
+  getAccountByCoachId,
+  getHouseAccount,
+  // Provisioning & Commerce PR5 — upsert, cancellation, assignment
+  insertAssignmentEvent,
+  getConsumedCreditTx,
+  cancelAssessment,
 };
