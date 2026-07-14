@@ -876,8 +876,20 @@ a { color: var(--color-primary); text-decoration: none; }
   .cp-modal-backdrop { align-items: flex-end; padding: 0; }
   .cp-modal {
     max-width: none; border-radius: 16px 16px 0 0;
-    padding: 16px 20px 24px; max-height: 92vh;
+    padding: 16px 20px 24px;
+    /* The sheet is bottom-anchored, so without a floor it shrink-wraps its content and a
+       short modal sits low in the viewport with dead space above it. min-height pins the
+       TOP edge instead — landing it just under the client's name, per mockup 10 — while
+       max-height still lets a long modal grow and scroll internally. */
+    min-height: 76vh;
+    max-height: 92vh;
+    /* With a min-height, a short sheet (Request a Retake) would otherwise strand its
+       buttons mid-sheet with dead space beneath them. Column flex + margin-top:auto on the
+       footer pins the actions to the bottom edge whatever the content length. */
+    display: flex;
+    flex-direction: column;
   }
+  .cp-modal-foot { margin-top: auto; padding-top: 22px; }
   .cp-sheet-handle {
     display: block; width: 36px; height: 4px; border-radius: 100px;
     background: var(--color-border); margin: 0 auto 12px;
