@@ -103,6 +103,47 @@ When changes ship as a bundle, the bundle is referred to by the spec version (cu
 
 Samples in `samples/` are reference outputs. Update them whenever the spec changes in a way that affects what the engine produces. They serve as visual regression tests.
 
+## Local dev database (PR live smoke testing)
+
+A reusable local Postgres setup for testing PRs end-to-end without touching the
+production database. `app/.env` stays pointed at prod and is never modified.
+
+**One-time setup:**
+
+```bash
+# 1. Install + start Postgres (Homebrew)
+brew install postgresql@16
+brew services start postgresql@16
+export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
+
+# 2. Create the local dev database
+createdb hive_typing_local
+
+# 3. Create a git-ignored local env file at repo root (.env.* is gitignored)
+cat > .env.dev.local <<'EOF'
+DATABASE_URL=postgresql://<your-macos-username>@localhost:5432/hive_typing_local
+NODE_ENV=development
+PORT=3000
+EOF
+```
+
+**Each test run:**
+
+```bash
+node scripts/dev-local.js        # boots app/server.js against the LOCAL db
+                                 # (loads app/.env for non-DB keys, then overrides
+                                 #  DATABASE_URL from .env.dev.local; refuses to boot
+                                 #  if DATABASE_URL is not localhost). initDb() runs
+                                 #  SCHEMA_SQL/SEED_SQL against the local db on boot.
+
+node scripts/seed-smoke-users.js # seeds test users for all role combinations
+                                 # (password: Smoke!test1). Idempotent.
+```
+
+Server runs at http://localhost:3000. Log in at `/admin/login` with any seeded
+user (e.g. `smoke-coach@local.test`). Both scripts hard-refuse any non-local
+`DATABASE_URL` as a guardrail against pointing at prod.
+
 ## Confidentiality
 
 This repository contains proprietary content developed by Hive, Inc. for the Hive Typing Engine. Do not share, redistribute, or check this material into any public repository.

@@ -1,0 +1,168 @@
+/* ============================================================================
+   InsightOut Coach Portal — Design System (PR1)
+   Token + chrome layer only. No screen-specific styles yet.
+   Source of truth: Coach Portal Design Spec v2.2 — §3 (colors, typography),
+   §5 (portal shell), §11 (motion). One source of truth for tokens (§1, §12.1).
+   ========================================================================== */
+
+:root {
+  /* §3.1 Colors */
+  --color-primary:        #00B2D9;
+  --color-primary-light:  #E8F6FA;
+  --color-primary-dark:   #0A6E88;
+  --color-accent:         #F68625;
+  --color-accent-light:   #FEF3E8;
+  --color-text-heading:   #1E2A35;
+  --color-text-body:      #2D3A45;
+  --color-text-muted:     #8A96A3;
+  --color-text-footer:    #C8D0D9;
+  --color-border:         #E2E6EA;
+  --color-border-strong:  #BFC9D2;
+  --color-bg-page:        #F4F6F8;
+  --color-bg-card:        #FFFFFF;
+  --color-bg-nav:         #1E2A35;
+  --color-success:        #4F845C;
+  --color-success-bg:     #DFEAD8;
+  --color-error:          #E05252;
+  --color-error-bg:       #FDECEA;
+
+  /* §3.2 Typography */
+  --font-heading: Georgia, 'Times New Roman', serif;   /* H1–H3 only */
+  --font-ui:      Arial, Helvetica, sans-serif;         /* all UI text */
+
+  /* §11.1 Motion tokens */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 280ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);   /* entrances */
+  --ease-in:  cubic-bezier(0.4, 0, 1, 1);   /* exits */
+
+  /* Shell layout */
+  --nav-width-desktop: 240px;
+  --nav-width-tablet:  64px;
+  --header-height:     64px;
+  --footer-height:     48px;
+  --workspace-pad:     32px;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+.cp-body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--color-text-body);
+  background: var(--color-bg-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--color-primary); text-decoration: none; }
+
+/* ── §5 Portal shell ───────────────────────────────────────────────────── */
+.cp-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Left navigation (§5.2 desktop 240px) */
+.cp-nav {
+  width: var(--nav-width-desktop);
+  flex-shrink: 0;
+  background: var(--color-bg-nav);
+  color: var(--color-text-footer);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  gap: 24px;
+}
+
+.cp-brand { display: flex; flex-direction: column; padding: 0 8px 8px; }
+.cp-brand-mark { font-family: var(--font-heading); font-size: 20px; font-weight: bold; color: #FFFFFF; }
+.cp-brand-sub  { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
+
+.cp-nav-zone { display: flex; flex-direction: column; }
+.cp-nav-eyebrow {
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  margin: 0 0 8px 8px;
+}
+
+.cp-nav-item {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--color-text-footer);
+  font-size: 14px;
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+.cp-nav-item:hover { background: rgba(255, 255, 255, 0.06); color: #FFFFFF; }
+.cp-nav-item--active { background: var(--color-primary); color: #FFFFFF; }
+.cp-nav-ext { color: var(--color-text-muted); font-size: 11px; }
+
+.cp-nav-foot { margin-top: auto; padding-top: 16px; }
+.cp-nav-logout { display: block; padding: 8px 12px; color: var(--color-text-muted); font-size: 13px; }
+.cp-nav-logout:hover { color: var(--color-error); }
+
+/* Main column */
+.cp-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+.cp-header {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--workspace-pad);
+  background: var(--color-bg-card);
+  border-bottom: 1px solid var(--color-border);
+}
+.cp-header-title { font-family: var(--font-heading); font-size: 18px; font-weight: bold; color: var(--color-text-heading); }
+
+.cp-workspace { flex: 1; padding: var(--workspace-pad); }
+
+.cp-footer {
+  height: var(--footer-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--color-bg-card);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.cp-footer a { color: var(--color-text-muted); }
+.cp-footer a:hover { color: var(--color-primary); }
+.cp-footer-sep { color: var(--color-border); }
+
+/* ── Placeholder body (PR1 stub — Dashboard is PR3) ────────────────────── */
+.cp-placeholder {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 40px;
+}
+.cp-placeholder-title { font-family: var(--font-heading); font-size: 28px; font-weight: bold; color: var(--color-text-heading); margin: 0 0 8px; }
+.cp-placeholder-body  { font-size: 14px; color: var(--color-text-muted); margin: 0; }
+
+/* ── §3.4 Breakpoints (chrome-level responsiveness only) ───────────────── */
+@media (max-width: 1023px) {   /* Tablet: 64px icon-only strip is a later refinement */
+  .cp-nav { width: var(--nav-width-tablet); padding: 24px 8px; }
+  .cp-nav-eyebrow, .cp-brand-sub, .cp-nav-item, .cp-nav-logout { font-size: 0; }
+  .cp-brand-mark { font-size: 14px; }
+}
+
+@media (max-width: 767px) {   /* Mobile: nav collapses; hamburger is a later refinement */
+  .cp-shell { flex-direction: column; }
+  .cp-nav { width: 100%; flex-direction: row; flex-wrap: wrap; padding: 12px 16px; gap: 12px; }
+  .cp-nav-foot { margin-top: 0; padding-top: 0; }
+  .cp-workspace { padding: 16px; }
+}
+
+/* §11.10 Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; }
+}

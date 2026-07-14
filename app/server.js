@@ -116,6 +116,9 @@ const THRIVECART_SKU_MAP = {
 };
 app.use((req, res, next) => {
   if (req.path === '/admin/login' || req.path.startsWith('/admin')) return next();
+  // Coach portal (pages + /coach/assets/* static): session-gated via requireCoach, not
+  // basic auth — mirrors the /admin exemption above.
+  if (req.path.startsWith('/coach')) return next();
   if (req.path.startsWith('/assessment/')) return next();
   if (SPA_ASSET_PATHS.has(req.path)) return next();
   // Tokenized PDF access: generation is session-gated, redemption is token-gated.
@@ -162,6 +165,102 @@ app.get('/', (req, res, next) => {
   }
 });
 
+// ── Coach Portal static assets (PR1) ────────────────────────────────────────────
+// Prefix-scoped mount, registered BEFORE the blanket express.static('public') below.
+// Critical structural choice: CP assets do NOT live under a directory literally named
+// `coach` at the public root — they're in public/coach-portal-assets/ — so the blanket
+// public/ mount can never issue a directory 301 for a bare /coach or /coach/<segment>
+// path and shadow a dynamic route. This mount only ever answers /coach/assets/*, so it
+// cannot collide with /coach page routes now or in any future PR. The URL stays
+// /coach/assets/coach-portal.css (ratified Choicepoint 3), covered by the /coach
+// basic-auth carve-out above.
+app.use('/coach/assets', express.static(path.join(__dirname, 'public/coach-portal-assets')));
+
+// ── Coach Portal shell (PR1) ────────────────────────────────────────────────────
+// Registered BEFORE the blanket static mount (defense in depth for the bare /coach
+// path). Server-rendered stub shell — matches the admin template-literal convention.
+// The SPA-vs-server-render decision for the Coach Portal is deferred to before PR3
+// (Dashboard), so this deliberately stays thin: portal chrome (§5.2 nav zones,
+// header, footer) + a placeholder body. Screen routes (My Clients, Resources, etc.)
+// don't exist yet, so their nav items are inert links for now.
+function renderCoachShellStub({ coachName, activeNav = 'home' } = {}) {
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const nav = (route, label, id, opts = {}) => {
+    const active = id === activeNav ? ' aria-current="page" class="cp-nav-item cp-nav-item--active"' : ' class="cp-nav-item"';
+    const ext = opts.external ? ' target="_blank" rel="noopener"' : '';
+    return `<a href="${route}"${active}${ext}>${esc(label)}${opts.external ? ' <span class="cp-nav-ext">↗</span>' : ''}</a>`;
+  };
+  const greetName = coachName ? `, ${esc(coachName)}` : '';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>InsightOut · Coach Portal</title>
+  <link rel="stylesheet" href="/coach/assets/coach-portal.css">
+</head>
+<body class="cp-body">
+  <div class="cp-shell">
+    <nav class="cp-nav" aria-label="Coach portal">
+      <div class="cp-brand">
+        <span class="cp-brand-mark">InsightOut</span>
+        <span class="cp-brand-sub">by Hive, Inc.</span>
+      </div>
+      <div class="cp-nav-zone">
+        <p class="cp-nav-eyebrow">My Practice</p>
+        ${nav('/coach', 'Home', 'home')}
+        ${nav('/coach/clients', 'My Clients', 'clients')}
+        ${nav('/coach/reports', 'My Reports', 'reports')}
+      </div>
+      <div class="cp-nav-zone">
+        <p class="cp-nav-eyebrow">Grow</p>
+        ${nav('/coach/advisor', 'My InsightOut Advisor', 'advisor')}
+        ${nav('/coach/resources', 'Resources', 'resources')}
+        ${nav('/coach/training', 'Coach Training', 'training')}
+        ${nav('https://hive.mn.co', 'Enneagram Collective', 'collective', { external: true })}
+      </div>
+      <div class="cp-nav-zone">
+        <p class="cp-nav-eyebrow">Manage</p>
+        ${nav('/coach/account', 'My Account', 'account')}
+        ${nav('/coach/profile', 'My Profile', 'profile')}
+        ${nav('/coach/credits', 'Manage Credits', 'credits')}
+      </div>
+      <div class="cp-nav-foot">
+        <a href="/admin/logout" class="cp-nav-logout">Log out</a>
+      </div>
+    </nav>
+    <div class="cp-main">
+      <header class="cp-header">
+        <span class="cp-header-title">InsightOut Coach Portal</span>
+      </header>
+      <main class="cp-workspace">
+        <section class="cp-placeholder">
+          <h1 class="cp-placeholder-title">Welcome${greetName}</h1>
+          <p class="cp-placeholder-body">Your dashboard is coming soon.</p>
+        </section>
+      </main>
+      <footer class="cp-footer">
+        <span>© 2026 Hive, Inc.</span>
+        <span class="cp-footer-sep">|</span>
+        <a href="#">Privacy Policy</a>
+        <span class="cp-footer-sep">|</span>
+        <a href="#">Terms of Use</a>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+app.get('/coach', requireCoach, (req, res) => {
+  res.send(renderCoachShellStub({ coachName: req.session.coach_name, activeNav: 'home' }));
+});
+
+// Blanket static mount for the assessment SPA — registered AFTER the /coach route and
+// the prefix-scoped /coach/assets mount, so neither can be shadowed by a directory
+// 301 from this mount.
 app.use(express.static('public'));
 
 // Serve the type library from the in-memory copy loaded at boot.
@@ -195,6 +294,20 @@ function requireSuperAdmin(req, res, next) {
       return res.status(403).json({ ok: false, error: 'Super-admin access required.' });
     }
     return res.redirect('/admin?error=super_admin_required');
+  }
+  next();
+}
+
+// Requires the coach role. /coach/* is a browser surface (not an API), so failures
+// redirect to the login page rather than returning JSON 401/403. Mirrors requireAdmin's
+// self-checking shape so it works standalone AND as the first link in a composable chain:
+// PR2's requireOnboardingComplete slots in AFTER this without touching it —
+//   app.get('/coach/...', requireCoach, requireOnboardingComplete, handler)
+// Reads the session role set (hydrated at login) — no DB round-trip.
+function requireCoach(req, res, next) {
+  if (!req.session || !req.session.user_id) return res.redirect('/admin/login');
+  if (!auth.hasRole(req, 'coach')) {
+    return res.redirect('/admin/login?error=coach_required');
   }
   next();
 }
@@ -3260,7 +3373,14 @@ app.post('/admin/login', async (req, res) => {
     req.session.coach_name = coach ? coach.name : null;
     await auth.recordLoginSuccess(user.id, req);
     await auth.logAuthEvent(user.id, 'login_success', req);
-    res.redirect('/admin');
+    // Role-aware landing (IAA §2.1 — a user is the sum of their roles; the surface,
+    // not a toggle, decides where they go). Admin/super_admin ALWAYS takes precedence:
+    // a coach who is also staff lands on /admin, exactly as before. Only a pure coach
+    // (coach role, no staff role) lands on /coach. Roleless sessions default to /admin
+    // (unchanged). Reads the session role set assigned above — no DB round-trip.
+    const isStaff = auth.hasRole(req, 'admin') || auth.hasRole(req, 'super_admin');
+    const dest = isStaff ? '/admin' : (auth.hasRole(req, 'coach') ? '/coach' : '/admin');
+    res.redirect(dest);
   });
 });
 
@@ -8297,8 +8417,12 @@ app.post('/admin/coaches/provision', async (req, res) => {
         try {
           const rawToken = await auth.generateResetToken(newUserId);
           const appUrl = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
-          // TODO: redirect to /coach once the coach portal is built (currently lands on /admin).
-          const resetUrl = `${appUrl}/admin/reset-password/${rawToken}`;
+          // Coach sets their password through the coach onboarding flow (Design Spec
+          // §7.10), not the admin reset page. This route is built in PR2 — inert until
+          // then. Safe now: THRIVECART_SKU_MAP is still placeholder and no live webhook
+          // purchases occur pre-launch. Hard dependency: PR1 + PR2 must both be merged
+          // before real ThriveCart traffic hits this webhook.
+          const resetUrl = `${appUrl}/coach/onboarding/password/${rawToken}`;
           await sendPasswordResetEmail(customerEmail, resetUrl);
         } catch (mailErr) {
           console.error('[thrivecart] welcome/reset email failed:', mailErr.message);
