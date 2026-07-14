@@ -614,6 +614,27 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Audit trail for every change to a credit type's cost. The cost is the price of every
+-- assessment sold, so a silent change is a revenue event with no paper trail. The note
+-- column is free text so a future admin can see WHY ("Summer special through Jul 21"), not
+-- just that something moved. previous_cost_credits is NULL for the first recorded change.
+--
+-- FK types confirmed against the live schema: credit_types.id and users.id are both SERIAL
+-- (= INTEGER), so INTEGER REFERENCES is correct for both. changed_by is ON DELETE SET NULL
+-- so the audit row outlives the admin's user record (same posture as
+-- credit_transactions.created_by).
+CREATE TABLE IF NOT EXISTS credit_type_cost_history (
+  id                    SERIAL PRIMARY KEY,
+  credit_type_id        INTEGER NOT NULL REFERENCES credit_types(id),
+  previous_cost_credits INTEGER,
+  new_cost_credits      INTEGER NOT NULL,
+  changed_by            INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  changed_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  note                  TEXT
+);
+CREATE INDEX IF NOT EXISTS credit_type_cost_history_type_idx
+  ON credit_type_cost_history (credit_type_id, changed_at DESC);
+
 -- Guardrail the FIFO drain depends on. Before PR6a a lot could only ever be decremented
 -- by 1 and was always checked for quantity_remaining > 0 first, so it could not go
 -- negative. A multi-credit cost CAN overdraw a lot, and nothing in the schema was
@@ -3054,6 +3075,106 @@ async function getCreditCost(creditTypeName) {
   return r.rows.length > 0 ? r.rows[0].current_cost_credits : null;
 }
 
+// ── Credit cost admin (PR6a amendment) ───────────────────────────────────────────
+
+// Every sellable credit type + its current cost and most recent change, for the admin
+// page. LEFT JOIN LATERAL so a type that has never been changed still lists (with a null
+// last-change), rather than vanishing from the page.
+async function getCreditTypesWithCost() {
+  const r = await query(
+    `SELECT ct.id, ct.name, ct.description, ct.current_cost_credits,
+            h.previous_cost_credits AS last_previous_cost,
+            h.new_cost_credits      AS last_new_cost,
+            h.changed_at            AS last_changed_at,
+            h.note                  AS last_note,
+            u.email                 AS last_changed_by_email
+       FROM credit_types ct
+       LEFT JOIN LATERAL (
+         SELECT * FROM credit_type_cost_history
+          WHERE credit_type_id = ct.id
+          ORDER BY changed_at DESC, id DESC
+          LIMIT 1
+       ) h ON TRUE
+       LEFT JOIN users u ON u.id = h.changed_by
+      ORDER BY ct.id`
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows;
+}
+
+async function getCreditCostHistory(creditTypeName, limit = 20) {
+  const r = await query(
+    `SELECT h.id, h.previous_cost_credits, h.new_cost_credits, h.changed_at, h.note,
+            u.email AS changed_by_email
+       FROM credit_type_cost_history h
+       JOIN credit_types ct ON ct.id = h.credit_type_id
+       LEFT JOIN users u ON u.id = h.changed_by
+      WHERE ct.name = $1
+      ORDER BY h.changed_at DESC, h.id DESC
+      LIMIT $2`,
+    [creditTypeName, limit]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows;
+}
+
+// Change a credit type's cost AND write its audit row in ONE transaction — the change and
+// the record of it must be atomic, or a crash between them leaves a price move with no
+// paper trail, which is the exact thing the history table exists to prevent.
+//
+// The row is locked FOR UPDATE so two admins racing can't interleave and record a
+// previous_cost that was never actually the previous cost.
+//
+// Guarded to sellable types: a type whose current_cost_credits is NULL is not for sale
+// (leadership/team), and this is not the route that makes it sellable — that decision
+// carries pricing and product weight and should be deliberate, not a side effect of
+// someone typing in a number here.
+async function setCreditCost(creditTypeName, newCost, changedBy, note) {
+  if (!pool) throw new Error('DB_ERROR');
+  if (!Number.isInteger(newCost) || newCost <= 0) throw new Error('INVALID_COST');
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const typeRes = await client.query(
+      'SELECT id, current_cost_credits FROM credit_types WHERE name = $1 FOR UPDATE',
+      [creditTypeName]
+    );
+    if (typeRes.rows.length === 0) throw new Error('UNKNOWN_CREDIT_TYPE');
+
+    const { id: creditTypeId, current_cost_credits: previousCost } = typeRes.rows[0];
+    if (previousCost == null) throw new Error('CREDIT_TYPE_NOT_SELLABLE');
+
+    if (previousCost === newCost) {
+      await client.query('ROLLBACK');
+      return { changed: false, previousCost, newCost };
+    }
+
+    await client.query(
+      'UPDATE credit_types SET current_cost_credits = $1 WHERE id = $2',
+      [newCost, creditTypeId]
+    );
+    await client.query(
+      `INSERT INTO credit_type_cost_history
+         (credit_type_id, previous_cost_credits, new_cost_credits, changed_by, note)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [creditTypeId, previousCost, newCost, changedBy ?? null, note || null]
+    );
+
+    await client.query('COMMIT');
+    return { changed: true, previousCost, newCost };
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    if (!['INVALID_COST', 'UNKNOWN_CREDIT_TYPE', 'CREDIT_TYPE_NOT_SELLABLE'].includes(e.message)) {
+      console.error('[db] setCreditCost failed:', e.message);
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 // Restore exactly one credit to the SAME lot it was consumed from (cancellation path,
 // PR5). Increments quantity_remaining on that lot and logs a 'restored' transaction.
 // The lot must belong to the given account, else LOT_NOT_FOUND (guards against restoring
@@ -3530,5 +3651,8 @@ module.exports = {
   insertAssignmentEvent,
   getConsumedCreditTxs,
   getCreditCost,
+  getCreditTypesWithCost,
+  getCreditCostHistory,
+  setCreditCost,
   cancelAssessment,
 };

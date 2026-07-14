@@ -10834,7 +10834,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
     <button onclick="openProvisionModal()" style="background:#f58527;color:#fff;font-family:Georgia,serif;font-size:12px;font-weight:700;border:none;border-radius:4px;padding:7px 14px;cursor:pointer;">+ Provision Client</button>
     ${auth.hasRole(req, 'admin') || auth.hasRole(req, 'super_admin') ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
-    ${auth.hasRole(req, 'super_admin') ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/em-lab" class="nav-link">EM Lab</a><span class="nav-sep">|</span><a href="/admin/retake-requests" class="nav-link">Retake Requests</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span><a href="/admin/embargo" class="nav-link">Embargo List</a><span class="nav-sep">|</span>` : ''}
+    ${auth.hasRole(req, 'super_admin') ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/em-lab" class="nav-link">EM Lab</a><span class="nav-sep">|</span><a href="/admin/retake-requests" class="nav-link">Retake Requests</a><span class="nav-sep">|</span><a href="/admin/credit-settings" class="nav-link">Credit Settings</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span><a href="/admin/embargo" class="nav-link">Embargo List</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/password" class="nav-link">Change password</a>
     <span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>
@@ -11302,6 +11302,252 @@ app.post('/admin/assessments/:assessment_id/permanent-delete', requireSuperAdmin
 // Approving/denying is a privileged decision that spends a coach's credit downstream, so it
 // is super-admin only — matching every other approval-shaped action here (restore,
 // permanent-delete, grant-credits, role grant/revoke, and the staff retake override).
+// ── Credit Settings (PR6a amendment) — super-admin ───────────────────────────────
+// The per-assessment credit cost is the price of every assessment sold, so changing it is
+// a revenue action. Gated to super_admin, matching every other privileged action (grant
+// credits, restore, permanent-delete, role grant, retake override) — and gated twice, per
+// house precedent: on the route AND in the renderer.
+//
+// PLACEMENT: its own small page rather than folded into an existing surface. There is no
+// generic admin "settings" page to extend — /admin/em-lab is EM-specific and /admin/content
+// is the CMS — and the two candidates were both bad fits: the coach modal's Grant Credits
+// control is PER-COACH, while this is a single global value, and burying a global price
+// switch inside one coach's modal invites changing it while thinking about that coach.
+// So: a new page, modelled on /admin/retake-requests (which is itself modelled on
+// /admin/deleted-assessments).
+//
+// NO SCHEDULING. There is deliberately no date-range, expiry, or auto-revert here. An
+// admin sets the value when a promo starts and sets it back when it ends. Anything else is
+// a scheduler, and that is explicitly out of scope.
+app.get('/admin/credit-settings', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  let types = [], history = [];
+  try {
+    types = await db.getCreditTypesWithCost();
+    history = await db.getCreditCostHistory('standard_assessment', 20);
+  } catch (e) {
+    console.error('[credit-settings] query error:', e.message);
+  }
+  res.send(renderCreditSettingsPage(req, types, history, req.query.flash || null));
+});
+
+app.post('/admin/credit-settings', requireSuperAdmin, async (req, res) => {
+  const { creditTypeName, cost, note } = req.body || {};
+
+  // Only standard_assessment is editable. Leadership/Team have a NULL cost because they
+  // are not sellable yet; making one sellable is a pricing/product decision, not something
+  // that should happen as a side effect of someone typing a number into this form.
+  if (creditTypeName !== 'standard_assessment') {
+    return res.status(400).json({ ok: false, error: 'NOT_EDITABLE',
+      message: 'Only the Standard Assessment cost can be changed. Leadership and Team credits aren\'t sellable yet.' });
+  }
+
+  const newCost = parseInt(cost, 10);
+  if (!Number.isInteger(newCost) || newCost < 1 || newCost > 100) {
+    return res.status(400).json({ ok: false, error: 'INVALID_COST',
+      message: 'Cost must be a whole number between 1 and 100.' });
+  }
+
+  try {
+    const result = await db.setCreditCost(creditTypeName, newCost, req.session.user_id, note || null);
+    if (!result.changed) {
+      return res.status(200).json({ ok: true, changed: false,
+        message: `Cost is already ${newCost} credits — nothing changed.` });
+    }
+    console.log(`[credit-settings] ${creditTypeName} cost ${result.previousCost} → ${result.newCost} by user ${req.session.user_id}`);
+    return res.status(200).json({ ok: true, changed: true, previousCost: result.previousCost, newCost: result.newCost });
+  } catch (e) {
+    if (e.message === 'CREDIT_TYPE_NOT_SELLABLE') {
+      return res.status(400).json({ ok: false, error: e.message, message: 'That credit type isn\'t sellable yet.' });
+    }
+    console.error('[credit-settings] update failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'UPDATE_FAILED', message: 'Something went wrong. Please try again.' });
+  }
+});
+
+function renderCreditSettingsPage(req, types, history, flash) {
+  // Defense in depth: the route already gates this, but the renderer refuses too.
+  if (!auth.hasRole(req, 'super_admin')) return '<h1>Forbidden</h1>';
+
+  const std = types.find(t => t.name === 'standard_assessment') || {};
+  const others = types.filter(t => t.name !== 'standard_assessment');
+
+  const lastChange = std.last_changed_at
+    ? `Currently <strong>${esc(String(std.current_cost_credits ?? '—'))} credits</strong> — changed from
+       ${std.last_previous_cost == null ? '—' : esc(String(std.last_previous_cost))} by
+       ${esc(std.last_changed_by_email || 'unknown')} on ${formatAdminDate(std.last_changed_at)}${
+         std.last_note ? ` — <em>${esc(std.last_note)}</em>` : ''}`
+    : `Currently <strong>${esc(String(std.current_cost_credits ?? '—'))} credits</strong> — never changed since launch.`;
+
+  const historyRows = history.length
+    ? history.map(h => `
+      <tr>
+        <td>${formatAdminDate(h.changed_at)}</td>
+        <td>${h.previous_cost_credits == null ? '—' : esc(String(h.previous_cost_credits))} → <strong>${esc(String(h.new_cost_credits))}</strong></td>
+        <td>${esc(h.changed_by_email || '—')}</td>
+        <td style="max-width:420px;white-space:normal;">${esc(h.note || '—')}</td>
+      </tr>`).join('\n')
+    : `<tr><td colspan="4" style="text-align:center;padding:32px;color:#7A96A6;">No changes recorded yet.</td></tr>`;
+
+  const otherRows = others.map(t => `
+      <tr>
+        <td><strong>${esc(t.name)}</strong><br><span style="color:#7A96A6;font-size:11px;">${esc(t.description || '')}</span></td>
+        <td><span class="pill-na">Not sellable yet</span></td>
+      </tr>`).join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Admin — Credit Settings</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; padding: 0; }
+  .top-bar { background: #1A2B33; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .top-bar h1 { color: #00b1d7; font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar span { color: #7A96A6; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .top-bar .nav-link { color: #7A96A6; font-size: 12px; text-decoration: none; font-family: Georgia, serif; }
+  .top-bar .nav-link:hover { color: #fff; }
+  .top-bar .nav-sep { color: #3A4B55; font-size: 12px; margin: 0 8px; }
+  .container { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+  .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; margin-bottom: 24px; }
+  .card-head { padding: 16px 20px; border-bottom: 1px solid #EFE8E0; }
+  .card-head h2 { margin: 0; font-size: 15px; }
+  .card-body { padding: 20px; }
+  .current { background: #F0F8FA; border-left: 3px solid #00859f; border-radius: 4px; padding: 12px 14px; font-size: 13px; line-height: 1.6; margin-bottom: 20px; }
+  label { display: block; font-size: 11px; color: #7A96A6; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; margin-bottom: 5px; }
+  input[type=number], input[type=text] { width: 100%; padding: 9px 11px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; color: #1A2B33; }
+  input:focus { outline: none; border-color: #00b1d7; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .col-cost { flex: 0 0 140px; }
+  .col-note { flex: 1 1 320px; min-width: 220px; }
+  .hint { font-size: 11px; color: #7A96A6; margin-top: 5px; font-style: italic; }
+  .btn { background: #00b1d7; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 13px; font-weight: 700; padding: 9px 18px; cursor: pointer; margin-top: 16px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .warn { background: #fff8e1; border-left: 3px solid #b07800; border-radius: 4px; padding: 10px 13px; font-size: 12px; color: #6b4e00; line-height: 1.6; margin-top: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #00b1d7; color: #fff; text-align: left; padding: 11px 14px; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700; }
+  tbody tr { border-bottom: 1px solid #EFE8E0; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 11px 14px; vertical-align: top; }
+  .pill-na { display: inline-block; white-space: nowrap; background: #f4f4f4; color: #666; border: 1px solid #E2E6EA; border-radius: 100px; padding: 3px 10px; font-size: 11px; }
+  /* Tables scroll inside their own card rather than pushing the page sideways at 390px. */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table-scroll table { min-width: 520px; }
+  #msg { display: none; border-radius: 4px; padding: 9px 12px; font-size: 12px; margin-top: 14px; }
+  @media (max-width: 767px) {
+    .container { padding: 20px 14px; }
+    .top-bar { padding: 14px 16px; }
+    .col-cost, .col-note { flex: 1 1 100%; }
+    .btn { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <div>
+    <div><span>Hive Enneagram Type Tool</span></div>
+    <h1>Credit Settings</h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <a href="/admin" class="nav-link">← Dashboard</a>
+    <span class="nav-sep">|</span>
+    <a href="/admin/retake-requests" class="nav-link">Retake Requests</a>
+    <span class="nav-sep">|</span>
+    <a href="/admin/logout" class="nav-link">Sign out</a>
+  </div>
+</div>
+<div class="container">
+
+  <div class="card">
+    <div class="card-head"><h2>Standard Assessment — cost per assessment</h2></div>
+    <div class="card-body">
+      <div class="current">${lastChange}</div>
+
+      <form id="cost-form" onsubmit="return false;">
+        <div class="row">
+          <div class="col-cost">
+            <label for="cost">New cost (credits)</label>
+            <input type="number" id="cost" min="1" max="100" step="1" value="${esc(String(std.current_cost_credits ?? ''))}">
+          </div>
+          <div class="col-note">
+            <label for="note">Reason for the change</label>
+            <input type="text" id="note" maxlength="200" placeholder="e.g. Summer special through Jul 21">
+            <p class="hint">Recorded in the change log so a future admin can see why, not just what.</p>
+          </div>
+        </div>
+        <button type="button" class="btn" id="save-btn" onclick="saveCost()">Save new cost</button>
+        <div id="msg"></div>
+      </form>
+
+      <div class="warn">
+        <strong>This takes effect immediately, for everyone.</strong> The cost is read at the moment an
+        assessment is provisioned, so the next provisioning — by any coach — uses the new value.
+        There is no scheduling or auto-revert: when a promotion ends, come back and set it to its
+        regular value.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Other credit types</h2></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Credit type</th><th>Cost</th></tr></thead>
+      <tbody>${otherRows || '<tr><td colspan="2" style="text-align:center;padding:24px;color:#7A96A6;">None.</td></tr>'}</tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Change log — Standard Assessment</h2></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>When</th><th>Change</th><th>Changed by</th><th>Reason</th></tr></thead>
+      <tbody>${historyRows}</tbody>
+    </table></div>
+  </div>
+
+</div>
+<script>
+function saveCost() {
+  var btn = document.getElementById('save-btn');
+  var msg = document.getElementById('msg');
+  var cost = document.getElementById('cost').value;
+  var note = document.getElementById('note').value;
+
+  msg.style.display = 'none';
+  btn.disabled = true;
+  var orig = btn.textContent;
+  btn.textContent = 'Saving…';
+
+  fetch('/admin/credit-settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ creditTypeName: 'standard_assessment', cost: cost, note: note })
+  }).then(function (r) {
+    return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+  }).then(function (res) {
+    if (!res.ok) {
+      msg.style.display = 'block';
+      msg.style.background = '#fdecea'; msg.style.color = '#c0392b';
+      msg.textContent = res.d.message || 'Update failed.';
+      btn.disabled = false; btn.textContent = orig;
+      return;
+    }
+    // Reload so the current-value banner and the change log both reflect the new state —
+    // no partial re-render anywhere in the admin panel (house convention).
+    window.location.reload();
+  }).catch(function () {
+    msg.style.display = 'block';
+    msg.style.background = '#fdecea'; msg.style.color = '#c0392b';
+    msg.textContent = 'Network error — please try again.';
+    btn.disabled = false; btn.textContent = orig;
+  });
+}
+</script>
+</body>
+</html>`;
+}
+
 // Gated twice, per house precedent: requireSuperAdmin on the route AND a role check in the
 // renderer.
 app.get('/admin/retake-requests', requireSuperAdmin, async (req, res) => {
