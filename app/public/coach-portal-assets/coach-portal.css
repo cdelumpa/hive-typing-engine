@@ -389,6 +389,200 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-cat--tip { color: var(--color-accent);      background: var(--color-accent-light); }
 .cp-cat--sys { color: var(--color-text-muted);  background: var(--color-bg-page); border: 1px solid var(--color-border); }
 
+/* ══ My Clients (§7.2, PR4a) ═══════════════════════════════════════════════ */
+.cp-page-title {
+  font-family: var(--font-heading); font-size: 28px; font-weight: bold;
+  color: var(--color-text-heading); margin: 0 0 20px;
+}
+
+/* Master-detail: roster left, detail right. Mobile shows exactly one of the two. */
+.cp-master-detail { display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start; }
+
+/* ── Roster ───────────────────────────────────────────────────────────────── */
+.cp-roster { display: flex; flex-direction: column; gap: 12px; }
+.cp-roster-cta { width: 100%; }
+.cp-roster-card {
+  background: var(--color-bg-card); border: 1px solid var(--color-border);
+  border-radius: 12px; padding: 12px;
+}
+.cp-roster-tabs { margin-bottom: 10px; }
+.cp-roster-tabs .cp-tab { flex: 1; text-align: center; }
+
+.cp-search { position: relative; display: block; margin-bottom: 8px; }
+.cp-search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--color-text-muted); display: flex; pointer-events: none;
+}
+.cp-search-icon svg { width: 15px; height: 15px; }
+.cp-search input {
+  width: 100%; font-family: var(--font-ui); font-size: 13px; color: var(--color-text-body);
+  border: 1px solid var(--color-border); border-radius: 6px; padding: 9px 12px 9px 32px;
+}
+.cp-search input:focus { outline: none; border-color: var(--color-primary); }
+
+.cp-roster-list { display: flex; flex-direction: column; }
+.cp-roster-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 6px;
+  border-left: 3px solid transparent;   /* reserved so the selected state doesn't reflow */
+  color: var(--color-text-heading);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+.cp-roster-row:hover { background: var(--color-bg-page); }
+.cp-roster-row--selected {
+  background: var(--color-primary-light);
+  border-left-color: var(--color-primary);
+  border-radius: 0 6px 6px 0;
+}
+/* CP-C: filled ONLY for in_progress — the roster's "needs attention" signal. */
+.cp-dot-status {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px solid var(--color-border-strong); background: transparent;
+}
+.cp-dot-status--filled { background: var(--color-primary); border-color: var(--color-primary); }
+.cp-roster-main { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cp-roster-name {
+  font-size: 13px; font-weight: 600; color: var(--color-text-heading);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cp-roster-badges { display: flex; gap: 6px; flex-shrink: 0; }
+.cp-roster-chev { display: none; color: var(--color-text-muted); font-size: 18px; line-height: 1; }
+.cp-roster-nomatch { padding: 16px 0; }
+
+/* ── Detail panel ─────────────────────────────────────────────────────────── */
+.cp-detail { min-width: 0; }
+.cp-back { display: none; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.cp-detail-card {
+  background: var(--color-bg-card); border: 1px solid var(--color-border);
+  border-radius: 12px; padding: 24px;
+}
+.cp-detail-head { display: flex; align-items: flex-start; gap: 14px; padding-bottom: 20px; }
+.cp-client-avatar {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+  background: var(--color-primary); color: #FFFFFF;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+}
+.cp-detail-id { flex: 1; min-width: 0; }
+.cp-detail-name { font-family: var(--font-heading); font-size: 20px; font-weight: bold; color: var(--color-text-heading); margin: 0 0 2px; }
+.cp-detail-email { font-size: 13px; color: var(--color-text-muted); margin: 0; }
+.cp-detail-org   { font-size: 12px; color: var(--color-text-muted); margin: 2px 0 0; }
+.cp-edit-link { font-size: 13px; flex-shrink: 0; }
+
+.cp-detail-section { border-top: 1px solid var(--color-border); padding: 18px 0; }
+.cp-detail-section:last-child { padding-bottom: 0; }
+.cp-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cp-newasmt {
+  background: none; border: none; cursor: pointer; padding: 0;
+  color: var(--color-primary); font-family: var(--font-ui); font-size: 12px; font-weight: 600;
+  margin-bottom: 12px;
+}
+.cp-empty--left { text-align: left; padding: 8px 0; }
+
+/* Assessment history entry */
+.cp-asmt { padding: 10px 0; }
+.cp-asmt + .cp-asmt { border-top: 1px solid var(--color-border); }
+.cp-asmt-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cp-asmt-title { font-size: 14px; font-weight: 700; color: var(--color-text-heading); margin: 0; }
+.cp-asmt-meta { font-size: 12px; color: var(--color-text-muted); margin: 3px 0 0; }
+.cp-asmt-type { font-size: 12px; color: var(--color-text-body); margin: 3px 0 0; font-weight: 600; }
+.cp-asmt-links { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; margin-top: 6px; }
+.cp-report-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+.cp-report-link svg { width: 13px; height: 13px; }
+/* Retake badge — cyan, inline with the entry title (driven by retake_of_assessment_id). */
+.cp-badge--retake { color: var(--color-primary); background: var(--color-primary-light); margin-left: 6px; }
+
+/* Coach debrief */
+.cp-debrief { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.cp-field-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--color-text-muted); margin: 0 0 6px;
+}
+.cp-check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.cp-check input { accent-color: var(--color-primary); width: 15px; height: 15px; }
+.cp-debrief-value { font-size: 14px; font-weight: 600; color: var(--color-text-muted); }
+.cp-debrief-value--yes { color: var(--color-success); }
+.cp-date-input {
+  font-family: var(--font-ui); font-size: 13px; color: var(--color-text-body);
+  border: 1px solid var(--color-border); border-radius: 6px; padding: 7px 10px;
+}
+.cp-date-input:disabled { background: var(--color-bg-page); color: var(--color-text-muted); }
+
+/* Coach notes */
+.cp-notes {
+  width: 100%; font-family: var(--font-ui); font-size: 13px; color: var(--color-text-body);
+  border: 1px solid var(--color-border); border-radius: 6px; padding: 10px 12px;
+  resize: vertical; min-height: 84px;
+}
+.cp-notes:focus { outline: none; border-color: var(--color-primary); }
+.cp-saved-hint { font-size: 11px; font-style: italic; color: var(--color-text-muted); text-align: right; margin: 6px 0 0; }
+
+/* Empty state (my-clients-1b) */
+.cp-detail-card--empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; min-height: 380px; text-align: center;
+}
+.cp-firstclient { font-family: var(--font-heading); font-size: 18px; font-weight: bold; color: var(--color-text-heading); margin: 0; }
+.cp-firstclient-go { font-family: var(--font-heading); font-size: 18px; font-weight: bold; color: var(--color-primary); margin: 0 0 14px; }
+
+/* ── Modal / bottom sheet ─────────────────────────────────────────────────── */
+.cp-modal-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.cp-modal {
+  position: relative;
+  width: 100%; max-width: 440px; max-height: 86vh; overflow-y: auto;
+  background: var(--color-bg-card); border-radius: 16px; padding: 24px 28px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+}
+.cp-sheet-handle { display: none; }
+.cp-modal-close {
+  position: absolute; top: 16px; right: 18px;
+  background: none; border: none; cursor: pointer;
+  color: var(--color-text-muted); font-size: 22px; line-height: 1;
+}
+.cp-modal-title { font-family: var(--font-heading); font-size: 20px; font-weight: bold; color: var(--color-text-heading); margin: 0 0 16px; }
+.cp-eyebrow--sp { margin-top: 18px; }
+.cp-modal-msg { border-radius: 6px; padding: 9px 12px; font-size: 12px; margin-bottom: 12px; }
+.cp-modal-msg--err { background: var(--color-error-bg); color: var(--color-error); }
+.cp-modal-msg--ok  { background: var(--color-success-bg); color: var(--color-success); }
+
+.cp-locked {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  background: var(--color-bg-page); border-radius: 8px; padding: 12px 14px;
+}
+.cp-locked-name { font-size: 13px; font-weight: 700; color: var(--color-text-heading); margin: 0; }
+.cp-locked-line { font-size: 12px; color: var(--color-text-muted); margin: 2px 0 0; }
+.cp-locked-icon { color: var(--color-text-muted); display: flex; }
+.cp-locked-icon svg { width: 14px; height: 14px; }
+
+.cp-type-card {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--color-primary-light);
+  border-left: 3px solid var(--color-primary); border-radius: 6px;
+  padding: 12px 14px;
+}
+.cp-type-name { font-size: 13px; font-weight: 700; color: var(--color-text-heading); }
+.cp-type-cost { font-size: 12px; color: var(--color-text-muted); }
+.cp-hint-italic { font-size: 11px; font-style: italic; color: var(--color-text-muted); margin: 6px 0 0; }
+
+.cp-radio { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-body); margin-top: 8px; cursor: pointer; }
+.cp-radio input { accent-color: var(--color-primary); width: 15px; height: 15px; }
+.cp-optional { font-weight: 400; text-transform: none; color: var(--color-text-muted); }
+.cp-input {
+  width: 100%; font-family: var(--font-ui); font-size: 13px; color: var(--color-text-body);
+  border: 1px solid var(--color-border); border-radius: 6px; padding: 9px 12px;
+}
+.cp-input:focus { outline: none; border-color: var(--color-primary); }
+.cp-modal-notes { resize: vertical; margin-top: 6px; }
+.cp-modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.cp-btn--ghost { background: none; border: 1px solid var(--color-border); color: var(--color-text-body); }
+.cp-btn--ghost:hover { background: var(--color-bg-page); }
+.cp-btn:disabled { opacity: 0.6; cursor: default; }
+
 /* ── §3.4 Breakpoints ───────────────────────────────────────────────────── */
 /* Tablet. PR1 collapsed the rail to a 64px strip with font-size:0 labels, on the
    assumption an icon set would land later. It hasn't, so that rule rendered a blank dark
@@ -400,6 +594,11 @@ a { color: var(--color-primary); text-decoration: none; }
   .cp-workspace { padding: 24px; }
   .cp-metrics { gap: 12px; }
   .cp-metric-value { font-size: 26px; }
+
+  /* My Clients: master-detail is preserved side by side, roster just narrows. */
+  .cp-master-detail { grid-template-columns: 260px 1fr; gap: 16px; }
+  .cp-detail-card { padding: 20px; }
+  .cp-roster-name { font-size: 12px; }
 }
 
 /* Mobile: the rail is replaced by a real drawer (not a reflow). The chart is dropped —
@@ -446,6 +645,52 @@ a { color: var(--color-primary); text-decoration: none; }
   .cp-viewall { display: block; text-align: center; }
 
   .cp-feed-row { flex-direction: column; gap: 2px; }
+
+  /* ── My Clients, mobile ─────────────────────────────────────────────────── */
+  /* Roster and detail are separate VIEWS, not columns. One renderer emits both; which one
+     shows is decided here. /coach/clients shows the roster; /coach/clients/:id adds
+     --detail and flips it. Rows are links, so the roster row IS the navigation. */
+  .cp-master-detail { grid-template-columns: 1fr; gap: 0; }
+  .cp-master-detail .cp-detail { display: none; }
+  .cp-master-detail--detail .cp-roster { display: none; }
+  .cp-master-detail--detail .cp-detail { display: block; }
+  .cp-back { display: inline-block; }
+
+  .cp-page-title { font-size: 24px; }
+  /* On the mobile detail view the "← My Clients" back link already says where you are, so
+     the page H1 above it is redundant (mockup 09 shows only the back link). */
+  .cp-has-detail-view .cp-page-title { display: none; }
+  .cp-roster-card { padding: 8px; }
+  .cp-roster-tabs .cp-tab { padding: 8px 12px; }
+
+  /* Badge drops under the name and a chevron ends the row (mockup 08). */
+  .cp-roster-row { padding: 12px 8px; border-radius: 0; border-left: none; }
+  .cp-roster-row + .cp-roster-row { border-top: 1px solid var(--color-border); }
+  .cp-roster-row--selected { background: transparent; }
+  .cp-roster-main { flex-direction: column; align-items: flex-start; gap: 5px; }
+  .cp-roster-name { font-size: 14px; white-space: normal; }
+  .cp-roster-chev { display: block; }
+
+  .cp-detail-card { padding: 16px; }
+  .cp-detail-head { flex-wrap: wrap; }
+  .cp-edit-link { flex-basis: 100%; margin-left: 58px; }   /* under the name, per mockup 09 */
+  .cp-asmt-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .cp-asmt-links { align-items: flex-start; }
+  .cp-debrief { grid-template-columns: 1fr; gap: 14px; }
+
+  /* Modal becomes a bottom sheet with a drag handle (mockup 10). */
+  .cp-modal-backdrop { align-items: flex-end; padding: 0; }
+  .cp-modal {
+    max-width: none; border-radius: 16px 16px 0 0;
+    padding: 16px 20px 24px; max-height: 92vh;
+  }
+  .cp-sheet-handle {
+    display: block; width: 36px; height: 4px; border-radius: 100px;
+    background: var(--color-border); margin: 0 auto 12px;
+  }
+  .cp-modal-close { top: 12px; right: 14px; }
+  .cp-modal-foot { flex-direction: column-reverse; }
+  .cp-modal-foot .cp-btn { width: 100%; }
 }
 
 /* ── Onboarding flow (§7.10) — header-only shell, centered card ─────────────── */
