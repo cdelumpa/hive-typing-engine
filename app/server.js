@@ -3058,6 +3058,14 @@ app.post('/api/submit', async (req, res) => {
     if (!resolvedClientId) {
       const coachId = await db.findOrCreateCoach(intake?.coach || 'Cai Delumpa');
       // PR7b: createClient returns { id, created } since PR5 — destructure the id.
+      //
+      // DELIBERATELY NOT ownership-gated (PR5-security gated the two coach-authenticated
+      // callers: provisionAssessment and /admin/clients/new). This is the self-serve
+      // assessment-intake fallback: the actor is the CLIENT submitting their own
+      // assessment, not a coach reaching for someone else's roster. Attaching a returning
+      // client to their existing row by email is the correct behaviour here — refusing it
+      // would break a returning client's submission. There is no cross-coach privilege to
+      // gain: the submitter already possesses the assessment they are submitting.
       const clientResult = await db.createClient(intake || {}, coachId);
       resolvedClientId = clientResult?.id || null;
       // PR B: lifecycle audit — client created via the self-serve submit fallback (no
@@ -5305,12 +5313,33 @@ app.post('/admin/clients/new', requireAdminSession, async (req, res) => {
 
   try {
     const coachId = req.session.coach_id;
-    // PR8: createClient returns { id, created } since PR5 (ON CONFLICT upsert). created=false
-    // means the email already belongs to a client. This route preserves the current UX —
-    // surface the duplicate and stop (silent attach-to-existing is the /admin/clients/provision
-    // flow). A genuine DB failure throws CLIENT_LOOKUP_FAILED, caught by the outer try below.
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // SECURITY (P0) — same ownership gate as provisionAssessment. This route was never
+    // exploitable the way provisioning was (it stops on ANY duplicate rather than silently
+    // attaching), but it resolves a caller-supplied email against a globally-unique column,
+    // so it asks the ownership question explicitly rather than relying on that behaviour
+    // holding by accident. It also lets the refusal say something true: "already yours" and
+    // "belongs to another coach" are different problems with different fixes.
+    const resolved = await db.resolveClientForCoach({ email: normalizedEmail, coachId });
+    if (resolved.exists && !resolved.ownedByCoach) {
+      console.warn(`[admin/clients/new] REFUSED cross-coach attach — coach #${coachId} targeted client #${resolved.client.id} (owned by coach #${resolved.client.coach_id})`);
+      return res.send(renderNewClientPage(
+        'This email is already associated with another coach\'s client roster. If you believe this is an error, contact Hive support.',
+        req.body));
+    }
+    if (resolved.exists) {
+      return res.send(renderNewClientPage(
+        'This client is already in your roster. Open them from the dashboard to add another assessment.',
+        req.body));
+    }
+
+    // PR8: createClient returns { id, created } since PR5 (ON CONFLICT upsert). The gate
+    // above already handled every existing-client case, so reaching here means a new client;
+    // !created can now only mean a race, which is still surfaced rather than silently
+    // attached. A genuine DB failure throws CLIENT_LOOKUP_FAILED, caught by the outer try.
     const { id: clientId, created } = await db.createClient(
-      { firstName: first_name.trim(), lastName: last_name.trim(), email: email.trim().toLowerCase(), organization: organization ? organization.trim() : null },
+      { firstName: first_name.trim(), lastName: last_name.trim(), email: normalizedEmail, organization: organization ? organization.trim() : null },
       coachId
     );
     if (!created) {
@@ -5479,8 +5508,35 @@ async function provisionAssessment({
     const accountId = await db.getAccountByCoachId(coachId);
     if (!accountId) return { status: 400, body: { error: 'ACCOUNT_NOT_FOUND', message: 'No billing account found for this coach.' } };
 
+    // c2. SECURITY (P0) — OWNERSHIP GATE. Must run BEFORE the upsert below.
+    //
+    // clients.email is UNIQUE across every coach, and createClient's ON CONFLICT silently
+    // returns the existing row without asking who owns it. Without this gate, passing
+    // another coach's client's email provisioned an assessment ONTO THAT CLIENT: the
+    // caller's credit was debited, an assessment appeared in the other coach's roster, and
+    // the response handed back a live /assessment/<token> URL for a client the caller does
+    // not own (and, with autoSendInvitation, emailed them). Proven against local Postgres.
+    //
+    // Reaching an existing client is legitimate ONLY when it is the caller's own — that is
+    // the ordinary "add another assessment for my existing client" path. A cross-coach hit
+    // is refused outright: coach↔client reassignment is admin-only, so there is no correct
+    // way for this route to resolve it. Refusing here means no credit is consumed, no
+    // client row is touched, no assessment exists, and no token is minted.
+    const resolved = await db.resolveClientForCoach({ email, coachId });
+    if (resolved.exists && !resolved.ownedByCoach) {
+      console.warn(`[provision] REFUSED cross-coach attach — coach #${coachId} targeted client #${resolved.client.id} (owned by coach #${resolved.client.coach_id})`);
+      return {
+        status: 409,
+        body: {
+          error: 'CLIENT_BELONGS_TO_ANOTHER_COACH',
+          message: 'This email is already associated with another coach\'s client roster. If you believe this is an error, contact Hive support.',
+        },
+      };
+    }
+
     // d. Upsert client. created=false means an existing client — coaches can provision
-    //    additional assessments for an existing client, so this is not an error.
+    //    additional assessments for an existing client, so this is not an error. The gate
+    //    above guarantees any such client is one the caller actually owns.
     const { id: clientId, created } = await db.createClient({ firstName, lastName, email, organization }, coachId);
     if (!clientId) return { status: 500, body: { error: 'PROVISIONING_ERROR', message: 'Client creation failed.' } };
     if (!created) console.log(`[provision] provisioning additional assessment for existing client #${clientId}`);

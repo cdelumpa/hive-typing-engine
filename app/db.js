@@ -1990,6 +1990,28 @@ async function getClientByEmail(email) {
   return r && r.rows.length > 0 ? r.rows[0] : null;
 }
 
+// ── Ownership gate for client-by-email resolution (PR5-security) ─────────────────
+// createClient() upserts on clients_email_key, which is UNIQUE across EVERY coach — so an
+// ON CONFLICT means *someone* already owns that email, and createClient returns their row
+// without ever asking whose it is. Callers that then act on the returned id are, in
+// effect, acting on another coach's client.
+//
+// This is the ownership question createClient never asks. Any caller resolving a client
+// by a caller-supplied email MUST ask it first and refuse a cross-coach match.
+//
+// Returns { exists, ownedByCoach, client } — the caller decides what to do about it, since
+// "this is my client, add an assessment" is legitimate and "this is someone else's client"
+// is not.
+async function resolveClientForCoach({ email, coachId }) {
+  const existing = await getClientByEmail(email);
+  if (!existing) return { exists: false, ownedByCoach: false, client: null };
+  return {
+    exists: true,
+    ownedByCoach: existing.coach_id === coachId,
+    client: existing,
+  };
+}
+
 async function createClientToken(clientId, token, expiresAt) {
   await query(
     `INSERT INTO client_tokens (client_id, token, expires_at) VALUES ($1, $2, $3)`,
@@ -3295,6 +3317,7 @@ module.exports = {
   getDeletedAssessments,
   getClientById,
   getClientByEmail,
+  resolveClientForCoach,   // PR5-security — ownership gate before any createClient upsert
   createClientToken,
   getTokenWithClient,
   updateTokenUsedAt,
