@@ -12,6 +12,10 @@
   --color-primary-dark:   #0A6E88;
   --color-accent:         #F68625;
   --color-accent-light:   #FEF3E8;
+  /* CP-C: the accent's readable-text counterpart, mirroring --color-primary-dark. The raw
+     --color-accent (#F68625) fails contrast as body text on --color-accent-light; this is
+     the value the §7.3 lookup-states reference uses for the State C2 banner copy. */
+  --color-accent-dark:    #B5590F;
   --color-text-heading:   #1E2A35;
   --color-text-body:      #2D3A45;
   --color-text-muted:     #8A96A3;
@@ -631,6 +635,113 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-btn--ghost:hover { background: var(--color-bg-page); }
 .cp-btn:disabled { opacity: 0.6; cursor: default; }
 
+/* ══ Onboard a New Client (§7.3, PR5) ═════════════════════════════════════ */
+.cp-onboard { max-width: 620px; margin: 0 auto; }
+.cp-onboard-eyebrow { text-align: center; margin-bottom: 8px; }
+.cp-onboard-title {
+  font-family: var(--font-heading); font-size: 28px; font-weight: bold;
+  color: var(--color-text-heading); text-align: center; margin: 0 0 8px;
+}
+.cp-onboard-sub {
+  font-size: 14px; color: var(--color-text-muted); text-align: center;
+  line-height: 1.6; margin: 0 0 24px;
+}
+
+/* Desktop/tablet: ONE unified card. Mobile splits into stacked cards (see breakpoints) —
+   the markup already carries two .cp-onboard-card blocks, so desktop simply removes the
+   seam between them rather than the two layouts having different DOM. */
+.cp-onboard-card { margin-bottom: 0; border-radius: 0; border-bottom: none; }
+.cp-onboard-card:first-of-type { border-radius: 12px 12px 0 0; }
+/* border-top: none on the second block too — otherwise the two cards' adjoining borders
+   draw a seam through the middle of what is meant to read as ONE card (mockup 01). */
+.cp-onboard-card:last-of-type {
+  border-radius: 0 0 12px 12px;
+  border-top: none;
+  border-bottom: 1px solid var(--color-border);
+  padding-top: 0;
+}
+
+/* Cancel is a plain text link, not a bordered button (mockup 01). */
+.cp-onboard-foot .cp-btn--ghost {
+  background: none; border: none; padding: 9px 4px;
+  color: var(--color-text-body);
+}
+.cp-onboard-foot .cp-btn--ghost:hover { color: var(--color-primary); }
+
+.cp-name-row { display: flex; gap: 16px; }
+.cp-name-col { flex: 1; min-width: 0; }
+.cp-onboard-notes { min-height: 84px; resize: vertical; }
+.cp-hint { font-size: 11px; color: var(--color-text-muted); margin: 6px 0 0; font-style: italic; }
+.cp-req { color: var(--color-error); }
+
+.cp-onboard-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; margin-top: 20px;
+}
+.cp-btn:disabled,
+.cp-btn[disabled] {
+  background: var(--color-bg-page); color: var(--color-text-muted);
+  cursor: not-allowed; pointer-events: none;
+}
+
+/* Email field + inline spinner (State B) */
+.cp-email-wrap { position: relative; }
+.cp-email-wrap .cp-input { padding-right: 36px; }
+.cp-spinner {
+  position: absolute; right: 12px; top: 50%; margin-top: -7px;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--color-border); border-top-color: var(--color-primary);
+  animation: cp-spin 700ms linear infinite;
+}
+@keyframes cp-spin { to { transform: rotate(360deg); } }
+.cp-lookup-status { font-size: 11px; color: var(--color-text-muted); margin: 6px 0 0; }
+
+/* Field states driven by the lookup */
+.cp-input--checking,
+.cp-input--found { border: 1.5px solid var(--color-primary); }
+.cp-input--conflict { border: 1.5px solid var(--color-accent); }
+/* Disabled group — 40% opacity per the reference. Wraps the whole block, not each input,
+   so the labels dim with their fields. */
+.cp-fields--disabled { opacity: 0.4; pointer-events: none; }
+/* Read-only pre-filled fields (C1): visibly inert but not dimmed — the values matter. */
+.cp-input[readonly] { background: var(--color-bg-page); color: var(--color-text-muted); }
+
+/* Lookup banners (C1 / C2) */
+.cp-lookup-banner {
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;
+  font-size: 13px; line-height: 1.5;
+}
+.cp-lookup-banner--own {
+  background: var(--color-primary-light); color: var(--color-primary-dark);
+}
+.cp-lookup-banner--other {
+  background: var(--color-accent-light); color: var(--color-accent-dark);
+}
+
+/* ── Success toast (§7.3) ────────────────────────────────────────────────── */
+/* Desktop/tablet: floats top-right of the workspace. Mobile: inline banner (breakpoints). */
+.cp-toast {
+  position: absolute; top: 16px; right: 16px; z-index: 30;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--color-bg-card); border: 1px solid var(--color-border);
+  border-radius: 8px; padding: 12px 14px; max-width: 320px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+.cp-clients-page { position: relative; }
+.cp-toast-icon { color: var(--color-success); display: inline-flex; flex-shrink: 0; }
+.cp-toast-text { font-size: 13px; color: var(--color-text-body); }
+.cp-toast-close {
+  background: none; border: none; cursor: pointer; flex-shrink: 0;
+  color: var(--color-text-muted); font-size: 18px; line-height: 1; padding: 0 2px;
+}
+.cp-toast-close:hover { color: var(--color-text-body); }
+
+/* ── Step 2 prompt + debrief em-dashes (zero-assessment client) ──────────── */
+.cp-step2 { border-top: 1px solid var(--color-border); padding-top: 16px; margin-top: 4px; }
+.cp-step2-label { text-align: center; color: var(--color-primary); margin-bottom: 12px; }
+.cp-step2-cta { display: block; width: 100%; }
+.cp-debrief-na { font-size: 14px; color: var(--color-text-muted); margin: 0; }
+
 /* ── §3.4 Breakpoints ───────────────────────────────────────────────────── */
 /* Tablet. PR1 collapsed the rail to a 64px strip with font-size:0 labels, on the
    assumption an icon set would land later. It hasn't, so that rule rendered a blank dark
@@ -703,6 +814,33 @@ a { color: var(--color-primary); text-decoration: none; }
   .cp-master-detail--detail .cp-roster { display: none; }
   .cp-master-detail--detail .cp-detail { display: block; }
   .cp-back { display: inline-block; }
+
+  /* ── Onboard a New Client, mobile (§7.3) ───────────────────────────────── */
+  /* Fields split into SEPARATE STACKED CARDS rather than one continuous card (mockup 04).
+     The addendum is explicit that this must not collapse back into a single card. Same DOM
+     as desktop — the two .cp-onboard-card blocks simply stop being seamed together. */
+  .cp-onboard-title { font-size: 24px; text-align: left; }
+  .cp-onboard-eyebrow { text-align: left; }
+  .cp-onboard-sub { text-align: left; }
+  .cp-onboard-card,
+  .cp-onboard-card:first-of-type,
+  .cp-onboard-card:last-of-type {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  /* Name fields stack rather than sitting side by side in a 390px card. */
+  .cp-name-row { flex-direction: column; gap: 0; }
+  .cp-onboard-foot { flex-direction: column-reverse; align-items: stretch; gap: 10px; }
+  .cp-onboard-foot .cp-btn { width: 100%; text-align: center; }
+
+  /* Toast: inline banner at the top of the page, accent-left border — NOT floating
+     (mockup 05). A floating overlay on a 390px viewport covers the content it announces. */
+  .cp-toast {
+    position: static; max-width: none; margin-bottom: 16px;
+    border-left: 3px solid var(--color-success);
+    box-shadow: none;
+  }
 
   .cp-page-title { font-size: 24px; }
   /* On the mobile detail view the "← My Clients" back link already says where you are, so

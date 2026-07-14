@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Onboard a New Client — Lookup States Reference (net-new, v1.0)</title>
+</head>
+<body style="font-family:Arial,sans-serif;background:#F4F6F8;padding:24px;margin:0;">
+
+<div style="margin-bottom:10px;font-family:Georgia,serif;font-size:15px;color:#1E2A35;font-weight:bold;">State B — checking (on blur, before response)</div>
+<div style="background:#FFFFFF;border:1px solid #E2E6EA;border-radius:12px;padding:20px;margin-bottom:24px;max-width:420px;">
+  <div style="font-size:10px;color:#8A96A3;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">Client email *</div>
+  <div style="position:relative;">
+    <input value="james.okafor@example.com" style="width:100%;box-sizing:border-box;padding:10px 34px 10px 12px;border:1.5px solid #00B2D9;border-radius:6px;font-size:14px;color:#8A96A3;background:#F4F6F8;" readonly />
+    <div style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;border:2px solid #E2E6EA;border-top-color:#00B2D9;border-radius:50%;"></div>
+  </div>
+  <div style="font-size:11px;color:#8A96A3;margin-top:6px;">Checking...</div>
+  <div style="margin-top:14px;opacity:0.4;">
+    <div style="font-size:10px;color:#8A96A3;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">First name *</div>
+    <input style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #E2E6EA;border-radius:6px;font-size:14px;background:#F4F6F8;" disabled />
+  </div>
+</div>
+
+<div style="margin-bottom:10px;font-family:Georgia,serif;font-size:15px;color:#1E2A35;font-weight:bold;">State C1 — found, already yours</div>
+<div style="background:#FFFFFF;border:1px solid #E2E6EA;border-radius:12px;padding:20px;margin-bottom:24px;max-width:420px;">
+  <div style="background:#E8F6FA;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#0A6E88;">
+    <b>Sarah Chen</b> is already in your roster. We've filled in their details — continue to provision a new assessment.
+  </div>
+  <div style="font-size:10px;color:#8A96A3;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">Client email *</div>
+  <input value="sarah.chen@example.com" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #00B2D9;border-radius:6px;font-size:14px;margin-bottom:14px;" readonly />
+  <div style="display:flex;gap:10px;">
+    <div style="flex:1;">
+      <div style="font-size:10px;color:#8A96A3;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">First name</div>
+      <input value="Sarah" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #E2E6EA;border-radius:6px;font-size:14px;background:#F4F6F8;color:#8A96A3;" readonly />
+    </div>
+    <div style="flex:1;">
+      <div style="font-size:10px;color:#8A96A3;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">Last name</div>
+      <input value="Chen" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #E2E6EA;border-radius:6px;font-size:14px;background:#F4F6F8;color:#8A96A3;" readonly />
+    </div>
+  </div>
+  <div style="margin-top:16px;text-align:right;">
+    <span style="display:inline-block;background:#00B2D9;color:#FFFFFF;font-size:13px;font-weight:bold;padding:10px 18px;border-radius:6px;">Continue to Assessment &rarr;</span>
+  </div>
+</div>
+
+<div style="margin-bottom:10px;font-family:Georgia,serif;font-size:15px;color:#1E2A35;font-weight:bold;">State C2 — found, belongs to another coach</div>
+<div style="background:#FFFFFF;border:1px solid #E2E6EA;border-radius:12px;padding:20px;max-width:420px;">
+  <div style="background:#FEF3E8;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#B5590F;">
+    This email is already associated with another coach's client roster. If you believe this is an error, contact Hive support.
+  </div>
+  <div style="font-size:10px;color:#8A96A3;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">Client email *</div>
+  <input value="marcus.webb@example.com" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #F68625;border-radius:6px;font-size:14px;margin-bottom:14px;" readonly />
+  <div style="opacity:0.4;">
+    <div style="font-size:10px;color:#8A96A3;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;">First name *</div>
+    <input style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #E2E6EA;border-radius:6px;font-size:14px;background:#F4F6F8;" disabled />
+  </div>
+  <div style="margin-top:16px;text-align:right;">
+    <span style="display:inline-block;background:#F4F6F8;color:#8A96A3;font-size:13px;font-weight:bold;padding:10px 18px;border-radius:6px;">Save Client</span>
+  </div>
+</div>
+
+</body></html>

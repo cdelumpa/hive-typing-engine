@@ -801,6 +801,7 @@ app.get('/coach', requireCoach, requireOnboardingComplete, async (req, res) => {
 const CP_ICON_SEARCH   = CP_ICON('<circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.6" y2="16.6"/>');
 const CP_ICON_LOCK     = CP_ICON('<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>');
 const CP_ICON_DOWNLOAD = CP_ICON('<path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M4 20h16"/>');
+const CP_ICON_CHECK    = CP_ICON('<circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>');
 
 // Every route below that addresses a client by id funnels through this. A coach may only
 // ever see their own clients. Returns 404 (not 403) on someone else's client: a 403 would
@@ -848,13 +849,19 @@ function renderRosterRow(r, selectedId, retakeRequest) {
   const filled = !r.cancelled_at && eff === 'in_progress';
   const selected = r.client_id === selectedId;
   const name = cpFullName(r);
+  // CP-D: a client with NO assessment row gets no badge at all (mockup 02 — a freshly
+  // onboarded client is a bare name). Without this, cpEffectiveStatus falls through to
+  // clients.status = 'not_started' and every brand-new client would wear a "Not Started"
+  // badge that means nothing — they haven't failed to start anything, they simply have no
+  // assessment yet. ADMIN_ROWS_SELECT LEFT JOINs, so assessment_id is NULL in that case.
+  const badge = r.assessment_id == null ? '' : statusBadge(eff, r.cancelled_at);
   // The retake badge is a SECOND line under the name (mockup 1a), not another chip crammed
   // onto the name's row — inline, two badges squeeze the name into an ellipsis.
   return `<a class="cp-roster-row${selected ? ' cp-roster-row--selected' : ''}" href="/coach/clients/${r.client_id}">
               <span class="cp-dot-status${filled ? ' cp-dot-status--filled' : ''}" aria-hidden="true"></span>
               <span class="cp-roster-main">
                 <span class="cp-roster-name">${cpEsc(name)}</span>
-                <span class="cp-roster-badges">${statusBadge(eff, r.cancelled_at)}</span>
+                <span class="cp-roster-badges">${badge}</span>
                 <span class="cp-roster-sub">${retakeBadge(retakeRequest)}</span>
               </span>
               <span class="cp-roster-chev" aria-hidden="true">›</span>
@@ -941,7 +948,26 @@ function renderAssessmentHistory(assessments) {
 // checkbox plus a date input, autosaved on change (same fire-and-forget posture as notes).
 // The date is disabled until the box is ticked, so the two can't disagree. Flagged in the
 // PR report rather than guessed silently.
-function renderDebrief(client) {
+function renderDebrief(client, hasAssessment) {
+  // CP-E: until the client has an assessment there is nothing to debrief, so both fields
+  // are inert em-dashes (mockups 02/05). Rendering a live checkbox on a client who has
+  // never taken an assessment invites a coach to mark a debrief that cannot exist.
+  if (!hasAssessment) {
+    return `<section class="cp-detail-section">
+            <p class="cp-eyebrow">Coach Debrief</p>
+            <div class="cp-debrief">
+              <div class="cp-debrief-col">
+                <p class="cp-field-label">Debrief Completed</p>
+                <p class="cp-debrief-na">—</p>
+              </div>
+              <div class="cp-debrief-col">
+                <p class="cp-field-label">Debrief Date</p>
+                <p class="cp-debrief-na">—</p>
+              </div>
+            </div>
+          </section>`;
+  }
+
   const done = client.debrief_completed === true;
   return `<section class="cp-detail-section">
             <p class="cp-eyebrow">Coach Debrief</p>
@@ -1031,6 +1057,19 @@ function renderRetakeCta(client, assessments, request) {
 
 function renderClientDetail(client, assessments, retakeRequest) {
   const name = cpFullName(client);
+  const hasAssessment = assessments.length > 0;
+
+  // Step 2 of the Onboard flow (§7.3): a client with no assessment yet is only half
+  // onboarded, so the detail panel closes with the provisioning prompt rather than the
+  // retake CTA (which is meaningless — there is nothing to retake). Once they have an
+  // assessment this collapses back to the normal PR4a/PR4b footer.
+  const footer = hasAssessment
+    ? renderRetakeCta(client, assessments, retakeRequest)
+    : `<div class="cp-step2">
+              <p class="cp-eyebrow cp-step2-label">Step 2 of 2 — Provision an Assessment</p>
+              <button type="button" class="cp-btn cp-btn--primary cp-step2-cta" id="cp-step2-assessment">Create New Assessment</button>
+            </div>`;
+
   return `<div class="cp-detail">
           <a class="cp-back" href="/coach/clients">← My Clients</a>
           <div class="cp-detail-card">
@@ -1053,7 +1092,7 @@ function renderClientDetail(client, assessments, retakeRequest) {
               ${renderAssessmentHistory(assessments)}
             </section>
 
-            ${renderDebrief(client)}
+            ${renderDebrief(client, hasAssessment)}
 
             <section class="cp-detail-section">
               <p class="cp-eyebrow">Coach Notes</p>
@@ -1062,7 +1101,7 @@ function renderClientDetail(client, assessments, retakeRequest) {
               <p class="cp-saved-hint" id="cp-notes-hint">Autosaved</p>
             </section>
 
-            ${renderRetakeCta(client, assessments, retakeRequest)}
+            ${footer}
           </div>
         </div>`;
 }
@@ -1171,7 +1210,18 @@ function renderAssessmentModal(client) {
 
 // Shared renderer for both /coach/clients and /coach/clients/:id. `detailView` only
 // changes which half mobile shows — desktop/tablet always show both.
-function renderMyClients({ coachName, credits, rows, selected, assessments, sort, detailView, retakeByClient, selectedRetake }) {
+// Success toast (§7.3). Desktop: floats top-right of the workspace. Mobile: renders as an
+// inline banner at the top of the page (CSS handles the swap — same markup).
+// The name is read from the client we're already rendering, so it never travels in the URL.
+function renderToast(name) {
+  return `<div class="cp-toast" id="cp-toast" role="status">
+          <span class="cp-toast-icon" aria-hidden="true">${CP_ICON_CHECK}</span>
+          <span class="cp-toast-text">${cpEsc(name)} has been added to your roster.</span>
+          <button type="button" class="cp-toast-close" id="cp-toast-close" aria-label="Dismiss">&times;</button>
+        </div>`;
+}
+
+function renderMyClients({ coachName, credits, rows, selected, assessments, sort, detailView, retakeByClient, selectedRetake, toast }) {
   const retakes = retakeByClient || new Map();
   const body = rows.length
     ? `${renderRoster(rows, selected ? selected.id : null, sort, retakes)}
@@ -1183,6 +1233,7 @@ function renderMyClients({ coachName, credits, rows, selected, assessments, sort
     creditsPill: credits,
     avatar: coachName,
     bodyHtml: `<div class="cp-clients-page${detailView ? ' cp-has-detail-view' : ''}">
+        ${toast && selected ? renderToast(cpFullName(selected)) : ''}
         <h1 class="cp-page-title">My Clients</h1>
         <div class="cp-master-detail${detailView ? ' cp-master-detail--detail' : ''}">
         ${body}
@@ -1241,6 +1292,174 @@ app.get('/coach/clients', requireCoach, requireOnboardingComplete, async (req, r
   }
 });
 
+// ── Coach Portal PR5: Onboard a New Client (§7.3 Addendum v1.0) ─────────────────
+// Two logical steps on one page. Step 1 (this screen) collects client details; Step 2 is
+// not a separate screen — after save the coach lands on My Clients with the new client
+// selected and is prompted to provision an assessment via the PR4a modal.
+//
+// ROUTE ORDER MATTERS: /coach/clients/new and /coach/clients/lookup must be registered
+// BEFORE /coach/clients/:id, or Express captures "new"/"lookup" as an :id.
+
+// Sibling of loadOwnedClient (which is keyed on id) — same ownership discipline, keyed on
+// email. It reads from db.resolveClientForCoach, the SAME resolution the PR5-security gate
+// uses inside provisionAssessment, so the screen and the server cannot disagree about who
+// owns an email. No ownership logic is reinvented here.
+async function lookupClientForCoach(email, coachId) {
+  const resolved = await db.resolveClientForCoach({ email, coachId });
+  if (!resolved.exists) return { state: 'none' };
+
+  // C2 — deliberately opaque. The coach learns ONLY that the email is taken. Echoing the
+  // owning coach or the client's name here would leak another coach's roster, and the UI
+  // does not need it: the C2 banner copy is generic by design.
+  if (!resolved.ownedByCoach) return { state: 'other_coach' };
+
+  // C1 — the coach's own client, safe to return for pre-fill.
+  const c = resolved.client;
+  return {
+    state: 'own',
+    client: {
+      id: c.id,
+      first_name: c.first_name,
+      last_name: c.last_name,
+      organization: c.organization,
+    },
+  };
+}
+
+// GET /coach/clients/lookup?email= — fires on email-field blur.
+// Gated like every other /coach/* route. CP-B (ratified): no rate limiting at launch —
+// a logged-in coach can probe whether an email belongs to some InsightOut client. Accepted
+// residual risk; the response never says WHOSE, which is the part that would actually hurt.
+app.get('/coach/clients/lookup', requireCoach, requireOnboardingComplete, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const email = String(req.query.email || '').trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'INVALID_EMAIL' });
+  }
+  try {
+    return res.json(await lookupClientForCoach(email, req.session.coach_id));
+  } catch (e) {
+    console.error('[GET /coach/clients/lookup] failed:', e.message);
+    return res.status(500).json({ error: 'LOOKUP_FAILED' });
+  }
+});
+
+// GET /coach/clients/new — Step 1 form.
+app.get('/coach/clients/new', requireCoach, requireOnboardingComplete, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const credits = await getCoachCreditBalance(req.session.coach_id).catch(() => null);
+
+  const body = `<div class="cp-onboard">
+          <p class="cp-eyebrow cp-onboard-eyebrow">Step 1 of 2 — Client Details</p>
+          <h1 class="cp-onboard-title">Onboard a New Client</h1>
+          <p class="cp-onboard-sub">Start by entering your client's email address. We'll check if they're already in the system.</p>
+
+          <form class="cp-onboard-form" id="cp-onboard-form" novalidate>
+            <div id="cp-lookup-banner" class="cp-lookup-banner" hidden></div>
+
+            <div class="cp-card cp-onboard-card">
+              <label class="cp-field-label" for="cp-ob-email">Client Email <span class="cp-req">*</span></label>
+              <div class="cp-email-wrap">
+                <input class="cp-input" id="cp-ob-email" type="email" placeholder="client@example.com" autocomplete="off" required>
+                <span class="cp-spinner" id="cp-lookup-spinner" hidden aria-hidden="true"></span>
+              </div>
+              <p class="cp-lookup-status" id="cp-lookup-status" hidden>Checking...</p>
+            </div>
+
+            <div class="cp-card cp-onboard-card" id="cp-onboard-fields">
+              <div class="cp-name-row">
+                <div class="cp-name-col">
+                  <label class="cp-field-label" for="cp-ob-first">First Name <span class="cp-req">*</span></label>
+                  <input class="cp-input" id="cp-ob-first" placeholder="First" autocomplete="off" required>
+                </div>
+                <div class="cp-name-col">
+                  <label class="cp-field-label" for="cp-ob-last">Last Name <span class="cp-req">*</span></label>
+                  <input class="cp-input" id="cp-ob-last" placeholder="Last" autocomplete="off" required>
+                </div>
+              </div>
+
+              <label class="cp-field-label" for="cp-ob-org">Organization <span class="cp-optional">(optional)</span></label>
+              <input class="cp-input" id="cp-ob-org" placeholder="Company or organization" autocomplete="off">
+
+              <label class="cp-field-label" for="cp-ob-notes">Coach Notes <span class="cp-optional">(optional)</span></label>
+              <textarea class="cp-input cp-onboard-notes" id="cp-ob-notes" rows="4"
+                        placeholder="Private notes about this client — only you can see these."></textarea>
+              <p class="cp-hint">Notes are private and won't be shared with your client.</p>
+            </div>
+
+            <div id="cp-onboard-msg" class="cp-modal-msg" hidden></div>
+
+            <div class="cp-onboard-foot">
+              <a class="cp-btn cp-btn--ghost" href="/coach/clients">Cancel</a>
+              <button type="submit" class="cp-btn cp-btn--primary" id="cp-onboard-save" disabled>Save Client</button>
+            </div>
+          </form>
+        </div>`;
+
+  res.send(renderCoachChrome({
+    activeNav: 'clients', creditsPill: credits, avatar: req.session.coach_name, bodyHtml: body,
+  }));
+});
+
+// POST /coach/clients/new — Save Client. Creates the CLIENT ONLY. No assessment and no
+// credit: provisioning is Step 2, through the already-built Create New Assessment modal.
+//
+// The cross-coach refusal below is NOT a re-implementation of the PR5-security gate — it
+// reads the same db.resolveClientForCoach. It exists so the form gets a clean 409 to render
+// rather than a raw failure; a direct POST that skips the lookup hits exactly the same
+// check, which is why the form is unbypassable.
+app.post('/coach/clients/new', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const coachId = req.session.coach_id;
+  const b = req.body || {};
+  const firstName = String(b.firstName || '').trim();
+  const lastName  = String(b.lastName || '').trim();
+  const email     = String(b.email || '').trim().toLowerCase();
+  const organization = b.organization ? String(b.organization).trim() : null;
+  const notes = b.notes ? String(b.notes) : null;
+
+  if (!firstName || !lastName) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'First and last name are required.' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'A valid email is required.' });
+
+  try {
+    const resolved = await db.resolveClientForCoach({ email, coachId });
+
+    if (resolved.exists && !resolved.ownedByCoach) {
+      console.warn(`[coach/clients/new] REFUSED cross-coach attach — coach #${coachId} targeted client #${resolved.client.id}`);
+      return res.status(409).json({
+        error: 'CLIENT_BELONGS_TO_ANOTHER_COACH',
+        message: 'This email is already associated with another coach\'s client roster. If you believe this is an error, contact Hive support.',
+      });
+    }
+
+    // Already the coach's own client — do NOT create a duplicate. This is the State C1
+    // path; the UI sends them to "Continue to Assessment" rather than Save Client, but a
+    // direct POST lands here and gets the same answer: the client already exists, go use them.
+    if (resolved.exists) {
+      return res.status(200).json({ ok: true, clientId: resolved.client.id, created: false });
+    }
+
+    const { id: clientId, created } = await db.createClient({ firstName, lastName, email, organization }, coachId);
+    if (!clientId) return res.status(500).json({ error: 'CREATE_FAILED', message: 'Client creation failed.' });
+
+    if (notes) await db.setCoachNotes(clientId, notes).catch(e => console.error('[coach/clients/new] notes save failed:', e.message));
+
+    db.logClientEvent({
+      clientId, assessmentId: null,
+      eventType: 'client_created',
+      eventDescription: 'Client created (coach portal onboarding)',
+      actor: req.session.user_id,
+    });
+    try {
+      await db.insertAssignmentEvent(clientId, null, coachId, req.session.user_id, 'created');
+    } catch (e) { console.error('[coach/clients/new] assignment event failed:', e.message); }
+
+    return res.status(200).json({ ok: true, clientId, created });
+  } catch (e) {
+    console.error('[POST /coach/clients/new] failed:', e.message);
+    return res.status(500).json({ error: 'CREATE_FAILED', message: 'Something went wrong. Please try again.' });
+  }
+});
+
 // GET /coach/clients/:id — the same screen with a client selected. On mobile this IS the
 // detail view (the roster is hidden and a back link appears); on desktop/tablet it is
 // master-detail with that row selected.
@@ -1264,7 +1483,10 @@ app.get('/coach/clients/:id', requireCoach, requireOnboardingComplete, async (re
     const assessments = await db.getAssessmentsByClient(selected.id).catch(() => []);
     const retakeByClient = await db.getLatestRetakeRequestsByCoach(coachId).catch(() => new Map());
     const selectedRetake = retakeByClient.get(selected.id) || null;
-    res.send(renderMyClients({ coachName: req.session.coach_name, credits, rows, selected, assessments, sort, detailView: true, retakeByClient, selectedRetake }));
+    // ?created=1 → success toast (§7.3). The name comes from the client we're already
+    // rendering, so it never has to travel in the query string.
+    const toast = req.query.created === '1';
+    res.send(renderMyClients({ coachName: req.session.coach_name, credits, rows, selected, assessments, sort, detailView: true, retakeByClient, selectedRetake, toast }));
   } catch (e) {
     console.error('[GET /coach/clients/:id] failed:', e.message);
     res.status(500).send(renderCoachChrome({
