@@ -109,11 +109,57 @@ const SPA_ASSET_PATHS = new Set([
 // ThriveCart SKU → credit grant map (PR9). Each SKU maps to a creditTypeName, quantity,
 // and pricePaidCents (the price stored on the purchased lot for refund accounting).
 // PLACEHOLDERS — Cai will update the SKU names and prices before launch.
+// PR6a: the purchasable set is 5/10/25/50-packs. `pricePaidCents` is GONE from this map on
+// purpose — it was never read (the recorded price comes from the webhook's order_total, the
+// amount actually charged, which is also what makes a coupon-discounted purchase record
+// correctly). Leaving a stale price here read as authoritative and was wrong by 10x.
+//
+// ⚠️ PRODUCT IDS ARE PLACEHOLDERS. These keys must match ThriveCart's real `product_id`
+// exactly or the webhook rejects the purchase with UNKNOWN_SKU and the coach never gets
+// their credits. Cai creates the four products and swaps the real ids in before launch.
+//
+// `insightout-single` is DELIBERATELY RETAINED (CP-2) even though a single credit can no
+// longer buy anything (an assessment costs 5). It is webhook-inbound only and is NOT
+// offered in the purchase UI — but if any single-credit order is still in flight when this
+// deploys, removing the entry would 400 its webhook, ThriveCart would retry forever, and a
+// paying coach would silently never receive their credit.
 const THRIVECART_SKU_MAP = {
-  'insightout-5-pack':  { creditTypeName: 'standard_assessment', quantity: 5,  pricePaidCents: 49500 },  // $495 — update before launch
-  'insightout-10-pack': { creditTypeName: 'standard_assessment', quantity: 10, pricePaidCents: 89500 },  // $895 — update before launch
-  'insightout-single':  { creditTypeName: 'standard_assessment', quantity: 1,  pricePaidCents: 9900  },  // $99  — update before launch
+  'insightout-5-pack':  { creditTypeName: 'standard_assessment', quantity: 5  },  // $40  — placeholder id
+  'insightout-10-pack': { creditTypeName: 'standard_assessment', quantity: 10 },  // $75  — placeholder id
+  'insightout-25-pack': { creditTypeName: 'standard_assessment', quantity: 25 },  // $160 — placeholder id
+  'insightout-50-pack': { creditTypeName: 'standard_assessment', quantity: 50 },  // $300 — placeholder id
+  'insightout-single':  { creditTypeName: 'standard_assessment', quantity: 1  },  // retired from sale; honoured inbound (CP-2)
 };
+
+// The purchasable packages, in display order. Prices are what the ThriveCart product is
+// configured to charge — they are shown to the coach and must match the real product, but
+// they are NOT what we record: recordPurchasedCredits stores the webhook's order_total.
+//
+// checkoutUrlEnv points at a Railway env var (same pattern as THRIVECART_WEBHOOK_SECRET)
+// rather than hardcoding a URL. A package whose env var is unset renders DISABLED with an
+// explanation — never a dead link that 404s a coach mid-purchase.
+const CREDIT_PACKAGES = [
+  { key: '5pack',  label: '5-Pack',  credits: 5,  priceCents: 4000,  checkoutUrlEnv: 'THRIVECART_CHECKOUT_URL_5PACK'  },
+  { key: '10pack', label: '10-Pack', credits: 10, priceCents: 7500,  checkoutUrlEnv: 'THRIVECART_CHECKOUT_URL_10PACK' },
+  { key: '25pack', label: '25-Pack', credits: 25, priceCents: 16000, checkoutUrlEnv: 'THRIVECART_CHECKOUT_URL_25PACK' },
+  { key: '50pack', label: '50-Pack', credits: 50, priceCents: 30000, checkoutUrlEnv: 'THRIVECART_CHECKOUT_URL_50PACK' },
+];
+
+// Resolves each package's checkout URL at request time (not boot) so setting the env var in
+// Railway takes effect on the next request without a redeploy. `available:false` is what the
+// PR6 modal renders as a disabled card.
+function getCreditPackages() {
+  return CREDIT_PACKAGES.map(p => {
+    const url = process.env[p.checkoutUrlEnv];
+    return {
+      ...p,
+      checkoutUrl: url || null,
+      available: Boolean(url),
+      unavailableReason: url ? null : 'Checkout for this package isn\'t set up yet — please contact support.',
+      perCreditCents: Math.round(p.priceCents / p.credits),
+    };
+  });
+}
 app.use((req, res, next) => {
   if (req.path === '/admin/login' || req.path.startsWith('/admin')) return next();
   // Coach portal (pages + /coach/assets/* static): session-gated via requireCoach, not
@@ -1038,10 +1084,18 @@ function renderRetakePseudoEntry(request) {
 // The bottom CTA is contextual (§7.2): Request Retake when the latest assessment is
 // complete and nothing is open; Launch Retake when a request is approved. A pending
 // request offers nothing to click — the coach is waiting on Hive.
-function renderRetakeCta(client, assessments, request) {
+// "5 credits" / "1 credit" / "— credits" when the cost is unreadable. Every user-facing
+// mention of the assessment cost goes through this — PR6a made the cost mutable, so a
+// hardcoded number anywhere is a lie waiting to happen the first time a special is run.
+function cpCreditsLabel(cost) {
+  if (!Number.isInteger(cost) || cost <= 0) return '— credits';
+  return `${cost} credit${cost === 1 ? '' : 's'}`;
+}
+
+function renderRetakeCta(client, assessments, request, assessmentCost) {
   if (request && request.status === 'approved') {
     return `<button type="button" class="cp-btn cp-btn--primary cp-retake-cta" id="cp-launch-retake" data-request="${request.id}">Launch Retake</button>
-            <p class="cp-cta-hint">Uses 1 Standard Assessment credit and sends a fresh invitation.</p>`;
+            <p class="cp-cta-hint">Uses ${cpCreditsLabel(assessmentCost)} and sends a fresh invitation.</p>`;
   }
   if (request && request.status === 'pending') return '';
 
@@ -1055,7 +1109,7 @@ function renderRetakeCta(client, assessments, request) {
           <p class="cp-cta-hint">Submit a retake request to InsightOut for approval.</p>`;
 }
 
-function renderClientDetail(client, assessments, retakeRequest) {
+function renderClientDetail(client, assessments, retakeRequest, assessmentCost) {
   const name = cpFullName(client);
   const hasAssessment = assessments.length > 0;
 
@@ -1064,7 +1118,7 @@ function renderClientDetail(client, assessments, retakeRequest) {
   // retake CTA (which is meaningless — there is nothing to retake). Once they have an
   // assessment this collapses back to the normal PR4a/PR4b footer.
   const footer = hasAssessment
-    ? renderRetakeCta(client, assessments, retakeRequest)
+    ? renderRetakeCta(client, assessments, retakeRequest, assessmentCost)
     : `<div class="cp-step2">
               <p class="cp-eyebrow cp-step2-label">Step 2 of 2 — Provision an Assessment</p>
               <button type="button" class="cp-btn cp-btn--primary cp-step2-cta" id="cp-step2-assessment">Create New Assessment</button>
@@ -1159,7 +1213,7 @@ function renderClientsEmpty() {
 //
 // Submits to POST /coach/clients/provision — the coach-scoped route added in PR4-security,
 // which pins coachId to the session. The request carries NO coachId at all.
-function renderAssessmentModal(client) {
+function renderAssessmentModal(client, assessmentCost) {
   return `<div class="cp-modal-backdrop" id="cp-modal" hidden>
           <div class="cp-modal" role="dialog" aria-modal="true" aria-labelledby="cp-modal-title">
             <span class="cp-sheet-handle" aria-hidden="true"></span>
@@ -1181,7 +1235,7 @@ function renderAssessmentModal(client) {
             <p class="cp-eyebrow cp-eyebrow--sp">Assessment Type</p>
             <div class="cp-type-card">
               <span class="cp-type-name">Standard Assessment</span>
-              <span class="cp-type-cost">1 credit</span>
+              <span class="cp-type-cost">${cpCreditsLabel(assessmentCost)}</span>
             </div>
             <p class="cp-hint-italic">Leadership and Team reports coming soon</p>
 
@@ -1221,11 +1275,11 @@ function renderToast(name) {
         </div>`;
 }
 
-function renderMyClients({ coachName, credits, rows, selected, assessments, sort, detailView, retakeByClient, selectedRetake, toast }) {
+function renderMyClients({ coachName, credits, rows, selected, assessments, sort, detailView, retakeByClient, selectedRetake, toast, assessmentCost }) {
   const retakes = retakeByClient || new Map();
   const body = rows.length
     ? `${renderRoster(rows, selected ? selected.id : null, sort, retakes)}
-        ${selected ? renderClientDetail(selected, assessments, selectedRetake) : ''}`
+        ${selected ? renderClientDetail(selected, assessments, selectedRetake, assessmentCost) : ''}`
     : renderClientsEmpty();
 
   return renderCoachChrome({
@@ -1239,7 +1293,7 @@ function renderMyClients({ coachName, credits, rows, selected, assessments, sort
         ${body}
         </div>
         </div>
-        ${selected ? renderAssessmentModal(selected) : ''}
+        ${selected ? renderAssessmentModal(selected, assessmentCost) : ''}
         ${selected ? renderRetakeModal(selected) : ''}`,
   });
 }
@@ -1282,7 +1336,8 @@ app.get('/coach/clients', requireCoach, requireOnboardingComplete, async (req, r
     }
     const selectedRetake = selected ? retakeByClient.get(selected.id) : null;
 
-    res.send(renderMyClients({ coachName: req.session.coach_name, credits, rows, selected, assessments, sort, detailView: false, retakeByClient, selectedRetake }));
+    const assessmentCost = await db.getCreditCost('standard_assessment').catch(() => null);
+    res.send(renderMyClients({ coachName: req.session.coach_name, credits, rows, selected, assessments, sort, detailView: false, retakeByClient, selectedRetake, assessmentCost }));
   } catch (e) {
     console.error('[GET /coach/clients] failed:', e.message);
     res.send(renderCoachChrome({
@@ -1486,7 +1541,8 @@ app.get('/coach/clients/:id', requireCoach, requireOnboardingComplete, async (re
     // ?created=1 → success toast (§7.3). The name comes from the client we're already
     // rendering, so it never has to travel in the query string.
     const toast = req.query.created === '1';
-    res.send(renderMyClients({ coachName: req.session.coach_name, credits, rows, selected, assessments, sort, detailView: true, retakeByClient, selectedRetake, toast }));
+    const assessmentCost = await db.getCreditCost('standard_assessment').catch(() => null);
+    res.send(renderMyClients({ coachName: req.session.coach_name, credits, rows, selected, assessments, sort, detailView: true, retakeByClient, selectedRetake, toast, assessmentCost }));
   } catch (e) {
     console.error('[GET /coach/clients/:id] failed:', e.message);
     res.status(500).send(renderCoachChrome({
@@ -5242,7 +5298,7 @@ async function sendPasswordChangedEmail(toEmail) {
 // Retake decision notification (PR4b). Best-effort like every other send helper: it logs
 // and returns on failure, never throws — a SendGrid outage must not roll back an approval
 // or denial that is already committed in the database.
-async function sendRetakeDecisionEmail(coach, client, approved, denialReason) {
+async function sendRetakeDecisionEmail(coach, client, approved, denialReason, assessmentCost) {
   if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_FROM_EMAIL) {
     console.warn('[retake] SendGrid not configured — decision email not sent');
     return;
@@ -5254,7 +5310,7 @@ async function sendRetakeDecisionEmail(coach, client, approved, denialReason) {
   const body = approved
     ? `
         <p style="font-size:15px;">Your retake request for <strong>${clientName}</strong> has been approved.</p>
-        <p style="font-size:15px;">You can launch the retake from their client page. Launching it will use one Standard Assessment credit and send ${clientName} a fresh assessment invitation.</p>
+        <p style="font-size:15px;">You can launch the retake from their client page. Launching it will use ${cpCreditsLabel(assessmentCost)} and send ${clientName} a fresh assessment invitation.</p>
         <p style="margin: 32px 0;">
           <a href="${clientUrl}" style="display:inline-block;background:#00b1d7;color:#fff;padding:14px 28px;border-radius:4px;font-weight:700;text-decoration:none;font-size:15px;">Launch the retake →</a>
         </p>`
@@ -6011,9 +6067,9 @@ app.post('/admin/clients/resend/:client_id', requireAdminSession, async (req, re
 //   THIS route  — staff comp/override. Free (no credit debited), immediate (no approval),
 //                 super-admin only. Resets the client via retakeTransaction and re-sends
 //                 the invite. Used when Hive decides to hand someone a retake.
-//   PR4b        — coach-initiated. Costs 1 credit, requires super-admin approval, and
-//                 provisions a NEW assessment row without resetting the client
-//                 (see POST /coach/retake-requests/:id/launch).
+//   PR4b        — coach-initiated. Costs the current per-assessment credit rate (PR6a),
+//                 requires super-admin approval, and provisions a NEW assessment row
+//                 without resetting the client (see POST /coach/retake-requests/:id/launch).
 //
 // Do not "reconcile" them. Making this route consume a credit or require approval would
 // remove Hive's ability to comp a retake; routing it through retake_requests would make an
@@ -11253,10 +11309,11 @@ app.get('/admin/retake-requests', requireSuperAdmin, async (req, res) => {
   let rows = [];
   try { rows = await db.getPendingRetakeRequests(); }
   catch (e) { console.error('[retake-requests] query error:', e.message); }
-  res.send(renderRetakeRequestsPage(req, rows));
+  const assessmentCost = await db.getCreditCost('standard_assessment').catch(() => null);
+  res.send(renderRetakeRequestsPage(req, rows, assessmentCost));
 });
 
-function renderRetakeRequestsPage(req, rows) {
+function renderRetakeRequestsPage(req, rows, assessmentCost) {
   // Defense in depth: the route already gates this, but the renderer refuses too.
   if (!auth.hasRole(req, 'super_admin')) return '<h1>Forbidden</h1>';
 
@@ -11327,7 +11384,7 @@ function renderRetakeRequestsPage(req, rows) {
 <div class="container">
   <div class="card">
     <div class="toolbar">
-      Approving lets the coach launch the retake, which spends one of <em>their</em> Standard Assessment credits. Denying requires a reason, which is sent to the coach.
+      Approving lets the coach launch the retake, which spends ${cpCreditsLabel(assessmentCost)} from <em>their</em> Standard Assessment balance. Denying requires a reason, which is sent to the coach.
     </div>
     <table>
       <thead>
@@ -11431,7 +11488,8 @@ app.post('/admin/retake-requests/:id/approve', requireSuperAdmin, async (req, re
       actor: req.session.user_id,
     });
 
-    if (coach && client) await sendRetakeDecisionEmail(coach, client, true, null);
+    const assessmentCost = await db.getCreditCost('standard_assessment').catch(() => null);
+    if (coach && client) await sendRetakeDecisionEmail(coach, client, true, null, assessmentCost);
 
     console.log(`[retake] request #${id} approved by super-admin #${req.session.user_id}`);
     return res.json({ ok: true });
@@ -11469,7 +11527,7 @@ app.post('/admin/retake-requests/:id/deny', requireSuperAdmin, async (req, res) 
       actor: req.session.user_id,
     });
 
-    if (coach && client) await sendRetakeDecisionEmail(coach, client, false, reason);
+    if (coach && client) await sendRetakeDecisionEmail(coach, client, false, reason, null);
 
     console.log(`[retake] request #${id} denied by super-admin #${req.session.user_id}`);
     return res.json({ ok: true });

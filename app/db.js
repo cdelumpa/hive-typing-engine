@@ -533,8 +533,11 @@ CREATE TABLE IF NOT EXISTS accounts (
 CREATE UNIQUE INDEX IF NOT EXISTS accounts_coach_id_key
   ON accounts (coach_id) WHERE coach_id IS NOT NULL;
 
--- ── Table: credit_types ── static reference (roles pattern). Seeded in PR3, never
--- mutated by app code. name is the machine key referenced by requested_report_types.
+-- ── Table: credit_types ── reference data (roles pattern). Seeded in PR3. name is the
+-- machine key referenced by requested_report_types.
+--
+-- PR6a: no longer purely static — current_cost_credits is a MUTABLE operational value
+-- (see the ALTER below). The rows themselves are still never inserted/deleted by app code.
 CREATE TABLE IF NOT EXISTS credit_types (
   id          SERIAL PRIMARY KEY,
   name        VARCHAR(50) NOT NULL UNIQUE,
@@ -584,6 +587,45 @@ CREATE INDEX IF NOT EXISTS credit_transactions_account_idx
   ON credit_transactions (account_id);
 CREATE INDEX IF NOT EXISTS credit_transactions_assessment_idx
   ON credit_transactions (assessment_id);
+
+-- ── PR6a: variable per-assessment credit cost ────────────────────────────────────
+-- A Standard Assessment costs 5 credits by default, not 1. The cost is MUTABLE so a
+-- time-limited special ("4 credits this week") can be run with a single UPDATE — no
+-- redeploy, no ThriveCart change, no coupon code. The discount lives entirely on the
+-- redemption side.
+--
+-- It lives on credit_types because the cost is a property OF the credit type: when
+-- Leadership/Team reports become sellable they get their own cost. NULL means "not
+-- sellable yet" — consumeCredit refuses a type with no cost rather than guessing 1.
+ALTER TABLE credit_types ADD COLUMN IF NOT EXISTS current_cost_credits INTEGER;
+
+DO $$ BEGIN
+  UPDATE credit_types SET current_cost_credits = 5
+   WHERE name = 'standard_assessment' AND current_cost_credits IS NULL;
+END $$;
+
+-- Idempotent CHECK adds. SCHEMA_SQL re-runs on every boot and ADD CONSTRAINT has no
+-- IF NOT EXISTS, so each is guarded on pg_constraint.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'credit_types_cost_positive') THEN
+    ALTER TABLE credit_types
+      ADD CONSTRAINT credit_types_cost_positive
+      CHECK (current_cost_credits IS NULL OR current_cost_credits > 0);
+  END IF;
+END $$;
+
+-- Guardrail the FIFO drain depends on. Before PR6a a lot could only ever be decremented
+-- by 1 and was always checked for quantity_remaining > 0 first, so it could not go
+-- negative. A multi-credit cost CAN overdraw a lot, and nothing in the schema was
+-- stopping it — a bad drain would have silently written a negative balance. Now the
+-- database refuses.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'credit_lots_remaining_non_negative') THEN
+    ALTER TABLE credit_lots
+      ADD CONSTRAINT credit_lots_remaining_non_negative
+      CHECK (quantity_remaining >= 0);
+  END IF;
+END $$;
 
 -- ── Table: certifications ── dedicated certification record, separate from the coach
 -- role grant, to support ICF CCE audit requirements (spec §4). user_id is the
@@ -2870,85 +2912,133 @@ async function insertCreditTransaction(client, { accountId, creditTypeId, lotId,
   return r.rows[0];
 }
 
-// FIFO consume of one credit at provisioning time. Locks the oldest non-exhausted lot
-// (FOR UPDATE) to avoid a concurrent double-spend, decrements it by 1, and logs a
-// 'consumed' transaction — all in one transaction. When no lot is available the behavior
-// depends on app_settings.credit_enforcement_enabled (the singleton column, read via
-// getAppSettings): FALSE (launch default) logs an enforcement_disabled transaction with a
-// null lot and succeeds so the ledger stays accurate for the eventual enforcement flip
-// (handoff F2); TRUE (or unreadable settings) rejects with INSUFFICIENT_CREDITS.
+// FIFO consume at provisioning time (PR6a: variable cost, was hardcoded 1).
+//
+// The cost comes from credit_types.current_cost_credits, read inside the SAME locked
+// transaction as the drain — so a mid-flight cost change can never tear a consume.
+//
+// A cost of N > 1 may not fit in a single lot: a coach holding lot A (2 left) and lot B
+// (10 left) has 12 credits, and a 5-credit assessment must take 2 from A and 3 from B.
+// So this drains lots FIFO and writes ONE 'consumed' ledger row PER LOT TOUCHED
+// (-2 against A, -3 against B). That keeps the ledger reconciled against credit_lots:
+// every row names the lot it actually came out of, which is what lets cancellation put
+// each portion back where it came from. The old code took 1 from 1 lot; simply changing
+// that to "- N" would have driven lot A to -3.
+//
+// When the balance is short, behaviour depends on app_settings.credit_enforcement_enabled:
+// FALSE (launch default) logs a single enforcement_disabled row with a NULL lot for the
+// FULL cost and succeeds, so the ledger stays accurate for the eventual enforcement flip;
+// TRUE (or unreadable settings) rejects with INSUFFICIENT_CREDITS and touches nothing.
+//
+// Returns { cost, lotId, transactionId, allocations } where allocations is
+// [{ lotId, quantity, transactionId }, …] — one entry per lot drained. lotId/transactionId
+// remain as the FIRST allocation for backwards compatibility with existing callers (the
+// provisioning ledger back-patch reads transactionId).
 async function consumeCredit(accountId, creditTypeName, assessmentId, createdBy) {
   if (!pool) return;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // a. Resolve credit type name → id.
-    const typeRes = await client.query('SELECT id FROM credit_types WHERE name = $1', [creditTypeName]);
+    // a. Resolve credit type → id AND its current cost, in the one SELECT that already
+    //    existed. NULL cost = the type isn't sellable yet (leadership/team); refuse rather
+    //    than silently defaulting to 1, which is how this class of bug started.
+    const typeRes = await client.query(
+      'SELECT id, current_cost_credits FROM credit_types WHERE name = $1',
+      [creditTypeName]
+    );
     if (typeRes.rows.length === 0) throw new Error('UNKNOWN_CREDIT_TYPE');
     const creditTypeId = typeRes.rows[0].id;
+    const cost = typeRes.rows[0].current_cost_credits;
+    if (!Number.isInteger(cost) || cost <= 0) throw new Error('CREDIT_COST_NOT_SET');
 
-    // b. Oldest non-exhausted lot, row-locked against concurrent consumers.
+    // b. Every non-exhausted lot, oldest first, row-locked against concurrent consumers.
+    //    (Was LIMIT 1; a multi-credit cost may span lots.)
     const lotRes = await client.query(
       `SELECT id, quantity_remaining
          FROM credit_lots
         WHERE account_id = $1
           AND credit_type_id = $2
           AND quantity_remaining > 0
-        ORDER BY created_at ASC
-        LIMIT 1
+        ORDER BY created_at ASC, id ASC
         FOR UPDATE`,
       [accountId, creditTypeId]
     );
 
-    // c. No lot available → enforcement decides.
-    if (lotRes.rows.length === 0) {
+    const available = lotRes.rows.reduce((sum, l) => sum + l.quantity_remaining, 0);
+
+    // c. Not enough credits → enforcement decides.
+    if (available < cost) {
       const settings = await getAppSettings();
       const enforcementEnabled = !settings || settings.credit_enforcement_enabled === true;
       if (enforcementEnabled) {
         await client.query('ROLLBACK');
         throw new Error('INSUFFICIENT_CREDITS');
       }
+      // Enforcement off: record the FULL cost against a null lot and take nothing from the
+      // lots. Partially draining here would leave the coach short AND unblocked — the worst
+      // of both. The ledger row still nets correctly if the credit is later restored.
       const tx = await insertCreditTransaction(client, {
         accountId,
         creditTypeId,
         lotId: null,
         eventType: 'consumed',
-        quantity: 1,
+        quantity: cost,
         assessmentId,
         createdBy,
         notes: 'enforcement_disabled',
       });
       await client.query('COMMIT');
-      return { lotId: null, transactionId: tx.id };
+      return {
+        cost,
+        lotId: null,
+        transactionId: tx.id,
+        allocations: [{ lotId: null, quantity: cost, transactionId: tx.id }],
+      };
     }
 
-    // d. Decrement the located lot by 1.
-    const lotId = lotRes.rows[0].id;
-    await client.query(
-      `UPDATE credit_lots SET quantity_remaining = quantity_remaining - 1 WHERE id = $1`,
-      [lotId]
-    );
+    // d. Drain FIFO across lots, one ledger row per lot touched.
+    let outstanding = cost;
+    const allocations = [];
+    for (const lot of lotRes.rows) {
+      if (outstanding === 0) break;
+      const take = Math.min(lot.quantity_remaining, outstanding);
 
-    // e. Log the consume.
-    const tx = await insertCreditTransaction(client, {
-      accountId,
-      creditTypeId,
-      lotId,
-      eventType: 'consumed',
-      quantity: 1,
-      assessmentId,
-      createdBy,
-      notes: null,
-    });
+      await client.query(
+        `UPDATE credit_lots SET quantity_remaining = quantity_remaining - $1 WHERE id = $2`,
+        [take, lot.id]
+      );
+      const tx = await insertCreditTransaction(client, {
+        accountId,
+        creditTypeId,
+        lotId: lot.id,
+        eventType: 'consumed',
+        quantity: take,
+        assessmentId,
+        createdBy,
+        notes: null,
+      });
+
+      allocations.push({ lotId: lot.id, quantity: take, transactionId: tx.id });
+      outstanding -= take;
+    }
+
+    // Belt-and-braces: `available >= cost` above guarantees this, but a drain that failed
+    // to satisfy the cost must never commit a half-paid assessment.
+    if (outstanding !== 0) throw new Error('CREDIT_DRAIN_INCOMPLETE');
 
     await client.query('COMMIT');
-    return { lotId, transactionId: tx.id };
+    return {
+      cost,
+      lotId: allocations[0].lotId,
+      transactionId: allocations[0].transactionId,
+      allocations,
+    };
   } catch (e) {
     // ROLLBACK is a no-op if the transaction is already rolled back (e.g. the
     // INSUFFICIENT_CREDITS path above); guarded so it never masks the original error.
     try { await client.query('ROLLBACK'); } catch (_) {}
-    if (e.message !== 'INSUFFICIENT_CREDITS' && e.message !== 'UNKNOWN_CREDIT_TYPE') {
+    if (!['INSUFFICIENT_CREDITS', 'UNKNOWN_CREDIT_TYPE', 'CREDIT_COST_NOT_SET'].includes(e.message)) {
       console.error('[db] consumeCredit failed:', e.message);
     }
     throw e;
@@ -2957,12 +3047,24 @@ async function consumeCredit(accountId, creditTypeName, assessmentId, createdBy)
   }
 }
 
+// The live per-assessment cost. Used by the UI copy so nothing re-hardcodes a 5.
+async function getCreditCost(creditTypeName) {
+  const r = await query('SELECT current_cost_credits FROM credit_types WHERE name = $1', [creditTypeName]);
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].current_cost_credits : null;
+}
+
 // Restore exactly one credit to the SAME lot it was consumed from (cancellation path,
 // PR5). Increments quantity_remaining on that lot and logs a 'restored' transaction.
 // The lot must belong to the given account, else LOT_NOT_FOUND (guards against restoring
 // into someone else's lot). Single transaction.
-async function restoreCredit(accountId, creditTypeName, assessmentId, lotId, createdBy) {
+// PR6a: quantity is now an explicit REQUIRED argument, not a hardcoded 1. This helper has
+// no callers today (cancelAssessment inlines its own restore on a shared txClient), but it
+// is exported — leaving a silent +1 in it would have handed the next caller the exact bug
+// PR6a exists to fix.
+async function restoreCredit(accountId, creditTypeName, assessmentId, lotId, quantity, createdBy) {
   if (!pool) return;
+  if (!Number.isInteger(quantity) || quantity <= 0) throw new Error('INVALID_RESTORE_QUANTITY');
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -2975,10 +3077,10 @@ async function restoreCredit(accountId, creditTypeName, assessmentId, lotId, cre
     // b. Increment the original lot, scoped to this account.
     const lotRes = await client.query(
       `UPDATE credit_lots
-          SET quantity_remaining = quantity_remaining + 1
-        WHERE id = $1 AND account_id = $2
+          SET quantity_remaining = quantity_remaining + $1
+        WHERE id = $2 AND account_id = $3
         RETURNING id, quantity_remaining`,
-      [lotId, accountId]
+      [quantity, lotId, accountId]
     );
     if (lotRes.rows.length === 0) throw new Error('LOT_NOT_FOUND');
     const newQuantityRemaining = lotRes.rows[0].quantity_remaining;
@@ -2989,7 +3091,7 @@ async function restoreCredit(accountId, creditTypeName, assessmentId, lotId, cre
       creditTypeId,
       lotId,
       eventType: 'restored',
-      quantity: 1,
+      quantity,
       assessmentId,
       createdBy,
       notes: null,
@@ -3151,25 +3253,28 @@ async function getHouseAccount() {
 // ── PROVISIONING/CANCELLATION HELPERS (PR5) ──────────────────────────
 // Placed directly below the PR4 credit block because cancellation is credit-adjacent
 // (it restores a consumed credit). account_id / lot_id are NOT stored on assessments;
-// they are recovered from the credit_transactions ledger via getConsumedCreditTx.
+// they are recovered from the credit_transactions ledger via getConsumedCreditTxs.
 
-// The 'consumed' ledger row for an assessment — the source of truth for which account,
-// lot, and credit type a provisioning consume drew from (there is no account_id column on
-// assessments). Earliest consume wins. Returns the row, or null if none. A null query()
-// result (DB error) is surfaced as DB_ERROR; zero rows returns null (caller handles the
-// no-ledger case — e.g. an assessment provisioned before the credit ledger existed).
-async function getConsumedCreditTx(assessmentId) {
+// The 'consumed' ledger rows for an assessment — the source of truth for which account,
+// lots, and credit type a provisioning consume drew from (there is no account_id column on
+// assessments). Returns [] if none (caller handles the no-ledger case — e.g. an assessment
+// provisioned before the credit ledger existed). A null query() result is DB_ERROR.
+//
+// PR6a: returns ALL consumed rows for an assessment, not just the first, and now includes
+// `quantity`. A 5-credit consume that spanned two lots wrote two rows; refunding only the
+// first would silently destroy the rest of the coach's credits. Was LIMIT 1 without
+// quantity, back when a consume was always exactly one row of exactly 1.
+async function getConsumedCreditTxs(assessmentId) {
   const r = await query(
-    `SELECT id, account_id, lot_id, credit_type_id
+    `SELECT id, account_id, lot_id, credit_type_id, quantity
        FROM credit_transactions
       WHERE assessment_id = $1
         AND event_type = 'consumed'
-      ORDER BY created_at ASC
-      LIMIT 1`,
+      ORDER BY created_at ASC, id ASC`,
     [assessmentId]
   );
   if (!r) throw new Error('DB_ERROR');
-  return r.rows.length > 0 ? r.rows[0] : null;
+  return r.rows;
 }
 
 // Cancel a not_started assessment and restore its credit in one transaction (D3: cancel ≠
@@ -3197,34 +3302,44 @@ async function cancelAssessment(assessmentId, reason, cancelledBy) {
       throw new Error('CANCELLATION_INELIGIBLE');
     }
 
-    // b. Recover the consumed credit from the ledger and restore it (inlined restoreCredit).
-    const tx = await getConsumedCreditTx(assessmentId);
+    // b. Recover the consumed credits from the ledger and restore them (inlined restoreCredit).
+    //
+    // PR6a: reverse EVERY consumed row, each back into the lot it actually came out of, for
+    // the quantity it actually took. Previously this restored a hardcoded +1 from the first
+    // row only — which was correct when a consume was always one row of exactly 1, and
+    // silently destroyed 4 of a coach's 5 credits the moment it wasn't. The refund is
+    // symmetric with the drain by construction: same rows, same lots, same quantities.
+    const txs = await getConsumedCreditTxs(assessmentId);
     let creditRestored = false;
-    if (tx) {
-      const typeRes = await client.query('SELECT name FROM credit_types WHERE id = $1', [tx.credit_type_id]);
-      // Restore into the original lot when there is one. A consume made under
-      // enforcement_disabled logs a null lot_id (no lot existed); we still record the
-      // matching 'restored' ledger row so the ledger nets to zero, just without a lot bump.
-      if (tx.lot_id != null) {
-        const lotRes = await client.query(
-          `UPDATE credit_lots
-              SET quantity_remaining = quantity_remaining + 1
-            WHERE id = $1 AND account_id = $2
-            RETURNING id`,
-          [tx.lot_id, tx.account_id]
-        );
-        if (lotRes.rows.length === 0) throw new Error('LOT_NOT_FOUND');
+    let creditsRestored = 0;
+
+    if (txs.length > 0) {
+      for (const tx of txs) {
+        // Restore into the original lot when there is one. A consume made under
+        // enforcement_disabled logs a null lot_id (no lot existed); we still record the
+        // matching 'restored' ledger row so the ledger nets to zero, just without a lot bump.
+        if (tx.lot_id != null) {
+          const lotRes = await client.query(
+            `UPDATE credit_lots
+                SET quantity_remaining = quantity_remaining + $1
+              WHERE id = $2 AND account_id = $3
+              RETURNING id`,
+            [tx.quantity, tx.lot_id, tx.account_id]
+          );
+          if (lotRes.rows.length === 0) throw new Error('LOT_NOT_FOUND');
+        }
+        await insertCreditTransaction(client, {
+          accountId: tx.account_id,
+          creditTypeId: tx.credit_type_id,
+          lotId: tx.lot_id ?? null,
+          eventType: 'restored',
+          quantity: tx.quantity,
+          assessmentId,
+          createdBy: cancelledBy,
+          notes: null,
+        });
+        creditsRestored += tx.quantity;
       }
-      await insertCreditTransaction(client, {
-        accountId: tx.account_id,
-        creditTypeId: tx.credit_type_id,
-        lotId: tx.lot_id ?? null,
-        eventType: 'restored',
-        quantity: 1,
-        assessmentId,
-        createdBy: cancelledBy,
-        notes: null,
-      });
       creditRestored = true;
     } else {
       console.warn('[db] cancelAssessment: no consumed credit tx for assessment', assessmentId,
@@ -3242,7 +3357,7 @@ async function cancelAssessment(assessmentId, reason, cancelledBy) {
     );
 
     await client.query('COMMIT');
-    return { assessmentId, creditRestored };
+    return { assessmentId, creditRestored, creditsRestored };
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch (_) {}
     if (!['ASSESSMENT_NOT_FOUND', 'CANCELLATION_INELIGIBLE', 'LOT_NOT_FOUND'].includes(e.message)) {
@@ -3413,6 +3528,7 @@ module.exports = {
   getHouseAccount,
   // Provisioning & Commerce PR5 — upsert, cancellation, assignment
   insertAssignmentEvent,
-  getConsumedCreditTx,
+  getConsumedCreditTxs,
+  getCreditCost,
   cancelAssessment,
 };
