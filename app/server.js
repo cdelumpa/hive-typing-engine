@@ -165,11 +165,21 @@ app.get('/', (req, res, next) => {
   }
 });
 
-app.use(express.static('public'));
+// ── Coach Portal static assets (PR1) ────────────────────────────────────────────
+// Prefix-scoped mount, registered BEFORE the blanket express.static('public') below.
+// Critical structural choice: CP assets do NOT live under a directory literally named
+// `coach` at the public root — they're in public/coach-portal-assets/ — so the blanket
+// public/ mount can never issue a directory 301 for a bare /coach or /coach/<segment>
+// path and shadow a dynamic route. This mount only ever answers /coach/assets/*, so it
+// cannot collide with /coach page routes now or in any future PR. The URL stays
+// /coach/assets/coach-portal.css (ratified Choicepoint 3), covered by the /coach
+// basic-auth carve-out above.
+app.use('/coach/assets', express.static(path.join(__dirname, 'public/coach-portal-assets')));
 
 // ── Coach Portal shell (PR1) ────────────────────────────────────────────────────
-// Server-rendered stub shell — matches the admin template-literal convention. The
-// SPA-vs-server-render decision for the Coach Portal is deferred to before PR3
+// Registered BEFORE the blanket static mount (defense in depth for the bare /coach
+// path). Server-rendered stub shell — matches the admin template-literal convention.
+// The SPA-vs-server-render decision for the Coach Portal is deferred to before PR3
 // (Dashboard), so this deliberately stays thin: portal chrome (§5.2 nav zones,
 // header, footer) + a placeholder body. Screen routes (My Clients, Resources, etc.)
 // don't exist yet, so their nav items are inert links for now.
@@ -247,6 +257,11 @@ function renderCoachShellStub({ coachName, activeNav = 'home' } = {}) {
 app.get('/coach', requireCoach, (req, res) => {
   res.send(renderCoachShellStub({ coachName: req.session.coach_name, activeNav: 'home' }));
 });
+
+// Blanket static mount for the assessment SPA — registered AFTER the /coach route and
+// the prefix-scoped /coach/assets mount, so neither can be shadowed by a directory
+// 301 from this mount.
+app.use(express.static('public'));
 
 // Serve the type library from the in-memory copy loaded at boot.
 // Previously this was a file mount at '../content', which depended on the
