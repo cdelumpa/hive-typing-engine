@@ -176,23 +176,92 @@ app.get('/', (req, res, next) => {
 // basic-auth carve-out above.
 app.use('/coach/assets', express.static(path.join(__dirname, 'public/coach-portal-assets')));
 
-// ── Coach Portal shell (PR1) ────────────────────────────────────────────────────
+// ── Coach Portal chrome (PR1 shell, extracted in PR3) ───────────────────────────
 // Registered BEFORE the blanket static mount (defense in depth for the bare /coach
-// path). Server-rendered stub shell — matches the admin template-literal convention.
-// The SPA-vs-server-render decision for the Coach Portal is deferred to before PR3
-// (Dashboard), so this deliberately stays thin: portal chrome (§5.2 nav zones,
-// header, footer) + a placeholder body. Screen routes (My Clients, Resources, etc.)
-// don't exist yet, so their nav items are inert links for now.
-function renderCoachShellStub({ coachName, activeNav = 'home' } = {}) {
-  const esc = (s) => String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  const nav = (route, label, id, opts = {}) => {
-    const active = id === activeNav ? ' aria-current="page" class="cp-nav-item cp-nav-item--active"' : ' class="cp-nav-item"';
-    const ext = opts.external ? ' target="_blank" rel="noopener"' : '';
-    return `<a href="${route}"${active}${ext}>${esc(label)}${opts.external ? ' <span class="cp-nav-ext">↗</span>' : ''}</a>`;
-  };
-  const greetName = coachName ? `, ${esc(coachName)}` : '';
+// path). Server-rendered — matches the admin template-literal convention. The
+// SPA-vs-server-render question that PR1 deferred "to before PR3" is now settled
+// (CP-ARCH): the portal stays server-rendered. The only client JS is a small UI-only
+// island (coach-portal.js) for the mobile drawer, the mobile carousel dots, the avatar
+// menu, and the welcome-banner dismiss — no rendering or data lives there.
+//
+// renderCoachChrome is the shared shell: nav zones (§5.2), header, footer, and a body
+// slot. Every future screen (My Clients, Resources, …) renders through it, so the nav
+// exists in exactly one place. Screen routes other than /coach don't exist yet, so their
+// nav items stay inert links (CP-1: render now, resolve when their PR lands).
+const cpEsc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+// Nav zone model — one source of truth, rendered twice (desktop rail + mobile drawer).
+const CP_NAV_ZONES = [
+  { eyebrow: 'My Practice', items: [
+    { route: '/coach',           label: 'Home',                  id: 'home' },
+    { route: '/coach/clients',   label: 'My Clients',            id: 'clients' },
+    { route: '/coach/reports',   label: 'My Reports',            id: 'reports' },
+  ]},
+  { eyebrow: 'Grow', items: [
+    { route: '/coach/advisor',   label: 'My InsightOut Advisor', id: 'advisor' },
+    { route: '/coach/resources', label: 'Resources',             id: 'resources' },
+    { route: '/coach/training',  label: 'Coach Training',        id: 'training' },
+    { route: 'https://hive.mn.co', label: 'Enneagram Collective', id: 'collective', external: true },
+  ]},
+  { eyebrow: 'Manage', items: [
+    { route: '/coach/account',   label: 'My Account',            id: 'account' },
+    { route: '/coach/profile',   label: 'My Profile',            id: 'profile' },
+    { route: '/coach/credits',   label: 'Manage Credits',        id: 'credits', creditsSlot: true },
+  ]},
+];
+
+// Initials for the header avatar: first letter of the first and last name tokens.
+function cpInitials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  const first = parts[0][0] || '';
+  const last  = parts.length > 1 ? (parts[parts.length - 1][0] || '') : '';
+  return (first + last).toUpperCase();
+}
+
+function cpFirstName(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  return parts.length ? parts[0] : null;
+}
+
+// A null balance means the credits query failed — degrade to an em dash rather than
+// implying the coach has zero credits, which would be a lie with financial consequences.
+function cpCreditsText(credits) {
+  return credits == null ? 'Credits: —' : `Credits: ${credits}`;
+}
+
+// Renders the nav zone list. `drawer` mode inlines the credits pill next to Manage
+// Credits (addendum §"Mobile nav") — the rail doesn't, because the pill lives in the
+// header there.
+function renderCoachNavZones(activeNav, { drawer = false, credits = null } = {}) {
+  return CP_NAV_ZONES.map(zone => {
+    const items = zone.items.map(it => {
+      const cls = it.id === activeNav
+        ? ' aria-current="page" class="cp-nav-item cp-nav-item--active"'
+        : ' class="cp-nav-item"';
+      const ext = it.external ? ' target="_blank" rel="noopener"' : '';
+      const arrow = it.external ? ' <span class="cp-nav-ext">↗</span>' : '';
+      const pill = (drawer && it.creditsSlot)
+        ? ` <span class="cp-pill cp-pill--inline">${cpEsc(cpCreditsText(credits))}</span>`
+        : '';
+      return `<a href="${it.route}"${cls}${ext}>${cpEsc(it.label)}${arrow}${pill}</a>`;
+    }).join('\n        ');
+    return `<div class="cp-nav-zone">
+        <p class="cp-nav-eyebrow">${cpEsc(zone.eyebrow)}</p>
+        ${items}
+      </div>`;
+  }).join('\n      ');
+}
+
+// activeNav  — nav item id to mark current.
+// creditsPill — the coach's standard_assessment balance (null = unavailable → em dash).
+// avatar      — the coach's display name; initials are derived from it.
+// bodyHtml    — the screen's workspace content.
+function renderCoachChrome({ activeNav = 'home', creditsPill = null, avatar = null, bodyHtml = '' } = {}) {
+  const initials = cpInitials(avatar);
+  const pill = `<span class="cp-pill">${cpEsc(cpCreditsText(creditsPill))}</span>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -208,38 +277,57 @@ function renderCoachShellStub({ coachName, activeNav = 'home' } = {}) {
         <span class="cp-brand-mark">InsightOut</span>
         <span class="cp-brand-sub">by Hive, Inc.</span>
       </div>
-      <div class="cp-nav-zone">
-        <p class="cp-nav-eyebrow">My Practice</p>
-        ${nav('/coach', 'Home', 'home')}
-        ${nav('/coach/clients', 'My Clients', 'clients')}
-        ${nav('/coach/reports', 'My Reports', 'reports')}
-      </div>
-      <div class="cp-nav-zone">
-        <p class="cp-nav-eyebrow">Grow</p>
-        ${nav('/coach/advisor', 'My InsightOut Advisor', 'advisor')}
-        ${nav('/coach/resources', 'Resources', 'resources')}
-        ${nav('/coach/training', 'Coach Training', 'training')}
-        ${nav('https://hive.mn.co', 'Enneagram Collective', 'collective', { external: true })}
-      </div>
-      <div class="cp-nav-zone">
-        <p class="cp-nav-eyebrow">Manage</p>
-        ${nav('/coach/account', 'My Account', 'account')}
-        ${nav('/coach/profile', 'My Profile', 'profile')}
-        ${nav('/coach/credits', 'Manage Credits', 'credits')}
-      </div>
+      ${renderCoachNavZones(activeNav)}
       <div class="cp-nav-foot">
         <a href="/admin/logout" class="cp-nav-logout">Log out</a>
       </div>
     </nav>
+
+    <!-- Mobile drawer (addendum §"Mobile nav") — full-screen #1E2A35 overlay, same zone
+         structure as the rail, credits pill inline next to Manage Credits, Logout in
+         --color-error at the bottom, × close top-right. Hidden above 767px by CSS. -->
+    <div class="cp-drawer" id="cp-drawer" hidden>
+      <div class="cp-drawer-top">
+        <div class="cp-brand">
+          <span class="cp-brand-mark">InsightOut</span>
+          <span class="cp-brand-sub">by Hive, Inc.</span>
+        </div>
+        <button type="button" class="cp-drawer-close" id="cp-drawer-close" aria-label="Close menu">&times;</button>
+      </div>
+      ${renderCoachNavZones(activeNav, { drawer: true, credits: creditsPill })}
+      <div class="cp-drawer-foot">
+        <a href="/admin/logout" class="cp-drawer-logout">Log out</a>
+      </div>
+    </div>
+
     <div class="cp-main">
       <header class="cp-header">
-        <span class="cp-header-title">InsightOut Coach Portal</span>
+        <button type="button" class="cp-hamburger" id="cp-hamburger"
+                aria-label="Open menu" aria-controls="cp-drawer" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="cp-header-brand">
+          <span class="cp-brand-mark">InsightOut</span>
+          <span class="cp-brand-sub">by Hive, Inc.</span>
+        </div>
+        <div class="cp-header-right">
+          ${pill}
+          <div class="cp-avatar-wrap">
+            <button type="button" class="cp-avatar-btn" id="cp-avatar-btn"
+                    aria-haspopup="true" aria-expanded="false" aria-label="Account menu">
+              <span class="cp-avatar">${cpEsc(initials)}</span>
+              <span class="cp-avatar-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="cp-avatar-menu" id="cp-avatar-menu" hidden>
+              <a href="/coach/account">My Account</a>
+              <a href="/coach/profile">My Profile</a>
+              <a href="/admin/logout" class="cp-avatar-menu-logout">Log out</a>
+            </div>
+          </div>
+        </div>
       </header>
       <main class="cp-workspace">
-        <section class="cp-placeholder">
-          <h1 class="cp-placeholder-title">Welcome${greetName}</h1>
-          <p class="cp-placeholder-body">Your dashboard is coming soon.</p>
-        </section>
+${bodyHtml}
       </main>
       <footer class="cp-footer">
         <span>© 2026 Hive, Inc.</span>
@@ -250,12 +338,440 @@ function renderCoachShellStub({ coachName, activeNav = 'home' } = {}) {
       </footer>
     </div>
   </div>
+  <script src="/coach/assets/coach-portal.js" defer></script>
 </body>
 </html>`;
 }
 
-app.get('/coach', requireCoach, requireOnboardingComplete, (req, res) => {
-  res.send(renderCoachShellStub({ coachName: req.session.coach_name, activeNav: 'home' }));
+// ── Shared status badge (CP-4B) ─────────────────────────────────────────────────
+// Coach-portal design tokens, NOT the admin-panel literals at ~8848. Cancelled takes
+// visual priority over the underlying status — a cancelled assessment keeps status
+// 'not_started', so without this a cancelled row would read as merely un-started (the
+// same precedent PR12 set in the admin row builder).
+const CP_STATUS_BADGES = {
+  complete:    { label: 'Complete',    cls: 'cp-badge--success' },
+  in_progress: { label: 'In Progress', cls: 'cp-badge--primary' },
+  not_started: { label: 'Not Started', cls: 'cp-badge--muted'   },
+  processing:  { label: 'Processing',  cls: 'cp-badge--primary' },
+  failed:      { label: 'Failed',      cls: 'cp-badge--error'   },
+};
+function statusBadge(status, cancelledAt) {
+  const b = cancelledAt
+    ? { label: 'Cancelled', cls: 'cp-badge--error' }
+    : (CP_STATUS_BADGES[status] || { label: status || 'Unknown', cls: 'cp-badge--muted' });
+  return `<span class="cp-badge ${b.cls}">${cpEsc(b.label)}</span>`;
+}
+
+// ── Dashboard (§7.1 Addendum v1.0) ──────────────────────────────────────────────
+
+// Action cards are STATIC content — no table, no query, nothing DB-driven (confirmed in
+// the PR3 audit). CP-1: /coach/credits and /coach/training aren't built yet; the cards
+// render now and resolve when those PRs land, same precedent as PR1's nav items.
+// Icons are inline SVG (Lucide-style: 20px, 1.6 stroke, currentColor so the #00B2D9
+// accent comes from CSS). The portal has no icon set and no icon dependency; three
+// hand-inlined paths is the smallest honest way to hit the spec'd person-plus / card /
+// graduation-cap without adding a library.
+const CP_ICON = (paths) =>
+  `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" ` +
+  `stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+
+const CP_ACTION_CARDS = [
+  { href: '/admin', title: 'Onboard a New Client', desc: 'Provision an assessment and send the invite.',
+    icon: CP_ICON('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>') },
+  { href: '/coach/credits', title: 'Purchase Credits', desc: 'Top up your assessment credit balance.',
+    icon: CP_ICON('<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>') },
+  { href: '/coach/training', title: 'Register for a Class', desc: 'Deepen your practice with live training.',
+    icon: CP_ICON('<path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/>') },
+];
+
+// Milestone tiers — authoritative per the §7.1 addendum, which SUPERSEDES the different
+// numbers in ThriveCart Integration Architecture §5.4 (backlog: reconcile that doc).
+//
+// VISUAL ONLY. Crossing a threshold does nothing server-side — the bonus-credit grant is
+// Phase 2 per the ThriveCart doc's explicit "not yet built" note on milestone detection.
+// This is a deliberate, documented gap, not a bug. Nothing below writes anything.
+const CP_MILESTONES = [
+  { at: 25,  badge: 'Practitioner' },
+  { at: 50,  badge: 'Master' },
+  { at: 100, badge: 'Expert' },
+  { at: 250, badge: 'Legend' },
+];
+
+// The bar is SEGMENTED, not linear: the four markers sit at even 25% intervals and the
+// indicator interpolates within the segment it's in. A linear 0–250 scale would bunch the
+// 25 and 50 markers into the first fifth of the bar and make early progress unreadable.
+function cpMilestonePct(n) {
+  const edges = [0, 25, 50, 100, 250];
+  if (n >= 250) return 100;
+  for (let i = 0; i < 4; i++) {
+    if (n < edges[i + 1]) {
+      const seg = (n - edges[i]) / (edges[i + 1] - edges[i]);
+      return (i + seg) * 25;
+    }
+  }
+  return 100;
+}
+
+function renderGreeting(coachName, activeClients, credits) {
+  const h = new Date().getHours();
+  const partOfDay = h < 12 ? 'morning' : (h < 18 ? 'afternoon' : 'evening');
+  const first = cpFirstName(coachName);
+  const hi = first ? `Good ${partOfDay}, ${cpEsc(first)}.` : `Good ${partOfDay}.`;
+  const ac = activeClients == null ? '—' : activeClients;
+  const cr = credits == null ? '—' : credits;
+  const plural = (n, s) => `${n} ${n === 1 ? s : s + 's'}`;
+  const sub = `You have ${activeClients == null ? '— active clients' : plural(ac, 'active client')} and ${cr} credit${cr === 1 ? '' : 's'} available.`;
+  return `<section class="cp-greeting">
+          <h1 class="cp-greeting-title">${hi}</h1>
+          <p class="cp-greeting-sub">${cpEsc(sub)}</p>
+        </section>`;
+}
+
+function renderWelcomeBanner(coachName) {
+  const first = cpFirstName(coachName);
+  const who = first ? `, ${cpEsc(first)}` : '';
+  return `<section class="cp-welcome" id="cp-welcome">
+          <p class="cp-welcome-text">
+            <span class="cp-welcome-lead">👋 Welcome to InsightOut${who}.</span>
+            You're all set — let's get started.
+          </p>
+          <button type="button" class="cp-welcome-close" id="cp-welcome-close" aria-label="Dismiss welcome message">&times;</button>
+        </section>`;
+}
+
+// Desktop/tablet: 3-column row. Mobile: the same markup becomes a scroll-snap carousel
+// (CSS) with dot indicators synced by coach-portal.js. One card anatomy, two layouts.
+function renderActionCards() {
+  const cards = CP_ACTION_CARDS.map(c => `
+            <a class="cp-action-card" href="${c.href}">
+              <span class="cp-action-icon" aria-hidden="true">${c.icon}</span>
+              <span class="cp-action-title">${cpEsc(c.title)}</span>
+              <span class="cp-action-desc">${cpEsc(c.desc)}</span>
+            </a>`).join('');
+  const dots = CP_ACTION_CARDS.map((_, i) =>
+    `<span class="cp-dot${i === 0 ? ' cp-dot--active' : ''}" data-idx="${i}"></span>`).join('');
+  return `<section class="cp-actions" aria-label="Quick actions">
+          <div class="cp-actions-track" id="cp-actions-track">${cards}
+          </div>
+          <div class="cp-dots" id="cp-actions-dots" aria-hidden="true">${dots}</div>
+        </section>`;
+}
+
+// Server-rendered inline SVG polyline (CP-2D) — no charting library, no new dependency.
+// Two paths: Assessments Completed (#00B2D9) vs. Clients Onboarded (#F68625).
+// Desktop/tablet only; the mobile layout drops the chart and keeps the metrics + journey
+// tracker (confirmed intentional simplification in the addendum, not a gap).
+function renderActivityChart(activity) {
+  if (!activity) {
+    return `<p class="cp-chart-msg">Activity chart is temporarily unavailable.</p>`;
+  }
+  const s = activity.series;
+  const W = 640, H = 180, PADL = 30, PADR = 10, PADT = 14, PADB = 26;
+  const innerW = W - PADL - PADR;
+  const innerH = H - PADT - PADB;
+  const maxVal = Math.max(1, ...s.map(p => Math.max(p.completed, p.onboarded)));
+  const total  = s.reduce((a, p) => a + p.completed + p.onboarded, 0);
+  const px = (i) => s.length === 1 ? PADL + innerW / 2 : PADL + (i * innerW) / (s.length - 1);
+  const py = (v) => PADT + innerH - (v / maxVal) * innerH;
+  const pts = (k) => s.map((p, i) => `${px(i).toFixed(1)},${py(p[k]).toFixed(1)}`).join(' ');
+  const dots = (k, color) => s.map((p, i) =>
+    `<circle cx="${px(i).toFixed(1)}" cy="${py(p[k]).toFixed(1)}" r="2.5" fill="${color}"/>`).join('');
+
+  const label = (d) => {
+    const dt = new Date(d);
+    if (activity.unit === 'month') return dt.toLocaleString('en-US', { month: 'short' });
+    return `${dt.getMonth() + 1}/${dt.getDate()}`;
+  };
+  const xLabels = s.map((p, i) =>
+    `<text x="${px(i).toFixed(1)}" y="${H - 8}" class="cp-chart-tick" text-anchor="middle">${cpEsc(label(p.bucket))}</text>`).join('');
+
+  const empty = total === 0
+    ? `<text x="${(PADL + innerW / 2).toFixed(1)}" y="${(PADT + innerH / 2).toFixed(1)}" class="cp-chart-empty" text-anchor="middle">No activity in this period yet.</text>`
+    : '';
+
+  return `<div class="cp-chart">
+            <svg viewBox="0 0 ${W} ${H}" role="img" preserveAspectRatio="xMidYMid meet"
+                 aria-label="Assessments completed versus clients onboarded over the selected period">
+              <line x1="${PADL}" y1="${PADT + innerH}" x2="${W - PADR}" y2="${PADT + innerH}" class="cp-chart-axis"/>
+              <line x1="${PADL}" y1="${PADT}" x2="${W - PADR}" y2="${PADT}" class="cp-chart-grid"/>
+              <text x="${PADL - 6}" y="${PADT + 4}" class="cp-chart-tick" text-anchor="end">${maxVal}</text>
+              <text x="${PADL - 6}" y="${PADT + innerH + 4}" class="cp-chart-tick" text-anchor="end">0</text>
+              <polyline points="${pts('onboarded')}" fill="none" stroke="#F68625" stroke-width="2"
+                        stroke-linejoin="round" stroke-linecap="round"/>
+              <polyline points="${pts('completed')}" fill="none" stroke="#00B2D9" stroke-width="2"
+                        stroke-linejoin="round" stroke-linecap="round"/>
+              ${dots('onboarded', '#F68625')}
+              ${dots('completed', '#00B2D9')}
+              ${xLabels}
+              ${empty}
+            </svg>
+            <div class="cp-legend">
+              <span class="cp-legend-item"><i class="cp-swatch" style="background:#00B2D9"></i>Assessments Completed</span>
+              <span class="cp-legend-item"><i class="cp-swatch" style="background:#F68625"></i>Clients Onboarded</span>
+            </div>
+          </div>`;
+}
+
+// CP-2E: the Week/Month/Year toggle is a query-string reload (/coach?period=…), not a
+// fetch swap — consistent with the server-rendered portal, and the response is already
+// Cache-Control: no-store so every reload is fresh by construction.
+function renderPeriodTabs(period) {
+  return ['week', 'month', 'year'].map(p => {
+    const cls = p === period ? 'cp-tab cp-tab--active' : 'cp-tab';
+    const label = p[0].toUpperCase() + p.slice(1);
+    return `<a class="${cls}" href="/coach?period=${p}"${p === period ? ' aria-current="true"' : ''}>${label}</a>`;
+  }).join('');
+}
+
+function renderActivityCard({ completedCount, activeClients, credits, activity, period }) {
+  const metric = (value, label) => `
+              <div class="cp-metric">
+                <span class="cp-metric-value">${value == null ? '—' : cpEsc(String(value))}</span>
+                <span class="cp-metric-label">${cpEsc(label)}</span>
+              </div>`;
+  return `<section class="cp-card cp-activity">
+          <div class="cp-card-head">
+            <h2 class="cp-card-title">Your Activity</h2>
+            <nav class="cp-tabs" aria-label="Activity period">${renderPeriodTabs(period)}</nav>
+          </div>
+          <div class="cp-metrics">
+            ${metric(completedCount, 'Assessments Completed')}
+            ${metric(activeClients, 'Active Clients')}
+            ${metric(credits, 'Credits Available')}
+          </div>
+          ${renderActivityChart(activity)}
+        </section>`;
+}
+
+// Visual tracker only — see CP_MILESTONES. No credit is granted anywhere in this path.
+function renderJourney(completedCount) {
+  if (completedCount == null) {
+    return `<section class="cp-card cp-journey">
+          <p class="cp-eyebrow">Your Journey</p>
+          <p class="cp-chart-msg">Your milestone progress is temporarily unavailable.</p>
+        </section>`;
+  }
+  const pct  = cpMilestonePct(completedCount);
+  const next = CP_MILESTONES.find(m => completedCount < m.at);
+  const markers = CP_MILESTONES.map((m, i) => {
+    const reached = completedCount >= m.at;
+    return `<div class="cp-mile${reached ? ' cp-mile--reached' : ''}" style="left:${(i + 1) * 25}%">
+              <span class="cp-mile-tick"></span>
+              <span class="cp-mile-badge">${cpEsc(m.badge)}</span>
+              <span class="cp-mile-at">${m.at}</span>
+            </div>`;
+  }).join('');
+  const nudge = next
+    ? `<p class="cp-journey-nudge">${next.at - completedCount} assessment${next.at - completedCount === 1 ? '' : 's'} away from your next milestone!</p>`
+    : '';
+  return `<section class="cp-card cp-journey">
+          <p class="cp-eyebrow">Your Journey</p>
+          <div class="cp-bar">
+            <div class="cp-bar-fill" style="width:${pct.toFixed(1)}%"></div>
+            <div class="cp-bar-now" style="left:${pct.toFixed(1)}%" aria-hidden="true"></div>
+            ${markers}
+          </div>
+          <p class="cp-journey-here">You are here: ${completedCount} completed</p>
+          ${nudge}
+        </section>`;
+}
+
+// CP-4A: getAdminRowsByCoach returns one row per (client, assessment) — a client with a
+// retake yields several. It's already ordered newest-first, so keeping the FIRST row per
+// client_id is the latest assessment for that client. Then take 5.
+function cpDedupeLatestPerClient(rows, limit = 5) {
+  const seen = new Set();
+  const out = [];
+  for (const r of rows) {
+    if (seen.has(r.client_id)) continue;
+    seen.add(r.client_id);
+    out.push(r);
+    if (out.length === limit) break;
+  }
+  return out;
+}
+
+// The badge must reflect where the CLIENT is, not the raw assessment row.
+// assessments.status has NO 'in_progress' value — its vocabulary is
+// not_started → processing → complete|failed; 'in_progress' lives on clients.status.
+// ADMIN_ROWS_SELECT's `status` COALESCEs the assessment first, so a client who is
+// actively taking their assessment would render as "Not Started" — wrong on a
+// coach-facing dashboard, and it would make the addendum's "In Progress" badge
+// unreachable. Terminal assessment states win; otherwise fall back to the client
+// lifecycle, which is the exact vocabulary the addendum names.
+function cpEffectiveStatus(r) {
+  if (r.status === 'complete' || r.status === 'processing' || r.status === 'failed') return r.status;
+  return r.client_status || r.status;
+}
+
+function renderRecentClients(rows) {
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const name = (r) => [r.first_name, r.last_name].filter(Boolean).join(' ') || r.email || 'Unnamed client';
+  // Client detail is PR4 (My Clients) — the link renders now and resolves once PR4 lands,
+  // same precedent as PR1's nav items.
+  const link = (r) => `<a class="cp-client-link" href="/coach/clients/${r.client_id}">${cpEsc(name(r))}</a>`;
+  const type = (r) => cpEsc(r.assessment_id ? 'Standard Assessment' : '—');
+
+  const body = rows.length
+    ? rows.map(r => `
+              <tr>
+                <td>${link(r)}</td>
+                <td>${type(r)}</td>
+                <td>${cpEsc(fmtDate(r.created_at))}</td>
+                <td>${statusBadge(cpEffectiveStatus(r), r.cancelled_at)}</td>
+              </tr>`).join('')
+    : `<tr><td colspan="4" class="cp-empty">No clients yet — onboard your first one to get started.</td></tr>`;
+
+  const cards = rows.length
+    ? rows.map(r => `
+            <div class="cp-client-card">
+              <div class="cp-client-card-top">${link(r)}${statusBadge(cpEffectiveStatus(r), r.cancelled_at)}</div>
+              <div class="cp-client-card-meta">${type(r)} · ${cpEsc(fmtDate(r.created_at))}</div>
+            </div>`).join('')
+    : `<p class="cp-empty">No clients yet — onboard your first one to get started.</p>`;
+
+  return `<section class="cp-card cp-recent">
+          <div class="cp-card-head">
+            <h2 class="cp-card-title">Recent Clients</h2>
+            <a class="cp-btn cp-btn--primary cp-recent-cta" href="/admin">Onboard a New Client</a>
+          </div>
+          <a class="cp-btn cp-btn--primary cp-recent-cta-mobile" href="/admin">Onboard a New Client</a>
+          <table class="cp-table">
+            <thead>
+              <tr><th>Client Name</th><th>Assessment Type</th><th>Date Provisioned</th><th>Status</th></tr>
+            </thead>
+            <tbody>${body}
+            </tbody>
+          </table>
+          <div class="cp-client-cards">${cards}
+          </div>
+          ${rows.length ? `<a class="cp-viewall" href="/coach/clients">View all clients →</a>` : ''}
+        </section>`;
+}
+
+// "From InsightOut" — 5 most recent published announcements, below the fold. The
+// "View all announcements →" link is deliberately OMITTED: /coach/announcements is PR12,
+// and the feed reads fine without it (trivially re-added when PR12 lands).
+// There is no admin CMS yet, so this feed WILL be empty at launch — the empty state is
+// the normal case on day one, not an error path.
+const CP_ANNOUNCEMENT_CATEGORIES = {
+  what_is_new: { label: "What's New", cls: 'cp-cat--new' },
+  tip:         { label: 'Tip',        cls: 'cp-cat--tip' },
+  system:      { label: 'System',     cls: 'cp-cat--sys' },
+};
+function renderAnnouncements(items) {
+  if (!items || !items.length) {
+    return `<section class="cp-card cp-feed">
+          <h2 class="cp-card-title">From InsightOut</h2>
+          <p class="cp-empty cp-empty--feed">Nothing here yet — check back soon for updates from the InsightOut team.</p>
+        </section>`;
+  }
+  const fmtDate = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const cards = items.map(a => {
+    const cat = CP_ANNOUNCEMENT_CATEGORIES[a.category] || { label: a.category, cls: 'cp-cat--sys' };
+    return `
+            <article class="cp-feed-card">
+              <span class="cp-cat ${cat.cls}">${cpEsc(cat.label)}</span>
+              <div class="cp-feed-row">
+                <h3 class="cp-feed-title">${cpEsc(a.title)}</h3>
+                <span class="cp-feed-date">${cpEsc(fmtDate(a.published_at))}</span>
+              </div>
+              <p class="cp-feed-preview">${cpEsc(a.preview_text)}</p>
+            </article>`;
+  }).join('');
+  return `<section class="cp-card cp-feed">
+          <h2 class="cp-card-title">From InsightOut</h2>
+          <div class="cp-feed-list">${cards}
+          </div>
+        </section>`;
+}
+
+// Credits = standard_assessment balance only (CP-2B). No account row yet → no credits.
+async function getCoachCreditBalance(coachId) {
+  const accountId = await db.getAccountByCoachId(coachId);
+  if (!accountId) return 0;
+  const { balance } = await db.getAccountBalance(accountId, 'standard_assessment');
+  return balance;
+}
+
+// Fan out every Dashboard read at once, and let each one fail INDEPENDENTLY. A single
+// broken metric must degrade to an em dash / empty section — it must never take down the
+// whole route. Counts fall back to null (rendered "—") rather than 0, because showing a
+// confident "0 credits" when the query actually failed is worse than showing nothing.
+async function getCoachDashboardData(coachId, period) {
+  const settled = await Promise.allSettled([
+    db.getCoachCompletedAssessmentCount(coachId),   // 0
+    db.getCoachActiveClientCount(coachId),          // 1
+    getCoachCreditBalance(coachId),                 // 2
+    db.getCoachActivitySeries(coachId, period),     // 3
+    db.getAdminRowsByCoach(coachId),                // 4
+    db.getPublishedAnnouncements(5),                // 5
+  ]);
+  const NAMES = ['completedCount', 'activeClients', 'credits', 'activity', 'recentRows', 'announcements'];
+  const pick = (i, fallback) => {
+    if (settled[i].status === 'fulfilled') return settled[i].value;
+    console.error(`[GET /coach] ${NAMES[i]} failed:`, settled[i].reason && settled[i].reason.message);
+    return fallback;
+  };
+  return {
+    completedCount: pick(0, null),
+    activeClients:  pick(1, null),
+    credits:        pick(2, null),
+    activity:       pick(3, null),
+    recentRows:     pick(4, []),
+    announcements:  pick(5, []),
+  };
+}
+
+function renderCoachDashboard({ coachName, period, showWelcome, completedCount, activeClients, credits, activity, recentRows, announcements }) {
+  const body = `${showWelcome ? renderWelcomeBanner(coachName) : ''}
+        ${renderGreeting(coachName, activeClients, credits)}
+        ${renderActionCards()}
+        ${renderActivityCard({ completedCount, activeClients, credits, activity, period })}
+        ${renderJourney(completedCount)}
+        ${renderRecentClients(cpDedupeLatestPerClient(recentRows, 5))}
+        ${renderAnnouncements(announcements)}`;
+  return renderCoachChrome({ activeNav: 'home', creditsPill: credits, avatar: coachName, bodyHtml: body });
+}
+
+app.get('/coach', requireCoach, requireOnboardingComplete, async (req, res) => {
+  // §"Caching": per-coach, private, short-TTL (Tier 3, Design Spec §12.3). The credit
+  // balance and activity counts must always be fresh and must never be shared or
+  // edge-cached — this response is specific to one coach.
+  res.set('Cache-Control', 'no-store');
+
+  const coachId = req.session.coach_id;
+  const period = ['week', 'month', 'year'].includes(req.query.period) ? req.query.period : 'month';
+
+  // Welcome banner (§7.10 Screen 2B): driven by the session flag hydrated at login. A
+  // session created BEFORE PR3 shipped won't carry the key at all — hydrate it once from
+  // the DB rather than defaulting, so an existing coach isn't shown a "welcome" banner
+  // they already dismissed. After this the flag is session-resident (Choicepoint 3, A).
+  if (req.session.onboarding_welcome_seen === undefined) {
+    try {
+      req.session.onboarding_welcome_seen = await db.getCoachWelcomeSeen(coachId);
+    } catch (e) {
+      console.error('[GET /coach] welcome-flag hydration failed:', e.message);
+      req.session.onboarding_welcome_seen = true;   // fail closed — never nag on a DB blip
+    }
+  }
+  const showWelcome = req.session.onboarding_welcome_seen !== true;
+
+  try {
+    const data = await getCoachDashboardData(coachId, period);
+    res.send(renderCoachDashboard({
+      coachName: req.session.coach_name, period, showWelcome, ...data,
+    }));
+  } catch (e) {
+    // getCoachDashboardData already absorbs per-query failures; this is the last-resort
+    // net for an unexpected render error. Still serve the chrome — a coach who can't see
+    // their metrics can at least still navigate.
+    console.error('[GET /coach] dashboard render failed:', e.message);
+    res.send(renderCoachChrome({
+      activeNav: 'home', creditsPill: null, avatar: req.session.coach_name,
+      bodyHtml: `<section class="cp-card"><p class="cp-chart-msg">Your dashboard is temporarily unavailable. Please refresh in a moment.</p></section>`,
+    }));
+  }
 });
 
 // ── Coach Portal onboarding flow (PR2) — Design Spec §7.10 ───────────────────────
@@ -384,6 +900,10 @@ function establishCoachSession(req, user, roles, coach, cb) {
     req.session.coach_id   = coach ? coach.id : null;
     req.session.coach_name = coach ? coach.name : null;
     req.session.onboarding_completed = coach ? (coach.onboarding_completed === true) : false;
+    // PR3: the Dashboard's one-time welcome banner reads this flag from the session
+    // (Choicepoint 3, option A) — no per-request DB read. A coach arriving here has just
+    // set their password, so this is FALSE and the banner will show once.
+    req.session.onboarding_welcome_seen = coach ? (coach.onboarding_welcome_seen === true) : true;
     cb(null);
   });
 }
@@ -491,11 +1011,14 @@ app.post('/coach/onboarding/defer', requireCoach, async (req, res) => {
   res.redirect('/coach');
 });
 
-// (7) Welcome banner dismiss — sets the flag only. Banner markup is rendered by PR3;
-// this route is dormant (no UI triggers it) until then, which is a benign no-op.
+// (7) Welcome banner dismiss — sets the flag and mirrors it into the session so the
+// banner can't reappear on the next Dashboard render before the session is re-read.
+// PR3 renders the banner (§7.10 Screen 2B) and wires its × to this route.
 app.post('/coach/onboarding/welcome/dismiss', requireCoach, async (req, res) => {
-  try { await db.setCoachWelcomeSeen(req.session.coach_id); }
-  catch (e) { console.error('[onboarding/welcome/dismiss] error:', e.message); }
+  try {
+    await db.setCoachWelcomeSeen(req.session.coach_id);
+    req.session.onboarding_welcome_seen = true;
+  } catch (e) { console.error('[onboarding/welcome/dismiss] error:', e.message); }
   res.json({ ok: true });
 });
 
@@ -3630,6 +4153,9 @@ app.post('/admin/login', async (req, res) => {
     // per-request DB read (consistent with requireCoach). Non-coach sessions land on
     // /admin and never hit the gate, so default them TRUE to be safe.
     req.session.onboarding_completed = coach ? (coach.onboarding_completed === true) : true;
+    // PR3: welcome-banner flag, same hydration rationale as onboarding_completed above.
+    // Non-coach sessions never reach the Dashboard, so default them TRUE (never show).
+    req.session.onboarding_welcome_seen = coach ? (coach.onboarding_welcome_seen === true) : true;
     await auth.recordLoginSuccess(user.id, req);
     await auth.logAuthEvent(user.id, 'login_success', req);
     // Role-aware landing (IAA §2.1 — a user is the sum of their roles; the surface,
