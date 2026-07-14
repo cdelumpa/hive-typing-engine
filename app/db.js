@@ -743,6 +743,16 @@ CREATE TABLE IF NOT EXISTS keyword_tags (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ── clients ── coach-owned per-client fields (§7.2 My Clients addendum, PR4a).
+-- CP-B (ratified): notes and debrief live on the CLIENT, not the assessment — the mockup
+-- shows one Coach Notes box and one Coach Debrief section per client, not one per
+-- assessment. Known v1 limitation: a client who retakes overwrites the single debrief
+-- record rather than keeping one per assessment. Accepted, not solved here.
+-- coach_notes is private to the owning coach and is never surfaced to the client.
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS coach_notes       TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS debrief_completed BOOLEAN DEFAULT FALSE;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS debrief_date      DATE;
+
 -- ── announcements ── "From InsightOut" feed (spec §9.10). published_at NULL = draft and
 -- is never visible to coaches. Authored by Cai/Mo in the admin CMS, which is NOT built
 -- yet — so this table is legitimately empty at launch and the Dashboard feed renders its
@@ -1267,6 +1277,11 @@ const ADMIN_ROWS_SELECT = `
     a.session_days,
     a.assessment_started_at,
     a.assessment_completed_at,
+    -- Server-side completion stamp, written by completeAssessment. Distinct from
+    -- assessment_completed_at, which is the client's submit time and can be NULL on rows
+    -- that predate it. My Clients coalesces the two so a completed assessment always has a
+    -- completion date to show. Additive column — existing consumers ignore it.
+    a.completed_at  AS server_completed_at,
     c.beta_report_generated_at,
     c.beta_report_filename
   FROM clients c
@@ -1387,6 +1402,50 @@ async function getAdminRowsByCoach(coachId, { includeDeleted = false } = {}) {
     [coachId]
   );
   return r ? r.rows : [];
+}
+
+// ── Coach Portal PR4a: My Clients (§7.2) ─────────────────────────────────────────
+// Every assessment for ONE client, newest first — the detail panel's Assessment History.
+// A third consumer of ADMIN_ROWS_SELECT, which already carries every column the panel
+// needs (status, created_at, assessment_completed_at, confirmed_type, confirmed_instinct,
+// confidence_level, retake_of_assessment_id, and the client/coach PDF paths via the
+// LATERAL joins). Every other per-client assessment helper in this file is LIMIT 1.
+//
+// Tombstones are excluded, matching getAdminRowsByCoach — no permanently-deleted data is
+// ever sent to a coach session.
+async function getAssessmentsByClient(clientId) {
+  const r = await query(
+    `${ADMIN_ROWS_SELECT}
+     WHERE c.id = $1 AND a.permanently_deleted IS NOT TRUE
+     ORDER BY a.created_at DESC NULLS LAST`,
+    [clientId]
+  );
+  // A client with zero assessments still produces one row (LEFT JOIN), with a NULL
+  // assessment_id. Drop those — an empty history is empty, not a phantom entry.
+  return r ? r.rows.filter(row => row.assessment_id != null) : [];
+}
+
+// Narrow writers. Deliberately NOT folded into updateClient, whose hardcoded 4-column SET
+// list (first/last/email/organization) is shared with the admin edit path — widening it
+// would make every admin client edit also rewrite notes/debrief.
+async function setCoachNotes(clientId, notes) {
+  await query(
+    'UPDATE clients SET coach_notes = $1, updated_at = NOW() WHERE id = $2',
+    [notes, clientId]
+  );
+}
+
+// debrief_date is only meaningful when completed; clearing the flag clears the date so
+// the two can't drift into "not completed, but completed on the 5th".
+async function setClientDebrief(clientId, { completed, date }) {
+  await query(
+    `UPDATE clients
+        SET debrief_completed = $1,
+            debrief_date      = CASE WHEN $1 THEN $2::date ELSE NULL END,
+            updated_at        = NOW()
+      WHERE id = $3`,
+    [!!completed, date || null, clientId]
+  );
 }
 
 async function getCoachByEmail(email) {
@@ -3014,6 +3073,10 @@ module.exports = {
   createReport,
   getAllAdminRows,
   getAdminRowsByCoach,
+  // Coach Portal PR4a — My Clients (§7.2)
+  getAssessmentsByClient,
+  setCoachNotes,
+  setClientDebrief,
   getCoachByEmail,
   getCoachById,
   getAllCoaches,
