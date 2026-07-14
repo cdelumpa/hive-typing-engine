@@ -695,6 +695,53 @@ DO $$ BEGIN
     WHERE auto_send_invitation IS NULL
       AND created_at < '2026-07-01 12:00:00+00';
 END $$;
+
+-- ═══ Coach Portal PR2 — onboarding state on coaches + profile/keyword tables ═══════
+-- Onboarding-state flags live on coaches (ratified). Same re-flip-safe pattern as the
+-- handoff-G send-flag backfill above: nullable ADD (existing rows -> NULL) -> one-time
+-- backfill of pre-existing coaches to TRUE under a FIXED cutoff (so a reboot never
+-- re-locks a coach who is legitimately mid-onboarding) -> then SET DEFAULT FALSE so new
+-- webhook/admin coaches gate into onboarding. Cutoff is the PR2 deploy moment.
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS onboarding_completed    BOOLEAN;
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS onboarding_welcome_seen BOOLEAN;
+ALTER TABLE coaches ADD COLUMN IF NOT EXISTS password_set            BOOLEAN;
+
+DO $$ BEGIN
+  UPDATE coaches SET onboarding_completed    = TRUE WHERE onboarding_completed    IS NULL AND created_at < '2026-07-14 00:00:00+00';
+  UPDATE coaches SET onboarding_welcome_seen = TRUE WHERE onboarding_welcome_seen IS NULL AND created_at < '2026-07-14 00:00:00+00';
+  UPDATE coaches SET password_set            = TRUE WHERE password_set            IS NULL AND created_at < '2026-07-14 00:00:00+00';
+END $$;
+
+ALTER TABLE coaches ALTER COLUMN onboarding_completed    SET DEFAULT FALSE;
+ALTER TABLE coaches ALTER COLUMN onboarding_welcome_seen SET DEFAULT FALSE;
+ALTER TABLE coaches ALTER COLUMN password_set            SET DEFAULT FALSE;
+
+-- ── coach_profiles ── one row per coach (spec §9.8). Directory/profile fields; photo
+-- persistence is deferred (PR2 renders the affordance only). icf_designations/keywords
+-- are PostgreSQL text arrays. directory_opt_in defaults FALSE (explicit opt-in).
+CREATE TABLE IF NOT EXISTS coach_profiles (
+  id               SERIAL PRIMARY KEY,
+  coach_id         INTEGER NOT NULL REFERENCES coaches(id) UNIQUE,
+  photo_url        TEXT,
+  bio              TEXT,
+  icf_designations TEXT[],
+  alternate_email  VARCHAR(255),
+  phone            VARCHAR(50),
+  directory_opt_in BOOLEAN DEFAULT FALSE,
+  keywords         TEXT[],
+  created_at       TIMESTAMPTZ DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── keyword_tags ── curated directory keyword list (spec §9.9). Only active tags
+-- appear in autocomplete; coaches select from this list (no free-text at launch).
+-- Seeded with a provisional starter set in SEED_SQL until the admin tag manager ships.
+CREATE TABLE IF NOT EXISTS keyword_tags (
+  id         SERIAL PRIMARY KEY,
+  label      VARCHAR(100) NOT NULL UNIQUE,
+  active     BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 `;
 
 const SEED_SQL = `
@@ -716,6 +763,24 @@ WHERE email IN ('cai@hiveleadership.com', 'monique@hiveleadership.com');
 
 -- Remove temporary test coaches created during access-control verification
 DELETE FROM coaches WHERE email IN ('testadmin@hiveleadership.com', 'testcoach@hiveleadership.com');
+
+-- Founders never go through coach onboarding. Mark them complete explicitly — this
+-- covers a FRESH database where Cai/Mo are seeded (above) AFTER the SCHEMA_SQL
+-- cutoff-based backfill has already run, so they'd otherwise inherit DEFAULT FALSE.
+-- Idempotent; on an existing prod DB the cutoff backfill already set these TRUE.
+UPDATE coaches SET onboarding_completed = TRUE, onboarding_welcome_seen = TRUE, password_set = TRUE
+WHERE email IN ('cai@hiveleadership.com', 'monique@hiveleadership.com');
+
+-- keyword_tags — PROVISIONAL starter list (Coach Portal PR2). Cai/Mo will curate this
+-- via the admin tag manager (later deliverable); edit/replace freely. Only active tags
+-- surface in the My Profile / onboarding keyword autocomplete.
+INSERT INTO keyword_tags (label) VALUES
+  ('leadership'), ('executive coaching'), ('career transitions'), ('team dynamics'),
+  ('conflict resolution'), ('communication'), ('work-life balance'), ('relationships'),
+  ('entrepreneurship'), ('wellness'), ('confidence'), ('burnout'),
+  ('life transitions'), ('mindfulness'), ('personal growth'), ('parenting'),
+  ('workplace culture'), ('goal setting')
+ON CONFLICT (label) DO NOTHING;
 
 -- ═══ IAA v1.2 — Phase A: data migration (DML) ══════════════════════════════════
 -- Runs on every boot AFTER all DDL above. Every statement is idempotent
@@ -1388,6 +1453,50 @@ async function addCoach(name, email, passwordHash, organization) {
     [name, email, organization || null, passwordHash]
   );
   return r && r.rows.length > 0 ? r.rows[0].id : null;
+}
+
+// ── Coach Portal PR2: onboarding-state writers + profile/keyword reads ────────────
+// All keyed by coach_id. onboarding_completed / password_set / onboarding_welcome_seen
+// live on coaches; the routes update the session flag alongside these DB writes.
+async function setCoachPasswordSet(coachId) {
+  await query('UPDATE coaches SET password_set = TRUE WHERE id = $1', [coachId]);
+}
+async function setCoachOnboardingComplete(coachId) {
+  await query('UPDATE coaches SET onboarding_completed = TRUE WHERE id = $1', [coachId]);
+}
+async function setCoachWelcomeSeen(coachId) {
+  await query('UPDATE coaches SET onboarding_welcome_seen = TRUE WHERE id = $1', [coachId]);
+}
+
+// Upsert one coach_profiles row (coach_id is UNIQUE). Arrays are passed through as
+// PostgreSQL text[]. photo_url is preserved on update when not supplied (deferred in PR2).
+async function upsertCoachProfile(coachId, p) {
+  const r = await query(
+    `INSERT INTO coach_profiles
+       (coach_id, bio, icf_designations, alternate_email, phone, directory_opt_in, keywords)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (coach_id) DO UPDATE SET
+       bio              = EXCLUDED.bio,
+       icf_designations = EXCLUDED.icf_designations,
+       alternate_email  = EXCLUDED.alternate_email,
+       phone            = EXCLUDED.phone,
+       directory_opt_in = EXCLUDED.directory_opt_in,
+       keywords         = EXCLUDED.keywords,
+       updated_at       = NOW()
+     RETURNING id`,
+    [coachId, p.bio || null, p.icf_designations || null, p.alternate_email || null,
+     p.phone || null, !!p.directory_opt_in, p.keywords || null]
+  );
+  return r && r.rows.length > 0 ? r.rows[0].id : null;
+}
+async function getCoachProfile(coachId) {
+  const r = await query('SELECT * FROM coach_profiles WHERE coach_id = $1 LIMIT 1', [coachId]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+// Active curated keyword labels for the autocomplete / validation set.
+async function getActiveKeywordTags() {
+  const r = await query('SELECT label FROM keyword_tags WHERE active = TRUE ORDER BY label');
+  return r ? r.rows.map(row => row.label) : [];
 }
 
 async function setCoachActive(coachId, isActive) {
@@ -2744,6 +2853,12 @@ module.exports = {
   getCoachById,
   getAllCoaches,
   addCoach,
+  setCoachPasswordSet,
+  setCoachOnboardingComplete,
+  setCoachWelcomeSeen,
+  upsertCoachProfile,
+  getCoachProfile,
+  getActiveKeywordTags,
   setCoachActive,
   reassignClients,
   reassignClientToCoach,
