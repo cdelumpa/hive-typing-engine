@@ -347,8 +347,12 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-table tr:last-child td { border-bottom: none; }
 .cp-client-link { color: var(--color-primary); font-weight: 600; }
 .cp-client-cards { display: none; }
-.cp-recent-cta-mobile { display: none; }
 .cp-viewall { display: none; margin-top: 16px; font-size: 13px; font-weight: 600; }
+/* Compound selector on purpose: this element is ALSO .cp-btn, whose `display:inline-block`
+   is declared below at equal specificity and would otherwise win on source order — which
+   left the mobile CTA showing at every breakpoint, so desktop/tablet rendered TWO
+   "Onboard a New Client" buttons. The mobile override below matches this specificity. */
+.cp-btn.cp-recent-cta-mobile { display: none; }
 
 .cp-btn {
   display: inline-block; border-radius: 6px; padding: 9px 14px;
@@ -438,7 +442,7 @@ a { color: var(--color-primary); text-decoration: none; }
   .cp-client-card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .cp-client-card-meta { font-size: 12px; color: var(--color-text-muted); margin-top: 6px; }
   .cp-recent-cta { display: none; }
-  .cp-recent-cta-mobile { display: block; width: 100%; margin-bottom: 16px; }
+  .cp-btn.cp-recent-cta-mobile { display: block; width: 100%; margin-bottom: 16px; }
   .cp-viewall { display: block; text-align: center; }
 
   .cp-feed-row { flex-direction: column; gap: 2px; }
