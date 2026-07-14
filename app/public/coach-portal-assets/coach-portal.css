@@ -162,6 +162,120 @@ a { color: var(--color-primary); text-decoration: none; }
   .cp-workspace { padding: 16px; }
 }
 
+/* ── Onboarding flow (§7.10) — header-only shell, centered card ─────────────── */
+.cp-ob-body { display: flex; flex-direction: column; min-height: 100vh; background: var(--color-bg-page); }
+.cp-ob-header {
+  height: var(--header-height); flex-shrink: 0;
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 0 24px; background: var(--color-bg-card); border-bottom: 1px solid var(--color-border);
+}
+.cp-ob-header .cp-brand-mark { font-family: var(--font-heading); font-size: 20px; font-weight: bold; color: var(--color-text-heading); }
+.cp-ob-header .cp-brand-sub  { font-size: 11px; color: var(--color-text-muted); }
+
+.cp-ob-workspace { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 16px; }
+.cp-ob-footer {
+  height: var(--footer-height); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--color-bg-card); border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted); font-size: 12px;
+}
+.cp-ob-footer a { color: var(--color-text-muted); }
+
+/* Two-step progress indicator */
+.cp-ob-progress { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.cp-ob-step { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-muted); }
+.cp-ob-step--active { color: var(--color-text-heading); font-weight: 600; }
+.cp-ob-step-dot {
+  width: 16px; height: 16px; border-radius: 50%; background: var(--color-border);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: #fff;
+}
+.cp-ob-step--active .cp-ob-step-dot { background: var(--color-primary); }
+.cp-ob-step--done   .cp-ob-step-dot { background: var(--color-primary); }
+.cp-ob-step-line { width: 40px; height: 1px; background: var(--color-border); }
+
+/* Card */
+.cp-ob-card {
+  width: 100%; max-width: 480px; background: var(--color-bg-card);
+  border: 1px solid var(--color-border); border-radius: 12px; padding: 32px;
+}
+.cp-ob-logomark {
+  width: 40px; height: 40px; border-radius: 50%; background: var(--color-bg-nav);
+  color: #fff; font-family: var(--font-ui); font-weight: bold; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
+}
+.cp-ob-title { font-family: var(--font-heading); font-size: 24px; font-weight: bold; color: var(--color-text-heading); text-align: center; margin: 0 0 8px; }
+.cp-ob-sub { font-size: 14px; color: var(--color-text-muted); text-align: center; line-height: 1.6; margin: 0 0 20px; }
+.cp-ob-error { background: var(--color-error-bg); color: var(--color-error); font-size: 13px; border-radius: 6px; padding: 10px 12px; margin: 0 0 16px; }
+
+.cp-ob-form { display: flex; flex-direction: column; }
+.cp-ob-label { font-size: 13px; font-weight: 600; color: var(--color-text-heading); margin: 12px 0 6px; }
+.cp-ob-input {
+  font-family: var(--font-ui); font-size: 14px; color: var(--color-text-body);
+  border: 1px solid var(--color-border); border-radius: 6px; padding: 10px 12px; width: 100%;
+}
+.cp-ob-input:focus { outline: none; border: 1.5px solid var(--color-primary); }
+.cp-ob-textarea { min-height: 88px; resize: vertical; }
+.cp-ob-hint { font-size: 11px; color: var(--color-text-muted); margin: 6px 0 0; }
+.cp-ob-btn {
+  margin-top: 20px; background: var(--color-primary); color: #fff; border: none;
+  border-radius: 6px; padding: 12px 16px; font-family: var(--font-ui); font-size: 14px;
+  font-weight: 600; cursor: pointer; width: 100%; text-align: center; text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+.cp-ob-btn:hover { background: var(--color-primary-dark); }
+.cp-ob-btn--inline { display: block; width: fit-content; padding: 12px 24px; margin-left: auto; margin-right: auto; }
+.cp-ob-terms { font-size: 11px; color: var(--color-text-muted); text-align: center; margin: 16px 0 0; }
+.cp-ob-terms a, .cp-ob-title + .cp-ob-sub a { color: var(--color-primary); }
+
+/* Screen 1B success icon */
+.cp-ob-success-icon {
+  width: 56px; height: 56px; border-radius: 50%; background: var(--color-success-bg);
+  color: var(--color-success); font-size: 26px; display: flex; align-items: center;
+  justify-content: center; margin: 0 auto 16px;
+}
+
+/* Screen 2 profile fields */
+.cp-ob-photo { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 8px; }
+.cp-ob-photo-circle {
+  width: 72px; height: 72px; border-radius: 50%; border: 2px solid var(--color-primary);
+  display: flex; align-items: center; justify-content: center; font-size: 28px; color: var(--color-text-muted);
+}
+.cp-ob-photo-link { background: none; border: none; color: var(--color-primary); font-size: 12px; cursor: pointer; padding: 0; }
+.cp-ob-optional { font-size: 11px; color: var(--color-text-muted); }
+.cp-ob-check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cp-ob-check, .cp-ob-chip { font-size: 13px; color: var(--color-text-body); display: inline-flex; align-items: center; gap: 6px; }
+.cp-ob-check input { accent-color: var(--color-primary); }
+.cp-ob-toggle-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 16px; }
+/* Pill toggle switch (§7.9/§7.10): OFF #E2E6EA / ON #00B2D9, 40x22, knob slides. */
+.cp-ob-toggle-row input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; margin: 2px 0 0; flex-shrink: 0;
+  width: 40px; height: 22px; border-radius: 100px; background: var(--color-border);
+  position: relative; cursor: pointer; transition: background var(--duration-fast) var(--ease-out);
+}
+.cp-ob-toggle-row input[type="checkbox"]::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+  border-radius: 50%; background: #fff; transition: left var(--duration-fast) var(--ease-out);
+}
+.cp-ob-toggle-row input[type="checkbox"]:checked { background: var(--color-primary); }
+.cp-ob-toggle-row input[type="checkbox"]:checked::after { left: 20px; }
+.cp-ob-toggle-title { display: block; font-size: 13px; font-weight: 600; color: var(--color-text-heading); }
+.cp-ob-toggle-note { display: block; font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
+.cp-ob-keywords { margin-top: 16px; }
+.cp-ob-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.cp-ob-chip {
+  background: var(--color-primary-light); color: var(--color-primary-dark);
+  border-radius: 100px; padding: 4px 12px; cursor: pointer;
+}
+.cp-ob-chip input { accent-color: var(--color-primary); }
+.cp-ob-defer-form { text-align: center; margin-top: 12px; }
+.cp-ob-defer { background: none; border: none; color: var(--color-text-muted); font-size: 13px; cursor: pointer; }
+.cp-ob-defer:hover { color: var(--color-text-body); }
+
+@media (max-width: 767px) {
+  .cp-ob-card { padding: 24px; }
+  .cp-ob-check-grid { grid-template-columns: 1fr; }
+}
+
 /* §11.10 Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 0.01ms !important; }

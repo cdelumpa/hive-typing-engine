@@ -254,8 +254,249 @@ function renderCoachShellStub({ coachName, activeNav = 'home' } = {}) {
 </html>`;
 }
 
-app.get('/coach', requireCoach, (req, res) => {
+app.get('/coach', requireCoach, requireOnboardingComplete, (req, res) => {
   res.send(renderCoachShellStub({ coachName: req.session.coach_name, activeNav: 'home' }));
+});
+
+// ── Coach Portal onboarding flow (PR2) — Design Spec §7.10 ───────────────────────
+// Server-rendered stub convention (matches PR1's shell). Registered before the blanket
+// static mount. Screen 1 (password) is token-gated; Screens 1B/2 + defer/dismiss are
+// session-gated (requireCoach) but NOT requireOnboardingComplete — never self-gate the
+// onboarding routes.
+const _obEsc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+// Shared onboarding chrome: header-only shell, centered card, optional 2-step indicator.
+function renderOnboardingShell({ step, bodyHtml }) {
+  const dot = (n, label) => {
+    let cls = 'cp-ob-step';
+    if (step === n) cls += ' cp-ob-step--active';
+    else if (step > n) cls += ' cp-ob-step--done';
+    return `<span class="${cls}"><span class="cp-ob-step-dot">${step > n ? '&#10003;' : ''}</span>${_obEsc(label)}</span>`;
+  };
+  const progress = step
+    ? `<div class="cp-ob-progress">${dot(1, 'Set Password')}<span class="cp-ob-step-line"></span>${dot(2, 'Complete Profile')}</div>`
+    : '';
+  return `<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>InsightOut · Coach Onboarding</title>
+  <link rel="stylesheet" href="/coach/assets/coach-portal.css">
+</head><body class="cp-body cp-ob-body">
+  <header class="cp-ob-header">
+    <span class="cp-brand-mark">InsightOut</span><span class="cp-brand-sub">by Hive, Inc.</span>
+  </header>
+  <main class="cp-ob-workspace">
+    ${progress}
+    <div class="cp-ob-card">${bodyHtml}</div>
+  </main>
+  <footer class="cp-ob-footer">© 2026 Hive, Inc. &nbsp;|&nbsp; <a href="#">Privacy Policy</a> &nbsp;|&nbsp; <a href="#">Terms of Use</a></footer>
+</body></html>`;
+}
+
+// Screen 1 — Set Your Password (token embedded in the POST).
+function renderSetPasswordScreen(token, errorMsg) {
+  const err = errorMsg ? `<p class="cp-ob-error">${_obEsc(errorMsg)}</p>` : '';
+  return renderOnboardingShell({ step: 1, bodyHtml: `
+    <div class="cp-ob-logomark">IO</div>
+    <h1 class="cp-ob-title">Set your password</h1>
+    <p class="cp-ob-sub">Welcome to InsightOut. Choose a secure password to access your coaching portal.</p>
+    ${err}
+    <form method="POST" action="/coach/onboarding/password" class="cp-ob-form">
+      <input type="hidden" name="token" value="${_obEsc(token)}">
+      <label class="cp-ob-label" for="password">New Password</label>
+      <input class="cp-ob-input" type="password" id="password" name="password" placeholder="Enter new password" required autocomplete="new-password">
+      <p class="cp-ob-hint">Min. 10 characters, at least one uppercase letter and one number.</p>
+      <label class="cp-ob-label" for="confirm">Confirm Password</label>
+      <input class="cp-ob-input" type="password" id="confirm" name="confirm" placeholder="Re-enter new password" required autocomplete="new-password">
+      <button class="cp-ob-btn" type="submit">Set Password</button>
+    </form>
+    <p class="cp-ob-terms">By setting your password you agree to our <a href="#">Terms of Use</a> and <a href="#">Privacy Policy</a>.</p>
+  ` });
+}
+
+// Screen 1B — Password Success.
+function renderPasswordSuccessScreen() {
+  return renderOnboardingShell({ step: 0, bodyHtml: `
+    <div class="cp-ob-success-icon">&#10003;</div>
+    <h1 class="cp-ob-title">You're all set!</h1>
+    <p class="cp-ob-sub">Your password has been saved. Next, let's complete your profile so you're ready to start coaching.</p>
+    <a class="cp-ob-btn cp-ob-btn--inline" href="/coach/onboarding/profile">Continue to your profile &rarr;</a>
+  ` });
+}
+
+// Screen 2 — Complete Your Profile. Photo affordance is non-functional in PR2 (deferred).
+function renderCompleteProfileScreen(keywordTags, errorMsg) {
+  const err = errorMsg ? `<p class="cp-ob-error">${_obEsc(errorMsg)}</p>` : '';
+  const icf = ['ACC', 'PCC', 'MCC', 'ACTC'].map(d =>
+    `<label class="cp-ob-check"><input type="checkbox" name="icf_designations" value="${d}"> ${d}</label>`).join('');
+  const chips = (keywordTags || []).map(t =>
+    `<label class="cp-ob-chip"><input type="checkbox" name="keywords" value="${_obEsc(t)}"> ${_obEsc(t)}</label>`).join('');
+  return renderOnboardingShell({ step: 2, bodyHtml: `
+    <h1 class="cp-ob-title">Complete your profile</h1>
+    <p class="cp-ob-sub">This takes about two minutes. You can always update these details later in My Profile.</p>
+    ${err}
+    <form method="POST" action="/coach/onboarding/profile" class="cp-ob-form">
+      <div class="cp-ob-photo">
+        <div class="cp-ob-photo-circle">&#128100;</div>
+        <button type="button" class="cp-ob-photo-link" onclick="alert('Photo upload coming soon.')">Upload photo</button>
+        <span class="cp-ob-optional">(optional)</span>
+      </div>
+
+      <label class="cp-ob-label" for="bio">Bio</label>
+      <textarea class="cp-ob-input cp-ob-textarea" id="bio" name="bio" placeholder="A brief professional bio for your directory listing and client-facing profile…"></textarea>
+      <p class="cp-ob-hint">Appears in client-facing InsightOut reports.</p>
+
+      <label class="cp-ob-label">ICF Designation</label>
+      <div class="cp-ob-check-grid">${icf}</div>
+
+      <label class="cp-ob-toggle-row">
+        <span>
+          <span class="cp-ob-toggle-title">List me in the InsightOut Coach Directory</span>
+          <span class="cp-ob-toggle-note">Your profile will appear on insightoutenneagram.com so prospective clients can find and book a debrief with you.</span>
+        </span>
+        <input type="checkbox" name="directory_opt_in" id="directory_opt_in" value="true" onchange="document.getElementById('cp-ob-keywords').style.display=this.checked?'block':'none'">
+      </label>
+
+      <div id="cp-ob-keywords" class="cp-ob-keywords" style="display:none">
+        <label class="cp-ob-label">Keywords (up to 10)</label>
+        <p class="cp-ob-hint">Helps clients find you by area of expertise. Choose from the suggested list.</p>
+        <div class="cp-ob-chips">${chips || '<span class="cp-ob-hint">No keywords available yet.</span>'}</div>
+      </div>
+
+      <button class="cp-ob-btn" type="submit">Save Profile</button>
+    </form>
+    <form method="POST" action="/coach/onboarding/defer" class="cp-ob-defer-form">
+      <button type="submit" class="cp-ob-defer">Finish Later</button>
+    </form>
+  ` });
+}
+
+// Establishes the coach session after a successful password set (mirrors the login
+// success block). Redeem invalidates any prior sessions first, so this runs after it.
+function establishCoachSession(req, user, roles, coach, cb) {
+  req.session.regenerate((err) => {
+    if (err) return cb(err);
+    req.session.user_id    = user.id;
+    req.session.roles      = roles;
+    req.session.coach_id   = coach ? coach.id : null;
+    req.session.coach_name = coach ? coach.name : null;
+    req.session.onboarding_completed = coach ? (coach.onboarding_completed === true) : false;
+    cb(null);
+  });
+}
+
+// (1) Screen 1B — Password Success. Registered BEFORE the /:token route so the literal
+// "success" segment isn't captured as a token. Session-gated, NOT onboarding-gated.
+app.get('/coach/onboarding/password/success', requireCoach, (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(renderPasswordSuccessScreen());
+});
+
+// (2) Screen 1 — Set Your Password. Token-only (no session). Validates the reset token.
+app.get('/coach/onboarding/password/:token', async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const v = await auth.validateResetToken(req.params.token);
+  if (!v.valid) {
+    return res.send(renderOnboardingShell({ step: 0, bodyHtml: `
+      <h1 class="cp-ob-title">This link is invalid or has expired</h1>
+      <p class="cp-ob-sub">Password-setup links expire after one hour and can only be used once. Please ask your administrator, or contact Hive, to send a new invitation.</p>
+    ` }));
+  }
+  res.send(renderSetPasswordScreen(req.params.token, null));
+});
+
+// (3) POST Screen 1 — redeem token, mark password_set, create session, go to success.
+app.post('/coach/onboarding/password', async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const { token, password, confirm } = req.body || {};
+  const v = await auth.validateResetToken(token || '');
+  if (!v.valid) return res.send(renderSetPasswordScreen(token || '', 'This link is invalid or has expired. Please request a new one.'));
+  if (!password || password !== confirm) return res.send(renderSetPasswordScreen(token, 'Passwords do not match.'));
+  const strength = auth.validatePasswordStrength(password);
+  if (!strength.valid) return res.send(renderSetPasswordScreen(token, strength.reason || 'Password does not meet the requirements.'));
+
+  try {
+    const hash = await bcrypt.hash(password, 12);
+    const redeemed = await auth.redeemResetToken(token, hash);  // invalidates any prior sessions
+    if (!redeemed.ok) return res.send(renderSetPasswordScreen(token, 'This link is invalid or has expired. Please request a new one.'));
+
+    const coach = await auth.resolveCoachByUserId(redeemed.userId);
+    if (coach) await db.setCoachPasswordSet(coach.id);
+    const user = { id: redeemed.userId };
+    const roles = await auth.getUserRoles(redeemed.userId);
+    // Re-read coach so onboarding_completed reflects the password_set write path context.
+    const coachFresh = await auth.resolveCoachByUserId(redeemed.userId);
+    establishCoachSession(req, user, roles, coachFresh, async (sErr) => {
+      if (sErr) { console.error('[onboarding/password] session error:', sErr.message); return res.send(renderSetPasswordScreen(token, 'Sign-in failed — please try again.')); }
+      await auth.logAuthEvent(redeemed.userId, 'login_success', req).catch(() => {});
+      res.redirect('/coach/onboarding/password/success');
+    });
+  } catch (e) {
+    console.error('[onboarding/password] error:', e.message);
+    res.send(renderSetPasswordScreen(token, 'Something went wrong. Please try again.'));
+  }
+});
+
+// (4) Screen 2 — Complete Your Profile. Session-gated, NOT onboarding-gated.
+app.get('/coach/onboarding/profile', requireCoach, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const tags = await db.getActiveKeywordTags().catch(() => []);
+  res.send(renderCompleteProfileScreen(tags, null));
+});
+
+// (5) POST Screen 2 — save profile, mark onboarding complete, land on the portal.
+app.post('/coach/onboarding/profile', requireCoach, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const coachId = req.session.coach_id;
+  const toArr = (v) => v == null ? [] : (Array.isArray(v) ? v : [v]);
+  const bio = (req.body.bio || '').trim() || null;
+  const icf = toArr(req.body.icf_designations);
+  const directoryOptIn = req.body.directory_opt_in === 'true';
+  let keywords = toArr(req.body.keywords);
+
+  try {
+    if (directoryOptIn && keywords.length) {
+      const allowed = new Set(await db.getActiveKeywordTags());
+      keywords = keywords.filter(k => allowed.has(k));
+      if (keywords.length > 10) {
+        const tags = await db.getActiveKeywordTags();
+        return res.send(renderCompleteProfileScreen(tags, 'Please choose at most 10 keywords.'));
+      }
+    } else {
+      keywords = [];  // keywords only apply when directory opt-in is on
+    }
+    await db.upsertCoachProfile(coachId, {
+      bio, icf_designations: icf.length ? icf : null,
+      directory_opt_in: directoryOptIn, keywords: keywords.length ? keywords : null,
+    });
+    await db.setCoachOnboardingComplete(coachId);
+    req.session.onboarding_completed = true;
+    res.redirect('/coach');
+  } catch (e) {
+    console.error('[onboarding/profile] error:', e.message);
+    const tags = await db.getActiveKeywordTags().catch(() => []);
+    res.send(renderCompleteProfileScreen(tags, 'Something went wrong saving your profile. Please try again.'));
+  }
+});
+
+// (6) Finish Later — mark onboarding complete without saving profile data.
+app.post('/coach/onboarding/defer', requireCoach, async (req, res) => {
+  try {
+    await db.setCoachOnboardingComplete(req.session.coach_id);
+    req.session.onboarding_completed = true;
+  } catch (e) { console.error('[onboarding/defer] error:', e.message); }
+  res.redirect('/coach');
+});
+
+// (7) Welcome banner dismiss — sets the flag only. Banner markup is rendered by PR3;
+// this route is dormant (no UI triggers it) until then, which is a benign no-op.
+app.post('/coach/onboarding/welcome/dismiss', requireCoach, async (req, res) => {
+  try { await db.setCoachWelcomeSeen(req.session.coach_id); }
+  catch (e) { console.error('[onboarding/welcome/dismiss] error:', e.message); }
+  res.json({ ok: true });
 });
 
 // Blanket static mount for the assessment SPA — registered AFTER the /coach route and
@@ -308,6 +549,20 @@ function requireCoach(req, res, next) {
   if (!req.session || !req.session.user_id) return res.redirect('/admin/login');
   if (!auth.hasRole(req, 'coach')) {
     return res.redirect('/admin/login?error=coach_required');
+  }
+  next();
+}
+
+// Requires the coach to have finished onboarding. Chains AFTER requireCoach (PR1's
+// designed slot). Reads the flag hydrated into the session at login — no DB round-trip.
+// Opt-in per route: it is NEVER applied to any /coach/onboarding/* route, so a coach
+// mid-onboarding can't be redirect-looped. Redirect target is the profile step, which
+// is session-gated and resumable (the password screen is token-gated, not reachable via
+// a session redirect; by the time a session exists, password_set is already TRUE).
+function requireOnboardingComplete(req, res, next) {
+  if (!req.session || !req.session.user_id) return res.redirect('/admin/login');
+  if (req.session.onboarding_completed !== true) {
+    return res.redirect('/coach/onboarding/profile');
   }
   next();
 }
@@ -3371,6 +3626,10 @@ app.post('/admin/login', async (req, res) => {
     req.session.roles      = roles;
     req.session.coach_id   = coach ? coach.id : null;
     req.session.coach_name = coach ? coach.name : null;
+    // Onboarding gate (PR2): hydrate the flag so requireOnboardingComplete needs no
+    // per-request DB read (consistent with requireCoach). Non-coach sessions land on
+    // /admin and never hit the gate, so default them TRUE to be safe.
+    req.session.onboarding_completed = coach ? (coach.onboarding_completed === true) : true;
     await auth.recordLoginSuccess(user.id, req);
     await auth.logAuthEvent(user.id, 'login_success', req);
     // Role-aware landing (IAA §2.1 — a user is the sum of their roles; the surface,
@@ -4615,13 +4874,10 @@ ${errorMsg   ? `<div class="flash-error">${errorMsg}</div>`     : ''}
         <input type="text" id="coach_organization" name="organization" placeholder="Organization (optional)">
       </div>
       <div>
-        <label for="coach_password">Temporary Password</label>
-        <input type="password" id="coach_password" name="password" required minlength="8" placeholder="min 8 characters">
-      </div>
-      <div>
         <button type="submit" class="btn-add">Add Coach</button>
       </div>
     </form>
+    <p style="margin:8px 0 0;font-size:12px;color:#8A96A3;">The coach receives an email to set their own password and complete onboarding — no temporary password needed.</p>
   </div>
 </div>
 
@@ -8319,37 +8575,42 @@ app.get('/admin/coaches/active', requireAdmin, async (req, res) => {
 
 app.post('/admin/coaches/new', requireAdmin, async (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  const { name, email, password, organization } = req.body;
+  // Choicepoint B1 (PR2): admin-created coaches use the SAME credential-establishment
+  // model as the ThriveCart webhook — no admin-typed password. A random temp password
+  // is generated (never shared), password_set stays FALSE (coaches column DEFAULT), and
+  // a reset-token email points the coach at the onboarding password flow. The old
+  // `password` form field is ignored if still posted.
+  const { name, email, organization } = req.body;
 
-  if (!name || !email || !password) {
+  if (!name || !email) {
     const coaches = await db.getAllCoaches().catch(() => []);
-    return res.send(renderCoachesPage(coaches, 'Name, email, and password are all required.', null));
-  }
-  if ((password || '').length < 8) {
-    const coaches = await db.getAllCoaches().catch(() => []);
-    return res.send(renderCoachesPage(coaches, 'Password must be at least 8 characters.', null));
+    return res.send(renderCoachesPage(coaches, 'Name and email are both required.', null));
   }
 
   try {
-    const passwordHash = await bcrypt.hash(password, 12);
-    const newId = await db.addCoach(name.trim(), email.trim().toLowerCase(), passwordHash, organization ? organization.trim() : null);
+    const cleanEmail = email.trim().toLowerCase();
+    const tempPassword = crypto.randomBytes(16).toString('hex');   // never shared
+    const passwordHash = await bcrypt.hash(tempPassword, 12);
+    const newId = await db.addCoach(name.trim(), cleanEmail, passwordHash, organization ? organization.trim() : null);
     if (!newId) {
       const coaches = await db.getAllCoaches().catch(() => []);
       return res.send(renderCoachesPage(coaches, 'Failed to add coach — email may already be in use.', null));
     }
-    // Create corresponding users row and assign client + coach roles
-    const newUserId = await auth.createUserWithRoles(
-      email.toLowerCase().trim(),
-      passwordHash,
-      ['client', 'coach']
-    );
+    // Create corresponding users row and assign client + coach roles.
+    const newUserId = await auth.createUserWithRoles(cleanEmail, passwordHash, ['client', 'coach']);
     if (newUserId) {
-      await db.query(
-        'UPDATE coaches SET user_id = $1 WHERE email = $2',
-        [newUserId, email.toLowerCase().trim()]
-      );
+      await db.query('UPDATE coaches SET user_id = $1 WHERE id = $2', [newUserId, newId]);
+      // Send the onboarding password-set email — identical path to the webhook coach.
+      try {
+        const rawToken = await auth.generateResetToken(newUserId);
+        const appUrl = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
+        const resetUrl = `${appUrl}/coach/onboarding/password/${rawToken}`;
+        await sendPasswordResetEmail(cleanEmail, resetUrl);
+      } catch (mailErr) {
+        console.error('[admin/coaches/new] reset email failed:', mailErr.message);
+      }
     }
-    console.log(`[admin/coaches/new] added coach #${newId}: ${name} <${email}>`);
+    console.log(`[admin/coaches/new] added coach #${newId}: ${name} <${cleanEmail}> (onboarding-gated)`);
     res.redirect('/admin/coaches?flash=coach_added');
   } catch (e) {
     console.error('[admin/coaches/new] error:', e.message);
