@@ -142,7 +142,7 @@ async function getUserRoles(userId) {
 // session's coach_id / coach_name.
 async function resolveCoachByUserId(userId) {
   const r = await db.query(
-    `SELECT id, name, organization, onboarding_completed, password_set
+    `SELECT id, name, organization, onboarding_completed, password_set, onboarding_welcome_seen
        FROM coaches WHERE user_id = $1 LIMIT 1`,
     [userId]
   );

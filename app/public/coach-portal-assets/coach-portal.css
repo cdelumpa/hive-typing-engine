@@ -48,6 +48,12 @@
 /* ── Base ──────────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 
+/* The UA's [hidden] rule is only `display:none` at author-origin-zero specificity, so ANY
+   component rule that sets a display value silently defeats it — which would leave the
+   avatar menu (display:flex) and the mobile drawer (display:block) permanently open.
+   The JS toggles the `hidden` attribute, so `hidden` must always win. */
+[hidden] { display: none !important; }
+
 .cp-body {
   margin: 0;
   font-family: var(--font-ui);
@@ -138,28 +144,308 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-footer a:hover { color: var(--color-primary); }
 .cp-footer-sep { color: var(--color-border); }
 
-/* ── Placeholder body (PR1 stub — Dashboard is PR3) ────────────────────── */
-.cp-placeholder {
+/* ── Header right: credits pill + avatar (§7.1 Addendum, Header) ────────── */
+.cp-header { justify-content: space-between; gap: 12px; }
+.cp-header-brand { display: none; flex-direction: column; }   /* mobile only — see §3.4 */
+.cp-header-brand .cp-brand-mark { color: var(--color-text-heading); }
+.cp-header-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+
+.cp-pill {
+  display: inline-flex; align-items: center; white-space: nowrap;
+  border: 1px solid var(--color-primary); color: var(--color-primary);
+  border-radius: 100px; padding: 4px 12px; font-size: 12px; font-weight: 600;
+}
+.cp-pill--inline { margin-left: 8px; padding: 2px 10px; font-size: 11px; }
+
+.cp-avatar-wrap { position: relative; }
+.cp-avatar-btn {
+  display: flex; align-items: center; gap: 4px;
+  background: none; border: none; padding: 0; cursor: pointer;
+}
+.cp-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--color-bg-nav); color: #FFFFFF;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+}
+.cp-avatar-chevron { color: var(--color-text-muted); font-size: 10px; }
+
+.cp-avatar-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 20;
+  min-width: 160px; display: flex; flex-direction: column;
+  background: var(--color-bg-card); border: 1px solid var(--color-border);
+  border-radius: 8px; padding: 6px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.cp-avatar-menu a {
+  padding: 8px 10px; border-radius: 6px; font-size: 13px; color: var(--color-text-body);
+}
+.cp-avatar-menu a:hover { background: var(--color-bg-page); }
+.cp-avatar-menu-logout { color: var(--color-error) !important; }
+
+/* Hamburger — mobile only (§3.4 reveals it) */
+.cp-hamburger {
+  display: none; flex-direction: column; justify-content: center; gap: 4px;
+  width: 36px; height: 36px; padding: 0 7px;
+  background: none; border: none; cursor: pointer;
+}
+.cp-hamburger span { display: block; height: 2px; border-radius: 2px; background: var(--color-text-heading); }
+
+/* ── Mobile drawer (§7.1 Addendum, Mobile nav) ──────────────────────────── */
+/* Full-screen dark overlay. Hidden entirely above 767px — the rail is the nav there. */
+.cp-drawer {
+  display: none;
+  position: fixed; inset: 0; z-index: 50;
+  background: var(--color-bg-nav);
+  padding: 20px 16px;
+  overflow-y: auto;
+}
+.cp-drawer-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+.cp-drawer-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--color-text-footer); font-size: 28px; line-height: 1; padding: 0 4px;
+}
+.cp-drawer .cp-nav-zone { margin-bottom: 20px; }
+.cp-drawer-foot { margin-top: 8px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.cp-drawer-logout { display: block; padding: 8px 12px; color: var(--color-error); font-size: 14px; font-weight: 600; }
+.cp-noscroll { overflow: hidden; }
+
+/* ── Welcome banner (§7.10 Screen 2B) ───────────────────────────────────── */
+.cp-welcome {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: var(--color-bg-nav); border-radius: 8px;
+  padding: 16px 20px; margin-bottom: 24px;
+}
+.cp-welcome-text { margin: 0; color: #FFFFFF; font-size: 14px; }
+.cp-welcome-lead { font-weight: 700; }
+.cp-welcome-close {
+  background: none; border: none; cursor: pointer; flex-shrink: 0;
+  color: var(--color-text-muted); font-size: 18px; line-height: 1; padding: 0 4px;
+}
+.cp-welcome-close:hover { color: #FFFFFF; }
+
+/* ── Greeting (§7.1 Addendum, Greeting block) ───────────────────────────── */
+.cp-greeting { margin-bottom: 20px; }
+.cp-greeting-title {
+  font-family: var(--font-heading); font-size: 28px; font-weight: bold;
+  color: var(--color-text-heading); margin: 0 0 4px;
+}
+.cp-greeting-sub { font-size: 14px; color: var(--color-text-muted); margin: 0; }
+
+/* ── Action cards (§7.1 Addendum, Action cards) ─────────────────────────── */
+/* Desktop/tablet: 3-column row. Mobile (§3.4): the same track becomes a scroll-snap
+   carousel with dot indicators — one card anatomy, two layouts. */
+.cp-actions { margin-bottom: 24px; }
+.cp-actions-track { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.cp-action-card {
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);   /* thin accent — §4.8 idiom */
+  border-radius: 8px; padding: 16px 18px;
+  transition: box-shadow var(--duration-fast) var(--ease-out);
+}
+.cp-action-card:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); }
+.cp-action-icon  { color: var(--color-primary); font-size: 18px; line-height: 1.2; margin-bottom: 4px; }
+.cp-action-title { font-family: var(--font-heading); font-size: 15px; font-weight: 600; color: var(--color-text-heading); }
+.cp-action-desc  { font-size: 12px; color: var(--color-text-muted); line-height: 1.5; }
+
+.cp-dots { display: none; justify-content: center; gap: 6px; margin-top: 12px; }
+.cp-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--color-border-strong);
+  cursor: pointer; transition: background var(--duration-fast) var(--ease-out);
+}
+.cp-dot--active { background: var(--color-primary); }
+
+/* ── Card shell + section heads ─────────────────────────────────────────── */
+.cp-card {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  padding: 40px;
+  padding: 24px;
+  margin-bottom: 24px;
 }
-.cp-placeholder-title { font-family: var(--font-heading); font-size: 28px; font-weight: bold; color: var(--color-text-heading); margin: 0 0 8px; }
-.cp-placeholder-body  { font-size: 14px; color: var(--color-text-muted); margin: 0; }
+.cp-card-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.cp-card-title { font-family: var(--font-heading); font-size: 18px; font-weight: bold; color: var(--color-text-heading); margin: 0; }
+.cp-eyebrow {
+  font-size: 9px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--color-text-muted); margin: 0 0 12px;
+}
+.cp-empty { color: var(--color-text-muted); font-size: 13px; text-align: center; padding: 24px 0; margin: 0; }
+.cp-empty--feed { text-align: left; padding: 8px 0 0; }
+.cp-chart-msg { color: var(--color-text-muted); font-size: 13px; margin: 0; }
 
-/* ── §3.4 Breakpoints (chrome-level responsiveness only) ───────────────── */
-@media (max-width: 1023px) {   /* Tablet: 64px icon-only strip is a later refinement */
-  .cp-nav { width: var(--nav-width-tablet); padding: 24px 8px; }
-  .cp-nav-eyebrow, .cp-brand-sub, .cp-nav-item, .cp-nav-logout { font-size: 0; }
-  .cp-brand-mark { font-size: 14px; }
+/* Period toggle — filter-tab convention (#00B2D9 active) */
+.cp-tabs { display: flex; gap: 4px; flex-shrink: 0; }
+.cp-tab {
+  padding: 5px 12px; border-radius: 100px; font-size: 12px; font-weight: 600;
+  color: var(--color-text-muted);
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+.cp-tab:hover { background: var(--color-bg-page); }
+.cp-tab--active { background: var(--color-primary); color: #FFFFFF; }
+.cp-tab--active:hover { background: var(--color-primary); }
+
+/* ── Your Activity: metric tiles + chart ────────────────────────────────── */
+.cp-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.cp-metric { display: flex; flex-direction: column; gap: 2px; }
+.cp-metric-value { font-family: var(--font-heading); font-size: 30px; font-weight: bold; color: var(--color-text-heading); line-height: 1.1; }
+.cp-metric-label { font-size: 11px; color: var(--color-text-muted); }
+
+.cp-chart svg { width: 100%; height: auto; display: block; }
+.cp-chart-axis  { stroke: var(--color-border-strong); stroke-width: 1; }
+.cp-chart-grid  { stroke: var(--color-border); stroke-width: 1; stroke-dasharray: 3 3; }
+.cp-chart-tick  { fill: #8A96A3; font-family: Arial, Helvetica, sans-serif; font-size: 10px; }
+.cp-chart-empty { fill: #8A96A3; font-family: Arial, Helvetica, sans-serif; font-size: 12px; }
+
+.cp-legend { display: flex; gap: 20px; margin-top: 8px; }
+.cp-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--color-text-muted); }
+.cp-swatch { width: 10px; height: 2px; border-radius: 2px; display: inline-block; }
+
+/* ── Your Journey: milestone tracker ────────────────────────────────────── */
+/* Markers sit at even 25% intervals (segmented scale) — see cpMilestonePct in server.js.
+   VISUAL ONLY: nothing here grants a credit; the reward backend is Phase 2. */
+.cp-journey { padding-bottom: 20px; }
+.cp-bar {
+  position: relative; height: 6px; border-radius: 100px;
+  background: var(--color-border); margin: 28px 0 44px;
+}
+.cp-bar-fill { position: absolute; inset: 0 auto 0 0; border-radius: 100px; background: var(--color-primary); }
+.cp-bar-now {
+  position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--color-primary); border: 3px solid var(--color-bg-card);
+  transform: translate(-50%, -50%); box-shadow: 0 0 0 1px var(--color-primary);
+}
+.cp-mile { position: absolute; top: 0; transform: translateX(-50%); text-align: center; }
+.cp-mile-tick {
+  display: block; width: 2px; height: 6px; margin: 0 auto;
+  background: var(--color-border-strong);
+}
+/* Last marker (100%): anchored by its right edge, not its centre, so "Legend" ends flush
+   with the end of the bar instead of overflowing into the card padding. The tick shifts
+   with it so it still sits exactly on the bar's end. */
+.cp-mile--last { transform: translateX(-100%); text-align: right; }
+.cp-mile--last .cp-mile-tick { margin: 0 0 0 auto; }
+.cp-mile-badge {
+  display: block; margin-top: 8px; font-size: 10px; font-weight: 600; white-space: nowrap;
+  color: var(--color-text-muted);
+}
+.cp-mile-at { display: block; font-size: 10px; color: var(--color-text-muted); }
+.cp-mile--reached .cp-mile-tick  { background: var(--color-primary); }
+.cp-mile--reached .cp-mile-badge { color: var(--color-primary); }
+
+.cp-journey-here  { font-size: 13px; color: var(--color-text-body); margin: 0 0 4px; }
+.cp-journey-nudge { font-size: 13px; font-weight: 600; color: var(--color-accent); margin: 0; }
+
+/* ── Recent Clients ─────────────────────────────────────────────────────── */
+.cp-table { width: 100%; border-collapse: collapse; }
+.cp-table th {
+  text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--color-text-muted);
+  padding: 0 12px 10px 0; border-bottom: 1px solid var(--color-border);
+}
+.cp-table td { padding: 12px 12px 12px 0; border-bottom: 1px solid var(--color-border); font-size: 13px; }
+.cp-table tr:last-child td { border-bottom: none; }
+.cp-client-link { color: var(--color-primary); font-weight: 600; }
+.cp-client-cards { display: none; }
+.cp-viewall { display: none; margin-top: 16px; font-size: 13px; font-weight: 600; }
+/* Compound selector on purpose: this element is ALSO .cp-btn, whose `display:inline-block`
+   is declared below at equal specificity and would otherwise win on source order — which
+   left the mobile CTA showing at every breakpoint, so desktop/tablet rendered TWO
+   "Onboard a New Client" buttons. The mobile override below matches this specificity. */
+.cp-btn.cp-recent-cta-mobile { display: none; }
+
+.cp-btn {
+  display: inline-block; border-radius: 6px; padding: 9px 14px;
+  font-size: 13px; font-weight: 600; text-align: center; cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+.cp-btn--primary { background: var(--color-primary); color: #FFFFFF; }
+.cp-btn--primary:hover { background: var(--color-primary-dark); }
+
+/* Status badges (CP-4B) — design tokens, not the admin-panel literals. */
+.cp-badge {
+  display: inline-block; border-radius: 100px; padding: 3px 10px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.cp-badge--success { color: var(--color-success);     background: var(--color-success-bg); }
+.cp-badge--primary { color: var(--color-primary-dark); background: var(--color-primary-light); }
+.cp-badge--muted   { color: var(--color-text-muted);  background: var(--color-bg-page); border: 1px solid var(--color-border); }
+.cp-badge--error   { color: var(--color-error);       background: var(--color-error-bg); }
+
+/* ── From InsightOut feed ───────────────────────────────────────────────── */
+.cp-feed-list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.cp-feed-card { border: 1px solid var(--color-border); border-radius: 12px; padding: 16px 20px; }
+.cp-feed-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 8px 0 4px; }
+.cp-feed-title { font-family: var(--font-heading); font-size: 15px; font-weight: 600; color: var(--color-text-heading); margin: 0; }
+.cp-feed-date { font-size: 12px; color: var(--color-text-muted); flex-shrink: 0; }
+.cp-feed-preview { font-size: 13px; color: var(--color-text-muted); line-height: 1.5; margin: 0; }
+
+.cp-cat {
+  display: inline-block; border-radius: 100px; padding: 3px 10px;
+  font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.cp-cat--new { color: var(--color-primary);     background: var(--color-primary-light); }
+.cp-cat--tip { color: var(--color-accent);      background: var(--color-accent-light); }
+.cp-cat--sys { color: var(--color-text-muted);  background: var(--color-bg-page); border: 1px solid var(--color-border); }
+
+/* ── §3.4 Breakpoints ───────────────────────────────────────────────────── */
+/* Tablet. PR1 collapsed the rail to a 64px strip with font-size:0 labels, on the
+   assumption an icon set would land later. It hasn't, so that rule rendered a blank dark
+   column with no usable nav. Until the icon set exists, tablet keeps a labelled (narrower)
+   rail — readable beats aspirational. The 64px icon strip is a backlog item, not a gap
+   this PR should paper over by inventing icons. */
+@media (max-width: 1023px) {
+  .cp-nav { width: 200px; padding: 24px 12px; }
+  .cp-workspace { padding: 24px; }
+  .cp-metrics { gap: 12px; }
+  .cp-metric-value { font-size: 26px; }
 }
 
-@media (max-width: 767px) {   /* Mobile: nav collapses; hamburger is a later refinement */
-  .cp-shell { flex-direction: column; }
-  .cp-nav { width: 100%; flex-direction: row; flex-wrap: wrap; padding: 12px 16px; gap: 12px; }
-  .cp-nav-foot { margin-top: 0; padding-top: 0; }
+/* Mobile: the rail is replaced by a real drawer (not a reflow). The chart is dropped —
+   metrics + journey tracker stay (confirmed intentional simplification in the addendum). */
+@media (max-width: 767px) {
+  .cp-nav { display: none; }
+  .cp-drawer { display: block; }
+  .cp-hamburger { display: flex; }
+  .cp-header-brand { display: flex; }
+  .cp-header { padding: 0 16px; gap: 8px; }
   .cp-workspace { padding: 16px; }
+
+  .cp-greeting-title { font-size: 24px; }
+
+  /* Action cards → horizontal-scroll carousel, ~75% viewport per card so the next peeks */
+  .cp-actions-track {
+    display: flex; grid-template-columns: none;
+    overflow-x: auto; scroll-snap-type: x mandatory;
+    gap: 12px; padding-bottom: 4px;
+    scrollbar-width: none; -ms-overflow-style: none;
+  }
+  .cp-actions-track::-webkit-scrollbar { display: none; }
+  .cp-action-card { flex: 0 0 75%; scroll-snap-align: start; }
+  .cp-dots { display: flex; }
+
+  .cp-card { padding: 20px 16px; }
+  .cp-card-head { flex-direction: column; align-items: flex-start; gap: 12px; }
+  /* Mobile drops the chart and keeps the metrics + journey tracker. The metrics' bottom
+     margin exists to separate them FROM the chart — with the chart gone it would leave a
+     dead band at the foot of the card, so it goes too. */
+  .cp-metrics { grid-template-columns: 1fr; gap: 16px; margin-bottom: 0; }
+  .cp-chart { display: none; }
+
+  .cp-mile-badge, .cp-mile-at { font-size: 9px; }
+
+  /* Recent Clients → card-per-row + full-width CTA above the list + View all link */
+  .cp-table { display: none; }
+  .cp-client-cards { display: flex; flex-direction: column; gap: 12px; }
+  .cp-client-card { border: 1px solid var(--color-border); border-radius: 8px; padding: 14px 16px; }
+  .cp-client-card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .cp-client-card-meta { font-size: 12px; color: var(--color-text-muted); margin-top: 6px; }
+  .cp-recent-cta { display: none; }
+  .cp-btn.cp-recent-cta-mobile { display: block; width: 100%; margin-bottom: 16px; }
+  .cp-viewall { display: block; text-align: center; }
+
+  .cp-feed-row { flex-direction: column; gap: 2px; }
 }
 
 /* ── Onboarding flow (§7.10) — header-only shell, centered card ─────────────── */

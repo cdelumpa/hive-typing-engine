@@ -742,6 +742,33 @@ CREATE TABLE IF NOT EXISTS keyword_tags (
   active     BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ── announcements ── "From InsightOut" feed (spec §9.10). published_at NULL = draft and
+-- is never visible to coaches. Authored by Cai/Mo in the admin CMS, which is NOT built
+-- yet — so this table is legitimately empty at launch and the Dashboard feed renders its
+-- empty state. PR3 reads it; PR12 (§7.11 Announcements page) adds list/detail/search.
+CREATE TABLE IF NOT EXISTS announcements (
+  id           SERIAL PRIMARY KEY,
+  category     VARCHAR(50)  NOT NULL,   -- what_is_new | tip | system
+  title        VARCHAR(255) NOT NULL,
+  preview_text TEXT         NOT NULL,   -- 2-line truncated preview on the card
+  body         TEXT         NOT NULL,   -- full body, shown in the PR12 detail modal
+  published_at TIMESTAMPTZ,             -- NULL = draft
+  created_by   INTEGER REFERENCES users(id),
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── coach_announcement_reads ── append-only read receipts (spec §9.11). A row exists =
+-- that coach has read that announcement; no row = unread. Drives the unread dot + bold
+-- title on §7.11. PR3 creates the table but never writes to it — the read receipt is
+-- recorded when the detail modal opens, which is PR12.
+CREATE TABLE IF NOT EXISTS coach_announcement_reads (
+  coach_id        INTEGER NOT NULL REFERENCES coaches(id),
+  announcement_id INTEGER NOT NULL REFERENCES announcements(id),
+  read_at         TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (coach_id, announcement_id)
+);
 `;
 
 const SEED_SQL = `
@@ -1497,6 +1524,144 @@ async function getCoachProfile(coachId) {
 async function getActiveKeywordTags() {
   const r = await query('SELECT label FROM keyword_tags WHERE active = TRUE ORDER BY label');
   return r ? r.rows.map(row => row.label) : [];
+}
+
+// Reads the one-time welcome-banner flag. Used only to lazily hydrate a session that
+// predates PR3 (sessions created after PR3 carry the flag from login) — see server.js.
+async function getCoachWelcomeSeen(coachId) {
+  const r = await query('SELECT onboarding_welcome_seen FROM coaches WHERE id = $1', [coachId]);
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0].onboarding_welcome_seen === true : true;
+}
+
+// ── Coach Portal PR3: Dashboard reads (spec §7.1 Addendum v1.0) ──────────────────
+// Every helper here is READ-ONLY and scoped by coach_id. Nothing in this section writes.
+// In particular the milestone tracker (§"Your Journey") is driven purely by
+// getCoachCompletedAssessmentCount below — the bonus-credit grant at each threshold is
+// Phase 2 per the ThriveCart doc, so NO path from the Dashboard touches credit_lots or
+// credit_transactions. The bar is accurate today; it simply doesn't auto-reward yet.
+
+// "Completed" is assessments.status = 'complete' (singular — the value completeAssessment
+// writes). Soft-deleted / permanently-deleted rows are excluded, matching the filter
+// ADMIN_ROWS_SELECT applies, so this count and the Recent Clients table agree.
+async function getCoachCompletedAssessmentCount(coachId) {
+  const r = await query(
+    `SELECT COUNT(*)::int AS n
+       FROM assessments a
+       JOIN clients c ON c.id = a.client_id
+      WHERE c.coach_id = $1
+        AND a.status = 'complete'
+        AND a.deleted_at IS NULL
+        AND a.permanently_deleted IS NOT TRUE`,
+    [coachId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows[0].n;
+}
+
+// CP-2A (ratified): an "active client" is one still in the pipeline —
+// clients.status <> 'complete' (i.e. not_started + in_progress). NOTE coaches.is_active is
+// a coach ban flag and has nothing to do with this; do not conflate them.
+async function getCoachActiveClientCount(coachId) {
+  const r = await query(
+    `SELECT COUNT(*)::int AS n
+       FROM clients c
+      WHERE c.coach_id = $1
+        AND COALESCE(c.status, 'not_started') <> 'complete'`,
+    [coachId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows[0].n;
+}
+
+// Period toggle (CP-2E) → bucket unit + how many buckets the chart plots. The unit is
+// interpolated into the SQL below, so it MUST come from this whitelist and never from
+// user input directly; the route validates ?period= against these keys.
+const ACTIVITY_PERIODS = {
+  week:  { unit: 'day',   points: 7  },   // last 7 days,   daily buckets
+  month: { unit: 'week',  points: 5  },   // last 5 weeks,  weekly buckets
+  year:  { unit: 'month', points: 12 },   // last 12 months, monthly buckets
+};
+
+// Two-line chart series (§"Your Activity"): assessments completed vs. clients onboarded.
+// CP-2C (ratified): the "onboarded" axis is clients.created_at. The "completed" axis is
+// assessments.completed_at (the server-side completion stamp written by completeAssessment).
+//
+// Three queries: a gapless bucket spine from Postgres generate_series, then the two
+// grouped counts. The spine comes from PG rather than being recomputed in JS on purpose —
+// re-deriving date_trunc('week') boundaries (ISO Monday) client-side is exactly the kind
+// of off-by-one that silently misaligns a chart. The gap-fill itself is done in JS below.
+async function getCoachActivitySeries(coachId, period) {
+  const cfg = ACTIVITY_PERIODS[period] || ACTIVITY_PERIODS.month;
+  const { unit, points } = cfg;
+  const since = `date_trunc('${unit}', NOW()) - INTERVAL '${points - 1} ${unit}'`;
+
+  const spine = await query(
+    `SELECT generate_series(
+              ${since},
+              date_trunc('${unit}', NOW()),
+              INTERVAL '1 ${unit}'
+            ) AS bucket`
+  );
+
+  const completed = await query(
+    `SELECT date_trunc('${unit}', a.completed_at) AS bucket, COUNT(*)::int AS n
+       FROM assessments a
+       JOIN clients c ON c.id = a.client_id
+      WHERE c.coach_id = $1
+        AND a.status = 'complete'
+        AND a.deleted_at IS NULL
+        AND a.permanently_deleted IS NOT TRUE
+        AND a.completed_at IS NOT NULL
+        AND a.completed_at >= ${since}
+      GROUP BY 1
+      ORDER BY 1`,
+    [coachId]
+  );
+
+  const onboarded = await query(
+    `SELECT date_trunc('${unit}', c.created_at) AS bucket, COUNT(*)::int AS n
+       FROM clients c
+      WHERE c.coach_id = $1
+        AND c.created_at >= ${since}
+      GROUP BY 1
+      ORDER BY 1`,
+    [coachId]
+  );
+
+  if (!spine || !completed || !onboarded) throw new Error('DB_ERROR');
+
+  // Gap-fill: every bucket on the spine gets a point, zero where the coach had no
+  // activity. Without this a sparse coach yields a chart with 2 points and a misleading
+  // straight line between them.
+  const key = (d) => new Date(d).getTime();
+  const cMap = new Map(completed.rows.map(r => [key(r.bucket), r.n]));
+  const oMap = new Map(onboarded.rows.map(r => [key(r.bucket), r.n]));
+
+  return {
+    unit,
+    series: spine.rows.map(r => ({
+      bucket:    r.bucket,
+      completed: cMap.get(key(r.bucket)) || 0,
+      onboarded: oMap.get(key(r.bucket)) || 0,
+    })),
+  };
+}
+
+// "From InsightOut" feed — 5 most recent PUBLISHED announcements. A NULL published_at is
+// a draft and a future published_at is scheduled; neither is visible to a coach.
+async function getPublishedAnnouncements(limit = 5) {
+  const r = await query(
+    `SELECT id, category, title, preview_text, published_at
+       FROM announcements
+      WHERE published_at IS NOT NULL
+        AND published_at <= NOW()
+      ORDER BY published_at DESC
+      LIMIT $1`,
+    [limit]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows;
 }
 
 async function setCoachActive(coachId, isActive) {
@@ -2856,6 +3021,12 @@ module.exports = {
   setCoachPasswordSet,
   setCoachOnboardingComplete,
   setCoachWelcomeSeen,
+  getCoachWelcomeSeen,
+  // Coach Portal PR3 — Dashboard reads (read-only; never touch the credit ledger)
+  getCoachCompletedAssessmentCount,
+  getCoachActiveClientCount,
+  getCoachActivitySeries,
+  getPublishedAnnouncements,
   upsertCoachProfile,
   getCoachProfile,
   getActiveKeywordTags,
