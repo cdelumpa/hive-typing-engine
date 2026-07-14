@@ -365,8 +365,14 @@ function statusBadge(status, cancelledAt) {
 // ── Dashboard (§7.1 Addendum v1.0) ──────────────────────────────────────────────
 
 // Action cards are STATIC content — no table, no query, nothing DB-driven (confirmed in
-// the PR3 audit). CP-1: /coach/credits and /coach/training aren't built yet; the cards
-// render now and resolve when those PRs land, same precedent as PR1's nav items.
+// the PR3 audit). CP-1: none of the three targets are built yet; the cards render now and
+// resolve when their PRs land, same precedent as PR1's nav items.
+//
+// All three point at UNDEFINED /coach/* routes, which 404 cleanly. Onboard deliberately
+// does NOT point at /admin: that's a gated staff route, so a coach clicking it would be
+// bounced through a login/permission loop instead of hitting an honest dead end.
+// /coach/clients/new is PR5's planned route. The same reasoning applies to the "Onboard a
+// New Client" buttons in Recent Clients below — same label, same target.
 // Icons are inline SVG (Lucide-style: 20px, 1.6 stroke, currentColor so the #00B2D9
 // accent comes from CSS). The portal has no icon set and no icon dependency; three
 // hand-inlined paths is the smallest honest way to hit the spec'd person-plus / card /
@@ -376,7 +382,7 @@ const CP_ICON = (paths) =>
   `stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 
 const CP_ACTION_CARDS = [
-  { href: '/admin', title: 'Onboard a New Client', desc: 'Provision an assessment and send the invite.',
+  { href: '/coach/clients/new', title: 'Onboard a New Client', desc: 'Provision an assessment and send the invite.',
     icon: CP_ICON('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>') },
   { href: '/coach/credits', title: 'Purchase Credits', desc: 'Top up your assessment credit balance.',
     icon: CP_ICON('<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>') },
@@ -565,9 +571,11 @@ function renderJourney(completedCount) {
               <span class="cp-mile-at">${m.at}</span>
             </div>`;
   }).join('');
+  // Past the final tier there is no "next milestone" to count down to, so the nudge line
+  // becomes a terminal state rather than disappearing (which left a bare bar at 100%).
   const nudge = next
     ? `<p class="cp-journey-nudge">${next.at - completedCount} assessment${next.at - completedCount === 1 ? '' : 's'} away from your next milestone!</p>`
-    : '';
+    : `<p class="cp-journey-nudge">You've reached Legend status — the highest tier there is.</p>`;
   return `<section class="cp-card cp-journey">
           <p class="cp-eyebrow">Your Journey</p>
           <div class="cp-bar">
@@ -637,9 +645,9 @@ function renderRecentClients(rows) {
   return `<section class="cp-card cp-recent">
           <div class="cp-card-head">
             <h2 class="cp-card-title">Recent Clients</h2>
-            <a class="cp-btn cp-btn--primary cp-recent-cta" href="/admin">Onboard a New Client</a>
+            <a class="cp-btn cp-btn--primary cp-recent-cta" href="/coach/clients/new">Onboard a New Client</a>
           </div>
-          <a class="cp-btn cp-btn--primary cp-recent-cta-mobile" href="/admin">Onboard a New Client</a>
+          <a class="cp-btn cp-btn--primary cp-recent-cta-mobile" href="/coach/clients/new">Onboard a New Client</a>
           <table class="cp-table">
             <thead>
               <tr><th>Client Name</th><th>Assessment Type</th><th>Date Provisioned</th><th>Status</th></tr>
