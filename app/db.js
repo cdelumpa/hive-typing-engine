@@ -753,6 +753,41 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS coach_notes       TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS debrief_completed BOOLEAN DEFAULT FALSE;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS debrief_date      DATE;
 
+-- ── retake_requests ── coach-initiated, approval-gated retakes (§7.2 addendum, PR4b).
+-- A retake request is NOT an assessment until launched — it is a request that references
+-- the assessment being retaken. On launch we provision a REAL new assessment through the
+-- standard path and record its id here.
+--
+-- CP-D: original_assessment_id is nullable with ON DELETE SET NULL, matching the
+-- assessments.retake_of_assessment_id precedent. NOT NULL + ON DELETE SET NULL is
+-- self-contradictory, and a NOT NULL FK here would block permanentlyDeleteAssessment from
+-- ever tombstoning an assessment that had been retaken.
+--
+-- 'launched' is a real status, not a derived one: without it an approved-and-launched
+-- request would sit at 'approved' forever and the Launch Retake button would never turn
+-- off. The partial unique index below depends on it.
+CREATE TABLE IF NOT EXISTS retake_requests (
+  id                       SERIAL PRIMARY KEY,
+  client_id                INTEGER NOT NULL REFERENCES clients(id),
+  original_assessment_id   INTEGER REFERENCES assessments(id) ON DELETE SET NULL,
+  coach_id                 INTEGER NOT NULL REFERENCES coaches(id),
+  reason                   TEXT NOT NULL,
+  status                   VARCHAR(20) NOT NULL DEFAULT 'pending',   -- pending | approved | denied | launched
+  denial_reason            TEXT,
+  requested_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_by              INTEGER REFERENCES users(id),
+  reviewed_at              TIMESTAMPTZ,
+  resulting_assessment_id  INTEGER REFERENCES assessments(id) ON DELETE SET NULL,
+  launched_at              TIMESTAMPTZ
+);
+
+-- At most ONE open (pending or approved) request per client. This is the double-submit and
+-- double-launch guard, enforced in the database rather than by a read-then-write check that
+-- could race. Denied and launched requests are unconstrained, so a coach may request again
+-- after a denial, and a client may be retaken more than once over time.
+CREATE UNIQUE INDEX IF NOT EXISTS retake_requests_one_open
+  ON retake_requests (client_id) WHERE status IN ('pending', 'approved');
+
 -- ── announcements ── "From InsightOut" feed (spec §9.10). published_at NULL = draft and
 -- is never visible to coaches. Authored by Cai/Mo in the admin CMS, which is NOT built
 -- yet — so this table is legitimately empty at launch and the Dashboard feed renders its
@@ -1445,6 +1480,144 @@ async function setClientDebrief(clientId, { completed, date }) {
             updated_at        = NOW()
       WHERE id = $3`,
     [!!completed, date || null, clientId]
+  );
+}
+
+// ── Coach Portal PR4b: retake requests (§7.2 addendum) ───────────────────────────
+// Lifecycle: pending → approved → launched, or pending → denied.
+// A request is not an assessment. Launching one provisions a REAL assessment through the
+// standard path (server.js), and the resulting id is recorded here.
+
+// Deliberately bypasses query(), which swallows every error and returns null — that would
+// make "another request is already open" (a 23505 unique violation on
+// retake_requests_one_open) indistinguishable from a genuine DB failure, and the coach
+// would get a 500 for a perfectly ordinary duplicate click. Let the index be the guard —
+// a read-then-write pre-check could race two concurrent submits past it.
+async function createRetakeRequest({ clientId, originalAssessmentId, coachId, reason }) {
+  if (!pool) throw new Error('DB_ERROR');
+  try {
+    const r = await pool.query(
+      `INSERT INTO retake_requests (client_id, original_assessment_id, coach_id, reason)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [clientId, originalAssessmentId || null, coachId, reason]
+    );
+    return r.rows[0].id;
+  } catch (e) {
+    if (e.code === '23505') throw new Error('REQUEST_ALREADY_OPEN');
+    console.error('[db] createRetakeRequest error:', e.message);
+    throw new Error('DB_ERROR');
+  }
+}
+
+// The latest request per client for one coach — drives the roster badges. DISTINCT ON
+// takes the newest row per client, so a client whose last request was launched shows no
+// badge, while a denied one still shows "Retake Denied" until they request again.
+async function getLatestRetakeRequestsByCoach(coachId) {
+  const r = await query(
+    `SELECT DISTINCT ON (client_id)
+            id, client_id, original_assessment_id, status, reason, denial_reason,
+            requested_at, reviewed_at, resulting_assessment_id, launched_at
+       FROM retake_requests
+      WHERE coach_id = $1
+      ORDER BY client_id, requested_at DESC, id DESC`,
+    [coachId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  const byClient = new Map();
+  r.rows.forEach(row => byClient.set(row.client_id, row));
+  return byClient;
+}
+
+async function getLatestRetakeRequestByClient(clientId) {
+  const r = await query(
+    `SELECT * FROM retake_requests
+      WHERE client_id = $1
+      ORDER BY requested_at DESC, id DESC
+      LIMIT 1`,
+    [clientId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length ? r.rows[0] : null;
+}
+
+async function getRetakeRequestById(id) {
+  const r = await query('SELECT * FROM retake_requests WHERE id = $1 LIMIT 1', [id]);
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length ? r.rows[0] : null;
+}
+
+// Admin queue. Joined out to the names the reviewer needs to make a decision.
+async function getPendingRetakeRequests() {
+  const r = await query(
+    `SELECT rr.id, rr.reason, rr.requested_at,
+            rr.client_id, rr.original_assessment_id,
+            c.first_name, c.last_name, c.email AS client_email,
+            co.name AS coach_name, co.email AS coach_email,
+            a.created_at AS original_provisioned_at,
+            COALESCE(a.assessment_completed_at, a.completed_at) AS original_completed_at
+       FROM retake_requests rr
+       JOIN clients c  ON c.id  = rr.client_id
+       JOIN coaches co ON co.id = rr.coach_id
+       LEFT JOIN assessments a ON a.id = rr.original_assessment_id
+      WHERE rr.status = 'pending'
+      ORDER BY rr.requested_at ASC`
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows;
+}
+
+// Both decision writers are guarded on status='pending', so a double-click (or two admins
+// racing) can only land one decision. rowCount 0 means it was already decided.
+async function approveRetakeRequest(id, reviewerUserId) {
+  const r = await query(
+    `UPDATE retake_requests
+        SET status = 'approved', reviewed_by = $1, reviewed_at = NOW()
+      WHERE id = $2 AND status = 'pending'
+      RETURNING id`,
+    [reviewerUserId, id]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  if (r.rowCount === 0) throw new Error('NOT_PENDING');
+  return true;
+}
+
+async function denyRetakeRequest(id, reviewerUserId, denialReason) {
+  const r = await query(
+    `UPDATE retake_requests
+        SET status = 'denied', denial_reason = $1, reviewed_by = $2, reviewed_at = NOW()
+      WHERE id = $3 AND status = 'pending'
+      RETURNING id`,
+    [denialReason, reviewerUserId, id]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  if (r.rowCount === 0) throw new Error('NOT_PENDING');
+  return true;
+}
+
+// Guarded on status='approved' for the same reason: two concurrent Launch clicks must not
+// both provision an assessment (and both burn a credit). The caller claims the request
+// FIRST, then provisions — see the route.
+async function markRetakeRequestLaunched(id, assessmentId) {
+  const r = await query(
+    `UPDATE retake_requests
+        SET status = 'launched', resulting_assessment_id = $1, launched_at = NOW()
+      WHERE id = $2 AND status = 'approved'
+      RETURNING id`,
+    [assessmentId, id]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  if (r.rowCount === 0) throw new Error('NOT_APPROVED');
+  return true;
+}
+
+// Rollback for a launch that claimed the request but then failed to provision. Puts it
+// back to 'approved' so the coach can retry rather than being stranded on a dead request.
+async function revertRetakeRequestToApproved(id) {
+  await query(
+    `UPDATE retake_requests
+        SET status = 'approved', resulting_assessment_id = NULL, launched_at = NULL
+      WHERE id = $1 AND status = 'launched'`,
+    [id]
   );
 }
 
@@ -3077,6 +3250,16 @@ module.exports = {
   getAssessmentsByClient,
   setCoachNotes,
   setClientDebrief,
+  // Coach Portal PR4b — retake workflow
+  createRetakeRequest,
+  getLatestRetakeRequestsByCoach,
+  getLatestRetakeRequestByClient,
+  getRetakeRequestById,
+  getPendingRetakeRequests,
+  approveRetakeRequest,
+  denyRetakeRequest,
+  markRetakeRequestLaunched,
+  revertRetakeRequestToApproved,
   getCoachByEmail,
   getCoachById,
   getAllCoaches,
