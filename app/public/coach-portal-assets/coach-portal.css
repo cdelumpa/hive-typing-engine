@@ -320,6 +320,11 @@ a { color: var(--color-primary); text-decoration: none; }
   display: block; width: 2px; height: 6px; margin: 0 auto;
   background: var(--color-border-strong);
 }
+/* Last marker (100%): anchored by its right edge, not its centre, so "Legend" ends flush
+   with the end of the bar instead of overflowing into the card padding. The tick shifts
+   with it so it still sits exactly on the bar's end. */
+.cp-mile--last { transform: translateX(-100%); text-align: right; }
+.cp-mile--last .cp-mile-tick { margin: 0 0 0 auto; }
 .cp-mile-badge {
   display: block; margin-top: 8px; font-size: 10px; font-weight: 600; white-space: nowrap;
   color: var(--color-text-muted);

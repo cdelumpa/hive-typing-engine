@@ -555,7 +555,11 @@ function renderJourney(completedCount) {
   const next = CP_MILESTONES.find(m => completedCount < m.at);
   const markers = CP_MILESTONES.map((m, i) => {
     const reached = completedCount >= m.at;
-    return `<div class="cp-mile${reached ? ' cp-mile--reached' : ''}" style="left:${(i + 1) * 25}%">
+    // The final marker sits at 100% — centring its label there pushes half of "Legend"
+    // past the end of the bar and into the card's padding. Anchor the last one by its
+    // right edge instead, so the label ends flush with the bar (the tick stays put).
+    const last = i === CP_MILESTONES.length - 1 ? ' cp-mile--last' : '';
+    return `<div class="cp-mile${reached ? ' cp-mile--reached' : ''}${last}" style="left:${(i + 1) * 25}%">
               <span class="cp-mile-tick"></span>
               <span class="cp-mile-badge">${cpEsc(m.badge)}</span>
               <span class="cp-mile-at">${m.at}</span>
