@@ -1984,9 +1984,19 @@ async function getClientById(clientId) {
 // specific message when createClient returns null because the clients_email_key
 // UNIQUE index rejected a duplicate email (the error is otherwise swallowed by
 // query() and surfaces only as a generic failure).
+// PR5: projection widened from {id, coach_id} to carry the name/org the Onboard screen's
+// State C1 pre-fills from. Callers that only need the ownership pair (createClient,
+// resolveClientForCoach) are unaffected by the extra columns.
+//
+// NOTE the richer projection is for the SERVER's use. It must not be handed to the client
+// wholesale: on a cross-coach match (State C2) the response is deliberately opaque, so the
+// route picks fields off this row rather than serialising it — see /coach/clients/lookup.
 async function getClientByEmail(email) {
   if (!email) return null;
-  const r = await query('SELECT id, coach_id FROM clients WHERE LOWER(email) = LOWER($1) LIMIT 1', [email]);
+  const r = await query(
+    'SELECT id, coach_id, first_name, last_name, organization FROM clients WHERE LOWER(email) = LOWER($1) LIMIT 1',
+    [email]
+  );
   return r && r.rows.length > 0 ? r.rows[0] : null;
 }
 

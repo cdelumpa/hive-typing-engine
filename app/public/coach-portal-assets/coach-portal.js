@@ -225,6 +225,10 @@
     if (!open && modalMsg) modalMsg.hidden = true;
   }
 
+  // Exposed so PR5's Step-2 CTA and the ?assessment=1 landing (State C1's "Continue to
+  // Assessment") can open this same modal — no second modal mechanism.
+  window.cpOpenAssessmentModal = function () { setModal(true); };
+
   if (openBtn) openBtn.addEventListener('click', function () { setModal(true); });
   if (closeBtn2) closeBtn2.addEventListener('click', function () { setModal(false); });
   if (cancelBtn) cancelBtn.addEventListener('click', function () { setModal(false); });
@@ -389,5 +393,219 @@
         credentials: 'same-origin',
       }).catch(function () { /* non-fatal: banner reappears next load */ });
     });
+  }
+
+  /* ══ Onboard a New Client (§7.3, PR5) ═════════════════════════════════════ */
+
+  /* Success toast — dismissible, and never sticky across a reload (it's driven by
+     ?created=1, so clearing the flag off the URL stops a refresh from re-announcing it). */
+  var toast = $('cp-toast');
+  var toastClose = $('cp-toast-close');
+  if (toast && toastClose) {
+    toastClose.addEventListener('click', function () { toast.remove(); });
+    if (window.history && window.history.replaceState) {
+      var clean = window.location.pathname + window.location.search.replace(/([?&])created=1&?/, '$1').replace(/[?&]$/, '');
+      window.history.replaceState({}, '', clean);
+    }
+  }
+
+  /* Step 2 CTA on a zero-assessment client opens the same PR4a modal as "+ New Assessment". */
+  var step2 = $('cp-step2-assessment');
+  if (step2 && typeof window.cpOpenAssessmentModal === 'function') {
+    step2.addEventListener('click', function () { window.cpOpenAssessmentModal(); });
+  }
+
+  /* State C1's "Continue to Assessment" lands here with ?assessment=1 — open the modal
+     straight away rather than making the coach click again. */
+  if (/[?&]assessment=1/.test(window.location.search) && typeof window.cpOpenAssessmentModal === 'function') {
+    window.cpOpenAssessmentModal();
+  }
+
+  /* ── Step 1 form: email-first lookup ──────────────────────────────────────── */
+  var obForm  = $('cp-onboard-form');
+  var obEmail = $('cp-ob-email');
+
+  if (obForm && obEmail) {
+    var obFirst  = $('cp-ob-first');
+    var obLast   = $('cp-ob-last');
+    var obOrg    = $('cp-ob-org');
+    var obNotes  = $('cp-ob-notes');
+    var obSave   = $('cp-onboard-save');
+    var obFields = $('cp-onboard-fields');
+    var obMsg    = $('cp-onboard-msg');
+    var banner   = $('cp-lookup-banner');
+    var spinner  = $('cp-lookup-spinner');
+    var status   = $('cp-lookup-status');
+
+    var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    var lastLookedUp = null;   // don't re-fire for an unchanged email on every blur
+    var state = 'none';        // none | own | other_coach
+    var foundClientId = null;
+
+    function setFieldsDisabled(off) {
+      obFields.classList.toggle('cp-fields--disabled', off);
+      [obFirst, obLast, obOrg, obNotes].forEach(function (el) { el.disabled = off; });
+    }
+    function setFieldsReadonly(on) {
+      [obFirst, obLast, obOrg].forEach(function (el) { el.readOnly = on; });
+    }
+    function showBanner(cls, html) {
+      banner.className = 'cp-lookup-banner ' + cls;
+      banner.innerHTML = html;
+      banner.hidden = false;
+    }
+    /* The banner interpolates a client NAME from the lookup response. That value came from
+       the database, not from this page, so escape it — never innerHTML a server value raw. */
+    function esc(s) {
+      var d = document.createElement('div');
+      d.textContent = s == null ? '' : String(s);
+      return d.innerHTML;
+    }
+
+    /* Save is enabled only in the 'none' state with the required fields filled. In C1 the
+       button becomes Continue to Assessment; in C2 there is no path forward at all. */
+    function refreshSave() {
+      if (state === 'other_coach') { obSave.disabled = true; return; }
+      if (state === 'own') { obSave.disabled = false; return; }
+      obSave.disabled = !(EMAIL_RE.test(obEmail.value.trim()) && obFirst.value.trim() && obLast.value.trim());
+    }
+
+    function resetToDefault() {
+      // Leaving C1 must CLEAR the fields it pre-filled. Without this, a coach who looks up
+      // an existing client and then types a different email keeps the previous client's
+      // name in the form — and would silently save a brand-new client under someone else's
+      // name. Only clear values we put there; never wipe what the coach typed themselves.
+      if (state === 'own') {
+        obFirst.value = '';
+        obLast.value = '';
+        obOrg.value = '';
+      }
+      state = 'none'; foundClientId = null;
+      banner.hidden = true;
+      obEmail.classList.remove('cp-input--found', 'cp-input--conflict', 'cp-input--checking');
+      obEmail.readOnly = false;
+      setFieldsDisabled(false);
+      setFieldsReadonly(false);
+      obSave.textContent = 'Save Client';
+      refreshSave();
+    }
+
+    function applyState(data) {
+      spinner.hidden = true;
+      status.hidden = true;
+      obEmail.classList.remove('cp-input--checking');
+
+      if (data.state === 'own') {
+        state = 'own';
+        foundClientId = data.client.id;
+        obEmail.classList.add('cp-input--found');
+        obEmail.readOnly = true;
+        obFirst.value = data.client.first_name || '';
+        obLast.value  = data.client.last_name || '';
+        obOrg.value   = data.client.organization || '';
+        setFieldsDisabled(false);
+        setFieldsReadonly(true);
+        var nm = ((data.client.first_name || '') + ' ' + (data.client.last_name || '')).trim();
+        showBanner('cp-lookup-banner--own',
+          '<b>' + esc(nm) + '</b> is already in your roster. We’ve filled in their details — continue to provision a new assessment.');
+        obSave.textContent = 'Continue to Assessment →';
+        refreshSave();
+        return;
+      }
+
+      if (data.state === 'other_coach') {
+        state = 'other_coach';
+        obEmail.classList.add('cp-input--conflict');
+        setFieldsDisabled(true);
+        showBanner('cp-lookup-banner--other',
+          'This email is already associated with another coach’s client roster. If you believe this is an error, contact Hive support.');
+        obSave.textContent = 'Save Client';
+        refreshSave();
+        return;
+      }
+
+      resetToDefault();
+    }
+
+    /* Lookup fires on BLUR, not per keystroke (addendum) — an email isn't meaningful until
+       the coach has finished typing it, and per-keystroke would hammer the endpoint. */
+    obEmail.addEventListener('blur', function () {
+      var email = obEmail.value.trim().toLowerCase();
+      if (!EMAIL_RE.test(email)) { resetToDefault(); lastLookedUp = null; return; }
+      if (email === lastLookedUp) return;
+      lastLookedUp = email;
+
+      // State B — checking.
+      banner.hidden = true;
+      obEmail.classList.remove('cp-input--found', 'cp-input--conflict');
+      obEmail.classList.add('cp-input--checking');
+      spinner.hidden = false;
+      status.hidden = false;
+      setFieldsDisabled(true);
+
+      fetch('/coach/clients/lookup?email=' + encodeURIComponent(email), { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : { state: 'none' }; })
+        .then(applyState)
+        .catch(function () {
+          // A failed lookup must not trap the coach — fall back to the plain form. The
+          // server-side gate still refuses a cross-coach save, so this is safe.
+          resetToDefault();
+          lastLookedUp = null;
+        });
+    });
+
+    [obFirst, obLast].forEach(function (el) { el.addEventListener('input', refreshSave); });
+    obEmail.addEventListener('input', refreshSave);
+
+    obForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (obSave.disabled) return;
+
+      // C1 — the client already exists and is theirs. Do NOT re-save (that would be a
+      // no-op round trip at best); go straight to their detail page with the modal open.
+      if (state === 'own' && foundClientId) {
+        window.location.href = '/coach/clients/' + foundClientId + '?assessment=1';
+        return;
+      }
+      if (state === 'other_coach') return;
+
+      obMsg.hidden = true;
+      obSave.disabled = true;
+      var original = obSave.textContent;
+      obSave.textContent = 'Saving…';
+
+      fetch('/coach/clients/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          firstName: obFirst.value.trim(),
+          lastName: obLast.value.trim(),
+          email: obEmail.value.trim().toLowerCase(),
+          organization: obOrg.value.trim() || null,
+          notes: obNotes.value || null,
+        }),
+      }).then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      }).then(function (res) {
+        if (!res.ok) {
+          obMsg.className = 'cp-modal-msg cp-modal-msg--err';
+          obMsg.textContent = res.d.message || 'Something went wrong. Please try again.';
+          obMsg.hidden = false;
+          obSave.textContent = original;
+          refreshSave();
+          return;
+        }
+        window.location.href = '/coach/clients/' + res.d.clientId + '?created=1';
+      }).catch(function () {
+        obMsg.className = 'cp-modal-msg cp-modal-msg--err';
+        obMsg.textContent = 'Network error — please try again.';
+        obMsg.hidden = false;
+        obSave.textContent = original;
+        refreshSave();
+      });
+    });
+
+    refreshSave();
   }
 })();
