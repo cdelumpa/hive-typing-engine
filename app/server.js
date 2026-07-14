@@ -4673,58 +4673,114 @@ app.post('/admin/clients/new', requireAdminSession, async (req, res) => {
   }
 });
 
-// ── Provisioning endpoint (PR8) ────────────────────────────────────────────────
-// JSON/fetch API behind the PR12 provisioning modal. Upserts the client, debits a credit,
-// pre-creates the not_started assessment (stamped with client_source + send flags +
-// requested_report_types), links the consume ledger row to the assessment (so cancellation
-// can restore the credit), and optionally sends the invite. Credit is consumed BEFORE the
-// assessment is created so an INSUFFICIENT_CREDITS abort never leaves an orphan assessment.
-app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
-  const b = req.body || {};
-  // a. Parse + validate.
-  const firstName = (b.firstName || '').trim();
-  const lastName  = (b.lastName || '').trim();
-  const email     = (b.email || '').trim().toLowerCase();
-  const coachId   = parseInt(b.coachId, 10);
-  const creditTypeName = b.creditTypeName || 'standard_assessment';
-  // D5: both send flags default to manual (FALSE) when not supplied. Same true/'true'
-  // coercion for both (handles JSON booleans and form strings; a missing/anything-else value
-  // is FALSE — not the `?? false` form, which would treat the string 'false' as truthy).
-  const autoSendReport = b.autoSendReport === true || b.autoSendReport === 'true';
-  const autoSendInvitation = b.autoSendInvitation === true || b.autoSendInvitation === 'true';
-  const requestedReportTypes = Array.isArray(b.requestedReportTypes) ? b.requestedReportTypes : ['standard_assessment'];
-  const organization = b.organization ? String(b.organization).trim() : null;
-  const notes = b.notes ? String(b.notes) : null;
+// ── Provisioning (PR8) ─────────────────────────────────────────────────────────
+// Upserts the client, debits a credit, pre-creates the not_started assessment (stamped
+// with client_source + send flags + requested_report_types), links the consume ledger row
+// to the assessment (so cancellation can restore the credit), and optionally sends the
+// invite. Credit is consumed BEFORE the assessment is created so an INSUFFICIENT_CREDITS
+// abort never leaves an orphan assessment.
+//
+// Two routes call this: the admin/staff endpoint and the coach-scoped endpoint below.
+// The ONLY difference between them is how coachId is resolved — see resolveProvisionCoachId.
+// The provisioning logic itself is shared verbatim so the two paths cannot drift.
 
-  if (!firstName || !lastName) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'First and last name are required.' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'A valid email is required.' });
-  if (!coachId || isNaN(coachId)) return res.status(400).json({ error: 'VALIDATION_ERROR', message: 'A valid coachId is required.' });
+// Parses the provision request body. coachId is deliberately NOT read here — it is
+// resolved from the session/role by the caller, never trusted from the body for a
+// non-staff caller.
+function parseProvisionBody(b = {}) {
+  return {
+    firstName: (b.firstName || '').trim(),
+    lastName:  (b.lastName || '').trim(),
+    email:     (b.email || '').trim().toLowerCase(),
+    creditTypeName: b.creditTypeName || 'standard_assessment',
+    // D5: both send flags default to manual (FALSE) when not supplied. Same true/'true'
+    // coercion for both (handles JSON booleans and form strings; a missing/anything-else
+    // value is FALSE — not the `?? false` form, which would treat the string 'false' as truthy).
+    autoSendReport:     b.autoSendReport === true     || b.autoSendReport === 'true',
+    autoSendInvitation: b.autoSendInvitation === true || b.autoSendInvitation === 'true',
+    requestedReportTypes: Array.isArray(b.requestedReportTypes) ? b.requestedReportTypes : ['standard_assessment'],
+    organization: b.organization ? String(b.organization).trim() : null,
+    notes: b.notes ? String(b.notes) : null,
+  };
+}
+
+// SECURITY (P0). Decides WHICH coach's account gets debited.
+//
+// Staff (admin/super_admin) may provision on behalf of any coach — the body-supplied
+// coachId is honoured, preserving today's legitimate staff workflow.
+//
+// Every other session is PINNED to its own coach_id. Previously this route was gated only
+// by requireAdminSession — which checks nothing but "a session exists" — and read coachId
+// straight from the body with no ownership check. Any authenticated user (a plain coach,
+// or even a client) could name an arbitrary coachId and provision an assessment against
+// that coach's account, debiting their credits. This was reachable through the UI, not
+// just via a crafted request: the "+ Provision Client" button on /admin is not role-gated
+// and its modal has a free coach dropdown.
+//
+// On a mismatch we REFUSE rather than silently retarget. Quietly rewriting a non-staff
+// caller's coachId to their own would mean a coach who picked someone else in that
+// dropdown gets their OWN credits debited for a provision they didn't intend — a silent
+// mis-bill is worse than a clean error. Omitting coachId entirely is fine and pins to self.
+//
+// Returns { coachId } on success or { error } describing the refusal.
+function resolveProvisionCoachId(req) {
+  const isStaff = auth.hasRole(req, 'admin') || auth.hasRole(req, 'super_admin');
+  const raw = (req.body || {}).coachId;
+  const bodyCoachId = parseInt(raw, 10);
+  const hasBodyCoachId = Number.isInteger(bodyCoachId) && bodyCoachId > 0;
+
+  if (isStaff) {
+    return hasBodyCoachId
+      ? { coachId: bodyCoachId }
+      : { error: { status: 400, body: { error: 'VALIDATION_ERROR', message: 'A valid coachId is required.' } } };
+  }
+
+  const sessionCoachId = req.session.coach_id || null;
+  if (!sessionCoachId) {
+    return { error: { status: 403, body: { error: 'FORBIDDEN', message: 'No coach account is associated with this session.' } } };
+  }
+  if (hasBodyCoachId && bodyCoachId !== sessionCoachId) {
+    return { error: { status: 403, body: { error: 'FORBIDDEN', message: 'You may only provision assessments for your own clients.' } } };
+  }
+  return { coachId: sessionCoachId };
+}
+
+// Shared provisioning core. Returns { status, body } for the caller to send verbatim, so
+// both routes produce byte-identical responses and error shapes.
+async function provisionAssessment({
+  coachId, firstName, lastName, email, organization, notes,
+  creditTypeName, autoSendReport, autoSendInvitation, requestedReportTypes, actorUserId,
+}) {
+  // a. Validate.
+  if (!firstName || !lastName) return { status: 400, body: { error: 'VALIDATION_ERROR', message: 'First and last name are required.' } };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { status: 400, body: { error: 'VALIDATION_ERROR', message: 'A valid email is required.' } };
+  if (!coachId || isNaN(coachId)) return { status: 400, body: { error: 'VALIDATION_ERROR', message: 'A valid coachId is required.' } };
 
   try {
     // b. Coach exists.
     const coach = await db.getCoachById(coachId);
-    if (!coach) return res.status(404).json({ error: 'COACH_NOT_FOUND' });
+    if (!coach) return { status: 404, body: { error: 'COACH_NOT_FOUND' } };
 
     // c. Billing account.
     const accountId = await db.getAccountByCoachId(coachId);
-    if (!accountId) return res.status(400).json({ error: 'ACCOUNT_NOT_FOUND', message: 'No billing account found for this coach.' });
+    if (!accountId) return { status: 400, body: { error: 'ACCOUNT_NOT_FOUND', message: 'No billing account found for this coach.' } };
 
     // d. Upsert client. created=false means an existing client — coaches can provision
     //    additional assessments for an existing client, so this is not an error.
     const { id: clientId, created } = await db.createClient({ firstName, lastName, email, organization }, coachId);
-    if (!clientId) return res.status(500).json({ error: 'PROVISIONING_ERROR', message: 'Client creation failed.' });
-    if (!created) console.log(`[admin/clients/provision] provisioning additional assessment for existing client #${clientId}`);
+    if (!clientId) return { status: 500, body: { error: 'PROVISIONING_ERROR', message: 'Client creation failed.' } };
+    if (!created) console.log(`[provision] provisioning additional assessment for existing client #${clientId}`);
 
     // e. Consume a credit (assessment_id linked in step f once the row exists).
     let creditResult;
     try {
-      creditResult = await db.consumeCredit(accountId, creditTypeName, null, req.session.user_id);
+      creditResult = await db.consumeCredit(accountId, creditTypeName, null, actorUserId);
     } catch (err) {
       if (err.message === 'INSUFFICIENT_CREDITS') {
-        return res.status(402).json({ error: 'INSUFFICIENT_CREDITS', message: 'This account has no credits of this type.' });
+        return { status: 402, body: { error: 'INSUFFICIENT_CREDITS', message: 'This account has no credits of this type.' } };
       }
-      console.error('[admin/clients/provision] credit error:', err.message);
-      return res.status(500).json({ error: 'CREDIT_ERROR' });
+      console.error('[provision] credit error:', err.message);
+      return { status: 500, body: { error: 'CREDIT_ERROR' } };
     }
 
     // f. Provisional assessment.
@@ -4736,10 +4792,10 @@ app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
     }
     if (!assessmentId) {
       // CRITICAL: credit consumed but no assessment row. Log identifiers for manual recovery.
-      console.error('[admin/clients/provision] CRITICAL: credit consumed but assessment creation failed —',
+      console.error('[provision] CRITICAL: credit consumed but assessment creation failed —',
         'accountId', accountId, 'lotId', creditResult?.lotId, 'txId', creditResult?.transactionId,
         'coachId', coachId, 'clientId', clientId);
-      return res.status(500).json({ error: 'PROVISIONING_ERROR', message: 'Assessment creation failed after credit debit. Please contact support.' });
+      return { status: 500, body: { error: 'PROVISIONING_ERROR', message: 'Assessment creation failed after credit debit. Please contact support.' } };
     }
 
     // Link the consume ledger row to the assessment so cancelAssessment can restore the
@@ -4757,7 +4813,7 @@ app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
         clientId, assessmentId,
         eventType: 'assessment_provisioned',
         eventDescription: notes ? `Assessment provisioned — ${notes}` : 'Assessment provisioned',
-        actor: req.session.user_id,
+        actor: actorUserId,
       });
     } catch (_) {}
 
@@ -4765,9 +4821,9 @@ app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
     // keeps its current coach on provisioning, so no coach change occurred). Best-effort.
     if (created) {
       try {
-        await db.insertAssignmentEvent(clientId, null, coachId, req.session.user_id, 'provisioned');
+        await db.insertAssignmentEvent(clientId, null, coachId, actorUserId, 'provisioned');
       } catch (err) {
-        console.error('[admin/clients/provision] assignment event error:', err.message);
+        console.error('[provision] assignment event error:', err.message);
       }
     }
 
@@ -4783,10 +4839,10 @@ app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
       // Best-effort invite email — a send failure must not roll back the provisioning.
       try {
         await sendInviteEmail({ first_name: firstName, last_name: lastName, email }, token, coach);
-        db.logClientEvent({ clientId, assessmentId, eventType: 'invitation_sent', eventDescription: 'Invitation sent', actor: req.session.user_id });
+        db.logClientEvent({ clientId, assessmentId, eventType: 'invitation_sent', eventDescription: 'Invitation sent', actor: actorUserId });
         invitationSent = true;
       } catch (err) {
-        console.error('[admin/clients/provision] invite send failed:', err.message);
+        console.error('[provision] invite send failed:', err.message);
       }
     }
 
@@ -4794,19 +4850,70 @@ app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
     const tokenUrl = `${appUrl}/assessment/${token}`;
 
     // j. Success.
-    return res.status(200).json({
-      ok: true,
-      clientId,
-      assessmentId,
-      created,
-      creditConsumed: true,
-      invitationSent,
-      tokenUrl,   // always present — the shareable assessment link
-    });
+    return {
+      status: 200,
+      body: {
+        ok: true,
+        clientId,
+        assessmentId,
+        created,
+        creditConsumed: true,
+        invitationSent,
+        tokenUrl,   // always present — the shareable assessment link
+      },
+    };
   } catch (e) {
-    console.error('[admin/clients/provision] error:', e.message);
-    return res.status(500).json({ error: 'PROVISIONING_ERROR', message: e.message });
+    console.error('[provision] error:', e.message);
+    return { status: 500, body: { error: 'PROVISIONING_ERROR', message: e.message } };
   }
+}
+
+// Admin/staff provisioning endpoint. Behaviour for admin/super_admin is UNCHANGED (they
+// may still name any coachId in the body). For any lesser session the coachId is now
+// forced from the session — see resolveProvisionCoachId.
+app.post('/admin/clients/provision', requireAdminSession, async (req, res) => {
+  const resolved = resolveProvisionCoachId(req);
+  if (resolved.error) return res.status(resolved.error.status).json(resolved.error.body);
+
+  const result = await provisionAssessment({
+    ...parseProvisionBody(req.body),
+    coachId: resolved.coachId,
+    actorUserId: req.session.user_id,
+  });
+  return res.status(result.status).json(result.body);
+});
+
+// Coach-scoped provisioning endpoint. coachId comes from the session and the request
+// body's coachId (if any) is ignored ENTIRELY — a coach can only ever provision against
+// their own account. This is the endpoint the PR4a "Create New Assessment" modal will
+// call; it has no caller yet.
+//
+// Registered after express.static('public'), which is safe: serve-static only handles
+// GET/HEAD and calls next() for every other method, so it can never shadow a POST.
+app.post('/coach/clients/provision', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const coachId = req.session.coach_id;
+  if (!coachId) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'No coach account is associated with this session.' });
+  }
+  // Deliberately NOT resolveProvisionCoachId: that helper grants staff the right to name a
+  // coachId, and this is the coach surface. A coach who also holds an admin role is still
+  // acting AS THEMSELVES here — /coach/* is never a staff-impersonation surface. Staff who
+  // need to provision on someone's behalf use the /admin route.
+  //
+  // A body coachId naming someone else is refused rather than ignored, matching the admin
+  // route: silently retargeting a caller's stated coachId to their own account would debit
+  // the wrong person's credits without telling anyone. Omitting it is fine — that's the
+  // normal case, and it pins to self.
+  const bodyCoachId = parseInt((req.body || {}).coachId, 10);
+  if (Number.isInteger(bodyCoachId) && bodyCoachId !== coachId) {
+    return res.status(403).json({ error: 'FORBIDDEN', message: 'You may only provision assessments for your own clients.' });
+  }
+  const result = await provisionAssessment({
+    ...parseProvisionBody(req.body),
+    coachId,
+    actorUserId: req.session.user_id,
+  });
+  return res.status(result.status).json(result.body);
 });
 
 // ── Cancel an assessment (PR12) ────────────────────────────────────────────────
