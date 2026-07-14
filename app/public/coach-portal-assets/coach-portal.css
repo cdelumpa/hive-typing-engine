@@ -440,12 +440,26 @@ a { color: var(--color-primary); text-decoration: none; }
   border: 1.5px solid var(--color-border-strong); background: transparent;
 }
 .cp-dot-status--filled { background: var(--color-primary); border-color: var(--color-primary); }
-.cp-roster-main { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* Grid, not flex: the name and status badge share the first row, and the retake badge (when
+   present) gets a full-width second row beneath them. A flex row would make two badges
+   compete with the name for width and ellipsis it away. */
+.cp-roster-main {
+  flex: 1; min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "name status"
+                       "sub  sub";
+  align-items: center;
+  gap: 4px 8px;
+}
 .cp-roster-name {
+  grid-area: name;
   font-size: 13px; font-weight: 600; color: var(--color-text-heading);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.cp-roster-badges { display: flex; gap: 6px; flex-shrink: 0; }
+.cp-roster-badges { grid-area: status; justify-self: end; display: flex; gap: 6px; flex-shrink: 0; }
+.cp-roster-sub { grid-area: sub; display: flex; }
+.cp-roster-sub:empty { display: none; }
 .cp-roster-chev { display: none; color: var(--color-text-muted); font-size: 18px; line-height: 1; }
 .cp-roster-nomatch { padding: 16px 0; }
 
@@ -524,6 +538,40 @@ a { color: var(--color-primary); text-decoration: none; }
 }
 .cp-firstclient { font-family: var(--font-heading); font-size: 18px; font-weight: bold; color: var(--color-text-heading); margin: 0; }
 .cp-firstclient-go { font-family: var(--font-heading); font-size: 18px; font-weight: bold; color: var(--color-primary); margin: 0 0 14px; }
+
+/* ── Retake workflow (PR4b) ───────────────────────────────────────────────── */
+/* Roster badges. Pending is accent orange (§7.2), approved cyan, denied red. */
+.cp-badge--retake-pending  { color: var(--color-accent);  background: var(--color-accent-light); }
+.cp-badge--retake-approved { color: var(--color-primary-dark); background: var(--color-primary-light); }
+.cp-badge--retake-denied   { color: var(--color-error);   background: var(--color-error-bg); }
+.cp-roster-badges { flex-wrap: wrap; }
+
+/* The pseudo history entry — a request that is not yet an assessment. */
+.cp-asmt-note { font-size: 12px; font-style: italic; color: var(--color-text-muted); margin: 3px 0 0; }
+.cp-asmt-note--denied { color: var(--color-error); }
+
+.cp-launch-inline {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--color-primary); font-family: var(--font-ui); font-size: 12px; font-weight: 600;
+}
+.cp-launch-inline:disabled { opacity: 0.6; cursor: default; }
+
+/* Reason-for-denial callout — accent-tinted, per mockup 1f. */
+.cp-denial {
+  background: var(--color-accent-light);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 4px; padding: 12px 14px; margin-top: 10px;
+}
+.cp-denial-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--color-accent); margin: 0 0 5px;
+}
+.cp-denial-text { font-size: 13px; color: var(--color-text-body); line-height: 1.55; margin: 0; }
+
+/* Bottom CTA */
+.cp-retake-cta { display: block; width: 100%; margin-top: 20px; }
+.cp-cta-hint { font-size: 11px; font-style: italic; color: var(--color-text-muted); text-align: center; margin: 8px 0 0; }
+.cp-req { color: var(--color-error); }
 
 /* ── Modal / bottom sheet ─────────────────────────────────────────────────── */
 .cp-modal-backdrop {
@@ -667,7 +715,15 @@ a { color: var(--color-primary); text-decoration: none; }
   .cp-roster-row { padding: 12px 8px; border-radius: 0; border-left: none; }
   .cp-roster-row + .cp-roster-row { border-top: 1px solid var(--color-border); }
   .cp-roster-row--selected { background: transparent; }
-  .cp-roster-main { flex-direction: column; align-items: flex-start; gap: 5px; }
+  /* Mobile (mockup 08): name on its own line, then BOTH badges side by side beneath it. */
+  .cp-roster-main {
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas: "name   name name"
+                         "status sub  .";
+    gap: 5px 6px;
+    justify-items: start;
+  }
+  .cp-roster-badges { justify-self: start; }
   .cp-roster-name { font-size: 14px; white-space: normal; }
   .cp-roster-chev { display: block; }
 

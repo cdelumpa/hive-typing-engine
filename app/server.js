@@ -830,25 +830,41 @@ const cpDateInput = (d) => {
 // from PR3: assessments.status has no 'in_progress' value (that lives on clients.status),
 // and ADMIN_ROWS_SELECT coalesces the assessment first, so reading the raw status here
 // would make the filled dot literally unreachable for any client with an assessment row.
-function renderRosterRow(r, selectedId, opts = {}) {
+// PR4b: a second badge under the name when the client has an open or freshly-decided
+// retake request. 'launched' shows nothing — the retake is now a real assessment and the
+// history renders it.
+const CP_RETAKE_BADGES = {
+  pending:  { label: 'Retake Pending',  cls: 'cp-badge--retake-pending'  },
+  approved: { label: 'Retake Approved', cls: 'cp-badge--retake-approved' },
+  denied:   { label: 'Retake Denied',   cls: 'cp-badge--retake-denied'   },
+};
+function retakeBadge(request) {
+  const b = request && CP_RETAKE_BADGES[request.status];
+  return b ? `<span class="cp-badge ${b.cls}">${cpEsc(b.label)}</span>` : '';
+}
+
+function renderRosterRow(r, selectedId, retakeRequest) {
   const eff = cpEffectiveStatus(r);
   const filled = !r.cancelled_at && eff === 'in_progress';
   const selected = r.client_id === selectedId;
   const name = cpFullName(r);
+  // The retake badge is a SECOND line under the name (mockup 1a), not another chip crammed
+  // onto the name's row — inline, two badges squeeze the name into an ellipsis.
   return `<a class="cp-roster-row${selected ? ' cp-roster-row--selected' : ''}" href="/coach/clients/${r.client_id}">
               <span class="cp-dot-status${filled ? ' cp-dot-status--filled' : ''}" aria-hidden="true"></span>
               <span class="cp-roster-main">
                 <span class="cp-roster-name">${cpEsc(name)}</span>
                 <span class="cp-roster-badges">${statusBadge(eff, r.cancelled_at)}</span>
+                <span class="cp-roster-sub">${retakeBadge(retakeRequest)}</span>
               </span>
               <span class="cp-roster-chev" aria-hidden="true">›</span>
             </a>`;
 }
 
-function renderRoster(rows, selectedId, sort) {
+function renderRoster(rows, selectedId, sort, retakeByClient) {
   const tab = (key, label) =>
     `<a class="cp-tab${sort === key ? ' cp-tab--active' : ''}" href="/coach/clients?sort=${key}">${label}</a>`;
-  const list = rows.map(r => renderRosterRow(r, selectedId)).join('\n            ');
+  const list = rows.map(r => renderRosterRow(r, selectedId, retakeByClient.get(r.client_id))).join('\n            ');
   return `<div class="cp-roster">
           <a class="cp-btn cp-btn--primary cp-roster-cta" href="/coach/clients/new">Create New Client</a>
           <div class="cp-roster-card">
@@ -947,7 +963,73 @@ function renderDebrief(client) {
           </section>`;
 }
 
-function renderClientDetail(client, assessments) {
+// PR4b: an open/decided retake request renders as a PSEUDO history entry above the real
+// assessments (mockups 1e/1f). It is not an assessment — no assessment row exists until
+// the coach launches it — so it carries no dates, no type, and no report links.
+function renderRetakePseudoEntry(request) {
+  if (!request || request.status === 'launched') return '';
+
+  if (request.status === 'pending') {
+    return `
+            <article class="cp-asmt cp-asmt--pseudo">
+              <div class="cp-asmt-head">
+                <h3 class="cp-asmt-title">Standard Assessment <span class="cp-badge cp-badge--retake">Retake</span></h3>
+                <span class="cp-badge cp-badge--retake-pending">Pending</span>
+              </div>
+              <p class="cp-asmt-note">Awaiting approval from InsightOut</p>
+            </article>`;
+  }
+
+  if (request.status === 'approved') {
+    return `
+            <article class="cp-asmt cp-asmt--pseudo">
+              <div class="cp-asmt-head">
+                <h3 class="cp-asmt-title">Standard Assessment <span class="cp-badge cp-badge--retake">Retake</span></h3>
+                <span class="cp-badge cp-badge--success">Approved</span>
+              </div>
+              <p class="cp-asmt-note">Approved — ready to launch</p>
+              <div class="cp-asmt-links">
+                <button type="button" class="cp-launch-inline" data-request="${request.id}">Launch Retake →</button>
+              </div>
+            </article>`;
+  }
+
+  // denied
+  return `
+            <article class="cp-asmt cp-asmt--pseudo">
+              <div class="cp-asmt-head">
+                <h3 class="cp-asmt-title">Standard Assessment <span class="cp-badge cp-badge--retake">Retake</span></h3>
+                <span class="cp-badge cp-badge--error">Denied</span>
+              </div>
+              <p class="cp-asmt-note cp-asmt-note--denied">Retake request denied</p>
+              <div class="cp-denial">
+                <p class="cp-denial-label">Reason for denial</p>
+                <p class="cp-denial-text">${cpEsc(request.denial_reason || 'No reason given.')}</p>
+              </div>
+            </article>`;
+}
+
+// The bottom CTA is contextual (§7.2): Request Retake when the latest assessment is
+// complete and nothing is open; Launch Retake when a request is approved. A pending
+// request offers nothing to click — the coach is waiting on Hive.
+function renderRetakeCta(client, assessments, request) {
+  if (request && request.status === 'approved') {
+    return `<button type="button" class="cp-btn cp-btn--primary cp-retake-cta" id="cp-launch-retake" data-request="${request.id}">Launch Retake</button>
+            <p class="cp-cta-hint">Uses 1 Standard Assessment credit and sends a fresh invitation.</p>`;
+  }
+  if (request && request.status === 'pending') return '';
+
+  // Eligible only when the client's most recent assessment is complete. A denied request
+  // does not block a fresh one (the partial unique index only covers pending/approved).
+  const latest = assessments[0];
+  const eligible = latest && latest.status === 'complete' && !latest.cancelled_at;
+  if (!eligible) return '';
+
+  return `<button type="button" class="cp-btn cp-btn--ghost cp-retake-cta" id="cp-request-retake">Request Retake</button>
+          <p class="cp-cta-hint">Submit a retake request to InsightOut for approval.</p>`;
+}
+
+function renderClientDetail(client, assessments, retakeRequest) {
   const name = cpFullName(client);
   return `<div class="cp-detail">
           <a class="cp-back" href="/coach/clients">← My Clients</a>
@@ -967,6 +1049,7 @@ function renderClientDetail(client, assessments) {
                 <p class="cp-eyebrow">Assessment History</p>
                 <button type="button" class="cp-newasmt" id="cp-new-assessment">+ New Assessment</button>
               </div>
+              ${renderRetakePseudoEntry(retakeRequest)}
               ${renderAssessmentHistory(assessments)}
             </section>
 
@@ -978,7 +1061,41 @@ function renderClientDetail(client, assessments) {
                         placeholder="Private notes about this client — only you can see these.">${cpEsc(client.coach_notes || '')}</textarea>
               <p class="cp-saved-hint" id="cp-notes-hint">Autosaved</p>
             </section>
-            <!-- Request/Launch Retake CTA is PR4b (needs retake_requests). Omitted here. -->
+
+            ${renderRetakeCta(client, assessments, retakeRequest)}
+          </div>
+        </div>`;
+}
+
+// Request a Retake modal (mockup 1d). Locked client block + a REQUIRED reason.
+function renderRetakeModal(client) {
+  return `<div class="cp-modal-backdrop" id="cp-retake-modal" hidden>
+          <div class="cp-modal" role="dialog" aria-modal="true" aria-labelledby="cp-retake-title">
+            <span class="cp-sheet-handle" aria-hidden="true"></span>
+            <button type="button" class="cp-modal-close" id="cp-retake-close" aria-label="Close">&times;</button>
+            <p class="cp-eyebrow">Assessment</p>
+            <h2 class="cp-modal-title" id="cp-retake-title">Request a Retake</h2>
+
+            <div id="cp-retake-msg" class="cp-modal-msg" hidden></div>
+
+            <div class="cp-locked">
+              <div>
+                <p class="cp-locked-name">${cpEsc(cpFullName(client))}</p>
+                <p class="cp-locked-line">${cpEsc(client.email || '')}</p>
+                ${client.organization ? `<p class="cp-locked-line">${cpEsc(client.organization)}</p>` : ''}
+              </div>
+              <span class="cp-locked-icon" aria-hidden="true">${CP_ICON_LOCK}</span>
+            </div>
+
+            <p class="cp-eyebrow cp-eyebrow--sp">Reason for Retake <span class="cp-req">*</span></p>
+            <textarea class="cp-input cp-modal-notes" id="cp-retake-reason" rows="4"
+                      placeholder="Describe why this client needs a retake assessment..."></textarea>
+            <p class="cp-hint-italic">This will be sent to InsightOut for approval. You'll be notified when a decision is made.</p>
+
+            <div class="cp-modal-foot">
+              <button type="button" class="cp-btn cp-btn--ghost" id="cp-retake-cancel">Cancel</button>
+              <button type="button" class="cp-btn cp-btn--primary" id="cp-retake-submit" data-client="${client.id}">Submit Request</button>
+            </div>
           </div>
         </div>`;
 }
@@ -1054,10 +1171,11 @@ function renderAssessmentModal(client) {
 
 // Shared renderer for both /coach/clients and /coach/clients/:id. `detailView` only
 // changes which half mobile shows — desktop/tablet always show both.
-function renderMyClients({ coachName, credits, rows, selected, assessments, sort, detailView }) {
+function renderMyClients({ coachName, credits, rows, selected, assessments, sort, detailView, retakeByClient, selectedRetake }) {
+  const retakes = retakeByClient || new Map();
   const body = rows.length
-    ? `${renderRoster(rows, selected ? selected.id : null, sort)}
-        ${selected ? renderClientDetail(selected, assessments) : ''}`
+    ? `${renderRoster(rows, selected ? selected.id : null, sort, retakes)}
+        ${selected ? renderClientDetail(selected, assessments, selectedRetake) : ''}`
     : renderClientsEmpty();
 
   return renderCoachChrome({
@@ -1070,7 +1188,8 @@ function renderMyClients({ coachName, credits, rows, selected, assessments, sort
         ${body}
         </div>
         </div>
-        ${selected ? renderAssessmentModal(selected) : ''}`,
+        ${selected ? renderAssessmentModal(selected) : ''}
+        ${selected ? renderRetakeModal(selected) : ''}`,
   });
 }
 
@@ -1100,6 +1219,8 @@ app.get('/coach/clients', requireCoach, requireOnboardingComplete, async (req, r
     // Default selection: the most recent client (first row), so the detail pane is never
     // empty on desktop when the coach has clients. ?selected= overrides, but only for a
     // client this coach actually owns.
+    const retakeByClient = await db.getLatestRetakeRequestsByCoach(coachId).catch(() => new Map());
+
     let selected = null, assessments = [];
     const wanted = parseInt(req.query.selected, 10);
     const pick = rows.find(r => r.client_id === wanted) || rows[0];
@@ -1108,8 +1229,9 @@ app.get('/coach/clients', requireCoach, requireOnboardingComplete, async (req, r
       if (selected) assessments = await db.getAssessmentsByClient(selected.id).catch(() => []);
       res.status(200);   // loadOwnedClient may have set 404 on a foreign ?selected=
     }
+    const selectedRetake = selected ? retakeByClient.get(selected.id) : null;
 
-    res.send(renderMyClients({ coachName: req.session.coach_name, credits, rows, selected, assessments, sort, detailView: false }));
+    res.send(renderMyClients({ coachName: req.session.coach_name, credits, rows, selected, assessments, sort, detailView: false, retakeByClient, selectedRetake }));
   } catch (e) {
     console.error('[GET /coach/clients] failed:', e.message);
     res.send(renderCoachChrome({
@@ -1140,7 +1262,9 @@ app.get('/coach/clients/:id', requireCoach, requireOnboardingComplete, async (re
     const rows = await getMyClientsData(coachId, sort);
     const credits = await getCoachCreditBalance(coachId).catch(() => null);
     const assessments = await db.getAssessmentsByClient(selected.id).catch(() => []);
-    res.send(renderMyClients({ coachName: req.session.coach_name, credits, rows, selected, assessments, sort, detailView: true }));
+    const retakeByClient = await db.getLatestRetakeRequestsByCoach(coachId).catch(() => new Map());
+    const selectedRetake = retakeByClient.get(selected.id) || null;
+    res.send(renderMyClients({ coachName: req.session.coach_name, credits, rows, selected, assessments, sort, detailView: true, retakeByClient, selectedRetake }));
   } catch (e) {
     console.error('[GET /coach/clients/:id] failed:', e.message);
     res.status(500).send(renderCoachChrome({
@@ -1177,6 +1301,143 @@ app.post('/coach/clients/:id/debrief', requireCoach, requireOnboardingComplete, 
   } catch (e) {
     console.error('[POST /coach/clients/:id/debrief] failed:', e.message);
     return res.status(500).json({ ok: false, error: 'SAVE_FAILED' });
+  }
+});
+
+// ── Coach Portal PR4b: retake workflow (coach side) ─────────────────────────────
+
+// POST /coach/clients/:id/retake-request — submit a retake request for approval.
+app.post('/coach/clients/:id/retake-request', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const client = await loadOwnedClient(req, res, req.params.id);
+  if (!client) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const reason = (typeof req.body.reason === 'string' ? req.body.reason : '').trim();
+  if (!reason) {
+    return res.status(400).json({ ok: false, error: 'REASON_REQUIRED', message: 'Please describe why this client needs a retake.' });
+  }
+
+  try {
+    // The request references the assessment being retaken — the client's latest, which must
+    // be complete. Anything else means there is nothing to retake yet.
+    const assessments = await db.getAssessmentsByClient(client.id);
+    const latest = assessments[0];
+    if (!latest || latest.status !== 'complete' || latest.cancelled_at) {
+      return res.status(409).json({ ok: false, error: 'NOT_ELIGIBLE', message: 'A retake can only be requested after an assessment is complete.' });
+    }
+
+    const requestId = await db.createRetakeRequest({
+      clientId: client.id,
+      originalAssessmentId: latest.assessment_id,
+      coachId: req.session.coach_id,
+      reason,
+    });
+
+    db.logClientEvent({
+      clientId: client.id, assessmentId: latest.assessment_id,
+      eventType: 'retake_requested',
+      eventDescription: `Retake requested by coach — ${reason}`,
+      actor: req.session.user_id,
+    });
+
+    console.log(`[retake] request #${requestId} opened for client #${client.id} by coach #${req.session.coach_id}`);
+    return res.json({ ok: true, requestId });
+  } catch (e) {
+    // The partial unique index is the guard; surface it as a clean conflict rather than a
+    // 500. A coach double-clicking Submit is an ordinary event, not an error.
+    if (e.message === 'REQUEST_ALREADY_OPEN') {
+      return res.status(409).json({ ok: false, error: 'REQUEST_ALREADY_OPEN', message: 'A retake request for this client is already open.' });
+    }
+    console.error('[POST /coach/clients/:id/retake-request] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'REQUEST_FAILED', message: 'Could not submit the request. Please try again.' });
+  }
+});
+
+// POST /coach/retake-requests/:id/launch — turn an APPROVED request into a real assessment.
+//
+// CP-H: this provisions a NEW assessment row with retake_of_assessment_id set, via the same
+// provisionAssessment() helper regular provisioning uses. It deliberately does NOT call
+// retakeTransaction (the staff-override path's helper), which resets clients.status to
+// not_started and NULLs session_state — state the assessment engine reads to resume a
+// partial session. In this model a retake is a new row, not a client reset, so wiping the
+// client's session state would be actively wrong.
+//
+// CP-E: it consumes 1 Standard Assessment credit, through the same consumeCredit path —
+// which also means it inherits the credit_transactions.assessment_id back-patch, so the new
+// assessment stays cancellable/refundable.
+app.post('/coach/retake-requests/:id/launch', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const requestId = parseInt(req.params.id, 10);
+  if (!requestId || isNaN(requestId)) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  try {
+    const request = await db.getRetakeRequestById(requestId);
+    // Ownership: the request must belong to THIS coach. 404 rather than 403 — a 403 would
+    // confirm the request id exists.
+    if (!request || request.coach_id !== req.session.coach_id) {
+      return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+    }
+    if (request.status !== 'approved') {
+      return res.status(409).json({ ok: false, error: 'NOT_APPROVED', message: 'This retake is not approved for launch.' });
+    }
+
+    const client = await db.getClientById(request.client_id);
+    if (!client) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+    // CLAIM THE REQUEST FIRST. markRetakeRequestLaunched is guarded on status='approved', so
+    // two concurrent Launch clicks cannot both get past this line — and therefore cannot both
+    // provision an assessment and both burn a credit. We claim with a null assessment id and
+    // fill it in below; the alternative (provision first, mark second) would double-charge on
+    // a double click.
+    await db.markRetakeRequestLaunched(requestId, null);
+
+    let result;
+    try {
+      result = await provisionAssessment({
+        coachId: req.session.coach_id,
+        firstName: client.first_name,
+        lastName: client.last_name,
+        email: client.email,
+        organization: client.organization,
+        notes: `Retake (request #${requestId})`,
+        creditTypeName: 'standard_assessment',
+        autoSendReport: false,      // manual-send default (D5), same as regular provisioning
+        autoSendInvitation: true,   // a retake is useless without an invitation
+        requestedReportTypes: ['standard_assessment'],
+        actorUserId: req.session.user_id,
+        retakeOfAssessmentId: request.original_assessment_id,
+      });
+    } catch (e) {
+      await db.revertRetakeRequestToApproved(requestId);
+      throw e;
+    }
+
+    if (result.status !== 200) {
+      // Provisioning refused (no credits, no billing account, …). Hand the request back so
+      // the coach can fix the problem and retry, rather than stranding it as launched.
+      await db.revertRetakeRequestToApproved(requestId);
+      return res.status(result.status).json({ ok: false, ...result.body });
+    }
+
+    // Record which assessment the request became.
+    await db.query(
+      'UPDATE retake_requests SET resulting_assessment_id = $1 WHERE id = $2',
+      [result.body.assessmentId, requestId]
+    );
+
+    db.logClientEvent({
+      clientId: client.id, assessmentId: result.body.assessmentId,
+      eventType: 'retake_launched',
+      eventDescription: `Retake launched from request #${requestId}`,
+      actor: req.session.user_id,
+    });
+
+    console.log(`[retake] request #${requestId} launched → assessment #${result.body.assessmentId}`);
+    return res.json({ ok: true, assessmentId: result.body.assessmentId });
+  } catch (e) {
+    if (e.message === 'NOT_APPROVED') {
+      return res.status(409).json({ ok: false, error: 'NOT_APPROVED', message: 'This retake is not approved for launch.' });
+    }
+    console.error('[POST /coach/retake-requests/:id/launch] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'LAUNCH_FAILED', message: 'Could not launch the retake. Please try again.' });
   }
 });
 
@@ -4748,6 +5009,61 @@ async function sendPasswordChangedEmail(toEmail) {
   }
 }
 
+// Retake decision notification (PR4b). Best-effort like every other send helper: it logs
+// and returns on failure, never throws — a SendGrid outage must not roll back an approval
+// or denial that is already committed in the database.
+async function sendRetakeDecisionEmail(coach, client, approved, denialReason) {
+  if (!process.env.SENDGRID_API_KEY || !process.env.SENDGRID_FROM_EMAIL) {
+    console.warn('[retake] SendGrid not configured — decision email not sent');
+    return;
+  }
+  const clientName = [client.first_name, client.last_name].filter(Boolean).join(' ');
+  const appUrl = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
+  const clientUrl = `${appUrl}/coach/clients/${client.id}`;
+
+  const body = approved
+    ? `
+        <p style="font-size:15px;">Your retake request for <strong>${clientName}</strong> has been approved.</p>
+        <p style="font-size:15px;">You can launch the retake from their client page. Launching it will use one Standard Assessment credit and send ${clientName} a fresh assessment invitation.</p>
+        <p style="margin: 32px 0;">
+          <a href="${clientUrl}" style="display:inline-block;background:#00b1d7;color:#fff;padding:14px 28px;border-radius:4px;font-weight:700;text-decoration:none;font-size:15px;">Launch the retake →</a>
+        </p>`
+    : `
+        <p style="font-size:15px;">Your retake request for <strong>${clientName}</strong> was not approved.</p>
+        <div style="margin:24px 0;padding:14px 16px;background:#FEF3E8;border-left:3px solid #F68625;border-radius:4px;">
+          <div style="font-size:11px;color:#F68625;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:6px;">Reason for denial</div>
+          <div style="font-size:14px;color:#1A2B33;line-height:1.6;">${denialReason || 'No reason given.'}</div>
+        </div>
+        <p style="font-size:15px;">You're welcome to submit a new request if circumstances change.</p>`;
+
+  const msg = {
+    to:      coach.email,
+    from:    { name: 'InsightOut by Hive', email: process.env.SENDGRID_FROM_EMAIL },
+    subject: approved
+      ? `Your retake request for ${clientName} was approved`
+      : `Your retake request for ${clientName} was not approved`,
+    html: `
+      <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; color: #1A2B33; line-height: 1.7;">
+        <div style="border-top: 4px solid #00b1d7; padding-top: 28px; margin-bottom: 24px;">
+          <h1 style="font-size: 22px; color: #00b1d7; margin: 0; font-weight: 700;">
+            ${approved ? 'Retake approved' : 'Retake request declined'}
+          </h1>
+        </div>
+        ${body}
+        <div style="margin-top: 40px; padding-top: 16px; border-top: 1px solid #E0E8EC; font-size: 11px; color: #7A96A6;">
+          This is an automated notification from InsightOut by Hive.
+        </div>
+      </div>
+    `,
+  };
+  try {
+    await sgMail.send(msg);
+    console.log(`[retake] decision email (${approved ? 'approved' : 'denied'}) sent to ${coach.email}`);
+  } catch (e) {
+    console.error('[retake] decision email failed:', e.message);
+  }
+}
+
 // The generic confirmation returned for every forgot-password outcome (unknown email,
 // rate-limited, or sent) — never reveals whether an account exists.
 const RESET_GENERIC_CONFIRMATION = 'If that email is registered, a reset link is on its way.';
@@ -5141,9 +5457,13 @@ function resolveProvisionCoachId(req) {
 
 // Shared provisioning core. Returns { status, body } for the caller to send verbatim, so
 // both routes produce byte-identical responses and error shapes.
+// retakeOfAssessmentId (PR4b): set only by the Launch Retake path, which provisions a
+// retake through this same helper so it inherits the credit debit, the ledger back-patch,
+// the token, and the invite. Null for every ordinary provision.
 async function provisionAssessment({
   coachId, firstName, lastName, email, organization, notes,
   creditTypeName, autoSendReport, autoSendInvitation, requestedReportTypes, actorUserId,
+  retakeOfAssessmentId = null,
 }) {
   // a. Validate.
   if (!firstName || !lastName) return { status: 400, body: { error: 'VALIDATION_ERROR', message: 'First and last name are required.' } };
@@ -5180,7 +5500,7 @@ async function provisionAssessment({
     // f. Provisional assessment.
     let assessmentId = null;
     try {
-      assessmentId = await db.createProvisionalAssessment(clientId, 'coach_provisioned', autoSendReport, autoSendInvitation, null);
+      assessmentId = await db.createProvisionalAssessment(clientId, 'coach_provisioned', autoSendReport, autoSendInvitation, retakeOfAssessmentId);
     } catch (err) {
       assessmentId = null;
     }
@@ -5401,11 +5721,25 @@ app.post('/admin/clients/resend/:client_id', requireAdminSession, async (req, re
   }
 });
 
-// ── Retake (super-admin only) ──────────────────────────────────────────────────
+// ── Retake — STAFF COMP / OVERRIDE PATH (super-admin only) ─────────────────────
 // Issue a fresh assessment to a completed client while preserving their prior
 // assessment row(s). requireSuperAdmin gates the route (defense-in-depth behind the
 // super-admin-only button). The new assessment row is created later by /api/submit,
 // which stamps retake_of_assessment_id; here we only reopen the invite.
+//
+// CP-I (ratified): this route is INTENTIONALLY LEFT AS-IS and is deliberately NOT merged
+// with PR4b's coach-initiated retake workflow. The two are different products:
+//
+//   THIS route  — staff comp/override. Free (no credit debited), immediate (no approval),
+//                 super-admin only. Resets the client via retakeTransaction and re-sends
+//                 the invite. Used when Hive decides to hand someone a retake.
+//   PR4b        — coach-initiated. Costs 1 credit, requires super-admin approval, and
+//                 provisions a NEW assessment row without resetting the client
+//                 (see POST /coach/retake-requests/:id/launch).
+//
+// Do not "reconcile" them. Making this route consume a credit or require approval would
+// remove Hive's ability to comp a retake; routing it through retake_requests would make an
+// override require its own approval, which is circular.
 app.post('/admin/clients/:client_id/retake', requireSuperAdmin, async (req, res) => {
   const clientId = parseInt(req.params.client_id, 10);
   if (!clientId || isNaN(clientId)) return res.status(400).json({ error: 'Invalid client ID' });
@@ -5453,9 +5787,14 @@ app.post('/admin/clients/:client_id/retake', requireSuperAdmin, async (req, res)
       eventDescription: `Retake issued (invitation sent)`,
       actor: req.session.coach_name,
     });
-    // HOOK: Retake requested by coach — not yet built
-    // HOOK: Retake approved by super-admin — not yet built
-    // HOOK: Retake denied by super-admin — not yet built
+    // The three "HOOK: Retake requested/approved/denied — not yet built" markers that lived
+    // here are now BUILT, but they do not belong on this route: this is the staff override
+    // path, which has no request and no decision. Their real homes are the PR4b lifecycle
+    // events, logged where those transitions actually happen:
+    //   retake_requested → POST /coach/clients/:id/retake-request
+    //   retake_approved  → POST /admin/retake-requests/:id/approve
+    //   retake_denied    → POST /admin/retake-requests/:id/deny
+    //   retake_launched  → POST /coach/retake-requests/:id/launch
 
     console.log(`[admin/clients/retake] retake issued for client #${clientId} by coach #${req.session.coach_id}`);
     return res.json({ success: true });
@@ -10161,7 +10500,7 @@ app.get('/admin', requireAdminSession, async (req, res) => {
     <a href="/admin/clients/new" class="btn-new-client">+ Client</a>
     <button onclick="openProvisionModal()" style="background:#f58527;color:#fff;font-family:Georgia,serif;font-size:12px;font-weight:700;border:none;border-radius:4px;padding:7px 14px;cursor:pointer;">+ Provision Client</button>
     ${auth.hasRole(req, 'admin') || auth.hasRole(req, 'super_admin') ? `<a href="/admin/coaches" class="nav-link">Manage Coaches</a><span class="nav-sep">|</span>` : ''}
-    ${auth.hasRole(req, 'super_admin') ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/em-lab" class="nav-link">EM Lab</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span><a href="/admin/embargo" class="nav-link">Embargo List</a><span class="nav-sep">|</span>` : ''}
+    ${auth.hasRole(req, 'super_admin') ? `${cmsContentMenu('')}<span class="nav-sep">|</span><a href="/admin/beta-review" class="nav-link">Beta Review</a><span class="nav-sep">|</span><a href="/admin/em-lab" class="nav-link">EM Lab</a><span class="nav-sep">|</span><a href="/admin/retake-requests" class="nav-link">Retake Requests</a><span class="nav-sep">|</span><a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a><span class="nav-sep">|</span><a href="/admin/embargo" class="nav-link">Embargo List</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/password" class="nav-link">Change password</a>
     <span class="nav-sep">|</span>
     <a href="/admin/logout" class="nav-link">Sign out</a>
@@ -10619,6 +10958,249 @@ app.post('/admin/assessments/:assessment_id/permanent-delete', requireSuperAdmin
   } catch (e) {
     console.error('[admin] permanent-delete error:', e.message);
     return res.status(500).json({ error: 'Permanent delete failed' });
+  }
+});
+
+// ── Retake Requests review queue (super-admin) — PR4b ────────────────────────
+// The approval surface for coach-initiated retakes. Patterned on
+// /admin/deleted-assessments: fetch, then render via a page builder.
+//
+// Approving/denying is a privileged decision that spends a coach's credit downstream, so it
+// is super-admin only — matching every other approval-shaped action here (restore,
+// permanent-delete, grant-credits, role grant/revoke, and the staff retake override).
+// Gated twice, per house precedent: requireSuperAdmin on the route AND a role check in the
+// renderer.
+app.get('/admin/retake-requests', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  let rows = [];
+  try { rows = await db.getPendingRetakeRequests(); }
+  catch (e) { console.error('[retake-requests] query error:', e.message); }
+  res.send(renderRetakeRequestsPage(req, rows));
+});
+
+function renderRetakeRequestsPage(req, rows) {
+  // Defense in depth: the route already gates this, but the renderer refuses too.
+  if (!auth.hasRole(req, 'super_admin')) return '<h1>Forbidden</h1>';
+
+  const bodyRows = rows.map(r => {
+    const name = esc(`${r.first_name || ''} ${r.last_name || ''}`.trim()) || esc(r.client_email || '—');
+    const original = r.original_completed_at
+      ? formatAdminDate(r.original_completed_at)
+      : (r.original_provisioned_at ? formatAdminDate(r.original_provisioned_at) : '—');
+    return `
+    <tr id="rr-${r.id}">
+      <td><strong>${esc(r.coach_name || '—')}</strong><br><span style="color:#7A96A6;font-size:11px;">${esc(r.coach_email || '')}</span></td>
+      <td><strong>${name}</strong><br><span style="color:#7A96A6;font-size:11px;">${esc(r.client_email || '')}</span></td>
+      <td>${original}</td>
+      <td>${formatAdminDate(r.requested_at)}</td>
+      <td style="max-width:340px;white-space:normal;">${esc(r.reason || '—')}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn-approve" onclick="approveRetake(${r.id}, this)">Approve</button>
+        <button class="btn-deny" onclick="denyRetake(${r.id}, '${esc(name).replace(/'/g, "\\'")}')">Deny</button>
+      </td>
+    </tr>`;
+  }).join('\n');
+
+  const emptyRow = `<tr><td colspan="6" style="text-align:center;padding:40px;color:#7A96A6;">No pending retake requests.</td></tr>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hive Admin — Retake Requests</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: Georgia, serif; background: #f7f5f2; color: #1A2B33; margin: 0; padding: 0; }
+  .top-bar { background: #1A2B33; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .top-bar h1 { color: #00b1d7; font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar span { color: #7A96A6; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .top-bar .nav-link { color: #7A96A6; font-size: 12px; text-decoration: none; font-family: Georgia, serif; }
+  .top-bar .nav-link:hover { color: #fff; }
+  .top-bar .nav-sep { color: #3A4B55; font-size: 12px; margin: 0 8px; }
+  .container { max-width: 1300px; margin: 0 auto; padding: 32px 24px; }
+  .card { background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; }
+  .toolbar { padding: 14px 18px; border-bottom: 1px solid #EFE8E0; font-size: 12px; color: #7A96A6; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #00b1d7; color: #fff; text-align: left; padding: 12px 14px; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; font-weight: 700; }
+  tbody tr { border-bottom: 1px solid #EFE8E0; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafaf8; }
+  tbody td { padding: 11px 14px; vertical-align: top; }
+  .btn-approve { background: #1a7a4a; color: #fff; border: none; border-radius: 4px; font-family: Georgia, serif; font-size: 12px; font-weight: 700; padding: 6px 12px; cursor: pointer; }
+  .btn-deny { background: #fff; color: #c0392b; border: 1px solid #c0392b; border-radius: 4px; font-family: Georgia, serif; font-size: 12px; font-weight: 700; padding: 6px 12px; cursor: pointer; margin-left: 6px; }
+  .btn-approve:disabled, .btn-deny:disabled { opacity: .5; cursor: default; }
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <div>
+    <div><span>Hive Enneagram Type Tool</span></div>
+    <h1>Retake Requests</h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <a href="/admin" class="nav-link">← Dashboard</a>
+    <span class="nav-sep">|</span>
+    <a href="/admin/deleted-assessments" class="nav-link">Deleted Assessments</a>
+    <span class="nav-sep">|</span>
+    <a href="/admin/logout" class="nav-link">Sign out</a>
+  </div>
+</div>
+<div class="container">
+  <div class="card">
+    <div class="toolbar">
+      Approving lets the coach launch the retake, which spends one of <em>their</em> Standard Assessment credits. Denying requires a reason, which is sent to the coach.
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Coach</th>
+          <th>Client</th>
+          <th>Original Assessment</th>
+          <th>Requested</th>
+          <th>Reason</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>${rows.length === 0 ? emptyRow : bodyRows}</tbody>
+    </table>
+  </div>
+</div>
+<script>
+function showToast(msg) {
+  var t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1a7a4a;color:#fff;padding:12px 20px;border-radius:4px;font-family:Georgia,serif;font-size:13px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2);';
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 4000);
+}
+
+async function approveRetake(id, btn) {
+  var orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    var res = await fetch('/admin/retake-requests/' + id + '/approve', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+    });
+    var d = await res.json();
+    if (d.ok) { showToast('Retake approved — the coach has been notified.'); setTimeout(function(){ location.reload(); }, 900); }
+    else { alert(d.message || 'Approve failed.'); btn.disabled = false; btn.textContent = orig; }
+  } catch (e) { alert('Network error — please try again.'); btn.disabled = false; btn.textContent = orig; }
+}
+
+// Deny needs a reason, so it uses a real modal rather than window.confirm (which cannot
+// collect input). Mirrors the reRunAnalysisModal overlay pattern used elsewhere in admin.
+function denyRetake(id, clientName) {
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9998;';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:8px;padding:24px 26px;max-width:460px;width:92%;font-family:Georgia,serif;';
+  box.innerHTML =
+    '<h2 style="margin:0 0 6px;font-size:18px;color:#1A2B33;">Deny retake request</h2>' +
+    '<p style="margin:0 0 14px;font-size:13px;color:#7A96A6;">For <strong>' + clientName + '</strong>. The reason below is emailed to the coach.</p>' +
+    '<label style="display:block;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#7A96A6;font-weight:700;margin-bottom:6px;">Reason for denial *</label>' +
+    '<textarea id="rr-deny-reason" rows="4" style="width:100%;font-family:Georgia,serif;font-size:13px;padding:9px 11px;border:1px solid #D0DCE4;border-radius:4px;"></textarea>' +
+    '<p id="rr-deny-err" style="display:none;color:#c0392b;font-size:12px;margin:8px 0 0;">A reason is required.</p>' +
+    '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">' +
+      '<button id="rr-deny-cancel" style="background:#fff;border:1px solid #D0DCE4;border-radius:4px;padding:8px 14px;font-family:Georgia,serif;font-size:12px;cursor:pointer;">Cancel</button>' +
+      '<button id="rr-deny-go" style="background:#c0392b;color:#fff;border:none;border-radius:4px;padding:8px 14px;font-family:Georgia,serif;font-size:12px;font-weight:700;cursor:pointer;">Deny Request</button>' +
+    '</div>';
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e){ if (e.target === ov) ov.remove(); });
+  document.getElementById('rr-deny-cancel').onclick = function(){ ov.remove(); };
+  document.getElementById('rr-deny-go').onclick = async function(){
+    var reason = document.getElementById('rr-deny-reason').value.trim();
+    if (!reason) { document.getElementById('rr-deny-err').style.display = 'block'; return; }
+    var go = this; go.disabled = true; go.textContent = '…';
+    try {
+      var res = await fetch('/admin/retake-requests/' + id + '/deny', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ reason: reason })
+      });
+      var d = await res.json();
+      if (d.ok) { ov.remove(); showToast('Retake denied — the coach has been notified.'); setTimeout(function(){ location.reload(); }, 900); }
+      else { alert(d.message || 'Deny failed.'); go.disabled = false; go.textContent = 'Deny Request'; }
+    } catch (e) { alert('Network error — please try again.'); go.disabled = false; go.textContent = 'Deny Request'; }
+  };
+}
+</script>
+</body>
+</html>`;
+}
+
+// Approve / deny. Both are super-admin only, both notify the coach by email (best-effort —
+// a SendGrid failure must not undo a decision already committed), and both are guarded in
+// SQL on status='pending' so a double-click or two racing admins can only land one decision.
+app.post('/admin/retake-requests/:id/approve', requireSuperAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id || isNaN(id)) return res.status(400).json({ ok: false, error: 'INVALID_ID' });
+
+  try {
+    const request = await db.getRetakeRequestById(id);
+    if (!request) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+    await db.approveRetakeRequest(id, req.session.user_id);
+
+    const client = await db.getClientById(request.client_id);
+    const coach = await db.getCoachById(request.coach_id);
+
+    db.logClientEvent({
+      clientId: request.client_id, assessmentId: request.original_assessment_id,
+      eventType: 'retake_approved',
+      eventDescription: 'Retake request approved',
+      actor: req.session.user_id,
+    });
+
+    if (coach && client) await sendRetakeDecisionEmail(coach, client, true, null);
+
+    console.log(`[retake] request #${id} approved by super-admin #${req.session.user_id}`);
+    return res.json({ ok: true });
+  } catch (e) {
+    if (e.message === 'NOT_PENDING') {
+      return res.status(409).json({ ok: false, error: 'NOT_PENDING', message: 'This request has already been decided.' });
+    }
+    console.error('[admin/retake-requests/approve] error:', e.message);
+    return res.status(500).json({ ok: false, error: 'APPROVE_FAILED' });
+  }
+});
+
+app.post('/admin/retake-requests/:id/deny', requireSuperAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id || isNaN(id)) return res.status(400).json({ ok: false, error: 'INVALID_ID' });
+
+  const reason = (typeof req.body.reason === 'string' ? req.body.reason : '').trim();
+  if (!reason) {
+    return res.status(400).json({ ok: false, error: 'REASON_REQUIRED', message: 'A reason for denial is required.' });
+  }
+
+  try {
+    const request = await db.getRetakeRequestById(id);
+    if (!request) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+    await db.denyRetakeRequest(id, req.session.user_id, reason);
+
+    const client = await db.getClientById(request.client_id);
+    const coach = await db.getCoachById(request.coach_id);
+
+    db.logClientEvent({
+      clientId: request.client_id, assessmentId: request.original_assessment_id,
+      eventType: 'retake_denied',
+      eventDescription: `Retake request denied — ${reason}`,
+      actor: req.session.user_id,
+    });
+
+    if (coach && client) await sendRetakeDecisionEmail(coach, client, false, reason);
+
+    console.log(`[retake] request #${id} denied by super-admin #${req.session.user_id}`);
+    return res.json({ ok: true });
+  } catch (e) {
+    if (e.message === 'NOT_PENDING') {
+      return res.status(409).json({ ok: false, error: 'NOT_PENDING', message: 'This request has already been decided.' });
+    }
+    console.error('[admin/retake-requests/deny] error:', e.message);
+    return res.status(500).json({ ok: false, error: 'DENY_FAILED' });
   }
 });
 

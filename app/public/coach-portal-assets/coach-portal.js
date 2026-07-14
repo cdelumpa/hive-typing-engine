@@ -278,6 +278,101 @@
     });
   }
 
+  /* ══ Retake workflow (§7.2, PR4b) ═════════════════════════════════════════ */
+
+  /* Request a Retake modal */
+  var rtModal = $('cp-retake-modal');
+  var rtOpen = $('cp-request-retake');
+  var rtClose = $('cp-retake-close');
+  var rtCancel = $('cp-retake-cancel');
+  var rtSubmit = $('cp-retake-submit');
+  var rtReason = $('cp-retake-reason');
+  var rtMsg = $('cp-retake-msg');
+
+  function setRetakeModal(open) {
+    if (!rtModal) return;
+    rtModal.hidden = !open;
+    document.body.classList.toggle('cp-noscroll', open);
+    if (open && rtReason) rtReason.focus();
+    if (!open && rtMsg) rtMsg.hidden = true;
+  }
+  function rtError(text) {
+    if (!rtMsg) return;
+    rtMsg.hidden = false;
+    rtMsg.className = 'cp-modal-msg cp-modal-msg--err';
+    rtMsg.textContent = text;
+  }
+
+  if (rtOpen) rtOpen.addEventListener('click', function () { setRetakeModal(true); });
+  if (rtClose) rtClose.addEventListener('click', function () { setRetakeModal(false); });
+  if (rtCancel) rtCancel.addEventListener('click', function () { setRetakeModal(false); });
+  if (rtModal) {
+    rtModal.addEventListener('click', function (e) { if (e.target === rtModal) setRetakeModal(false); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !rtModal.hidden) setRetakeModal(false);
+    });
+  }
+
+  if (rtSubmit) {
+    rtSubmit.addEventListener('click', function () {
+      var reason = rtReason ? rtReason.value.trim() : '';
+      if (!reason) { rtError('Please describe why this client needs a retake.'); return; }
+
+      var original = rtSubmit.textContent;
+      rtSubmit.disabled = true;
+      rtSubmit.textContent = 'Submitting…';
+
+      fetch('/coach/clients/' + rtSubmit.dataset.client + '/retake-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ reason: reason }),
+      }).then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      }).then(function (res) {
+        if (!res.ok || !res.d.ok) throw new Error(res.d.message || 'Could not submit the request.');
+        window.location.reload();   // roster badge + pending pseudo-entry appear
+      }).catch(function (err) {
+        rtError(err.message);
+        rtSubmit.disabled = false;
+        rtSubmit.textContent = original;
+      });
+    });
+  }
+
+  /* Launch Retake — from the bottom CTA or the inline link on the approved pseudo-entry.
+     Confirmed first: it spends a credit. */
+  function launchRetake(requestId, btn) {
+    if (!window.confirm('Launch this retake? It uses 1 Standard Assessment credit and sends a fresh invitation.')) return;
+
+    var original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Launching…';
+
+    fetch('/coach/retake-requests/' + requestId + '/launch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+    }).then(function (r) {
+      return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+    }).then(function (res) {
+      if (!res.ok || !res.d.ok) throw new Error(res.d.message || 'Could not launch the retake.');
+      window.location.reload();   // the new assessment appears in the history
+    }).catch(function (err) {
+      window.alert(err.message);
+      btn.disabled = false;
+      btn.textContent = original;
+    });
+  }
+
+  var launchBtn = $('cp-launch-retake');
+  if (launchBtn) {
+    launchBtn.addEventListener('click', function () { launchRetake(launchBtn.dataset.request, launchBtn); });
+  }
+  [].slice.call(document.querySelectorAll('.cp-launch-inline')).forEach(function (el) {
+    el.addEventListener('click', function () { launchRetake(el.dataset.request, el); });
+  });
+
   /* ── Welcome banner dismiss (§7.10 Screen 2B) ─────────────────────────────── */
   // Hide optimistically so the banner never lingers, then persist. If the POST fails the
   // flag stays false server-side and the banner returns on the next load — the correct
