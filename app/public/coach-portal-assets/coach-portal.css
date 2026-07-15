@@ -742,6 +742,107 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-step2-cta { display: block; width: 100%; }
 .cp-debrief-na { font-size: 14px; color: var(--color-text-muted); margin: 0; }
 
+/* ══ Manage Credits (§7.4, PR6) ═══════════════════════════════════════════ */
+.cp-page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.cp-purchase-cta { flex-shrink: 0; }
+
+/* Post-purchase banners */
+.cp-banner {
+  display: flex; align-items: center; gap: 10px;
+  border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px;
+  border: 1px solid transparent;
+}
+.cp-banner-icon { display: inline-flex; flex-shrink: 0; }
+.cp-banner-text { flex: 1; line-height: 1.5; }
+.cp-banner-close { background: none; border: none; cursor: pointer; flex-shrink: 0; font-size: 18px; line-height: 1; padding: 0 2px; color: inherit; opacity: 0.6; }
+.cp-banner-close:hover { opacity: 1; }
+.cp-banner--success { background: var(--color-success-bg); color: var(--color-success); border-color: var(--color-success); }
+.cp-banner--error   { background: var(--color-error-bg);   color: var(--color-error);   border-color: var(--color-error); }
+.cp-banner--error a { color: var(--color-primary); }
+.cp-banner--processing { background: var(--color-accent-light); color: var(--color-accent-dark); border-color: var(--color-accent); }
+.cp-banner-spinner {
+  width: 15px; height: 15px; flex-shrink: 0; border-radius: 50%;
+  border: 2px solid rgba(246,134,37,0.35); border-top-color: var(--color-accent);
+  animation: cp-spin 700ms linear infinite;
+}
+
+/* Summary card — three metric tiles split by thin rules */
+.cp-credit-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; padding: 24px 0; }
+.cp-summary-stat { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0 24px; text-align: center; }
+.cp-summary-stat + .cp-summary-stat { border-left: 1px solid var(--color-border); }
+.cp-summary-stat .cp-metric-label { text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.cp-summary-stat .cp-metric-value { font-size: 34px; }
+.cp-metric-cap { font-size: 12px; color: var(--color-text-muted); }
+.cp-metric-sub { font-size: 11px; color: var(--color-primary); font-weight: 600; margin-top: 2px; }
+.cp-enforce-note { font-size: 11px; color: var(--color-text-muted); font-style: italic; margin: -12px 0 24px; text-align: center; }
+
+/* History table */
+/* Space between the card title and the column-header row (was cramped). */
+.cp-history .cp-card-title { margin-bottom: 18px; }
+
+.cp-htable { width: 100%; border-collapse: collapse; }
+/* Column separation comes from LEFT padding (not right), so every column — including
+   adjacent right-aligned numeric ones — has a real gap between it and the one before.
+   The old `padding-right:0 !important` on numerics collapsed that gap and ran CREDITS
+   and BALANCE together. First column sits flush-left. */
+.cp-htable th, .cp-htable td { padding-left: 20px; }
+.cp-htable th:first-child, .cp-htable td:first-child { padding-left: 0; }
+.cp-htable th {
+  text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--color-text-muted);
+  padding-top: 0; padding-bottom: 10px; border-bottom: 1px solid var(--color-border);
+}
+.cp-htable td { padding-top: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); font-size: 13px; color: var(--color-text-body); }
+.cp-htable tr:last-child td { border-bottom: none; }
+/* Numeric columns right-align — HEADER and cell both (headers were left-aligned; the mock
+   right-aligns them over their right-aligned numbers). Explicit th/td selectors so they
+   out-specify `.cp-htable th { text-align:left }`. */
+.cp-htable th.cp-num, .cp-htable td.cp-num, .cp-num { text-align: right; }
+.cp-bal { font-weight: 700; color: var(--color-text-heading); }
+/* Debits red, credits green — distinct at a glance, not just by the sign (Cai, live review;
+   overrides the addendum's original black). */
+.cp-delta { font-weight: 600; color: var(--color-error); }
+.cp-delta--pos { color: var(--color-success); }
+.cp-hcards { display: none; }
+
+/* Pagination */
+.cp-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 16px; font-size: 12px; color: var(--color-text-muted); }
+.cp-pager-ctrls { display: flex; align-items: center; gap: 4px; }
+.cp-pager-btn {
+  background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 4px;
+  width: 26px; height: 26px; cursor: pointer; color: var(--color-text-body); font-size: 13px; line-height: 1;
+}
+.cp-pager-btn:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
+.cp-pager-btn:disabled { opacity: 0.4; cursor: default; }
+.cp-pager-ind { padding: 0 8px; }
+.cp-pager-size select { font-family: var(--font-ui); font-size: 12px; padding: 3px 6px; border: 1px solid var(--color-border); border-radius: 4px; }
+
+/* Purchase modal — package radio cards */
+.cp-pkgs { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.cp-pkg {
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--color-border); border-radius: 8px; padding: 14px 16px; cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+.cp-pkg:hover { border-color: var(--color-border-strong); }
+.cp-pkg input { accent-color: var(--color-primary); width: 16px; height: 16px; flex-shrink: 0; }
+.cp-pkg-main { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.cp-pkg-name { font-family: var(--font-heading); font-size: 15px; font-weight: 600; color: var(--color-text-heading); }
+.cp-pkg-unit { font-size: 12px; color: var(--color-text-muted); }
+.cp-pkg-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.cp-pkg-total { font-family: var(--font-heading); font-size: 17px; font-weight: bold; color: var(--color-text-heading); }
+.cp-best { background: var(--color-accent-light); color: var(--color-accent-dark); border-radius: 100px; padding: 2px 8px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+.cp-pkg--selected { background: var(--color-primary-light); border-color: var(--color-primary); }
+.cp-pkg--disabled { opacity: 0.5; cursor: not-allowed; }
+.cp-pkg--disabled:hover { border-color: var(--color-border); }
+
+.cp-purchase-foot { align-items: center; justify-content: space-between; }
+.cp-total-due { display: flex; flex-direction: column; gap: 2px; }
+.cp-total-label { font-size: 11px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.cp-total-amount { font-family: var(--font-heading); font-size: 20px; font-weight: bold; color: var(--color-text-heading); }
+.cp-secured { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; color: var(--color-text-muted); margin: 14px 0 0; }
+.cp-secured svg { width: 13px; height: 13px; }
+
 /* ── §3.4 Breakpoints ───────────────────────────────────────────────────── */
 /* Tablet. PR1 collapsed the rail to a 64px strip with font-size:0 labels, on the
    assumption an icon set would land later. It hasn't, so that rule rendered a blank dark
@@ -758,6 +859,9 @@ a { color: var(--color-primary); text-decoration: none; }
   .cp-master-detail { grid-template-columns: 260px 1fr; gap: 16px; }
   .cp-detail-card { padding: 20px; }
   .cp-roster-name { font-size: 12px; }
+
+  /* Manage Credits: tablet drops the UNIT PRICE column to fit the narrower width (§7.4). */
+  .cp-col-unit { display: none; }
 }
 
 /* Mobile: the rail is replaced by a real drawer (not a reflow). The chart is dropped —
@@ -897,6 +1001,37 @@ a { color: var(--color-primary); text-decoration: none; }
   .cp-modal-close { top: 12px; right: 14px; }
   .cp-modal-foot { flex-direction: column-reverse; }
   .cp-modal-foot .cp-btn { width: 100%; }
+
+  /* ── Manage Credits, mobile (§7.4) ─────────────────────────────────────── */
+  /* Full-width Purchase button below the H1 (not top-right). */
+  .cp-page-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .cp-purchase-cta { width: 100%; }
+
+  /* Summary stays a 3-col grid but tighter, and swaps the vertical rules for gaps. */
+  .cp-credit-summary { padding: 20px 8px; }
+  .cp-summary-stat { padding: 0 6px; }
+  .cp-summary-stat + .cp-summary-stat { border-left: none; }
+  .cp-summary-stat .cp-metric-value { font-size: 26px; }
+  .cp-summary-stat .cp-metric-label { font-size: 9px; }
+  .cp-metric-cap { font-size: 10px; }
+
+  /* History → card-per-row. */
+  .cp-htable { display: none; }
+  .cp-hcards { display: flex; flex-direction: column; gap: 0; }
+  .cp-hcard { padding: 14px 0; border-bottom: 1px solid var(--color-border); }
+  .cp-hcard:last-child { border-bottom: none; }
+  .cp-hcard-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .cp-hcard-date { font-size: 12px; color: var(--color-text-muted); }
+  .cp-hcard-desc { font-weight: 700; color: var(--color-text-heading); font-size: 14px; margin-top: 2px; }
+  .cp-hcard-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 4px; }
+  .cp-hcard-paid { font-size: 12px; color: var(--color-text-muted); }
+  .cp-hcard-bal { font-size: 13px; font-weight: 700; color: var(--color-text-heading); margin-left: auto; }
+
+  .cp-pager { justify-content: center; }
+
+  /* The purchase modal's total/CTA foot: keep total + button on one row, not stacked. */
+  .cp-purchase-foot { flex-direction: row; align-items: center; }
+  .cp-purchase-foot .cp-btn { width: auto; }
 }
 
 /* ── Onboarding flow (§7.10) — header-only shell, centered card ─────────────── */

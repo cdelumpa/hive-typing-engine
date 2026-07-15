@@ -608,4 +608,169 @@
 
     refreshSave();
   }
+
+  /* ══ Manage Credits (§7.4, PR6) ══════════════════════════════════════════ */
+
+  /* Purchase modal: select a package → enable checkout + show total; Continue links out
+     to the package's ThriveCart URL. No payment happens here. */
+  var pModal = $('cp-purchase-modal');
+  if (pModal) {
+    var openP = $('cp-open-purchase');
+    var closeP = $('cp-purchase-close');
+    var checkoutBtn = $('cp-checkout-btn');
+    var totalAmount = $('cp-total-amount');
+    var pkgInputs = [].slice.call(pModal.querySelectorAll('input[name="cp-pkg"]'));
+
+    var setP = function (open) {
+      pModal.hidden = !open;
+      document.body.classList.toggle('cp-noscroll', open);
+    };
+    var money = function (cents) { return '$' + (cents / 100).toFixed(2); };
+
+    if (openP) openP.addEventListener('click', function () { setP(true); });
+    if (closeP) closeP.addEventListener('click', function () { setP(false); });
+    pModal.addEventListener('click', function (e) { if (e.target === pModal) setP(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !pModal.hidden) setP(false); });
+
+    pkgInputs.forEach(function (input) {
+      input.addEventListener('change', function () {
+        pModal.querySelectorAll('.cp-pkg').forEach(function (l) { l.classList.remove('cp-pkg--selected'); });
+        if (input.checked) {
+          input.closest('.cp-pkg').classList.add('cp-pkg--selected');
+          totalAmount.textContent = money(parseInt(input.dataset.total, 10));
+          checkoutBtn.disabled = false;
+          checkoutBtn.dataset.url = input.dataset.url || '';
+        }
+      });
+    });
+
+    checkoutBtn.addEventListener('click', function () {
+      var url = checkoutBtn.dataset.url;
+      if (url) window.location.href = url;
+    });
+  }
+
+  /* Post-purchase banner. Success/Failed dismiss and clean the ?purchase= off the URL so a
+     refresh doesn't re-announce. Processing polls the account-scoped status endpoint every
+     3s and, on 'complete', reloads so the new balance/lot/history row appear; after ~90s
+     with no lot, it flips to Failed rather than spinning forever. */
+  var banner = $('cp-purchase-banner');
+  if (banner) {
+    var stripPurchaseParams = function () {
+      if (!(window.history && window.history.replaceState)) return;
+      var u = new URL(window.location.href);
+      u.searchParams.delete('purchase');
+      u.searchParams.delete('order');
+      window.history.replaceState({}, '', u.pathname + (u.search || ''));
+    };
+
+    var bClose = $('cp-banner-close');
+    if (bClose) bClose.addEventListener('click', function () { banner.remove(); stripPurchaseParams(); });
+
+    if (banner.dataset.state === 'processing') {
+      var order = banner.dataset.order;
+      var POLL_MS = 3000, TIMEOUT_MS = 90000, started = Date.now();
+      var bText = $('cp-banner-text');
+
+      var toFailed = function () {
+        banner.className = 'cp-banner cp-banner--error';
+        banner.dataset.state = 'failed';
+        banner.innerHTML = '<span class="cp-banner-icon" aria-hidden="true"></span>' +
+          '<span class="cp-banner-text">Purchase wasn’t completed — your credits haven’t changed. ' +
+          'Need help? Contact <a href="mailto:support@insightoutenneagram.com">support@insightoutenneagram.com</a></span>' +
+          '<button type="button" class="cp-banner-close" aria-label="Dismiss">&times;</button>';
+        banner.querySelector('.cp-banner-close').addEventListener('click', function () { banner.remove(); stripPurchaseParams(); });
+        stripPurchaseParams();
+      };
+
+      var poll = function () {
+        if (!order) { toFailed(); return; }
+        fetch('/coach/credits/purchase-status?order=' + encodeURIComponent(order), { credentials: 'same-origin' })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (d.status === 'complete') {
+              // The lot landed — reload onto the Success state so stats/history reflect it.
+              var u = new URL(window.location.href);
+              u.searchParams.set('purchase', 'success');
+              u.searchParams.delete('order');
+              window.location.href = u.pathname + u.search;
+              return;
+            }
+            if (Date.now() - started >= TIMEOUT_MS) { toFailed(); return; }
+            setTimeout(poll, POLL_MS);
+          })
+          .catch(function () {
+            if (Date.now() - started >= TIMEOUT_MS) { toFailed(); return; }
+            setTimeout(poll, POLL_MS);
+          });
+      };
+      setTimeout(poll, POLL_MS);
+    }
+  }
+
+  /* History pagination — entirely client-side. The whole set is already in the DOM (rows
+     carry the running balance from the server); JS just shows a window of them. Default
+     page size follows the breakpoint (10 desktop/tablet, 5 mobile) via matchMedia, and the
+     Show: selector overrides it. Matches the roster-search / low-volume precedent. */
+  var history = $('cp-history');
+  if (history) {
+    var tbody = $('cp-htbody');
+    var cardsWrap = $('cp-hcards');
+    var sel = $('cp-pager-select');
+    var indEl = $('cp-pager-ind');
+    var countEl = $('cp-pager-count');
+    var pagerBtns = [].slice.call(history.querySelectorAll('.cp-pager-btn'));
+
+    var trRows = [].slice.call(tbody.querySelectorAll('.cp-hrow'));
+    var cardRows = [].slice.call(cardsWrap.querySelectorAll('.cp-hrow'));
+    var total = trRows.length;
+
+    var isMobile = window.matchMedia('(max-width: 767px)').matches;
+    var size = isMobile ? 5 : 10;
+    sel.value = String(size);
+
+    var page = 1;
+
+    var render = function () {
+      var pages = Math.max(1, Math.ceil(total / size));
+      if (page > pages) page = pages;
+      var start = (page - 1) * size;
+      var end = start + size;
+
+      for (var i = 0; i < total; i++) {
+        var show = i >= start && i < end;
+        trRows[i].style.display = show ? '' : 'none';
+        if (cardRows[i]) cardRows[i].style.display = show ? '' : 'none';
+      }
+
+      var shownEnd = Math.min(end, total);
+      countEl.textContent = 'Showing ' + (total ? (start + 1) : 0) + '–' + shownEnd + ' of ' + total + ' transaction' + (total === 1 ? '' : 's');
+      indEl.textContent = 'Page ' + page + ' of ' + pages;
+
+      var byPage = {};
+      pagerBtns.forEach(function (b) { byPage[b.dataset.page] = b; });
+      byPage.first.disabled = byPage.prev.disabled = (page <= 1);
+      byPage.next.disabled = byPage.last.disabled = (page >= pages);
+    };
+
+    pagerBtns.forEach(function (b) {
+      b.addEventListener('click', function () {
+        var pages = Math.max(1, Math.ceil(total / size));
+        var to = b.dataset.page;
+        if (to === 'first') page = 1;
+        else if (to === 'prev') page = Math.max(1, page - 1);
+        else if (to === 'next') page = Math.min(pages, page + 1);
+        else if (to === 'last') page = pages;
+        render();
+      });
+    });
+
+    sel.addEventListener('change', function () {
+      size = parseInt(sel.value, 10) || 10;
+      page = 1;
+      render();
+    });
+
+    render();
+  }
 })();
