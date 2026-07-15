@@ -3118,6 +3118,107 @@ async function getCreditCostHistory(creditTypeName, limit = 20) {
   return r.rows;
 }
 
+// ── Coach Portal PR6: Manage Credits (§7.4) reads ────────────────────────────────
+
+// The three summary stats, in ONE grouped query. All three are REMAINING balances
+// (SUM(quantity_remaining) by source), confirmed by the mockup's arithmetic
+// (purchased + complimentary = available) — not lifetime totals. Scoped to one account
+// and the standard_assessment type (the only sellable one).
+//
+//   available     — total remaining across all lots
+//   purchased     — remaining in source='purchased' lots + how many such lots exist
+//   complimentary — remaining in source='granted' lots
+async function getCreditSummary(accountId) {
+  const r = await query(
+    `SELECT
+       COALESCE(SUM(cl.quantity_remaining), 0)                                              AS available,
+       COALESCE(SUM(cl.quantity_remaining) FILTER (WHERE cl.source = 'purchased'), 0)       AS purchased,
+       COALESCE(COUNT(*)                   FILTER (WHERE cl.source = 'purchased'), 0)        AS purchased_lots,
+       COALESCE(SUM(cl.quantity_remaining) FILTER (WHERE cl.source = 'granted'), 0)         AS complimentary
+     FROM credit_lots cl
+     JOIN credit_types ct ON ct.id = cl.credit_type_id
+    WHERE cl.account_id = $1
+      AND ct.name = 'standard_assessment'`,
+    [accountId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  const row = r.rows[0];
+  return {
+    available:     Number(row.available),
+    purchased:     Number(row.purchased),
+    purchasedLots: Number(row.purchased_lots),
+    complimentary: Number(row.complimentary),
+  };
+}
+
+// The full transaction history for the credit account, newest first, WITH a running
+// balance. The four flavors (§7.4) are distinguished here:
+//   consumed                         → "Assessment — {client}"          -N
+//   granted + lot.source='purchased' → "Purchase — …"                   +N
+//   granted + lot.source='granted'   → "Complimentary Grant …"          +N
+//   restored                         → "Refund — Assessment cancelled"  +N
+// so event_type alone is not enough — the lot's source disambiguates the two 'granted'
+// cases. LEFT JOINs throughout: an enforcement_disabled consume has lot_id NULL, and a
+// consume/restore has no purchase lot to price from.
+//
+// The signed delta and the running balance are computed IN SQL so the client never has to
+// re-derive them (and can't get them wrong). The running total is a window function over
+// the WHOLE account history in chronological order; we then return newest-first for
+// display. Whole set is returned — pagination is client-side (low per-coach volume), and
+// the balance can only be a running total if every prior row is present anyway.
+async function getCreditHistory(accountId) {
+  const r = await query(
+    `WITH ledger AS (
+       SELECT
+         ct.id,
+         ct.created_at,
+         ct.event_type,
+         ct.quantity,
+         ct.lot_id,
+         ct.assessment_id,
+         cl.source            AS lot_source,
+         cl.quantity          AS lot_quantity,
+         cl.price_paid_cents  AS lot_price_cents,
+         c.first_name, c.last_name, c.email AS client_email,
+         -- signed delta: consumed is the only debit; everything else adds.
+         CASE WHEN ct.event_type = 'consumed' THEN -ct.quantity ELSE ct.quantity END AS delta
+       FROM credit_transactions ct
+       LEFT JOIN credit_lots  cl ON cl.id = ct.lot_id
+       LEFT JOIN assessments  a  ON a.id  = ct.assessment_id
+       LEFT JOIN clients      c  ON c.id  = a.client_id
+       WHERE ct.account_id = $1
+     )
+     SELECT *,
+            SUM(delta) OVER (
+              ORDER BY created_at ASC, id ASC
+              ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+            ) AS balance_after
+       FROM ledger
+      ORDER BY created_at DESC, id DESC`,
+    [accountId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows;
+}
+
+// Account-scoped lookup for the purchase-status poll (§7.4 processing→success). Scoped to
+// the caller's OWN account on purpose: without that, the poll is an order-enumeration
+// oracle — any coach could probe arbitrary order ids and learn which ones landed. A
+// foreign or bogus order id simply returns null → the poll reads it as still-processing,
+// which is harmless. purchase_reference holds the ThriveCart order_id (see the webhook).
+async function getPurchaseByReference(accountId, orderId) {
+  const r = await query(
+    `SELECT cl.id, cl.quantity, cl.created_at
+       FROM credit_lots cl
+      WHERE cl.account_id = $1
+        AND cl.purchase_reference = $2
+      LIMIT 1`,
+    [accountId, orderId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length > 0 ? r.rows[0] : null;
+}
+
 // Change a credit type's cost AND write its audit row in ONE transaction — the change and
 // the record of it must be atomic, or a crash between them leaves a price move with no
 // paper trail, which is the exact thing the history table exists to prevent.
@@ -3651,6 +3752,9 @@ module.exports = {
   insertAssignmentEvent,
   getConsumedCreditTxs,
   getCreditCost,
+  getCreditSummary,
+  getCreditHistory,
+  getPurchaseByReference,
   getCreditTypesWithCost,
   getCreditCostHistory,
   setCreditCost,

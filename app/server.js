@@ -106,29 +106,25 @@ const SPA_ASSET_PATHS = new Set([
   '/content/type_library.json', '/favicon.svg',
 ]);
 
-// ThriveCart SKU → credit grant map (PR9). Each SKU maps to a creditTypeName, quantity,
-// and pricePaidCents (the price stored on the purchased lot for refund accounting).
-// PLACEHOLDERS — Cai will update the SKU names and prices before launch.
-// PR6a: the purchasable set is 5/10/25/50-packs. `pricePaidCents` is GONE from this map on
-// purpose — it was never read (the recorded price comes from the webhook's order_total, the
-// amount actually charged, which is also what makes a coupon-discounted purchase record
-// correctly). Leaving a stale price here read as authoritative and was wrong by 10x.
+// ThriveCart SKU → credit grant map (PR9). The webhook keys this by String(product_id),
+// so the KEYS ARE THE REAL THRIVECART PRODUCT IDS. A wrong key means the webhook returns
+// UNKNOWN_SKU → 400 → ThriveCart retries forever → the coach never receives credits, so
+// this map is the highest-stakes few lines in the purchase flow.
 //
-// ⚠️ PRODUCT IDS ARE PLACEHOLDERS. These keys must match ThriveCart's real `product_id`
-// exactly or the webhook rejects the purchase with UNKNOWN_SKU and the coach never gets
-// their credits. Cai creates the four products and swaps the real ids in before launch.
+// PR6: real numeric product ids wired in (ratified). All four products are live in
+// ThriveCart (not test mode). Prices in the comments are the ThriveCart product's
+// configured charge — NOT recorded from here; recordPurchasedCredits stores the webhook's
+// order_total (the amount actually charged), which is why a coupon-discounted purchase
+// still records correctly. pricePaidCents was removed in PR6a because it was never read.
 //
-// `insightout-single` is DELIBERATELY RETAINED (CP-2) even though a single credit can no
-// longer buy anything (an assessment costs 5). It is webhook-inbound only and is NOT
-// offered in the purchase UI — but if any single-credit order is still in flight when this
-// deploys, removing the entry would 400 its webhook, ThriveCart would retry forever, and a
-// paying coach would silently never receive their credit.
+// `insightout-single` is GONE (CP-2, ratified): the single-credit package never went live,
+// so no real in-flight order references it — carrying a dead placeholder key protected
+// nothing. Since an assessment costs 5 credits, the 5-pack is the floor tier now.
 const THRIVECART_SKU_MAP = {
-  'insightout-5-pack':  { creditTypeName: 'standard_assessment', quantity: 5  },  // $40  — placeholder id
-  'insightout-10-pack': { creditTypeName: 'standard_assessment', quantity: 10 },  // $75  — placeholder id
-  'insightout-25-pack': { creditTypeName: 'standard_assessment', quantity: 25 },  // $160 — placeholder id
-  'insightout-50-pack': { creditTypeName: 'standard_assessment', quantity: 50 },  // $300 — placeholder id
-  'insightout-single':  { creditTypeName: 'standard_assessment', quantity: 1  },  // retired from sale; honoured inbound (CP-2)
+  '8':  { creditTypeName: 'standard_assessment', quantity: 5  },  // 5-Pack  · $40
+  '9':  { creditTypeName: 'standard_assessment', quantity: 10 },  // 10-Pack · $75
+  '10': { creditTypeName: 'standard_assessment', quantity: 25 },  // 25-Pack · $160
+  '11': { creditTypeName: 'standard_assessment', quantity: 50 },  // 50-Pack · $300
 };
 
 // The purchasable packages, in display order. Prices are what the ThriveCart product is
@@ -1579,6 +1575,289 @@ app.post('/coach/clients/:id/debrief', requireCoach, requireOnboardingComplete, 
   } catch (e) {
     console.error('[POST /coach/clients/:id/debrief] failed:', e.message);
     return res.status(500).json({ ok: false, error: 'SAVE_FAILED' });
+  }
+});
+
+// ── Coach Portal PR6: Manage Credits (§7.4 Addendum v1.0) ───────────────────────
+// Route /coach/credits: three-stat summary, transaction history (client-paginated), a
+// Purchase Credits modal that hands off to ThriveCart's hosted checkout, and three
+// post-purchase banners (Success/Failed/Processing) driven by polling the webhook's own
+// idempotency record. No payment surface is built here — checkout is a link out.
+
+const cpMoney = (cents) => cents == null ? '—' : `$${(cents / 100).toFixed(2)}`;
+const CP_ICON_WARN = CP_ICON('<path d="M12 3 2 20h20L12 3Z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17.5" r="0.5" fill="currentColor" stroke="none"/>');
+
+// lot.quantity → package label (CP-1). A quantity that matches a purchasable package reads
+// as "5-pack"; anything else falls back to "N credits". Complimentary grants never use this
+// (they're not packages) — see the description builder.
+function cpPackLabel(quantity) {
+  const pkg = CREDIT_PACKAGES.find(p => p.credits === quantity);
+  return pkg ? pkg.label : `${quantity} credit${quantity === 1 ? '' : 's'}`;
+}
+
+// One history row → { date, description, unitPrice, amountPaid, delta, deltaClass, balance }.
+// The four flavors branch on event_type + lot source (CP-1).
+function cpHistoryRow(r) {
+  const qty = Number(r.quantity);
+  const balance = Number(r.balance_after);
+  const clientName = [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || r.client_email || null;
+
+  let description, unitPriceCents = null, amountPaidCents = null, delta, deltaClass;
+
+  if (r.event_type === 'consumed') {
+    description = clientName ? `Assessment — ${clientName}` : 'Assessment';
+    delta = `-${qty}`;
+    deltaClass = 'cp-delta';                       // black/default
+  } else if (r.event_type === 'restored') {
+    description = 'Refund — Assessment cancelled';
+    delta = `+${qty}`;
+    deltaClass = 'cp-delta cp-delta--pos';
+  } else if (r.event_type === 'granted' && r.lot_source === 'purchased') {
+    description = `Purchase — ${cpPackLabel(Number(r.lot_quantity))}`;
+    // Unit price is derived (never stored): amount paid ÷ lot size.
+    amountPaidCents = r.lot_price_cents;
+    unitPriceCents = (r.lot_price_cents != null && r.lot_quantity) ? Math.round(r.lot_price_cents / r.lot_quantity) : null;
+    delta = `+${qty}`;
+    deltaClass = 'cp-delta cp-delta--pos';
+  } else {
+    // granted + source='granted' (or a granted row with no lot) — complimentary.
+    description = 'Complimentary Grant — Certification';
+    delta = `+${qty}`;
+    deltaClass = 'cp-delta cp-delta--pos';
+  }
+
+  return {
+    date: cpDate(r.created_at) || '—',
+    description,
+    unitPrice: cpMoney(unitPriceCents),
+    amountPaid: cpMoney(amountPaidCents),
+    delta, deltaClass,
+    balance: String(balance),
+  };
+}
+
+// Post-purchase banner (Success / Failed / Processing). Rendered above the summary when
+// the coach returns from checkout with ?purchase=… . Processing has NO dismiss (it
+// self-resolves via the poll); Success/Failed do.
+function renderPurchaseBanner(state) {
+  if (state === 'success') {
+    return `<div class="cp-banner cp-banner--success" id="cp-purchase-banner" data-state="success">
+          <span class="cp-banner-icon" aria-hidden="true">${CP_ICON_CHECK}</span>
+          <span class="cp-banner-text" id="cp-banner-text">Purchase confirmed — your credits have been added to your account.</span>
+          <button type="button" class="cp-banner-close" id="cp-banner-close" aria-label="Dismiss">&times;</button>
+        </div>`;
+  }
+  if (state === 'failed') {
+    return `<div class="cp-banner cp-banner--error" id="cp-purchase-banner" data-state="failed">
+          <span class="cp-banner-icon" aria-hidden="true">${CP_ICON_WARN}</span>
+          <span class="cp-banner-text">Purchase wasn't completed — your credits haven't changed. Need help? Contact <a href="mailto:support@insightoutenneagram.com">support@insightoutenneagram.com</a></span>
+          <button type="button" class="cp-banner-close" id="cp-banner-close" aria-label="Dismiss">&times;</button>
+        </div>`;
+  }
+  // processing — no dismiss; JS polls and rewrites this in place.
+  return `<div class="cp-banner cp-banner--processing" id="cp-purchase-banner" data-state="processing" data-order="${cpEsc(state.order || '')}">
+          <span class="cp-banner-spinner" aria-hidden="true"></span>
+          <span class="cp-banner-text" id="cp-banner-text">Your purchase is processing — credits will appear in a moment.</span>
+        </div>`;
+}
+
+function renderCreditSummary(summary, assessmentCost) {
+  const derived = (Number.isInteger(assessmentCost) && assessmentCost > 0)
+    ? `<span class="cp-metric-sub">≈ ${Math.floor(summary.available / assessmentCost)} assessment${Math.floor(summary.available / assessmentCost) === 1 ? '' : 's'}</span>`
+    : '';
+  return `<section class="cp-card cp-credit-summary">
+          <div class="cp-summary-stat">
+            <p class="cp-metric-label">Available</p>
+            <span class="cp-metric-value">${summary.available}</span>
+            <span class="cp-metric-cap">credits</span>
+            ${derived}
+          </div>
+          <div class="cp-summary-stat">
+            <p class="cp-metric-label">Purchased</p>
+            <span class="cp-metric-value">${summary.purchased}</span>
+            <span class="cp-metric-cap">from ${summary.purchasedLots} lot${summary.purchasedLots === 1 ? '' : 's'}</span>
+          </div>
+          <div class="cp-summary-stat">
+            <p class="cp-metric-label">Complimentary</p>
+            <span class="cp-metric-value">${summary.complimentary}</span>
+            <span class="cp-metric-cap">certification grant</span>
+          </div>
+        </section>
+        <p class="cp-enforce-note">Balances are for your reference — provisioning an assessment isn't blocked if you run out.</p>`;
+}
+
+// The whole history is embedded once; pagination is entirely client-side (coach-portal.js).
+// Desktop/tablet render a table (tablet drops UNIT PRICE via CSS); mobile renders cards.
+// Both are emitted from the same rows so they can't drift.
+function renderCreditHistory(rows) {
+  if (!rows.length) {
+    return `<section class="cp-card cp-history">
+          <h2 class="cp-card-title">Credit Purchase and Usage History</h2>
+          <p class="cp-empty cp-empty--left">No credit activity yet.</p>
+        </section>`;
+  }
+  const view = rows.map(cpHistoryRow);
+
+  const tableRows = view.map(v => `
+              <tr class="cp-hrow">
+                <td>${cpEsc(v.date)}</td>
+                <td>${cpEsc(v.description)}</td>
+                <td class="cp-num cp-col-unit">${cpEsc(v.unitPrice)}</td>
+                <td class="cp-num">${cpEsc(v.amountPaid)}</td>
+                <td class="cp-num"><span class="${v.deltaClass}">${cpEsc(v.delta)}</span></td>
+                <td class="cp-num cp-bal">${cpEsc(v.balance)}</td>
+              </tr>`).join('');
+
+  const cards = view.map(v => `
+            <div class="cp-hcard cp-hrow">
+              <div class="cp-hcard-top">
+                <span class="cp-hcard-date">${cpEsc(v.date)}</span>
+                <span class="${v.deltaClass}">${cpEsc(v.delta)}</span>
+              </div>
+              <div class="cp-hcard-desc">${cpEsc(v.description)}</div>
+              <div class="cp-hcard-foot">
+                <span class="cp-hcard-paid">${v.amountPaid === '—' ? '' : cpEsc(v.amountPaid)}</span>
+                <span class="cp-hcard-bal">Balance ${cpEsc(v.balance)}</span>
+              </div>
+            </div>`).join('');
+
+  return `<section class="cp-card cp-history" id="cp-history" data-total="${rows.length}">
+          <h2 class="cp-card-title">Credit Purchase and Usage History</h2>
+          <table class="cp-htable">
+            <thead>
+              <tr>
+                <th>Date</th><th>Description</th>
+                <th class="cp-num cp-col-unit">Unit Price</th>
+                <th class="cp-num">Amount Paid</th>
+                <th class="cp-num">Credits</th>
+                <th class="cp-num">Balance</th>
+              </tr>
+            </thead>
+            <tbody id="cp-htbody">${tableRows}
+            </tbody>
+          </table>
+          <div class="cp-hcards" id="cp-hcards">${cards}
+          </div>
+          <div class="cp-pager" id="cp-pager">
+            <span class="cp-pager-count" id="cp-pager-count"></span>
+            <div class="cp-pager-ctrls">
+              <button type="button" class="cp-pager-btn" data-page="first" aria-label="First page">&laquo;</button>
+              <button type="button" class="cp-pager-btn" data-page="prev" aria-label="Previous page">&lsaquo;</button>
+              <span class="cp-pager-ind" id="cp-pager-ind"></span>
+              <button type="button" class="cp-pager-btn" data-page="next" aria-label="Next page">&rsaquo;</button>
+              <button type="button" class="cp-pager-btn" data-page="last" aria-label="Last page">&raquo;</button>
+            </div>
+            <label class="cp-pager-size">Show: <select id="cp-pager-select"><option value="5">5</option><option value="10">10</option><option value="25">25</option></select></label>
+          </div>
+        </section>`;
+}
+
+function renderPurchaseModal(packages) {
+  const cards = packages.map((p, i) => {
+    const best = p.key === '50pack' ? `<span class="cp-best">Best value</span>` : '';
+    const disabledAttrs = p.available ? '' : 'disabled';
+    const disabledCls = p.available ? '' : ' cp-pkg--disabled';
+    const tooltip = p.available ? '' : ` title="${cpEsc(p.unavailableReason)}"`;
+    return `
+            <label class="cp-pkg${disabledCls}"${tooltip}>
+              <input type="radio" name="cp-pkg" value="${p.key}" data-total="${p.priceCents}" data-url="${cpEsc(p.checkoutUrl || '')}" ${disabledAttrs}>
+              <span class="cp-pkg-main">
+                <span class="cp-pkg-name">${cpEsc(p.label)}</span>
+                <span class="cp-pkg-unit">${cpMoney(p.perCreditCents)} / credit</span>
+              </span>
+              <span class="cp-pkg-right">${best}<span class="cp-pkg-total">${cpMoney(p.priceCents)}</span></span>
+            </label>`;
+  }).join('');
+
+  return `<div class="cp-modal-backdrop" id="cp-purchase-modal" hidden>
+          <div class="cp-modal" role="dialog" aria-modal="true" aria-labelledby="cp-purchase-title">
+            <span class="cp-sheet-handle" aria-hidden="true"></span>
+            <button type="button" class="cp-modal-close" id="cp-purchase-close" aria-label="Close">&times;</button>
+            <h2 class="cp-modal-title" id="cp-purchase-title">Purchase Credits</h2>
+            <p class="cp-eyebrow">Select a package</p>
+            <div class="cp-pkgs" id="cp-pkgs">${cards}
+            </div>
+            <div class="cp-modal-foot cp-purchase-foot">
+              <div class="cp-total-due">
+                <span class="cp-total-label">Total due</span>
+                <span class="cp-total-amount" id="cp-total-amount">—</span>
+              </div>
+              <button type="button" class="cp-btn cp-btn--primary" id="cp-checkout-btn" disabled>Continue to Checkout →</button>
+            </div>
+            <p class="cp-secured"><span aria-hidden="true">${CP_ICON_LOCK}</span> Checkout secured by ThriveCart</p>
+          </div>
+        </div>`;
+}
+
+function renderManageCredits({ coachName, credits, summary, history, packages, assessmentCost, banner }) {
+  const body = `<div class="cp-credits-page">
+        ${banner ? renderPurchaseBanner(banner) : ''}
+        <div class="cp-page-head">
+          <h1 class="cp-page-title">Manage Credits</h1>
+          <button type="button" class="cp-btn cp-btn--primary cp-purchase-cta" id="cp-open-purchase">Purchase Credits →</button>
+        </div>
+        ${renderCreditSummary(summary, assessmentCost)}
+        ${renderCreditHistory(history)}
+        </div>
+        ${renderPurchaseModal(packages)}`;
+
+  return renderCoachChrome({ activeNav: 'credits', creditsPill: credits, avatar: coachName, bodyHtml: body });
+}
+
+// GET /coach/credits — summary + history + purchase modal, banner on return from checkout.
+app.get('/coach/credits', requireCoach, requireOnboardingComplete, async (req, res) => {
+  res.set('Cache-Control', 'no-store');   // §7.4: balances must always be fresh (Tier 3)
+  const coachId = req.session.coach_id;
+
+  // ?purchase=success|failed|processing drives the banner. processing carries the order id
+  // so the poll knows what to watch. success/failed are terminal render states.
+  let banner = null;
+  const pstate = req.query.purchase;
+  if (pstate === 'success') banner = 'success';
+  else if (pstate === 'failed') banner = 'failed';
+  else if (pstate === 'processing') banner = { order: String(req.query.order || '') };
+
+  try {
+    const accountId = await db.getAccountByCoachId(coachId);
+    const summary = accountId
+      ? await db.getCreditSummary(accountId)
+      : { available: 0, purchased: 0, purchasedLots: 0, complimentary: 0 };
+    const history = accountId ? await db.getCreditHistory(accountId) : [];
+    const assessmentCost = await db.getCreditCost('standard_assessment').catch(() => null);
+    const credits = summary.available;
+
+    res.send(renderManageCredits({
+      coachName: req.session.coach_name,
+      credits, summary, history,
+      packages: getCreditPackages(),
+      assessmentCost, banner,
+    }));
+  } catch (e) {
+    console.error('[GET /coach/credits] failed:', e.message);
+    res.send(renderCoachChrome({
+      activeNav: 'credits', creditsPill: null, avatar: req.session.coach_name,
+      bodyHtml: `<h1 class="cp-page-title">Manage Credits</h1><section class="cp-card"><p class="cp-chart-msg">Your credits are temporarily unavailable. Please refresh in a moment.</p></section>`,
+    }));
+  }
+});
+
+// GET /coach/credits/purchase-status?order=<id> — the processing→success/failed poll.
+// Grounded in the lot's actual existence (the webhook writes purchase_reference=order_id),
+// account-scoped so it can't be used to probe other coaches' orders. The client polls this
+// at 3s intervals and gives up after ~90s (Failed) — the timeout lives in the client, so
+// this endpoint just answers "does the lot exist yet, for you?".
+app.get('/coach/credits/purchase-status', requireCoach, requireOnboardingComplete, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const order = String(req.query.order || '').trim();
+  if (!order) return res.status(400).json({ status: 'error', error: 'MISSING_ORDER' });
+  try {
+    const accountId = await db.getAccountByCoachId(req.session.coach_id);
+    if (!accountId) return res.json({ status: 'processing' });
+    const lot = await db.getPurchaseByReference(accountId, order);
+    return res.json({ status: lot ? 'complete' : 'processing' });
+  } catch (e) {
+    console.error('[GET /coach/credits/purchase-status] failed:', e.message);
+    return res.status(500).json({ status: 'error' });
   }
 });
 
