@@ -844,6 +844,7 @@ const CP_ICON_SEARCH   = CP_ICON('<circle cx="11" cy="11" r="7"/><line x1="20" y
 const CP_ICON_LOCK     = CP_ICON('<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>');
 const CP_ICON_DOWNLOAD = CP_ICON('<path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M4 20h16"/>');
 const CP_ICON_CHECK    = CP_ICON('<circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>');
+const CP_ICON_FILE     = CP_ICON('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/>');
 
 // Every route below that addresses a client by id funnels through this. A coach may only
 // ever see their own clients. Returns 404 (not 403) on someone else's client: a 403 would
@@ -1858,6 +1859,49 @@ app.get('/coach/credits/purchase-status', requireCoach, requireOnboardingComplet
   } catch (e) {
     console.error('[GET /coach/credits/purchase-status] failed:', e.message);
     return res.status(500).json({ status: 'error' });
+  }
+});
+
+// ── Coach Portal: My Reports foundation (self-assessment linkage prerequisite) ──
+// This PR builds the LINKAGE + the zero-state, not the full report UI (that's PR7 §7.5).
+// The route detects whether the coach has a linked completed self-assessment via the
+// identity link (clients.user_id = the coach's user_id), populated by the SEED_SQL backfill
+// and the coach-creation linkage above:
+//   0 linked reports → the honest zero-state (unlinked, or not yet taken).
+//   ≥1 linked        → an interim "your report is on its way" card until PR7 builds the
+//                      full report view. Flagged in the PR report as an interim state.
+function renderMyReportsZeroState(coachName, hasLinkedReport, credits) {
+  const body = hasLinkedReport
+    ? `<section class="cp-card cp-reports-empty">
+          <span class="cp-reports-icon" aria-hidden="true">${CP_ICON_CHECK}</span>
+          <h2 class="cp-reports-title">Your report is connected</h2>
+          <p class="cp-reports-body">We've found your completed assessment and linked it to your account.
+             The full report view is coming soon — check back shortly.</p>
+        </section>`
+    : `<section class="cp-card cp-reports-empty">
+          <span class="cp-reports-icon cp-reports-icon--muted" aria-hidden="true">${CP_ICON_FILE}</span>
+          <h2 class="cp-reports-title">No report yet</h2>
+          <p class="cp-reports-body">If you completed an Enneagram assessment before becoming a coach, it
+             isn't connected to your account yet — contact Hive at
+             <a href="mailto:support@insightoutenneagram.com">support@insightoutenneagram.com</a> and we'll
+             link it. Otherwise, your report will appear here once you've completed your assessment.</p>
+        </section>`;
+  return renderCoachChrome({
+    activeNav: 'reports', creditsPill: credits, avatar: coachName,
+    bodyHtml: `<h1 class="cp-page-title">My Reports</h1>${body}`,
+  });
+}
+
+app.get('/coach/reports', requireCoach, requireOnboardingComplete, async (req, res) => {
+  res.set('Cache-Control', 'no-store');   // per-coach, private (Tier 3, §12.3)
+  const credits = await getCoachCreditBalance(req.session.coach_id).catch(() => null);
+  try {
+    const count = await db.getCoachSelfCompletedAssessmentCount(req.session.user_id);
+    res.send(renderMyReportsZeroState(req.session.coach_name, count > 0, credits));
+  } catch (e) {
+    console.error('[GET /coach/reports] failed:', e.message);
+    // On a read failure, show the neutral not-yet-connected state rather than crash.
+    res.send(renderMyReportsZeroState(req.session.coach_name, false, credits));
   }
 });
 
@@ -10591,6 +10635,11 @@ app.post('/admin/coaches/new', requireAdmin, async (req, res) => {
     const newUserId = await auth.createUserWithRoles(cleanEmail, passwordHash, ['client', 'coach']);
     if (newUserId) {
       await db.query('UPDATE coaches SET user_id = $1 WHERE id = $2', [newUserId, newId]);
+      // Link any pre-coach client record (their own self-assessment) to the new user.
+      try {
+        const linked = await db.linkClientRecordsToUser(newUserId, cleanEmail);
+        if (linked) console.log(`[admin/coaches/new] linked ${linked} client record(s) to new coach user ${newUserId}`);
+      } catch (e) { console.error('[admin/coaches/new] client linkage failed:', e.message); }
       // Send the onboarding password-set email — identical path to the webhook coach.
       try {
         const rawToken = await auth.generateResetToken(newUserId);
@@ -10664,6 +10713,11 @@ app.post('/admin/coaches/provision', async (req, res) => {
       const newUserId = await auth.createUserWithRoles(customerEmail, hashedPassword, ['client', 'coach']);
       if (newUserId) {
         await db.query('UPDATE coaches SET user_id = $1 WHERE id = $2', [newUserId, newCoachId]);
+        // Link any pre-coach client record (their own self-assessment) to the new user.
+        try {
+          const linked = await db.linkClientRecordsToUser(newUserId, customerEmail);
+          if (linked) console.log(`[thrivecart] linked ${linked} client record(s) to new coach user ${newUserId}`);
+        } catch (e) { console.error('[thrivecart] client linkage failed:', e.message); }
         // Send a password-reset email so the coach sets their own password (the temp one is
         // never shared). Mirrors the forgot-password flow.
         try {
