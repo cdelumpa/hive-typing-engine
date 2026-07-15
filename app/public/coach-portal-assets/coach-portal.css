@@ -843,6 +843,18 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-secured { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; color: var(--color-text-muted); margin: 14px 0 0; }
 .cp-secured svg { width: 13px; height: 13px; }
 
+/* ══ My Reports — zero / interim state (linkage prerequisite PR) ══════════ */
+.cp-reports-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 12px; padding: 48px 24px; max-width: 520px; margin: 0 auto;
+}
+.cp-reports-icon { color: var(--color-success); display: inline-flex; }
+.cp-reports-icon svg { width: 40px; height: 40px; }
+.cp-reports-icon--muted { color: var(--color-text-muted); }
+.cp-reports-title { font-family: var(--font-heading); font-size: 20px; font-weight: bold; color: var(--color-text-heading); margin: 0; }
+.cp-reports-body { font-size: 14px; color: var(--color-text-muted); line-height: 1.6; margin: 0; }
+.cp-reports-body a { color: var(--color-primary); }
+
 /* ── §3.4 Breakpoints ───────────────────────────────────────────────────── */
 /* Tablet. PR1 collapsed the rail to a 64px strip with font-size:0 labels, on the
    assumption an icon set would land later. It hasn't, so that rule rendered a blank dark

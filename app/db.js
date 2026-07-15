@@ -1007,6 +1007,22 @@ AND NOT EXISTS (
   WHERE ur.user_id = u.id AND ur.role_id = r.id
 );
 
+-- 6) Coach self-assessment linkage: backfill clients.user_id by email so a coach's
+--    pre-coach client record (their OWN self-assessment, taken as a client before they
+--    became a coach) connects to their account. This is the IAA-correct link —
+--    clients.user_id is designed to point at the assessment-taker's user (§ "Only
+--    coaches.user_id and clients.user_id point outward at users"), but it was never
+--    populated. General email→user match, not coach-scoped: any client whose email matches
+--    a user gets linked, which is exactly what clients.user_id is meant to hold.
+--    Idempotent (user_id IS NULL guard) and self-healing on every boot — so a coach
+--    onboarded before their client record existed still links on a later boot. Verified
+--    unambiguous against production: no client email maps to more than one user.
+UPDATE clients
+SET user_id = users.id
+FROM users
+WHERE lower(clients.email) = lower(users.email)
+AND clients.user_id IS NULL;
+
 -- ═══ Provisioning & Commerce v1.0 — PR3: seed data ══════════════════════════════
 -- Runs on every boot after all DDL. Idempotent (ON CONFLICT DO NOTHING / WHERE NOT
 -- EXISTS) so re-runs never duplicate. Depends on PR1 tables + the coaches seed above.
@@ -2061,6 +2077,44 @@ async function getClientByEmail(email) {
     [email]
   );
   return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// ── Coach self-assessment linkage ────────────────────────────────────────────────
+// Connect a newly-created user to any pre-existing client record(s) sharing its email, so
+// a coach's pre-coach self-assessment (taken as a client) links to their account. The
+// SEED_SQL backfill handles existing rows on every boot; this covers the moment a NEW coach
+// is created, so a coach onboarded today whose client record already exists links
+// immediately rather than waiting for the next boot.
+//
+// Guarded by `user_id IS NULL` — it never re-links an already-linked row, so it can't steal
+// a client that some other user already owns. Returns how many rows it linked.
+async function linkClientRecordsToUser(userId, email) {
+  if (!userId || !email) return 0;
+  const r = await query(
+    'UPDATE clients SET user_id = $1 WHERE LOWER(email) = LOWER($2) AND user_id IS NULL RETURNING id',
+    [userId, email]
+  );
+  return r ? r.rowCount : 0;
+}
+
+// Count a coach's OWN completed self-assessments, via the identity link (clients.user_id =
+// the coach's user_id), excluding soft-deleted/tombstoned rows. Drives the /coach/reports
+// zero-state vs. has-report branch. 0 → the coach has no linked report (unlinked, or not yet
+// taken); the honest empty state renders.
+async function getCoachSelfCompletedAssessmentCount(userId) {
+  if (!userId) return 0;
+  const r = await query(
+    `SELECT COUNT(*)::int AS n
+       FROM assessments a
+       JOIN clients c ON c.id = a.client_id
+      WHERE c.user_id = $1
+        AND a.status = 'complete'
+        AND a.deleted_at IS NULL
+        AND a.permanently_deleted IS NOT TRUE`,
+    [userId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows[0].n;
 }
 
 // ── Ownership gate for client-by-email resolution (PR5-security) ─────────────────
@@ -3665,6 +3719,8 @@ module.exports = {
   getClientById,
   getClientByEmail,
   resolveClientForCoach,   // PR5-security — ownership gate before any createClient upsert
+  linkClientRecordsToUser,              // coach self-assessment linkage
+  getCoachSelfCompletedAssessmentCount, // coach self-assessment linkage
   createClientToken,
   getTokenWithClient,
   updateTokenUsedAt,
