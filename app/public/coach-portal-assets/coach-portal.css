@@ -777,18 +777,31 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-enforce-note { font-size: 11px; color: var(--color-text-muted); font-style: italic; margin: -12px 0 24px; text-align: center; }
 
 /* History table */
+/* Space between the card title and the column-header row (was cramped). */
+.cp-history .cp-card-title { margin-bottom: 18px; }
+
 .cp-htable { width: 100%; border-collapse: collapse; }
+/* Column separation comes from LEFT padding (not right), so every column — including
+   adjacent right-aligned numeric ones — has a real gap between it and the one before.
+   The old `padding-right:0 !important` on numerics collapsed that gap and ran CREDITS
+   and BALANCE together. First column sits flush-left. */
+.cp-htable th, .cp-htable td { padding-left: 20px; }
+.cp-htable th:first-child, .cp-htable td:first-child { padding-left: 0; }
 .cp-htable th {
   text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--color-text-muted);
-  padding: 0 12px 10px 0; border-bottom: 1px solid var(--color-border);
+  padding-top: 0; padding-bottom: 10px; border-bottom: 1px solid var(--color-border);
 }
-.cp-htable td { padding: 12px 12px 12px 0; border-bottom: 1px solid var(--color-border); font-size: 13px; color: var(--color-text-body); }
+.cp-htable td { padding-top: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); font-size: 13px; color: var(--color-text-body); }
 .cp-htable tr:last-child td { border-bottom: none; }
-.cp-num { text-align: right; padding-right: 0 !important; }
-.cp-htable th.cp-num { padding-right: 0; }
+/* Numeric columns right-align — HEADER and cell both (headers were left-aligned; the mock
+   right-aligns them over their right-aligned numbers). Explicit th/td selectors so they
+   out-specify `.cp-htable th { text-align:left }`. */
+.cp-htable th.cp-num, .cp-htable td.cp-num, .cp-num { text-align: right; }
 .cp-bal { font-weight: 700; color: var(--color-text-heading); }
-.cp-delta { font-weight: 600; color: var(--color-text-heading); }
+/* Debits red, credits green — distinct at a glance, not just by the sign (Cai, live review;
+   overrides the addendum's original black). */
+.cp-delta { font-weight: 600; color: var(--color-error); }
 .cp-delta--pos { color: var(--color-success); }
 .cp-hcards { display: none; }
 
