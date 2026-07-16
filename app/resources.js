@@ -71,7 +71,7 @@ async function getPublishedResourceBody(id) {
 /** Full admin list — published AND drafts, newest first. */
 async function listResourcesAdmin() {
   const r = await db.query(
-    `SELECT id, title, description_short, category, content_type, url, is_featured,
+    `SELECT id, title, description_short, category, content_type, url, thumbnail_url, is_featured,
             published_at, created_at, updated_at
        FROM resources
       ORDER BY (published_at IS NULL) DESC, updated_at DESC, id DESC`
@@ -90,11 +90,67 @@ async function getResourceById(id) {
 const FIELDS = ['title', 'description_short', 'description_long', 'category', 'content_type',
   'url', 'body_rich_text', 'thumbnail_url'];
 
+// ── Save-time URL normalization (PR8 follow-up) ────────────────────────────────────
+// Resolves Vimeo URLs to a canonical player embed + thumbnail via oEmbed, and derives a Drive
+// thumbnail from the file id. Runs at the admin save boundary (create/update), NOT at render:
+// a Vimeo "vanity" URL (vimeo.com/user/slug) has no id for a regex to find, so it MUST be
+// resolved through oEmbed. A resolution failure throws, which the admin route surfaces as a
+// save error rather than silently storing an unembeddable URL.
+
+function driveFileId(url) {
+  const m = String(url || '').match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/);
+  return m ? m[1] : null;
+}
+
+// Vimeo oEmbed (public, no auth). Returns { embedUrl, thumbnailUrl }; throws on any failure.
+async function resolveVimeoMeta(originalUrl) {
+  const endpoint = 'https://vimeo.com/api/oembed.json?url=' + encodeURIComponent(originalUrl);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 7000);
+  let res;
+  try {
+    res = await fetch(endpoint, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
+  } catch {
+    throw new Error('Could not reach Vimeo to verify this video URL. Check the link and try again.');
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    // 404 = no such video; 403 = private/not embeddable. Either way, reject the save.
+    throw new Error(`Vimeo could not resolve this URL (HTTP ${res.status}). Make sure it is a valid, embeddable Vimeo video (not private).`);
+  }
+  const j = await res.json();
+  if (!j || !j.video_id) throw new Error('Vimeo returned an unexpected response for this URL.');
+  // uri is "/videos/ID" (public) or "/videos/ID:HASH" (unlisted). Build the player URL from
+  // the authoritative video_id + that hash rather than the &amp;-encoded html src.
+  const hash = (String(j.uri || '').match(/:([0-9A-Za-z]+)/) || [])[1];
+  return {
+    embedUrl: 'https://player.vimeo.com/video/' + j.video_id + (hash ? '?h=' + hash : ''),
+    thumbnailUrl: j.thumbnail_url || null,
+  };
+}
+
+// Mutates and returns `fields`. Only fills thumbnail_url when the admin left it blank — an
+// admin-entered thumbnail always wins and is never overwritten.
+async function normalizeResourceFields(fields) {
+  if (fields.content_type === 'video' && fields.url && !/player\.vimeo\.com/.test(fields.url)) {
+    const meta = await resolveVimeoMeta(fields.url);   // throws → surfaced as a save error
+    fields.url = meta.embedUrl;
+    if (!fields.thumbnail_url && meta.thumbnailUrl) fields.thumbnail_url = meta.thumbnailUrl;
+  }
+  if (['pdf', 'client_report', 'coach_report'].includes(fields.content_type) && !fields.thumbnail_url) {
+    const id = driveFileId(fields.url);   // Drive only; Dropbox has no reliable public thumbnail
+    if (id) fields.thumbnail_url = 'https://drive.google.com/thumbnail?id=' + id + '&sz=w1000';
+  }
+  return fields;
+}
+
 /**
  * Create a resource. If featured, unsets any other featured row in the SAME transaction so the
  * partial unique index (resources_one_featured) is never violated. Returns the new id.
  */
 async function createResource(fields, createdBy) {
+  await normalizeResourceFields(fields);   // resolve Vimeo embed + auto-thumbnail (throws on bad video URL)
   const featured = fields.is_featured === true;
   const cols = FIELDS.filter(f => fields[f] !== undefined);
   const vals = cols.map(f => fields[f]);
@@ -125,6 +181,7 @@ async function createResource(fields, createdBy) {
  * the DB trigger.
  */
 async function updateResource(id, fields) {
+  await normalizeResourceFields(fields);   // resolve Vimeo embed + auto-thumbnail (throws on bad video URL)
   const featured = fields.is_featured === true;
   const cols = FIELDS.filter(f => fields[f] !== undefined);
   const client = await db.pool.connect();

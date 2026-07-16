@@ -2260,6 +2260,11 @@ function toEmbedUrl(url, family) {
   if (!url) return '';
   try {
     if (family === 'video') {
+      // Videos are resolved to a canonical player URL at SAVE time via Vimeo oEmbed (handles
+      // vanity URLs a regex can't). Already-resolved player URLs pass through untouched — the
+      // regex below would strip their ?h= hash. The regex path is only a fallback for any
+      // legacy/unresolved row.
+      if (/player\.vimeo\.com/.test(url)) return url;
       const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)(?:\/([0-9a-z]+))?/i);
       return m ? `https://player.vimeo.com/video/${m[1]}${m[2] ? `?h=${m[2]}` : ''}` : url;
     }
@@ -2275,8 +2280,26 @@ function resourceBadgeHtml(contentType) {
   return `<span class="cp-res-badge cp-res-badge--${t.badge}">${RESOURCE_BADGE_ICON[t.badge] || ''}${cpEsc(t.label.toUpperCase())}</span>`;
 }
 
+// Media placeholder icon by family (shown behind the thumbnail; revealed if the thumb fails
+// or is absent). Video → play-circle, everything else → file-text.
+function resourceMediaIcon(family) {
+  return family === 'video'
+    ? CP_ICON('<circle cx="12" cy="12" r="9"/><path d="m10 9 5 3-5 3Z"/>')
+    : CP_ICON('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/>');
+}
+// Auto-thumbnail <img> (PR8 follow-up): Vimeo oEmbed thumb (videos) or Drive thumbnail-pattern
+// (Drive PDFs), filled at save. onerror removes the img → the icon placeholder behind it shows,
+// since the Drive endpoint is best-effort, not a guaranteed API.
+function resourceThumbImg(r) {
+  return r.thumbnail_url
+    ? `<img src="${cpEsc(r.thumbnail_url)}" alt="" loading="lazy" onerror="this.remove()">`
+    : '';
+}
+
 // One grid/row card. Carries what the client modal needs in data-* so opening a pdf/video
-// modal needs no fetch (Written bodies still lazy-load via /:id/body).
+// modal needs no fetch (Written bodies still lazy-load via /:id/body). Card now leads with a
+// 16:9 media area (thumbnail or icon) — a deliberate deviation from the locked §7.6 card
+// anatomy (which had no image), confirmed with Cai.
 function renderResourceCard(r) {
   const t = RESOURCE_TYPES[r.content_type] || RESOURCE_TYPES.pdf;
   const embed = t.family === 'written' ? '' : toEmbedUrl(r.url, t.family);
@@ -2286,6 +2309,7 @@ function renderResourceCard(r) {
       data-id="${r.id}" data-type="${cpEsc(r.content_type)}" data-family="${t.family}"
       data-title="${cpEsc(r.title)}" data-subtitle="${cpEsc(r.description_long || r.description_short || '')}"
       data-url="${cpEsc(r.url || '')}" data-embed="${cpEsc(embed)}">
+    <div class="cp-res-card-media">${resourceMediaIcon(t.family)}${resourceThumbImg(r)}</div>
     ${resourceBadgeHtml(r.content_type)}
     <h3 class="cp-res-card-title">${cpEsc(r.title)}</h3>
     <p class="cp-res-card-desc">${cpEsc(r.description_short)}</p>
@@ -2313,7 +2337,7 @@ function renderResourceFeatured(r) {
       <p class="cp-res-feat-desc">${cpEsc(r.description_long || r.description_short)}</p>
       <button type="button" class="cp-res-feat-cta">${cpEsc(ctaLabel)}</button>
     </div>
-    <div class="cp-res-feat-media cp-res-feat-media--${t.family}">${media}</div>
+    <div class="cp-res-feat-media cp-res-feat-media--${t.family}">${resourceThumbImg(r)}${media}</div>
   </section>`;
 }
 
@@ -10994,7 +11018,11 @@ function renderAdminResourcesPage(list, editing, toast) {
     const pubBtn = r.published_at
       ? `<button class="mini" formaction="/admin/resources/${r.id}/unpublish">Unpublish</button>`
       : `<button class="mini pub-btn" formaction="/admin/resources/${r.id}/publish">Publish</button>`;
+    const thumb = r.thumbnail_url
+      ? `<img class="thumb" src="${esc(r.thumbnail_url)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'thumb thumb--none'}))">`
+      : '<span class="thumb thumb--none"></span>';
     return `<tr>
+      <td>${thumb}</td>
       <td>${esc(r.title)}${feat}</td>
       <td>${esc(r.category)}</td>
       <td>${esc(r.content_type)}</td>
@@ -11024,6 +11052,8 @@ function renderAdminResourcesPage(list, editing, toast) {
   th { background: #FBFAF7; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #7A8A92; }
   td.empty { color: #7A8A92; text-align: center; padding: 20px; }
   td.act { white-space: nowrap; }
+  .thumb { display: inline-block; width: 56px; height: 32px; object-fit: cover; border-radius: 3px; vertical-align: middle; }
+  .thumb--none { background: #EFE8E0; }
   .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.04em; }
   .badge.pub { background: #e6f7ee; color: #1a7a4a; }
   .badge.draft { background: #fef6e0; color: #9a6a00; }
@@ -11050,7 +11080,7 @@ function renderAdminResourcesPage(list, editing, toast) {
   <div class="container">
     ${toast ? `<div class="toast${toast.err ? ' err' : ''}">${esc(toast.msg)}</div>` : ''}
     <table>
-      <thead><tr><th>Title</th><th>Category</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+      <thead><tr><th></th><th>Title</th><th>Category</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
 
