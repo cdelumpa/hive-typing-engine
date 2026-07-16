@@ -773,4 +773,74 @@
 
     render();
   }
+
+  /* ══ My Reports (§7.5, PR7) ═══════════════════════════════════════════════ */
+
+  /* Report selector — open/close the list; a row is a normal link that reloads ?report=. */
+  var rselToggle = $('cp-rsel-toggle');
+  var rselList = $('cp-rsel-list');
+  if (rselToggle && rselList) {
+    var setRsel = function (open) {
+      rselList.hidden = !open;
+      rselToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    rselToggle.addEventListener('click', function (e) { e.stopPropagation(); setRsel(rselList.hidden); });
+    document.addEventListener('click', function (e) { if (!rselList.hidden && !rselList.contains(e.target) && e.target !== rselToggle) setRsel(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !rselList.hidden) setRsel(false); });
+  }
+
+  /* Detail sections — three interaction models sharing ONE content source (server-rendered).
+     - Desktop "More →" (.cp-more): always opens the modal.
+     - Tablet/mobile row (.cp-sec-rowbtn): tablet opens the modal; mobile expands inline.
+     The modal markup and the inline-body markup both exist in the DOM; JS only chooses. */
+  var isMobileReports = function () { return window.matchMedia('(max-width: 767px)').matches; };
+
+  function openSecModal(key) {
+    var m = $('cp-secmodal-' + key);
+    if (!m) return;
+    m.hidden = false;
+    document.body.classList.add('cp-noscroll');
+  }
+  function closeSecModals() {
+    [].forEach.call(document.querySelectorAll('.cp-sec-modal'), function (m) { m.hidden = true; });
+    document.body.classList.remove('cp-noscroll');
+  }
+  [].forEach.call(document.querySelectorAll('.cp-more'), function (btn) {
+    btn.addEventListener('click', function () { openSecModal(btn.dataset.sec); });
+  });
+  [].forEach.call(document.querySelectorAll('.cp-sec-rowbtn'), function (btn) {
+    btn.addEventListener('click', function () {
+      if (isMobileReports()) {
+        // Inline expand — push the following rows down, don't overlay.
+        var item = btn.closest('.cp-sec-item');
+        var body = item.querySelector('.cp-sec-inlinebody');
+        var open = body.hidden;
+        body.hidden = !open;
+        item.classList.toggle('cp-sec-item--open', open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      } else {
+        openSecModal(btn.dataset.sec);
+      }
+    });
+  });
+  [].forEach.call(document.querySelectorAll('.cp-sec-modal'), function (m) {
+    var closeBtn = m.querySelector('.cp-sec-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeSecModals);
+    m.addEventListener('click', function (e) { if (e.target === m) closeSecModals(); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && document.querySelector('.cp-sec-modal:not([hidden])')) closeSecModals();
+  });
+
+  /* Mobile bar-chart More↓/Less↑ toggle — charts start collapsed on mobile (mockup). */
+  var charts = $('cp-report-charts');
+  var chartsToggle = $('cp-charts-toggle');
+  if (charts && chartsToggle) {
+    if (isMobileReports()) charts.classList.add('cp-charts--collapsed');
+    chartsToggle.textContent = charts.classList.contains('cp-charts--collapsed') ? 'More ↓' : 'Less ↑';
+    chartsToggle.addEventListener('click', function () {
+      var collapsed = charts.classList.toggle('cp-charts--collapsed');
+      chartsToggle.textContent = collapsed ? 'More ↓' : 'Less ↑';
+    });
+  }
 })();

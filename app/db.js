@@ -2117,6 +2117,69 @@ async function getCoachSelfCompletedAssessmentCount(userId) {
   return r.rows[0].n;
 }
 
+// The coach's own completed self-assessments for the report selector (§7.5), newest first.
+// One row per assessment: id, completed date, and the resulting type (so the dropdown can
+// show "Jul 15, 2026 · Type 8" and flag when a retake changed the reading). Scoped by the
+// identity link, never by a coach's actual clients.
+async function getCoachSelfAssessments(userId) {
+  if (!userId) return [];
+  const r = await query(
+    `SELECT a.id,
+            COALESCE(a.completed_at, a.created_at) AS completed_at,
+            a.confirmed_type
+       FROM assessments a
+       JOIN clients c ON c.id = a.client_id
+      WHERE c.user_id = $1
+        AND a.status = 'complete'
+        AND a.deleted_at IS NULL
+        AND a.permanently_deleted IS NOT TRUE
+      ORDER BY COALESCE(a.completed_at, a.created_at) DESC, a.id DESC`,
+    [userId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows;
+}
+
+// One self-assessment's full render payload, OWNERSHIP-SCOPED to the requesting user via
+// clients.user_id. Returns null if the assessment isn't a completed self-assessment
+// belonging to this user — so a coach can never render another person's report by guessing
+// an id. Carries the client-identity fields the report's synthetic-client adapter needs.
+async function getCoachSelfAssessmentForReport(userId, assessmentId) {
+  if (!userId || !assessmentId) return null;
+  const r = await query(
+    `SELECT a.id, a.api_result, a.scores_snapshot, a.confirmed_type, a.confidence_level,
+            COALESCE(a.completed_at, a.created_at) AS completed_at,
+            c.first_name, c.last_name, c.email, c.organization
+       FROM assessments a
+       JOIN clients c ON c.id = a.client_id
+      WHERE a.id = $1
+        AND c.user_id = $2
+        AND a.status = 'complete'
+        AND a.deleted_at IS NULL
+        AND a.permanently_deleted IS NOT TRUE
+      LIMIT 1`,
+    [assessmentId, userId]
+  );
+  if (!r) throw new Error('DB_ERROR');
+  return r.rows.length ? r.rows[0] : null;
+}
+
+// The generated report PDFs (client + coach) for one assessment, for the download links.
+// Existence on disk is checked by the caller (the file may have been purged); this just
+// returns the stored paths by report_type.
+async function getAssessmentReportPaths(assessmentId) {
+  const r = await query(
+    `SELECT report_type, pdf_path FROM reports
+      WHERE assessment_id = $1 AND report_type IN ('client','coach')
+      ORDER BY created_at DESC, id DESC`,
+    [assessmentId]
+  );
+  if (!r) return {};
+  const out = {};
+  for (const row of r.rows) { if (!out[row.report_type]) out[row.report_type] = row.pdf_path; }
+  return out;
+}
+
 // ── Ownership gate for client-by-email resolution (PR5-security) ─────────────────
 // createClient() upserts on clients_email_key, which is UNIQUE across EVERY coach — so an
 // ON CONFLICT means *someone* already owns that email, and createClient returns their row
@@ -3721,6 +3784,9 @@ module.exports = {
   resolveClientForCoach,   // PR5-security — ownership gate before any createClient upsert
   linkClientRecordsToUser,              // coach self-assessment linkage
   getCoachSelfCompletedAssessmentCount, // coach self-assessment linkage
+  getCoachSelfAssessments,
+  getCoachSelfAssessmentForReport,
+  getAssessmentReportPaths,
   createClientToken,
   getTokenWithClient,
   updateTokenUsedAt,
