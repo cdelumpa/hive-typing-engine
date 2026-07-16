@@ -27,7 +27,8 @@ if (process.env.SENDGRID_API_KEY) {
 }
 
 // Load renderer and type library
-const { buildCoachPdfOptions, HIVE_LOGO_SVG, buildClientReportHTML, betaReportBodyHtml } = require('./renderer');
+const { buildCoachPdfOptions, HIVE_LOGO_SVG, buildClientReportHTML, betaReportBodyHtml,
+        buildEnneagramSVG, CENTER_COLORS } = require('./renderer');
 const { renderClientReport, renderCoachReport } = require('./render_report');
 const { buildBetaData, BETA_QUESTION_TEXT } = require('./generate_report');
 const reportPrep = require('./report_prep');          // buildClientModel — for /admin/content preview
@@ -1892,16 +1893,313 @@ function renderMyReportsZeroState(coachName, hasLinkedReport, credits) {
   });
 }
 
+// ── PR7: the full My Reports view (§7.5) ────────────────────────────────────────
+// Renders the coach's OWN report from their linked self-assessment. Content is assembled
+// by reportPrep.buildClientModel (the same model the client-facing PDF uses), so type
+// names, subtype text, wings/lines, strengths/challenges/practices, and confidence all
+// come from one authoritative place. The wheel + bar charts are rendered here from that
+// model's data; the four detail sections drive three interaction patterns from ONE content
+// array so desktop/tablet/mobile can't diverge.
+
+const CP_TYPE_TITLES = {
+  1: 'The Improver', 2: 'The Giver', 3: 'The Performer', 4: 'The Individualist',
+  5: 'The Observer', 6: 'The Questioner', 7: 'The Enthusiast', 8: 'The Protector', 9: 'The Peacemaker',
+};
+const CP_CENTER_LABEL = { Gut: 'Gut Center', Heart: 'Heart Center', Head: 'Head Center' };
+
+// One paragraph, trimmed to a lead for the desktop inline / collapsed-row preview. The full
+// text lives in the modal / inline-expand, so this is only ever a teaser.
+function cpLead(text, max = 240) {
+  const s = String(text || '').trim();
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const lastStop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+  return (lastStop > 120 ? cut.slice(0, lastStop + 1) : cut.trimEnd() + '…');
+}
+
+// Portal-native horizontal bars (mockup §"Relative Type Pattern Strength"). Deliberately
+// NOT renderer.js's renderTypeStrengthChart: that rounds to integers and colours every bar
+// by centre, while the mockup shows one decimal and highlights only the identified type
+// (saturated) against muted others. The DATA still comes from the engine
+// (call1_ranking / instinct_score_profile) — no recomputation.
+function renderStrengthBars(rows, highlightKey, palette) {
+  const max = Math.max(1, ...rows.map(r => r.score));
+  return `<div class="cp-bars">` + rows.map(r => {
+    const on = String(r.key) === String(highlightKey);
+    const pct = Math.max(2, (r.score / max) * 100);
+    return `<div class="cp-bar-row">
+              <span class="cp-bar-label">${cpEsc(r.label)}</span>
+              <span class="cp-bar-track"><span class="cp-bar-fill ${on ? palette + '--on' : palette + '--off'}" style="width:${pct.toFixed(1)}%"></span></span>
+              <span class="cp-bar-val">${r.score.toFixed(1)}</span>
+            </div>`;
+  }).join('') + `</div>`;
+}
+
+// The report selector (net-new control). Closed: most recent + "(Most recent)" tag. Open:
+// every self-assessment by date + resulting type, selecting one reloads via ?report=<id>.
+// One report → inert (no chevron), per §7.5, so the layout doesn't shift by report count.
+function renderReportSelector(assessments, selectedId) {
+  const fmt = (a) => cpDate(a.completed_at) || '—';
+  const typeOf = (a) => a.confirmed_type ? `Type ${a.confirmed_type}` : '—';
+  const selected = assessments.find(a => a.id === selectedId) || assessments[0];
+  const isMostRecent = selected.id === assessments[0].id;
+  const single = assessments.length === 1;
+
+  const rows = assessments.map(a => {
+    const on = a.id === selected.id;
+    return `<a class="cp-rsel-row${on ? ' cp-rsel-row--on' : ''}" href="/coach/reports?report=${a.id}" role="option" aria-selected="${on}">
+              <span class="cp-rsel-date">${cpEsc(fmt(a))}</span>
+              <span class="cp-rsel-type">${cpEsc(typeOf(a))}</span>
+              ${a.id === assessments[0].id ? '<span class="cp-rsel-recent">Most recent</span>' : ''}
+            </a>`;
+  }).join('');
+
+  return `<div class="cp-rsel${single ? ' cp-rsel--single' : ''}" id="cp-rsel">
+          <button type="button" class="cp-rsel-toggle" id="cp-rsel-toggle" aria-haspopup="listbox" aria-expanded="false"${single ? ' disabled' : ''}>
+            <span class="cp-rsel-icon" aria-hidden="true">${CP_ICON_FILE}</span>
+            <span class="cp-rsel-current">${cpEsc(fmt(selected))}${isMostRecent ? ' <span class="cp-rsel-tag">(Most recent)</span>' : ''}</span>
+            ${single ? '' : '<span class="cp-rsel-chev" aria-hidden="true">▾</span>'}
+          </button>
+          ${single ? '' : `<div class="cp-rsel-list" id="cp-rsel-list" role="listbox" hidden>${rows}</div>`}
+        </div>`;
+}
+
+// Assemble the four detail sections ONCE. Each carries: label, modal title/subtitle/tagline,
+// a general paragraph, an optional personalized "IN YOUR RESPONSES" paragraph, and (subtype
+// only) instinct badges. Desktop renders lead+More→, tablet a tappable row, both opening the
+// same modal; mobile renders the row with inline-expand — all from this array.
+function buildReportSections(model, apiResult) {
+  const cf = apiResult.client_facing || {};
+  const p = model.pages;
+  const sub = p.instinct_subtype.subtype;
+  const stack = p.instinct_subtype.instinct_stack || [];
+  const wingsText = [p.wings_lines.wing_low, p.wings_lines.wing_high]
+    .map(w => `${w.name}: ${w.body}`).filter(Boolean).join('\n\n');
+  const linesText = [
+    p.wings_lines.line_stress && `Under stress (${p.wings_lines.line_stress.name}): ${p.wings_lines.line_stress.body}`,
+    p.wings_lines.line_security && `In security (${p.wings_lines.line_security.name}): ${p.wings_lines.line_security.body}`,
+  ].filter(Boolean).join('\n\n');
+
+  return [
+    {
+      key: 'responses', label: 'What Your Responses Revealed',
+      title: 'What Your Responses Revealed', subtitle: model.display.subtype_label, tagline: sub.tagline,
+      general: cf.client_narrative || cf.core_motivation_evidence || 'Your responses are the basis for the type reading shown here.',
+      personal: cf.core_motivation_evidence || null,
+    },
+    {
+      key: 'subtype', label: 'Your Subtype',
+      title: 'Your Subtype', subtitle: `${model.display.instinct_code}${model.hero.number} · ${model.display.subtype_label}`, tagline: sub.tagline,
+      general: sub.narrative,
+      personal: (p.instinct_subtype.instinct_evidence && (Array.isArray(p.instinct_subtype.instinct_evidence) ? p.instinct_subtype.instinct_evidence.join(' ') : p.instinct_subtype.instinct_evidence)) || null,
+      badges: stack.map(s => ({ code: s.code || s.label, pct: Math.round(s.score ?? s.pct ?? 0) })),
+    },
+    {
+      key: 'wings', label: 'Your Wings',
+      title: 'Your Wings', subtitle: `Wings: ${p.wings_lines.wing_low.name} / ${p.wings_lines.wing_high.name}`, tagline: null,
+      general: wingsText,
+      personal: null,
+    },
+    {
+      key: 'stress', label: 'Your Stress & Security Points',
+      title: 'Your Stress & Security Points',
+      subtitle: `${p.wings_lines.line_stress.name} · ${p.wings_lines.line_security.name}`, tagline: null,
+      general: linesText,
+      personal: [cf.stress_point_narrative, cf.security_point_narrative].filter(Boolean).join('\n\n') || null,
+    },
+  ];
+}
+
+function renderSectionModals(sections) {
+  return sections.map(s => `
+        <div class="cp-modal-backdrop cp-sec-modal" id="cp-secmodal-${s.key}" hidden>
+          <div class="cp-modal cp-modal--report" role="dialog" aria-modal="true" aria-labelledby="cp-secmodal-t-${s.key}">
+            <span class="cp-sheet-handle" aria-hidden="true"></span>
+            <button type="button" class="cp-modal-close cp-sec-close" aria-label="Close">&times;</button>
+            <h2 class="cp-modal-title" id="cp-secmodal-t-${s.key}">${cpEsc(s.title)}</h2>
+            ${s.subtitle ? `<p class="cp-sec-sub">${cpEsc(s.subtitle)}</p>` : ''}
+            ${s.tagline ? `<p class="cp-sec-tagline">${cpEsc(s.tagline)}</p>` : ''}
+            ${(s.general || '').split('\n\n').filter(Boolean).map(par => `<p class="cp-sec-body">${cpEsc(par)}</p>`).join('')}
+            ${s.personal ? `<p class="cp-eyebrow cp-eyebrow--sp">In your responses</p>${s.personal.split('\n\n').filter(Boolean).map(par => `<p class="cp-sec-body">${cpEsc(par)}</p>`).join('')}` : ''}
+            ${s.badges && s.badges.length ? `<div class="cp-sec-badges">${s.badges.map(b => `<span class="cp-inst-badge cp-inst-badge--${(b.code || '').toLowerCase()}">${cpEsc(b.code)} ${b.pct}%</span>`).join('')}</div>` : ''}
+          </div>
+        </div>`).join('');
+}
+
+// Desktop inline: eyebrow + lead paragraph + (if there's more) a "More →" opening the modal.
+function renderSectionsInline(sections) {
+  return `<div class="cp-sec-inline">${sections.map(s => {
+    const full = (s.general || '') + (s.personal ? '\n\n' + s.personal : '');
+    const lead = cpLead(full);
+    const hasMore = full.trim().length > lead.trim().length || s.personal || (s.badges && s.badges.length);
+    return `<section class="cp-detail-section">
+              <p class="cp-eyebrow">${cpEsc(s.label)}</p>
+              <p class="cp-sec-lead">${cpEsc(lead)}</p>
+              ${hasMore ? `<button type="button" class="cp-more" data-sec="${s.key}">More →</button>` : ''}
+            </section>`;
+  }).join('')}</div>`;
+}
+
+// Tablet/mobile: collapsed rows (icon + label + chevron). Tablet taps open the modal; mobile
+// taps expand inline (JS decides by breakpoint). The inline-expand content is emitted inside
+// each row so mobile has it without a round-trip.
+function renderSectionsRows(sections) {
+  return `<div class="cp-sec-rows" id="cp-sec-rows">${sections.map(s => {
+    const full = (s.general || '') + (s.personal ? '\n\n' + s.personal : '');
+    return `<div class="cp-sec-item">
+              <button type="button" class="cp-sec-rowbtn" data-sec="${s.key}" aria-expanded="false">
+                <span class="cp-sec-rowlabel">${cpEsc(s.label)}</span>
+                <span class="cp-sec-chev" aria-hidden="true">›</span>
+              </button>
+              <div class="cp-sec-inlinebody" hidden>
+                ${s.subtitle ? `<p class="cp-sec-sub">${cpEsc(s.subtitle)}</p>` : ''}
+                ${s.tagline ? `<p class="cp-sec-tagline">${cpEsc(s.tagline)}</p>` : ''}
+                ${full.split('\n\n').filter(Boolean).map(par => `<p class="cp-sec-body">${cpEsc(par)}</p>`).join('')}
+                ${s.badges && s.badges.length ? `<div class="cp-sec-badges">${s.badges.map(b => `<span class="cp-inst-badge cp-inst-badge--${(b.code || '').toLowerCase()}">${cpEsc(b.code)} ${b.pct}%</span>`).join('')}</div>` : ''}
+              </div>
+            </div>`;
+  }).join('')}</div>`;
+}
+
+function renderStrengthsCards(model) {
+  const p = model.pages.strengths_challenges;
+  const list = (items) => `<ul class="cp-sc-list">${(items || []).map(it => {
+    const text = typeof it === 'string' ? it : (it.title ? `<strong>${cpEsc(it.title)}</strong> — ${cpEsc(it.body || '')}` : cpEsc(it.body || ''));
+    return `<li>${typeof it === 'string' ? cpEsc(it) : text}</li>`;
+  }).join('')}</ul>`;
+  const practices = p.practices && p.practices.bullets ? p.practices.bullets : (Array.isArray(p.practices) ? p.practices : []);
+  return `<div class="cp-sccards">
+          <section class="cp-sccard cp-sccard--str">
+            <h3 class="cp-sccard-h">⚡ Strengths</h3>${list(p.strengths)}
+          </section>
+          <section class="cp-sccard cp-sccard--grow">
+            <h3 class="cp-sccard-h">↗ Growth Edges</h3>${list(p.challenges)}
+          </section>
+          <section class="cp-sccard cp-sccard--prac">
+            <h3 class="cp-sccard-h">✦ Practices</h3>${list(practices)}
+          </section>
+        </div>`;
+}
+
+function renderMyReport({ coachName, credits, model, apiResult, assessments, selectedId, typeRows, instRows, reportLinks }) {
+  const heroN = model.hero.number;
+  const wheel = buildEnneagramSVG({ variant: 'my-report', type: heroN });
+  const p = model.pages;
+  const sections = buildReportSections(model, apiResult);
+  const overview = (model.pages.type_hypotheses.core_motivation)
+    || 'This type reading is based on your completed assessment.';
+
+  const rowLine = (label, value, cls) => `<div class="cp-wl-row"><span class="cp-wl-label">${cpEsc(label)}</span><span class="cp-wl-value ${cls || ''}">${value}</span></div>`;
+  const dataRows = `
+          ${rowLine('Wings', `<strong>${cpEsc(p.wings_lines.wing_low.name)} / ${cpEsc(p.wings_lines.wing_high.name)}</strong>`)}
+          ${rowLine('Stress', `Type ${p.wings_lines.line_stress.toward} — ${cpEsc(p.wings_lines.line_stress.name)}`, 'cp-wl-stress')}
+          ${rowLine('Security', `Type ${p.wings_lines.line_security.toward} — ${cpEsc(p.wings_lines.line_security.name)}`, 'cp-wl-sec')}
+          ${rowLine('Center', `<span class="cp-wl-center">${cpEsc(CP_CENTER_LABEL[model.hero.center] || model.hero.center)}</span>`)}`;
+
+  const rightColumn = `
+        <div class="cp-report-right">
+          <div class="cp-wheel">${wheel}</div>
+          <div class="cp-wl-rows">${dataRows}</div>
+          <div class="cp-charts" id="cp-report-charts">
+            <p class="cp-eyebrow">Relative Type Pattern Strength</p>
+            ${renderStrengthBars(typeRows, heroN, 'cp-barp')}
+            <p class="cp-eyebrow cp-eyebrow--sp">Relative Instincts Strength</p>
+            ${renderStrengthBars(instRows, model.display.instinct_code, 'cp-bari')}
+          </div>
+          <button type="button" class="cp-charts-toggle" id="cp-charts-toggle" hidden>More ↓</button>
+        </div>`;
+
+  const leftColumn = `
+        <div class="cp-report-left">
+          <header class="cp-report-id">
+            <h2 class="cp-report-type">Type ${heroN} · ${cpEsc(model.display.confirmed_type_name)}</h2>
+            <p class="cp-report-subtype">${cpEsc(model.display.instinct_code)}${heroN} · ${cpEsc(model.display.subtype_label)}</p>
+            <p class="cp-report-conf">Confidence: ${cpEsc(model.confidence.label || '—')}</p>
+            <div class="cp-report-dl">${reportLinks}</div>
+            ${renderReportSelector(assessments, selectedId)}
+          </header>
+          <hr class="cp-report-hr">
+          <section class="cp-detail-section">
+            <p class="cp-eyebrow">Type Overview</p>
+            <p class="cp-sec-body">${cpEsc(overview)}</p>
+          </section>
+          ${renderSectionsInline(sections)}
+          ${renderSectionsRows(sections)}
+        </div>`;
+
+  const body = `<h1 class="cp-page-title">My Reports</h1>
+        <div class="cp-report-card cp-card">
+          <div class="cp-report-grid">
+            ${leftColumn}
+            ${rightColumn}
+          </div>
+        </div>
+        ${renderStrengthsCards(model)}
+        ${renderSectionModals(sections)}`;
+
+  return renderCoachChrome({ activeNav: 'reports', creditsPill: credits, avatar: coachName, bodyHtml: body });
+}
+
 app.get('/coach/reports', requireCoach, requireOnboardingComplete, async (req, res) => {
   res.set('Cache-Control', 'no-store');   // per-coach, private (Tier 3, §12.3)
   const credits = await getCoachCreditBalance(req.session.coach_id).catch(() => null);
+  const userId = req.session.user_id;
+
   try {
-    const count = await db.getCoachSelfCompletedAssessmentCount(req.session.user_id);
-    res.send(renderMyReportsZeroState(req.session.coach_name, count > 0, credits));
+    const assessments = await db.getCoachSelfAssessments(userId);
+    if (!assessments.length) {
+      return res.send(renderMyReportsZeroState(req.session.coach_name, false, credits));
+    }
+
+    const wanted = parseInt(req.query.report, 10);
+    const selectedId = assessments.find(a => a.id === wanted) ? wanted : assessments[0].id;
+    const row = await db.getCoachSelfAssessmentForReport(userId, selectedId);
+    if (!row || !row.api_result) {
+      // Linked but the result payload is missing/older than the engine — honest fallback.
+      return res.send(renderMyReportsZeroState(req.session.coach_name, true, credits));
+    }
+
+    // Synthetic-client adapter: buildClientModel expects { client, coach }. For a coach's
+    // OWN report the subject IS the coach — build a client-shaped object from their identity.
+    const apiResult = row.api_result;
+    const client = {
+      first_name: row.first_name || cpFirstName(req.session.coach_name) || '',
+      last_name: row.last_name || '',
+      organization: row.organization || null,
+      date: cpDate(row.completed_at) || '',
+    };
+    const coach = { full_name: req.session.coach_name || '', type: null, instinct: null };
+    const model = await reportPrep.buildClientModel({ apiResult, client, coach });
+
+    // Bar data straight from the engine output (no recomputation) → portal-native bars.
+    const ranking = (apiResult.hypothesis && apiResult.hypothesis.call1_ranking) || [];
+    const typeRows = ranking
+      .slice().sort((a, b) => a.type - b.type)
+      .map(r => ({ key: r.type, label: String(r.type), score: Number(r.score) || 0 }));
+    const prof = (apiResult.hypothesis && apiResult.hypothesis.instinct_score_profile) || {};
+    const instRows = ['SP', 'SO', 'SX'].map(c => ({ key: c, label: c, score: Number(prof[c]) || 0 }));
+
+    // Download links → existing tokenised PDF route, only when the file is on disk.
+    const paths = await db.getAssessmentReportPaths(selectedId).catch(() => ({}));
+    const dl = (pdfPath, label) => {
+      if (!pdfPath) return '';
+      const base = path.basename(pdfPath);
+      if (!fs.existsSync(path.join(REPORTS_DIR, base))) return '';
+      return `<a class="cp-report-link" href="/reports/token/${encodeURIComponent(base)}">${CP_ICON_DOWNLOAD}My ${cpEsc(label)} Report</a>`;
+    };
+    const reportLinks = [dl(paths.client, 'Client'), dl(paths.coach, 'Coach')].filter(Boolean).join('')
+      || '<span class="cp-report-nodl">Downloadable reports aren\'t available for this assessment.</span>';
+
+    res.send(renderMyReport({
+      coachName: req.session.coach_name, credits, model, apiResult,
+      assessments, selectedId, typeRows, instRows, reportLinks,
+    }));
   } catch (e) {
     console.error('[GET /coach/reports] failed:', e.message);
-    // On a read failure, show the neutral not-yet-connected state rather than crash.
-    res.send(renderMyReportsZeroState(req.session.coach_name, false, credits));
+    res.send(renderCoachChrome({
+      activeNav: 'reports', creditsPill: credits, avatar: req.session.coach_name,
+      bodyHtml: `<h1 class="cp-page-title">My Reports</h1><section class="cp-card"><p class="cp-chart-msg">Your report is temporarily unavailable. Please refresh in a moment.</p></section>`,
+    }));
   }
 });
 

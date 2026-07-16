@@ -843,6 +843,104 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-secured { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11px; color: var(--color-text-muted); margin: 14px 0 0; }
 .cp-secured svg { width: 13px; height: 13px; }
 
+/* ══ My Reports — full report (§7.5, PR7) ═════════════════════════════════ */
+.cp-report-card { padding: 32px; }
+/* Desktop/tablet: ~60/40 two-column. Mobile collapses to one (breakpoints). */
+.cp-report-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 32px; align-items: start; }
+
+/* Identity block */
+.cp-report-type { font-family: var(--font-heading); font-size: 28px; font-weight: bold; color: var(--color-text-heading); margin: 0 0 4px; }
+.cp-report-subtype { font-size: 14px; color: var(--color-text-muted); margin: 0 0 2px; }
+.cp-report-conf { font-size: 12px; color: var(--color-text-muted); margin: 0 0 12px; }
+.cp-report-dl { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; }
+.cp-report-nodl { font-size: 12px; color: var(--color-text-muted); font-style: italic; }
+.cp-report-hr { border: none; border-top: 1px solid var(--color-border); margin: 20px 0; }
+
+/* Report selector */
+.cp-rsel { position: relative; display: inline-block; }
+.cp-rsel-toggle {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 8px;
+  padding: 8px 12px; font-family: var(--font-ui); font-size: 13px; color: var(--color-text-body);
+}
+.cp-rsel-toggle:hover:not(:disabled) { border-color: var(--color-border-strong); }
+.cp-rsel-toggle:disabled { cursor: default; }
+.cp-rsel-icon { display: inline-flex; color: var(--color-text-muted); }
+.cp-rsel-icon svg { width: 15px; height: 15px; }
+.cp-rsel-tag { color: var(--color-text-muted); }
+.cp-rsel-chev { color: var(--color-text-muted); font-size: 10px; }
+.cp-rsel-list {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 240px;
+  background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 6px; display: flex; flex-direction: column;
+}
+.cp-rsel-row { display: flex; align-items: baseline; gap: 8px; padding: 8px 10px; border-radius: 6px; font-size: 13px; color: var(--color-text-body); }
+.cp-rsel-row:hover { background: var(--color-bg-page); }
+.cp-rsel-row--on { background: var(--color-primary-light); color: var(--color-primary-dark); }
+.cp-rsel-type { color: var(--color-text-muted); font-size: 12px; }
+.cp-rsel-recent { margin-left: auto; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-primary); }
+
+/* Wheel + data rows */
+.cp-wheel { max-width: 300px; margin: 0 auto 16px; }
+.cp-wheel svg { width: 100%; height: auto; display: block; }
+.cp-wl-rows { border-top: 1px solid var(--color-border); }
+.cp-wl-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--color-border); font-size: 13px; }
+.cp-wl-label { color: var(--color-text-muted); }
+.cp-wl-value { color: var(--color-text-heading); text-align: right; }
+.cp-wl-stress { color: var(--color-error); }
+.cp-wl-sec { color: var(--color-success); }
+.cp-wl-center { color: var(--color-primary); font-weight: 600; }
+
+/* Portal bars */
+.cp-charts { margin-top: 20px; }
+.cp-bars { display: flex; flex-direction: column; gap: 7px; margin: 8px 0 4px; }
+.cp-bar-row { display: grid; grid-template-columns: 18px 1fr 42px; align-items: center; gap: 10px; }
+.cp-bar-label { font-size: 12px; color: var(--color-text-muted); text-align: right; }
+.cp-bar-track { position: relative; height: 8px; background: var(--color-border); border-radius: 100px; overflow: hidden; }
+/* Scoped to the track so it overrides the Journey tracker's absolute .cp-bar-fill (line ~316)
+   only for report bars — width comes from the inline style on the element. */
+.cp-bar-track > .cp-bar-fill { position: static; display: block; height: 100%; border-radius: 100px; }
+.cp-barp--on { background: var(--color-primary); }
+.cp-barp--off { background: var(--color-border-strong); }
+.cp-bari--on { background: var(--color-accent); }
+.cp-bari--off { background: #F3C9A3; }
+.cp-bar-val { font-size: 12px; color: var(--color-text-heading); text-align: right; }
+.cp-charts-toggle { display: none; background: none; border: none; color: var(--color-primary); font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px 0 0; }
+
+/* Detail sections — desktop inline */
+.cp-sec-lead { font-size: 13px; color: var(--color-text-body); line-height: 1.6; margin: 0 0 6px; }
+.cp-more { background: none; border: none; color: var(--color-primary); font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; }
+.cp-sec-rows { display: none; }
+.cp-sec-item { border-bottom: 1px solid var(--color-border); }
+.cp-sec-rowbtn { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: none; border: none; cursor: pointer; padding: 14px 0; font-family: var(--font-ui); font-size: 14px; font-weight: 600; color: var(--color-text-heading); text-align: left; }
+.cp-sec-chev { color: var(--color-text-muted); font-size: 18px; transition: transform var(--duration-fast) var(--ease-out); }
+.cp-sec-item--open .cp-sec-chev { transform: rotate(90deg); }
+.cp-sec-inlinebody { padding: 0 0 16px; }
+
+/* Detail-section modal + shared content styling */
+.cp-modal--report { max-width: 560px; }
+.cp-sec-sub { font-size: 13px; color: var(--color-text-muted); margin: 0 0 4px; }
+.cp-sec-tagline { font-size: 13px; color: var(--color-text-body); font-style: italic; margin: 0 0 14px; }
+.cp-sec-body { font-size: 14px; color: var(--color-text-body); line-height: 1.7; margin: 0 0 12px; }
+.cp-sec-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.cp-inst-badge { border-radius: 100px; padding: 4px 12px; font-size: 12px; font-weight: 600; }
+.cp-inst-badge--sx { background: #FDE7EC; color: #B5305A; }
+.cp-inst-badge--so { background: var(--color-accent-light); color: var(--color-accent-dark); }
+.cp-inst-badge--sp { background: var(--color-primary-light); color: var(--color-primary-dark); }
+
+/* Strengths / Growth Edges / Practices */
+.cp-sccards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
+.cp-sccard { border-radius: 12px; padding: 20px; }
+.cp-sccard--str  { background: var(--color-primary-light); }
+.cp-sccard--grow { background: var(--color-accent-light); }
+.cp-sccard--prac { background: #E4F0E4; }
+.cp-sccard-h { font-family: var(--font-heading); font-size: 15px; font-weight: bold; margin: 0 0 12px; }
+.cp-sccard--str  .cp-sccard-h { color: var(--color-primary-dark); }
+.cp-sccard--grow .cp-sccard-h { color: var(--color-accent-dark); }
+.cp-sccard--prac .cp-sccard-h { color: #3B6B44; }
+.cp-sc-list { margin: 0; padding-left: 18px; }
+.cp-sc-list li { font-size: 13px; color: var(--color-text-body); line-height: 1.5; margin-bottom: 8px; }
+
 /* ══ My Reports — zero / interim state (linkage prerequisite PR) ══════════ */
 .cp-reports-empty {
   display: flex; flex-direction: column; align-items: center; text-align: center;
@@ -874,12 +972,37 @@ a { color: var(--color-primary); text-decoration: none; }
 
   /* Manage Credits: tablet drops the UNIT PRICE column to fit the narrower width (§7.4). */
   .cp-col-unit { display: none; }
+
+  /* My Reports, tablet (§7.5): two-column preserved, but the four detail sections switch
+     from inline paragraphs to a collapsed row list that opens the SAME modal desktop's
+     More→ opens — the narrower left column can't hold four inline paragraphs beside the
+     wheel. */
+  .cp-report-card { padding: 24px; }
+  .cp-report-grid { gap: 24px; }
+  .cp-sec-inline { display: none; }
+  .cp-sec-rows { display: block; }
+  .cp-sccards { gap: 14px; }
 }
 
 /* Mobile: the rail is replaced by a real drawer (not a reflow). The chart is dropped —
    metrics + journey tracker stay (confirmed intentional simplification in the addendum). */
 @media (max-width: 767px) {
   .cp-nav { display: none; }
+
+  /* My Reports, mobile (§7.5): fully single-column. Type Overview, then the wheel, then the
+     data rows + both bar charts stacked BELOW the wheel (not beside), then the four sections
+     as rows that expand INLINE (JS, not a modal), then the three cards stacked. */
+  .cp-report-card { padding: 20px 16px; }
+  .cp-report-grid { grid-template-columns: 1fr; gap: 20px; }
+  .cp-report-type { font-size: 24px; }
+  /* Order: identity/overview/sections (left) first, wheel+charts (right) after — but the
+     bar charts start collapsed behind a More↓ toggle (mockup shows a Less↑ state). */
+  .cp-charts.cp-charts--collapsed .cp-bars,
+  .cp-charts.cp-charts--collapsed .cp-eyebrow { display: none; }
+  .cp-charts-toggle { display: block; }
+  .cp-sccards { grid-template-columns: 1fr; }
+  .cp-modal--report { max-width: none; }
+
   .cp-drawer { display: block; }
   .cp-hamburger { display: flex; }
   .cp-header-brand { display: flex; }

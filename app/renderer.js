@@ -1115,6 +1115,43 @@ function buildEnneagramSVG({ type, variant }) {
       + inactive + stressLine + secLine + nodes + `</svg>`;
   }
 
+  // PR7 My Reports (§7.5, CP-2): the coach-portal wheel. Additive — the PDF engine's
+  // 'type' variant above is untouched (out of scope). Same geometry (pastel Head/Heart/Gut
+  // wedges, cyan home node, muted others) but matches the approved coach-portal mockup: a
+  // DOTTED RED stress line and a SOLID DARK-GREEN security line, both direct home→point
+  // chords (stress/security are always hexad/triangle-adjacent, so _flowDir gives a direct
+  // line), with no arrowheads — cleaner at portal scale than the PDF's arrowed version.
+  if (variant === 'my-report') {
+    const wedges =
+        `<path d="M 250,250 L 68.1,145.0 A 210,210 0 0,1 431.9,145.0 Z" fill="#5271B7" opacity="0.15"/>`
+      + `<path d="M 250,250 L 431.9,145.0 A 210,210 0 0,1 250.0,460.0 Z" fill="#D38481" opacity="0.15"/>`
+      + `<path d="M 250,250 L 250.0,460.0 A 210,210 0 0,1 68.1,145.0 Z" fill="#BED6A8" opacity="0.50"/>`;
+    const dividers = [[68.1, 145.0], [431.9, 145.0], [250.0, 460.0]]
+      .map(p => _svgLine([250, 250], p, `stroke="white" stroke-width="1.5"`)).join('');
+    const inactive = [...SVG_HEXAD, ...SVG_TRIANGLE].map(([a, b]) => {
+      const [p1, p2] = _trim(SVG_NODES[a], SVG_NODES[b], 30);
+      return _svgLine(p1, p2, `stroke="#D8DCE0" stroke-width="1.25"`);
+    }).join('');
+    const [sa, sb] = _flowDir(home, stress);
+    const [ga, gb] = _flowDir(home, security);
+    const [s1, s2] = _trim(SVG_NODES[sa], SVG_NODES[sb], 30);
+    const [g1, g2] = _trim(SVG_NODES[ga], SVG_NODES[gb], 30);
+    const stressLine = _svgLine(s1, s2, `stroke="#D0312D" stroke-width="2.5" stroke-dasharray="6,5" stroke-linecap="round"`);
+    const secLine = _svgLine(g1, g2, `stroke="#4F845C" stroke-width="2.5" stroke-linecap="round"`);
+    let nodes = '';
+    for (const k of Object.keys(SVG_NODES)) {
+      const i = +k; let r, fill, fs, bold;
+      if (i === home) { r = 27; fill = '#00B2D9'; fs = 19; bold = true; }
+      else if (i === stress) { r = 21; fill = '#D0312D'; fs = 16; bold = true; }
+      else if (i === security) { r = 21; fill = '#4F845C'; fs = 16; bold = true; }
+      else { r = 19; fill = '#C8C8C8'; fs = 16; bold = false; }
+      nodes += _svgNode(i, r, fill) + _svgLabel(i, fs, bold);
+    }
+    return open
+      + wedges + dividers + `<circle cx="250" cy="250" r="210" fill="none" stroke="#00B2D9" stroke-width="8"/>`
+      + inactive + stressLine + secLine + nodes + `</svg>`;
+  }
+
   if (variant === 'wings-lines') {
     const wingConn = wings.map(w => {
       const [p1, p2] = _trim(SVG_NODES[home], SVG_NODES[w], 30);
