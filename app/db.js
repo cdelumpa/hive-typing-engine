@@ -877,6 +877,38 @@ CREATE TABLE IF NOT EXISTS coach_announcement_reads (
   read_at         TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (coach_id, announcement_id)
 );
+
+-- ── PR8: resources (spec §9.7) ── Hive-curated coach-facing content library, managed via the
+-- /admin/resources CRUD panel. published_at NULL = draft (invisible to coaches). content_types
+-- client_report/coach_report behave EXACTLY like pdf (single url, Modal B viewer, same embed
+-- transform) — they exist so a Type-N Sample Report is two independently-publishable rows, not
+-- one combined dual-doc card (CP-2). Tier 2 shared content (§12.2): read-cached in resources.js,
+-- busted on every write.
+CREATE TABLE IF NOT EXISTS resources (
+  id                SERIAL PRIMARY KEY,
+  title             VARCHAR(255) NOT NULL,
+  description_short TEXT NOT NULL,
+  description_long  TEXT,
+  category          VARCHAR(50) NOT NULL CHECK (category IN ('introducing', 'coaching', 'typing')),
+  content_type      VARCHAR(50) NOT NULL CHECK (content_type IN ('article', 'email_template', 'pdf', 'video', 'client_report', 'coach_report')),
+  url               TEXT,
+  body_rich_text    TEXT,
+  thumbnail_url     TEXT,
+  is_featured       BOOLEAN DEFAULT FALSE,
+  published_at      TIMESTAMPTZ,
+  created_by        INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+-- At most one featured resource at a time (§9.7, CP-3): a partial unique index gives a DB-level
+-- guarantee; the app-layer transaction (unset others, then set) is what satisfies it on write.
+CREATE UNIQUE INDEX IF NOT EXISTS resources_one_featured ON resources (is_featured) WHERE is_featured;
+CREATE INDEX IF NOT EXISTS resources_published_idx ON resources (published_at) WHERE published_at IS NOT NULL;
+-- Auto-maintain updated_at via the shared trigger function (defined with the users table above).
+DROP TRIGGER IF EXISTS update_resources_updated_at ON resources;
+CREATE TRIGGER update_resources_updated_at
+  BEFORE UPDATE ON resources
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 `;
 
 const SEED_SQL = `

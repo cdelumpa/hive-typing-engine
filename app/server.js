@@ -41,6 +41,7 @@ const { applyCall2DeterministicStamps } = require('./call2_stamp'); // Call #2 d
 const emContentLibrary = require('./content/content_library.json'); // server-side subtype-name resolution (PR8b contextFields)
 const stage1Labels = require('./stage1_labels');                  // frozen label map + TYPE_GEOMETRY (PR3) — EM Lab rendering
 const contentOverrides = require('./content_overrides');
+const resourcesLib = require('./resources');   // PR8: Resources library (Tier-2 cached CRUD)
 // Baseline static content for the /admin/content editor (read-only). The renderer
 // reads the same file via report_prep; the editor shows these as the fallback values.
 const contentLibrary = require('./content/content_library.json');
@@ -2218,6 +2219,167 @@ app.get('/coach/reports', requireCoach, requireOnboardingComplete, async (req, r
       activeNav: 'reports', creditsPill: credits, avatar: req.session.coach_name,
       bodyHtml: `<h1 class="cp-page-title">My Reports</h1><section class="cp-card"><p class="cp-chart-msg">Your report is temporarily unavailable. Please refresh in a moment.</p></section>`,
     }));
+  }
+});
+
+// ── Coach Portal PR8: Resources (spec §7.6) ─────────────────────────────────────
+// Server-renders the page (chrome + featured hero + tab bar + category sections of cards);
+// the filter tabs and the three modal variants (A Written / B PDF / C Video) are client-side
+// (coach-portal.js). Written bodies lazy-load via /coach/resources/:id/body so initial HTML
+// stays lean. Content is Tier-2 cached in resources.js.
+
+// content_type → badge label + css modifier + card CTA verb + render "family" (which modal
+// opens). client_report/coach_report reuse the TOOL treatment (orange, file-text) with a
+// distinct label and render exactly like pdf (CP-2).
+const RESOURCE_TYPES = {
+  article:        { label: 'Article',        badge: 'article', cta: 'Read',     family: 'written' },
+  email_template: { label: 'Email Template', badge: 'email',   cta: 'Read',     family: 'written' },
+  pdf:            { label: 'Tool',           badge: 'tool',    cta: 'View PDF', family: 'pdf'     },
+  client_report:  { label: 'Client Report',  badge: 'tool',    cta: 'View PDF', family: 'pdf'     },
+  coach_report:   { label: 'Coach Report',   badge: 'tool',    cta: 'View PDF', family: 'pdf'     },
+  video:          { label: 'Video',          badge: 'video',   cta: 'Watch',    family: 'video'   },
+};
+const RESOURCE_BADGE_ICON = {
+  article: CP_ICON('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/>'),
+  email:   CP_ICON('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>'),
+  tool:    CP_ICON('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/>'),
+  video:   CP_ICON('<circle cx="12" cy="12" r="9"/><path d="m10 9 5 3-5 3Z"/>'),
+};
+const RESOURCE_CATEGORY_LABEL = {
+  introducing: 'Introducing the Enneagram',
+  coaching:    'Coaching with the Enneagram',
+  typing:      'Typing Support',
+};
+const RESOURCE_CATEGORY_ORDER = ['introducing', 'coaching', 'typing'];
+
+// Transforms an admin-pasted share link into an embeddable URL for the in-portal viewer.
+// PDF family: Google Drive /view → /preview; Dropbox ?dl=0 → ?raw=1 (inline render). Video:
+// Vimeo → player embed (unlisted hash preserved). Returns the URL unchanged if no known
+// transform applies — best-effort, since the admin controls the source link.
+function toEmbedUrl(url, family) {
+  if (!url) return '';
+  try {
+    if (family === 'video') {
+      const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)(?:\/([0-9a-z]+))?/i);
+      return m ? `https://player.vimeo.com/video/${m[1]}${m[2] ? `?h=${m[2]}` : ''}` : url;
+    }
+    const drive = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/);
+    if (drive) return `https://drive.google.com/file/d/${drive[1]}/preview`;
+    if (/dropbox\.com/.test(url)) return url.replace(/([?&])dl=[01]/, '$1raw=1');
+    return url;
+  } catch { return url; }
+}
+
+function resourceBadgeHtml(contentType) {
+  const t = RESOURCE_TYPES[contentType] || RESOURCE_TYPES.pdf;
+  return `<span class="cp-res-badge cp-res-badge--${t.badge}">${RESOURCE_BADGE_ICON[t.badge] || ''}${cpEsc(t.label.toUpperCase())}</span>`;
+}
+
+// One grid/row card. Carries what the client modal needs in data-* so opening a pdf/video
+// modal needs no fetch (Written bodies still lazy-load via /:id/body).
+function renderResourceCard(r) {
+  const t = RESOURCE_TYPES[r.content_type] || RESOURCE_TYPES.pdf;
+  const embed = t.family === 'written' ? '' : toEmbedUrl(r.url, t.family);
+  const arrow = t.family === 'video'
+    ? CP_ICON('<circle cx="12" cy="12" r="9"/><path d="m10 9 5 3-5 3Z"/>') + ' ' : '';
+  return `<article class="cp-res-card" tabindex="0" role="button"
+      data-id="${r.id}" data-type="${cpEsc(r.content_type)}" data-family="${t.family}"
+      data-title="${cpEsc(r.title)}" data-subtitle="${cpEsc(r.description_long || r.description_short || '')}"
+      data-url="${cpEsc(r.url || '')}" data-embed="${cpEsc(embed)}">
+    ${resourceBadgeHtml(r.content_type)}
+    <h3 class="cp-res-card-title">${cpEsc(r.title)}</h3>
+    <p class="cp-res-card-desc">${cpEsc(r.description_short)}</p>
+    <div class="cp-res-card-cta"><span class="cp-res-link">${arrow}${cpEsc(t.cta)} →</span></div>
+  </article>`;
+}
+
+// "New For You" featured hero (dark bg). Always visible, above the tab bar (spec §7.6).
+function renderResourceFeatured(r) {
+  if (!r) return '';
+  const t = RESOURCE_TYPES[r.content_type] || RESOURCE_TYPES.pdf;
+  const embed = t.family === 'written' ? '' : toEmbedUrl(r.url, t.family);
+  const ctaLabel = t.family === 'video' ? 'Watch Now' : t.family === 'pdf' ? 'View PDF' : 'Read Now';
+  const media = t.family === 'video'
+    ? `<span class="cp-res-feat-play">${CP_ICON('<path d="m8 6 10 6-10 6Z"/>')}</span>`
+    : CP_ICON('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/>');
+  return `<section class="cp-res-featured" tabindex="0" role="button"
+      data-id="${r.id}" data-type="${cpEsc(r.content_type)}" data-family="${t.family}"
+      data-title="${cpEsc(r.title)}" data-subtitle="${cpEsc(r.description_long || r.description_short || '')}"
+      data-url="${cpEsc(r.url || '')}" data-embed="${cpEsc(embed)}">
+    <div class="cp-res-feat-body">
+      <p class="cp-res-feat-eyebrow">New for You</p>
+      ${resourceBadgeHtml(r.content_type)}
+      <h2 class="cp-res-feat-title">${cpEsc(r.title)}</h2>
+      <p class="cp-res-feat-desc">${cpEsc(r.description_long || r.description_short)}</p>
+      <button type="button" class="cp-res-feat-cta">${cpEsc(ctaLabel)}</button>
+    </div>
+    <div class="cp-res-feat-media cp-res-feat-media--${t.family}">${media}</div>
+  </section>`;
+}
+
+function renderResourcesBody(resources, featured) {
+  const tabs = [
+    { key: 'all', label: 'All' },
+    { key: 'introducing', label: 'Introducing the Enneagram' },
+    { key: 'coaching', label: 'Coaching with the Enneagram' },
+    { key: 'typing', label: 'Typing Support' },
+    { key: 'videos', label: 'Videos' },
+  ].map((t, i) => `<button type="button" class="cp-res-tab${i === 0 ? ' cp-res-tab--active' : ''}" data-filter="${t.key}">${cpEsc(t.label)}</button>`).join('');
+
+  // One section per category (render order). Each is a scroll track; CSS switches grid↔carousel
+  // at the breakpoints. JS show/hides sections+cards per active filter, so no empty sections
+  // render up front — the empty state below is toggled by JS when a filter yields nothing.
+  const sections = RESOURCE_CATEGORY_ORDER.map(cat => {
+    const items = resources.filter(r => r.category === cat);
+    if (!items.length) return '';
+    const cards = items.map(renderResourceCard).join('');
+    const dots = items.map((_, i) => `<span class="cp-dot${i === 0 ? ' cp-dot--active' : ''}"></span>`).join('');
+    return `<section class="cp-res-section" data-category="${cat}">
+      <p class="cp-res-eyebrow">${cpEsc(RESOURCE_CATEGORY_LABEL[cat])}</p>
+      <div class="cp-res-track">${cards}</div>
+      <div class="cp-res-dots">${dots}</div>
+    </section>`;
+  }).join('');
+
+  return `<h1 class="cp-page-title">Resources</h1>
+    <p class="cp-res-subtitle">Tools and content to help you bring the Enneagram to new and existing clients.</p>
+    ${renderResourceFeatured(featured)}
+    <div class="cp-res-tabs" role="tablist">${tabs}</div>
+    <div class="cp-res-sections">${sections}</div>
+    <div class="cp-res-empty" hidden><p>Nothing here yet — Cai and Mo are cooking something up. Check back soon.</p></div>`;
+}
+
+app.get('/coach/resources', requireCoach, requireOnboardingComplete, async (req, res) => {
+  res.set('Cache-Control', 'no-store');   // page carries per-coach chrome; the content itself is Tier-2 cached
+  const credits = await getCoachCreditBalance(req.session.coach_id).catch(() => null);
+  try {
+    const resources = await resourcesLib.getPublishedResources();
+    const featured = resources.find(r => r.is_featured) || null;
+    res.send(renderCoachChrome({
+      activeNav: 'resources', creditsPill: credits, avatar: req.session.coach_name,
+      bodyHtml: renderResourcesBody(resources, featured),
+    }));
+  } catch (e) {
+    console.error('[GET /coach/resources] failed:', e.message);
+    res.send(renderCoachChrome({
+      activeNav: 'resources', creditsPill: credits, avatar: req.session.coach_name,
+      bodyHtml: `<h1 class="cp-page-title">Resources</h1><section class="cp-card"><p class="cp-chart-msg">Resources are temporarily unavailable. Please refresh in a moment.</p></section>`,
+    }));
+  }
+});
+
+// Lazy body fetch for Written resources (Modal A). Auth-gated; served from the Tier-2 cache.
+app.get('/coach/resources/:id/body', requireCoach, requireOnboardingComplete, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ ok: false });
+  try {
+    const row = await resourcesLib.getPublishedResourceBody(id);
+    if (!row || !row.body_rich_text) return res.status(404).json({ ok: false });
+    res.json({ ok: true, id: row.id, title: row.title, content_type: row.content_type, body: row.body_rich_text });
+  } catch (e) {
+    console.error('[GET /coach/resources/:id/body] failed:', e.message);
+    res.status(500).json({ ok: false });
   }
 });
 
@@ -10772,6 +10934,210 @@ app.post('/admin/content/revert', requireSuperAdmin, async (req, res) => {
   if (!cmsIsValidContentKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
   const ok = await contentOverrides.revertOverride(content_key);
   res.json({ ok, error: ok ? undefined : 'database unavailable' });
+});
+
+// =================== /admin/resources — Resources CRUD (PR8) ===================
+// True row CRUD (create/edit/publish/unpublish/delete), unlike /admin/content's fixed-key
+// override pattern. Super-admin only. Classic POST-redirect-GET forms — no SPA. Every mutation
+// goes through resourcesLib, which busts the Tier-2 cache synchronously.
+
+const RES_CATEGORY_OPTS = [
+  { v: 'introducing', l: 'Introducing the Enneagram' },
+  { v: 'coaching', l: 'Coaching with the Enneagram' },
+  { v: 'typing', l: 'Typing Support' },
+];
+const RES_TYPE_OPTS = [
+  { v: 'article', l: 'Article (Written)' },
+  { v: 'email_template', l: 'Email Template (Written)' },
+  { v: 'pdf', l: 'PDF / Tool' },
+  { v: 'client_report', l: 'Client Report (PDF)' },
+  { v: 'coach_report', l: 'Coach Report (PDF)' },
+  { v: 'video', l: 'Video (Vimeo)' },
+];
+const RES_WRITTEN_TYPES = ['article', 'email_template'];
+const RES_URL_TYPES = ['pdf', 'client_report', 'coach_report', 'video'];
+
+// Server-side validation shared by create + update. Returns an error string or null.
+function validateResourceInput(b) {
+  if (!b.title || !b.title.trim()) return 'Title is required.';
+  if (!b.description_short || !b.description_short.trim()) return 'Short description is required.';
+  if (!RES_CATEGORY_OPTS.some(o => o.v === b.category)) return 'Valid category is required.';
+  if (!RES_TYPE_OPTS.some(o => o.v === b.content_type)) return 'Valid content type is required.';
+  if (RES_URL_TYPES.includes(b.content_type) && !(b.url && b.url.trim())) return 'URL is required for PDF/Video/Report types.';
+  if (RES_WRITTEN_TYPES.includes(b.content_type) && !(b.body_rich_text && b.body_rich_text.trim())) return 'Body is required for Written types.';
+  return null;
+}
+// Normalizes form input into the field object resourcesLib expects (null out the unused of url
+// vs body per type, so a type switch never leaves a stale value behind).
+function resourceFieldsFromBody(b) {
+  const written = RES_WRITTEN_TYPES.includes(b.content_type);
+  return {
+    title: (b.title || '').trim(),
+    description_short: (b.description_short || '').trim(),
+    description_long: (b.description_long || '').trim() || null,
+    category: b.category,
+    content_type: b.content_type,
+    url: written ? null : ((b.url || '').trim() || null),
+    body_rich_text: written ? (b.body_rich_text || '') : null,
+    thumbnail_url: (b.thumbnail_url || '').trim() || null,
+    is_featured: b.is_featured === 'on' || b.is_featured === 'true' || b.is_featured === true,
+  };
+}
+
+function renderAdminResourcesPage(list, editing, toast) {
+  const opt = (opts, sel) => opts.map(o => `<option value="${esc(o.v)}"${o.v === sel ? ' selected' : ''}>${esc(o.l)}</option>`).join('');
+  const e = editing || {};
+  const isEdit = !!(editing && editing.id);
+  const rows = list.map(r => {
+    const status = r.published_at ? '<span class="badge pub">PUBLISHED</span>' : '<span class="badge draft">DRAFT</span>';
+    const feat = r.is_featured ? ' <span class="badge feat">★ FEATURED</span>' : '';
+    const pubBtn = r.published_at
+      ? `<button class="mini" formaction="/admin/resources/${r.id}/unpublish">Unpublish</button>`
+      : `<button class="mini pub-btn" formaction="/admin/resources/${r.id}/publish">Publish</button>`;
+    return `<tr>
+      <td>${esc(r.title)}${feat}</td>
+      <td>${esc(r.category)}</td>
+      <td>${esc(r.content_type)}</td>
+      <td>${status}</td>
+      <td class="act">
+        <a class="mini" href="/admin/resources?edit=${r.id}">Edit</a>
+        <form method="POST" style="display:inline">${pubBtn}</form>
+        <form method="POST" action="/admin/resources/${r.id}/delete" style="display:inline" onsubmit="return confirm('Delete this resource permanently?')"><button class="mini del">Delete</button></form>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" class="empty">No resources yet — create one below.</td></tr>';
+
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Hive Admin — Resources</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
+  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
+  .top-bar h1 { font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar a { color: #9FB4C0; font-size: 12px; text-decoration: none; }
+  .top-bar a:hover { color: #fff; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 28px 24px 80px; }
+  .toast { background: #e6f7ee; color: #1a7a4a; border: 1px solid #b7e3ca; border-radius: 6px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
+  .toast.err { background: #fdecec; color: #b23; border-color: #f3c0c0; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 36px; }
+  th, td { text-align: left; padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #EFE8E0; vertical-align: middle; }
+  th { background: #FBFAF7; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #7A8A92; }
+  td.empty { color: #7A8A92; text-align: center; padding: 20px; }
+  td.act { white-space: nowrap; }
+  .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.04em; }
+  .badge.pub { background: #e6f7ee; color: #1a7a4a; }
+  .badge.draft { background: #fef6e0; color: #9a6a00; }
+  .badge.feat { background: #FEF3E8; color: #B5590F; }
+  .mini { font-family: Georgia, serif; font-size: 12px; padding: 4px 10px; border-radius: 4px; border: 1px solid #D0DCE4; background: #fff; color: #1A2B33; cursor: pointer; text-decoration: none; display: inline-block; margin-right: 4px; }
+  .mini:hover { background: #F2F6F8; }
+  .mini.pub-btn { background: #00b1d7; color: #fff; border-color: #00b1d7; }
+  .mini.del { color: #b23; border-color: #eecccc; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 22px 24px; }
+  .card h2 { font-size: 16px; margin: 0 0 18px; }
+  .fld { margin-bottom: 16px; }
+  .fld label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #7A96A6; font-weight: 700; margin-bottom: 5px; }
+  .fld input[type=text], .fld input[type=url], .fld select, .fld textarea { width: 100%; padding: 9px 11px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 14px; color: #1A2B33; }
+  .fld textarea { resize: vertical; min-height: 120px; font-family: Menlo, monospace; font-size: 13px; }
+  .fld .hint { font-size: 11px; color: #7A96A6; margin-top: 4px; }
+  .row2 { display: flex; gap: 16px; } .row2 > .fld { flex: 1; }
+  .chk { display: flex; align-items: center; gap: 8px; } .chk input { width: auto; }
+  .actions { margin-top: 20px; display: flex; gap: 10px; align-items: center; }
+  .btn { font-family: Georgia, serif; font-size: 14px; font-weight: 700; padding: 9px 20px; border-radius: 5px; border: none; cursor: pointer; }
+  .btn.save { background: #00b1d7; color: #fff; } .btn.cancel { background: #eef2f4; color: #1A2B33; text-decoration: none; }
+</style></head>
+<body>
+  <div class="top-bar"><h1>Resources</h1><a href="/admin">← Admin home</a></div>
+  <div class="container">
+    ${toast ? `<div class="toast${toast.err ? ' err' : ''}">${esc(toast.msg)}</div>` : ''}
+    <table>
+      <thead><tr><th>Title</th><th>Category</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="card">
+      <h2 id="form">${isEdit ? 'Edit Resource' : 'New Resource'}</h2>
+      <form method="POST" action="${isEdit ? `/admin/resources/${e.id}` : '/admin/resources'}">
+        <div class="fld"><label>Title *</label><input type="text" name="title" value="${esc(e.title || '')}" required></div>
+        <div class="fld"><label>Short Description * (~120 chars — grid cards)</label><input type="text" name="description_short" value="${esc(e.description_short || '')}" maxlength="200" required></div>
+        <div class="fld"><label>Long Description (~300 chars — modal subtitle; falls back to short)</label><textarea name="description_long" style="min-height:60px;font-family:Georgia,serif;font-size:14px">${esc(e.description_long || '')}</textarea></div>
+        <div class="row2">
+          <div class="fld"><label>Category *</label><select name="category" required><option value="">— select —</option>${opt(RES_CATEGORY_OPTS, e.category)}</select></div>
+          <div class="fld"><label>Content Type *</label><select name="content_type" id="res-type" required><option value="">— select —</option>${opt(RES_TYPE_OPTS, e.content_type)}</select></div>
+        </div>
+        <div class="fld" id="fld-url"><label>URL (Drive/Dropbox for PDF · Vimeo for Video)</label><input type="url" name="url" value="${esc(e.url || '')}"><div class="hint">Paste the normal share link — Drive /view, Dropbox ?dl=0, or vimeo.com/ID. The portal transforms it for embedding. The linked file/video must be shared "anyone with the link".</div></div>
+        <div class="fld" id="fld-body"><label>Rich Text Body (Written types — HTML)</label><textarea name="body_rich_text">${esc(e.body_rich_text || '')}</textarea><div class="hint">HTML. For email templates, include the subject/body sections, e.g. &lt;p class="cp-res-eyebrow"&gt;Subject Line&lt;/p&gt;&lt;p class="cp-res-subject"&gt;…&lt;/p&gt; then &lt;p class="cp-res-eyebrow"&gt;Email Body&lt;/p&gt;…</div></div>
+        <div class="fld"><label>Thumbnail URL (optional — video card override)</label><input type="url" name="thumbnail_url" value="${esc(e.thumbnail_url || '')}"></div>
+        <div class="fld chk"><input type="checkbox" name="is_featured" id="res-feat"${e.is_featured ? ' checked' : ''}><label for="res-feat" style="margin:0">Feature in "New For You" (unsets any other featured resource)</label></div>
+        <div class="actions">
+          <button type="submit" class="btn save">${isEdit ? 'Save Changes' : 'Create Resource'}</button>
+          ${isEdit ? '<a class="btn cancel" href="/admin/resources">Cancel</a>' : ''}
+        </div>
+      </form>
+    </div>
+  </div>
+<script>
+  // Show url vs body field per content type.
+  (function () {
+    var sel = document.getElementById('res-type');
+    var url = document.getElementById('fld-url'), body = document.getElementById('fld-body');
+    var written = ['article', 'email_template'];
+    function sync() {
+      var isW = written.indexOf(sel.value) !== -1;
+      url.style.display = isW ? 'none' : 'block';
+      body.style.display = isW ? 'block' : 'none';
+    }
+    sel.addEventListener('change', sync); sync();
+  })();
+</script>
+</body></html>`;
+}
+
+app.get('/admin/resources', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const list = await resourcesLib.listResourcesAdmin();
+  const editing = req.query.edit ? await resourcesLib.getResourceById(parseInt(req.query.edit, 10)) : null;
+  let toast = null;
+  if (req.query.ok) toast = { msg: 'Saved.', err: false };
+  if (req.query.err) toast = { msg: String(req.query.err).slice(0, 200), err: true };
+  res.send(renderAdminResourcesPage(list, editing, toast));
+});
+
+app.post('/admin/resources', requireSuperAdmin, async (req, res) => {
+  const err = validateResourceInput(req.body || {});
+  if (err) return res.redirect('/admin/resources?err=' + encodeURIComponent(err));
+  try {
+    await resourcesLib.createResource(resourceFieldsFromBody(req.body), req.session.user_id);
+    res.redirect('/admin/resources?ok=1');
+  } catch (e) {
+    console.error('[POST /admin/resources] failed:', e.message);
+    res.redirect('/admin/resources?err=' + encodeURIComponent('Create failed: ' + e.message));
+  }
+});
+
+app.post('/admin/resources/:id', requireSuperAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const err = validateResourceInput(req.body || {});
+  if (err) return res.redirect('/admin/resources?edit=' + id + '&err=' + encodeURIComponent(err));
+  try {
+    await resourcesLib.updateResource(id, resourceFieldsFromBody(req.body));
+    res.redirect('/admin/resources?ok=1');
+  } catch (e) {
+    console.error('[POST /admin/resources/:id] failed:', e.message);
+    res.redirect('/admin/resources?edit=' + id + '&err=' + encodeURIComponent('Save failed: ' + e.message));
+  }
+});
+
+app.post('/admin/resources/:id/publish', requireSuperAdmin, async (req, res) => {
+  await resourcesLib.publishResource(parseInt(req.params.id, 10)).catch(e => console.error('[publish]', e.message));
+  res.redirect('/admin/resources?ok=1');
+});
+app.post('/admin/resources/:id/unpublish', requireSuperAdmin, async (req, res) => {
+  await resourcesLib.unpublishResource(parseInt(req.params.id, 10)).catch(e => console.error('[unpublish]', e.message));
+  res.redirect('/admin/resources?ok=1');
+});
+app.post('/admin/resources/:id/delete', requireSuperAdmin, async (req, res) => {
+  await resourcesLib.deleteResource(parseInt(req.params.id, 10)).catch(e => console.error('[delete]', e.message));
+  res.redirect('/admin/resources?ok=1');
 });
 
 // =================== /admin/content — SINGLE-PAGE PNG PREVIEW (PR 4b) ===================
