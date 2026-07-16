@@ -844,3 +844,142 @@
     });
   }
 })();
+
+/* ══ Resources (§7.6, PR8) ═══════════════════════════════════════════════════
+   Filter tabs (show/hide by category or content_type=video), per-section carousel dots
+   (mobile/tablet), and the three modal variants (A Written / B PDF / C Video). Modals reuse
+   .cp-modal-backdrop (centered desktop / bottom-sheet mobile). Written bodies lazy-load. */
+(function () {
+  var sectionsWrap = document.querySelector('.cp-res-sections');
+  if (!sectionsWrap) return;   // not the Resources page
+
+  var tabs = [].slice.call(document.querySelectorAll('.cp-res-tab'));
+  var sections = [].slice.call(document.querySelectorAll('.cp-res-section'));
+  var empty = document.querySelector('.cp-res-empty');
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+  }
+
+  /* ── Carousel dots (mobile/tablet only; CSS hides the dot row on desktop) ── */
+  function syncDots(sec) {
+    var track = sec.querySelector('.cp-res-track');
+    var dotWrap = sec.querySelector('.cp-res-dots');
+    if (!track || !dotWrap) return;
+    var cards = [].slice.call(track.querySelectorAll('.cp-res-card')).filter(function (c) { return c.style.display !== 'none'; });
+    var dots = [].slice.call(dotWrap.querySelectorAll('.cp-dot'));
+    dots.forEach(function (d, i) { d.style.display = i < cards.length ? '' : 'none'; });
+    if (!cards.length) return;
+    var trackLeft = track.getBoundingClientRect().left;
+    var idx = 0, best = Infinity;
+    cards.forEach(function (c, i) {
+      var d = Math.abs(c.getBoundingClientRect().left - trackLeft);
+      if (d < best) { best = d; idx = i; }
+    });
+    dots.forEach(function (d, i) { d.classList.toggle('cp-dot--active', i === idx); });
+  }
+
+  sections.forEach(function (sec) {
+    var track = sec.querySelector('.cp-res-track');
+    var dotWrap = sec.querySelector('.cp-res-dots');
+    if (!track || !dotWrap) return;
+    var raf;
+    track.addEventListener('scroll', function () {
+      if (raf) return;
+      raf = requestAnimationFrame(function () { raf = null; syncDots(sec); });
+    });
+    dotWrap.addEventListener('click', function (e) {
+      var dot = e.target.closest('.cp-dot'); if (!dot) return;
+      var i = [].slice.call(dotWrap.querySelectorAll('.cp-dot')).indexOf(dot);
+      var cards = [].slice.call(track.querySelectorAll('.cp-res-card')).filter(function (c) { return c.style.display !== 'none'; });
+      if (cards[i]) track.scrollTo({ left: track.scrollLeft + (cards[i].getBoundingClientRect().left - track.getBoundingClientRect().left), behavior: 'smooth' });
+    });
+  });
+
+  /* ── Filter tabs ── */
+  function applyFilter(key) {
+    var anyVisible = false;
+    sections.forEach(function (sec) {
+      var cat = sec.getAttribute('data-category');
+      var cards = [].slice.call(sec.querySelectorAll('.cp-res-card'));
+      var secVisible = false;
+      cards.forEach(function (card) {
+        var show = key === 'all' || key === cat || (key === 'videos' && card.getAttribute('data-type') === 'video');
+        card.style.display = show ? '' : 'none';
+        if (show) secVisible = true;
+      });
+      sec.hidden = !secVisible;
+      if (secVisible) anyVisible = true;
+      var track = sec.querySelector('.cp-res-track');
+      if (track) track.scrollLeft = 0;
+      syncDots(sec);
+    });
+    if (empty) empty.hidden = anyVisible;
+  }
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      tabs.forEach(function (t) { t.classList.remove('cp-res-tab--active'); });
+      tab.classList.add('cp-res-tab--active');
+      applyFilter(tab.getAttribute('data-filter'));
+    });
+  });
+
+  /* ── Modals ── */
+  var backdrop = null;
+  function closeModal() {
+    if (backdrop) { backdrop.remove(); backdrop = null; document.body.classList.remove('cp-noscroll'); }
+  }
+  function openModal(panelHtml) {
+    closeModal();
+    backdrop = document.createElement('div');
+    backdrop.className = 'cp-modal-backdrop';
+    backdrop.innerHTML = panelHtml;
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) closeModal(); });
+    var closeBtn = backdrop.querySelector('.cp-res-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    document.body.appendChild(backdrop);
+    document.body.classList.add('cp-noscroll');
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeModal(); });
+
+  function modalHead(el) {
+    var badge = el.querySelector('.cp-res-badge');
+    var sub = el.getAttribute('data-subtitle');
+    return '<div class="cp-sheet-handle"></div>' +
+      '<div class="cp-res-modal-head"><div>' + (badge ? badge.outerHTML : '') +
+      '<h2 class="cp-res-modal-title">' + esc(el.getAttribute('data-title')) + '</h2></div>' +
+      '<button type="button" class="cp-res-modal-close" aria-label="Close">&times;</button></div>' +
+      (sub ? '<p class="cp-res-modal-sub">' + esc(sub) + '</p>' : '');
+  }
+
+  function openResource(el) {
+    var family = el.getAttribute('data-family');
+    var embed = el.getAttribute('data-embed');
+    var url = el.getAttribute('data-url');
+    if (family === 'video') {
+      openModal('<div class="cp-res-modal">' + modalHead(el) +
+        '<div class="cp-res-modal-body cp-res-modal-body--flush"><iframe class="cp-res-frame cp-res-frame--video" src="' + esc(embed) +
+        '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div></div>');
+    } else if (family === 'pdf') {
+      openModal('<div class="cp-res-modal">' + modalHead(el) +
+        '<div class="cp-res-modal-body cp-res-modal-body--flush"><iframe class="cp-res-frame cp-res-frame--pdf" src="' + esc(embed) + '"></iframe></div>' +
+        '<div class="cp-res-modal-foot"><span>Having trouble viewing?</span><a href="' + esc(url) + '" target="_blank" rel="noopener">↓ Download PDF</a></div></div>');
+    } else {
+      openModal('<div class="cp-res-modal">' + modalHead(el) +
+        '<div class="cp-res-modal-body"><div class="cp-res-prose" id="cp-res-bodytgt">Loading…</div></div></div>');
+      fetch('/coach/resources/' + encodeURIComponent(el.getAttribute('data-id')) + '/body', { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { var t = document.getElementById('cp-res-bodytgt'); if (t) t.innerHTML = (d && d.ok) ? d.body : 'This resource is unavailable.'; })
+        .catch(function () { var t = document.getElementById('cp-res-bodytgt'); if (t) t.textContent = 'This resource is unavailable.'; });
+    }
+  }
+
+  [].slice.call(document.querySelectorAll('.cp-res-card, .cp-res-featured')).forEach(function (el) {
+    el.addEventListener('click', function () { openResource(el); });
+    el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openResource(el); } });
+  });
+
+  applyFilter('all');
+})();
