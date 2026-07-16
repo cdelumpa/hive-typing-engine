@@ -16,20 +16,39 @@
 
 const db = require('./db');
 
+// PR7b: in-process memo of the published-overrides Map. The overrides set is GLOBAL (identical
+// for every render — not per-report, not per-user), yet loadPublishedOverrides() previously ran
+// a full-table SELECT on every report render (My Reports AND every client/coach PDF render).
+// Single Railway replica with an attached volume ("Replicas are not available for attached
+// volumes"), so a plain module-level cache is coherent — no cross-instance staleness — and a
+// deploy/restart clears it for free. Every write to content_overrides goes through the three
+// mutators below (saveDraftOverride/publishOverride/revertOverride), each of which busts the
+// cache, so a published edit is reflected on the very next render. NOTE (PR7b audit): api_result
+// reruns (forceWriteApiResult) do NOT touch content_overrides, so they don't dirty this cache —
+// invalidation here is scoped to the table this module owns. See report_prep buildClientModel.
+let _publishedCache = null;
+
+function invalidateOverridesCache() {
+  _publishedCache = null;
+}
+
 /**
- * Loads all published content overrides from the DB into a Map.
+ * Loads all published content overrides from the DB into a Map (memoized in-process).
  * Key:   content_key (e.g. "subtype_sp9.narrative")
  * Value: parsed value (JSON.parse if valid JSON, raw string otherwise)
  * Returns an empty Map if the DB is unavailable or the query fails — never throws.
+ * Callers treat the returned Map as read-only (resolveContent/resolveLibObject never mutate it),
+ * so the same cached instance is safely shared across renders.
  */
 async function loadPublishedOverrides() {
+  if (_publishedCache) return _publishedCache;
   try {
     const result = await db.query(
       'SELECT content_key, value FROM content_overrides WHERE status = $1',
       ['published']
     );
+    if (!result || !result.rows) return new Map();   // db.query returns null when DATABASE_URL is unset — don't cache a transient miss
     const map = new Map();
-    if (!result || !result.rows) return map;   // db.query returns null when DATABASE_URL is unset
     for (const row of result.rows) {
       try {
         map.set(row.content_key, JSON.parse(row.value));
@@ -37,6 +56,7 @@ async function loadPublishedOverrides() {
         map.set(row.content_key, row.value);
       }
     }
+    _publishedCache = map;   // cache only a genuine result (an empty table yields an empty Map, still cached)
     return map;
   } catch (err) {
     console.error('[content_overrides] Failed to load overrides:', err.message);
@@ -124,6 +144,9 @@ async function saveDraftOverride(contentKey, value, wordCount, coachId) {
            updated_by = EXCLUDED.updated_by, updated_at = NOW(), status = 'draft'`,
     [contentKey, json, wordCount, coachId]
   );
+  // A draft save can demote a previously-published key (ON CONFLICT ... SET status='draft'),
+  // removing it from the published set — so the render-time cache must be busted here too.
+  if (r !== null) invalidateOverridesCache();
   return r !== null;
 }
 
@@ -148,6 +171,7 @@ async function publishOverride(contentKey, value, wordCount, coachId) {
            previous_value = EXCLUDED.previous_value`,
     [contentKey, json, wordCount, coachId, previousValue]
   );
+  if (r !== null) invalidateOverridesCache();   // published set changed — next render reloads
   return r !== null;
 }
 
@@ -157,10 +181,11 @@ async function publishOverride(contentKey, value, wordCount, coachId) {
  */
 async function revertOverride(contentKey) {
   const r = await db.query('DELETE FROM content_overrides WHERE content_key = $1', [contentKey]);
+  if (r !== null) invalidateOverridesCache();   // deleting a published row changes the render — bust
   return r !== null;
 }
 
 module.exports = {
-  loadPublishedOverrides, resolveContent, resolveLibObject,
+  loadPublishedOverrides, invalidateOverridesCache, resolveContent, resolveLibObject,
   getAllOverrides, saveDraftOverride, publishOverride, revertOverride,
 };

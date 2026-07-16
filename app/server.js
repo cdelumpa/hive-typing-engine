@@ -2142,18 +2142,33 @@ function renderMyReport({ coachName, credits, model, apiResult, assessments, sel
 
 app.get('/coach/reports', requireCoach, requireOnboardingComplete, async (req, res) => {
   res.set('Cache-Control', 'no-store');   // per-coach, private (Tier 3, §12.3)
-  const credits = await getCoachCreditBalance(req.session.coach_id).catch(() => null);
   const userId = req.session.user_id;
+  // PR7b: credits (2 internal queries) is independent of the report reads, so kick it off up
+  // front and overlap it with the self-assessment list rather than paying it sequentially. It
+  // owns its own .catch, so the Promise.all below only rejects if the list query does.
+  const creditsP = getCoachCreditBalance(req.session.coach_id).catch(() => null);
+  let credits = null;
 
   try {
-    const assessments = await db.getCoachSelfAssessments(userId);
+    // Wave 1: credits ∥ self-assessment list (list is needed to resolve which report to show).
+    let assessments;
+    [credits, assessments] = await Promise.all([creditsP, db.getCoachSelfAssessments(userId)]);
     if (!assessments.length) {
       return res.send(renderMyReportsZeroState(req.session.coach_name, false, credits));
     }
 
+    // selectedId is always one of THIS user's own assessment ids (falls back to their most
+    // recent), so both wave-2 reads below are already scoped to an owned assessment.
     const wanted = parseInt(req.query.report, 10);
     const selectedId = assessments.find(a => a.id === wanted) ? wanted : assessments[0].id;
-    const row = await db.getCoachSelfAssessmentForReport(userId, selectedId);
+
+    // Wave 2: the ownership-scoped report row ∥ its PDF paths. These don't depend on each
+    // other, and getCoachSelfAssessmentForReport keeps its `AND c.user_id = $2` gate — paths
+    // are only USED after that gate passes below, so overlapping them leaks nothing.
+    const [row, paths] = await Promise.all([
+      db.getCoachSelfAssessmentForReport(userId, selectedId),
+      db.getAssessmentReportPaths(selectedId).catch(() => ({})),
+    ]);
     if (!row || !row.api_result) {
       // Linked but the result payload is missing/older than the engine — honest fallback.
       return res.send(renderMyReportsZeroState(req.session.coach_name, true, credits));
@@ -2180,7 +2195,7 @@ app.get('/coach/reports', requireCoach, requireOnboardingComplete, async (req, r
     const instRows = ['SP', 'SO', 'SX'].map(c => ({ key: c, label: c, score: Number(prof[c]) || 0 }));
 
     // Download links → existing tokenised PDF route, only when the file is on disk.
-    const paths = await db.getAssessmentReportPaths(selectedId).catch(() => ({}));
+    // (paths was fetched in wave 2 above, in parallel with the report row.)
     const dl = (pdfPath, label) => {
       if (!pdfPath) return '';
       const base = path.basename(pdfPath);
@@ -2196,6 +2211,9 @@ app.get('/coach/reports', requireCoach, requireOnboardingComplete, async (req, r
     }));
   } catch (e) {
     console.error('[GET /coach/reports] failed:', e.message);
+    // If wave 1 rejected before credits was assigned, recover it for the chrome. creditsP owns
+    // its own .catch, so it never rejects and is already resolved here.
+    if (credits === null) credits = await creditsP;
     res.send(renderCoachChrome({
       activeNav: 'reports', creditsPill: credits, avatar: req.session.coach_name,
       bodyHtml: `<h1 class="cp-page-title">My Reports</h1><section class="cp-card"><p class="cp-chart-msg">Your report is temporarily unavailable. Please refresh in a moment.</p></section>`,
