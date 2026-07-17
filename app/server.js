@@ -46,6 +46,12 @@ const resourcesLib = require('./resources');   // PR8: Resources library (Tier-2
 // reads the same file via report_prep; the editor shows these as the fallback values.
 const contentLibrary = require('./content/content_library.json');
 
+// PR9 — Eventbrite event cache (15-minute TTL). First time-based cache in the codebase
+// (resources.js is bust-on-write, no TTL). Single Railway replica, so a module-level var
+// is the whole cache — no CDN/shared store to coordinate with.
+let _ebCache = { data: null, fetchedAt: 0 };
+const EB_CACHE_TTL_MS = 15 * 60 * 1000;
+
 const TYPE_LIBRARY_PATH = path.join(__dirname, 'type_library.json');
 let typeLibrary = null;
 try {
@@ -2405,6 +2411,178 @@ app.get('/coach/resources/:id/body', requireCoach, requireOnboardingComplete, as
     console.error('[GET /coach/resources/:id/body] failed:', e.message);
     res.status(500).json({ ok: false });
   }
+});
+
+// ── Coach Portal PR9: Coach Training (Eventbrite) ───────────────────────────────
+// Live event discovery, sourced entirely from Eventbrite (no DB, no admin CRUD). The
+// organizer's live events are fetched server-side, filtered to the "insightout" tag, and
+// cached 15 minutes (see _ebCache). Every failure mode — missing key, network error,
+// non-2xx, parse failure — degrades to an empty list, never a 500.
+
+// Card icons at 13px (the shared CP_ICON renders 20px; these override width/height).
+const CP_ICON_CAL = (paths) =>
+  `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" ` +
+  `stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const CP_TRAIN_ICON_CALENDAR = CP_ICON_CAL('<path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/>');
+const CP_TRAIN_ICON_MAPPIN  = CP_ICON_CAL('<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/>');
+const CP_TRAIN_ICON_EXTLINK = CP_ICON_CAL('<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>');
+
+// Fetch live InsightOut events from Eventbrite, cached 15 min. Returns [] on any failure.
+async function fetchEventbriteEvents() {
+  if (_ebCache.data !== null && Date.now() - _ebCache.fetchedAt < EB_CACHE_TTL_MS) {
+    console.log('[eventbrite] cache hit');
+    return _ebCache.data;
+  }
+  if (!process.env.EVENTBRITE_API_KEY) {
+    console.warn('[eventbrite] EVENTBRITE_API_KEY not set — serving empty event list');
+    return [];
+  }
+  try {
+    const url = `https://www.eventbriteapi.com/v3/organizers/${process.env.EVENTBRITE_ORGANIZER_ID}/events/`
+      + `?status=live&order_by=start_asc&expand=venue,ticket_availability`;
+    const resp = await fetch(url, {
+      headers: { Authorization: `Bearer ${process.env.EVENTBRITE_API_KEY}` },
+    });
+    if (!resp.ok) {
+      console.error(`[eventbrite] non-2xx (${resp.status}) — serving empty event list`);
+      return [];
+    }
+    const body = await resp.json();
+    const all = Array.isArray(body.events) ? body.events : [];
+    const filtered = all.filter(ev => Array.isArray(ev.tags) && ev.tags.some(t =>
+      (t && typeof t.tag === 'string' && t.tag.toLowerCase() === 'insightout') ||
+      (t && typeof t.display_name === 'string' && t.display_name.toLowerCase() === 'insightout')
+    ));
+    console.log(`[eventbrite] fetched ${all.length} live event(s), ${filtered.length} tagged insightout`);
+    _ebCache = { data: filtered, fetchedAt: Date.now() };
+    return _ebCache.data;
+  } catch (e) {
+    console.error('[eventbrite] fetch failed — serving empty event list:', e.message);
+    return [];
+  }
+}
+
+// Format an Eventbrite naive-local datetime in its own timezone: "July 24, 2026 · 2:00 PM PT".
+// Falls back to the raw string with no TZ label if the timezone is missing or Intl throws.
+function formatEventDate(startLocal, startTimezone) {
+  if (!startLocal) return '';
+  try {
+    if (!startTimezone) throw new Error('no timezone');
+    const d = new Date(startLocal);
+    if (isNaN(d.getTime())) throw new Error('unparseable date');
+    const datePart = new Intl.DateTimeFormat('en-US', {
+      timeZone: startTimezone, month: 'long', day: 'numeric', year: 'numeric',
+    }).format(d);
+    const timePart = new Intl.DateTimeFormat('en-US', {
+      timeZone: startTimezone, hour: 'numeric', minute: '2-digit', hour12: true,
+    }).format(d);
+    const tzParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: startTimezone, hour: 'numeric', timeZoneName: 'short',
+    }).formatToParts(d);
+    const tzAbbr = (tzParts.find(p => p.type === 'timeZoneName') || {}).value || '';
+    return `${datePart} · ${timePart}${tzAbbr ? ' ' + tzAbbr : ''}`;
+  } catch (e) {
+    return String(startLocal);
+  }
+}
+
+// Render one Eventbrite event as a card. Sold-out events get a muted treatment.
+function renderEventCard(event) {
+  const ta = event.ticket_availability || {};
+  const soldOut = ta.is_sold_out === true;
+
+  const title = cpEsc((event.name && event.name.text) || 'Untitled event');
+  const start = event.start || {};
+  const dateStr = cpEsc(formatEventDate(start.local, start.timezone));
+
+  // Location
+  let location;
+  if (event.online_event === true) {
+    location = 'Online';
+  } else if (event.venue) {
+    const addr = event.venue.address || {};
+    const cityState = [addr.city, addr.region].filter(Boolean).join(', ');
+    location = [event.venue.name, cityState].filter(Boolean).join(' · ') || 'Location TBD';
+  } else {
+    location = 'Location TBD';
+  }
+  location = cpEsc(location);
+
+  const desc = cpEsc(event.summary || '');
+
+  // Price
+  let priceHtml;
+  if (event.is_free === true) {
+    priceHtml = `<span class="cp-event-price--free">Free</span>`;
+  } else {
+    const disp = ta.minimum_ticket_price && ta.minimum_ticket_price.display;
+    priceHtml = `<span class="cp-event-price--paid">${disp ? cpEsc(disp) : 'Paid'}</span>`;
+  }
+
+  const badge = soldOut
+    ? `<span class="cp-badge cp-badge--muted">SOLD OUT</span>`
+    : `<span class="cp-badge cp-badge--success">AVAILABLE</span>`;
+
+  const footerRight = soldOut
+    ? `<span class="cp-event-soldout-label">Sold Out</span>`
+    : `<a href="${cpEsc(event.url || '#')}" target="_blank" rel="noopener noreferrer" class="cp-event-cta">Register &rarr; ${CP_TRAIN_ICON_EXTLINK}</a>`;
+
+  return `<div class="cp-event-card${soldOut ? ' cp-event-card--soldout' : ''}">
+    ${badge}
+    <h2 class="cp-event-title">${title}</h2>
+    <div class="cp-event-meta">${CP_TRAIN_ICON_CALENDAR}<span>${dateStr}</span></div>
+    <div class="cp-event-meta">${CP_TRAIN_ICON_MAPPIN}<span>${location}</span></div>
+    <p class="cp-event-desc">${desc}</p>
+    <hr class="cp-event-divider">
+    <div class="cp-event-footer">
+      <span class="cp-event-price">${priceHtml}</span>
+      ${footerRight}
+    </div>
+  </div>`;
+}
+
+// Empty state — zero events after filtering, missing key, or fetch failure.
+function renderTrainingEmptyState() {
+  return `<div class="cp-training-empty">
+    Nothing on the calendar right now — check back soon. In the meantime, head to
+    <a href="https://hive.mn.co" target="_blank" rel="noopener noreferrer" class="cp-link">the Collective</a>
+    to connect with fellow coaches.
+  </div>`;
+}
+
+app.get('/coach/training', requireCoach, requireOnboardingComplete, async (req, res) => {
+  res.set('Cache-Control', 'no-store');   // page carries per-coach chrome; event list is server-cached
+  const credits = await getCoachCreditBalance(req.session.coach_id).catch(() => null);
+  const events = await fetchEventbriteEvents();
+  const cardsHtml = events.length > 0
+    ? events.map(renderEventCard).join('')
+    : renderTrainingEmptyState();
+
+  const bodyHtml = `
+    <div class="cp-workspace">
+      <div class="cp-training-header">
+        <div>
+          <h1 class="cp-page-title">Coach Training</h1>
+          <p class="cp-page-subtitle">Upcoming live workshops, webinars, and certification events.</p>
+        </div>
+        <span class="cp-eb-attribution">Powered by Eventbrite</span>
+      </div>
+      <div class="cp-event-grid">
+        ${cardsHtml}
+      </div>
+    </div>
+  `;
+
+  res.send(renderCoachChrome({
+    activeNav: 'training', creditsPill: credits, avatar: req.session.coach_name, bodyHtml,
+  }));
+});
+
+// JSON endpoint — same cached, filtered event list (client-side use if needed).
+app.get('/coach/training/events', requireCoach, requireOnboardingComplete, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const events = await fetchEventbriteEvents();
+  res.json({ events });
 });
 
 // ── Coach Portal PR10: My Account (spec §7.8) ───────────────────────────────────
