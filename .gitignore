@@ -3,6 +3,7 @@
 app/.env
 app/node_modules/
 app/reports/
+app/uploads/
 .DS_Store
 **/.DS_Store
 .phase1_captures/

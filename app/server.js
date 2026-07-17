@@ -10,6 +10,9 @@ const crypto     = require('crypto');
 const fs         = require('fs');
 const path       = require('path');
 const archiver   = require('archiver');   // A2: stream the EM Lab Full Context Package ZIP
+const multer     = require('multer');      // PR14: event cover-photo multipart upload (memory storage)
+const sharp      = require('sharp');       // PR14: cover-photo resize (card + modal crops)
+const cron       = require('node-cron');   // PR14: in-process scheduled jobs (reminder / waitlist expiry)
 
 // override: true lets values in .env authoritatively replace ambient shell env.
 require('dotenv').config({ override: true });
@@ -42,15 +45,12 @@ const emContentLibrary = require('./content/content_library.json'); // server-si
 const stage1Labels = require('./stage1_labels');                  // frozen label map + TYPE_GEOMETRY (PR3) — EM Lab rendering
 const contentOverrides = require('./content_overrides');
 const resourcesLib = require('./resources');   // PR8: Resources library (Tier-2 cached CRUD)
+const eventsLib    = require('./events');       // PR14: Events domain + registration/waitlist state machine
+const venuesLib    = require('./venues');       // PR14: Venue directory CRUD
+const eventEmails  = require('./event_emails'); // PR14: event transactional/scheduled email + .ics
 // Baseline static content for the /admin/content editor (read-only). The renderer
 // reads the same file via report_prep; the editor shows these as the fallback values.
 const contentLibrary = require('./content/content_library.json');
-
-// PR9 — Eventbrite event cache (15-minute TTL). First time-based cache in the codebase
-// (resources.js is bust-on-write, no TTL). Single Railway replica, so a module-level var
-// is the whole cache — no CDN/shared store to coordinate with.
-let _ebCache = { data: null, fetchedAt: 0 };
-const EB_CACHE_TTL_MS = 15 * 60 * 1000;
 
 const TYPE_LIBRARY_PATH = path.join(__dirname, 'type_library.json');
 let typeLibrary = null;
@@ -65,6 +65,12 @@ try {
 // Ensure reports directory exists (Railway Volume path takes precedence)
 const REPORTS_DIR = process.env.REPORTS_DIR || path.join(__dirname, 'reports');
 if (!fs.existsSync(REPORTS_DIR)) fs.mkdirSync(REPORTS_DIR, { recursive: true });
+
+// PR14 — event cover-photo storage. Mirrors REPORTS_DIR exactly: an env-overridable path with
+// an __dirname fallback so local dev works with no config. Cai sets UPLOAD_DIR=/app/uploads in
+// Railway (the same volume that already persists /app/reports); NOT hardcoded here (CP-2).
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 // Initialize database (schema + seed coaches) — non-blocking
 db.initDb().catch(e => console.error('[boot] db.initDb error:', e.message));
@@ -174,6 +180,11 @@ app.use((req, res, next) => {
   // Tokenized PDF access: generation is session-gated, redemption is token-gated.
   // Both must bypass basic auth so coaches and their PDF viewer can reach them.
   if (req.path.startsWith('/reports/token/') || req.path.startsWith('/reports/view/')) return next();
+  // PR14: external ThriveCart webhook self-authenticates via shared secret (basic auth would 401
+  // a sessionless caller); event cover images are public marketing art loaded by coach/admin
+  // browsers that carry no basic-auth credentials. Both bypass the gate here.
+  if (req.path.startsWith('/webhooks/')) return next();
+  if (req.path.startsWith('/uploads/')) return next();
   if (req.session && req.session.assessmentClientId) return next();
   basicAuthMiddleware(req, res, next);
 });
@@ -225,6 +236,53 @@ app.get('/', (req, res, next) => {
 // /coach/assets/coach-portal.css (ratified Choicepoint 3), covered by the /coach
 // basic-auth carve-out above.
 app.use('/coach/assets', express.static(path.join(__dirname, 'public/coach-portal-assets')));
+
+// ── PR14: Event cover-photo pipeline (upload + resize + serve) ───────────────────
+// First image pipeline in the codebase. Admin uploads a JPEG/PNG/WEBP via the event form;
+// sharp produces a card crop (600×340) and a modal crop (1200×480), both JPEG q85, written to
+// {UPLOAD_DIR}/event-covers/{event_id}/{card|modal}.jpg. Served below at
+// /uploads/event-covers/:eventId/:size.jpg, registered BEFORE express.static('public') and
+// covered by the /uploads basic-auth carve-out above.
+const COVER_SIZES = { card: { w: 600, h: 340 }, modal: { w: 1200, h: 480 } };
+const eventCoverUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },   // 5 MB
+  fileFilter: (req, file, cb) => {
+    const ok = ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype);
+    cb(ok ? null : new Error('Cover photo must be a JPEG, PNG, or WEBP image.'), ok);
+  },
+}).single('cover_photo');
+
+function eventCoverDir(eventId) {
+  return path.join(UPLOAD_DIR, 'event-covers', String(eventId));
+}
+
+// Process an uploaded buffer into the two crops. Returns the relative path stored on the event
+// row (cover_photo_path); the size suffix is appended by the render/serve layer. Throws on a
+// non-image buffer (surfaced as an admin save error).
+async function processEventCover(buffer, eventId) {
+  const dir = eventCoverDir(eventId);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const [size, { w, h }] of Object.entries(COVER_SIZES)) {
+    await sharp(buffer)
+      .resize(w, h, { fit: 'cover', position: 'centre' })
+      .jpeg({ quality: 85 })
+      .toFile(path.join(dir, `${size}.jpg`));
+  }
+  return `event-covers/${eventId}`;   // relative; served as /uploads/<this>/<size>.jpg
+}
+
+// Serve a processed cover. Validates the size segment and the numeric id; 404 on any miss so a
+// missing cover degrades to the CSS placeholder rather than an error.
+app.get('/uploads/event-covers/:eventId/:size.jpg', (req, res) => {
+  const size = req.params.size;
+  const eventId = parseInt(req.params.eventId, 10);
+  if (!COVER_SIZES[size] || !eventId) return res.status(404).end();
+  const file = path.join(eventCoverDir(eventId), `${size}.jpg`);
+  if (!fs.existsSync(file)) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.type('jpeg').sendFile(file);
+});
 
 // ── Coach Portal chrome (PR1 shell, extracted in PR3) ───────────────────────────
 // Registered BEFORE the blanket static mount (defense in depth for the bare /coach
@@ -2413,57 +2471,27 @@ app.get('/coach/resources/:id/body', requireCoach, requireOnboardingComplete, as
   }
 });
 
-// ── Coach Portal PR9: Coach Training (Eventbrite) ───────────────────────────────
-// Live event discovery, sourced entirely from Eventbrite (no DB, no admin CRUD). The
-// organizer's live events are fetched server-side, filtered to the "insightout" tag, and
-// cached 15 minutes (see _ebCache). Every failure mode — missing key, network error,
-// non-2xx, parse failure — degrades to an empty list, never a 500.
+// ── Coach Portal PR14: Coach Training (native DB-driven events) ──────────────────
+// Replaces the PR9 Eventbrite integration with the events table + registration/waitlist
+// state machine (see events.js). Published, non-cancelled, upcoming events render as a grid
+// of cards; each card opens a detail modal. Free events register in-portal; paid events hand
+// off to ThriveCart. zoom_url is NEVER emitted to the client — it lives only in emails.
 
-// Card icons at 13px (the shared CP_ICON renders 20px; these override width/height).
+// Card/meta icons at 13px (the shared CP_ICON renders 20px; these override width/height).
 const CP_ICON_CAL = (paths) =>
   `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" ` +
   `stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const CP_TRAIN_ICON_CALENDAR = CP_ICON_CAL('<path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/>');
 const CP_TRAIN_ICON_MAPPIN  = CP_ICON_CAL('<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/>');
 const CP_TRAIN_ICON_EXTLINK = CP_ICON_CAL('<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>');
+const CP_TRAIN_ICON_CLOCK   = CP_ICON_CAL('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
+const CP_TRAIN_ICON_USERS   = CP_ICON_CAL('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>');
+const CP_TRAIN_ICON_AWARD   = CP_ICON_CAL('<circle cx="12" cy="8" r="6"/><path d="M15.5 12.9 17 22l-5-3-5 3 1.5-9.1"/>');
+const CP_TRAIN_ICON_TAG     = CP_ICON_CAL('<path d="M12.6 2.6 21 11a2 2 0 0 1 0 2.8l-6.2 6.2a2 2 0 0 1-2.8 0L3.6 11.6A2 2 0 0 1 3 10.2V4a1.4 1.4 0 0 1 1.4-1.4h6.2a2 2 0 0 1 1.4.6Z"/><circle cx="7.5" cy="7.5" r="1"/>');
 
-// Fetch live InsightOut events from Eventbrite, cached 15 min. Returns [] on any failure.
-async function fetchEventbriteEvents() {
-  if (_ebCache.data !== null && Date.now() - _ebCache.fetchedAt < EB_CACHE_TTL_MS) {
-    console.log('[eventbrite] cache hit');
-    return _ebCache.data;
-  }
-  if (!process.env.EVENTBRITE_API_KEY) {
-    console.warn('[eventbrite] EVENTBRITE_API_KEY not set — serving empty event list');
-    return [];
-  }
-  try {
-    const url = `https://www.eventbriteapi.com/v3/organizers/${process.env.EVENTBRITE_ORGANIZER_ID}/events/`
-      + `?status=live&order_by=start_asc&expand=venue,ticket_availability`;
-    const resp = await fetch(url, {
-      headers: { Authorization: `Bearer ${process.env.EVENTBRITE_API_KEY}` },
-    });
-    if (!resp.ok) {
-      console.error(`[eventbrite] non-2xx (${resp.status}) — serving empty event list`);
-      return [];
-    }
-    const body = await resp.json();
-    const all = Array.isArray(body.events) ? body.events : [];
-    const filtered = all.filter(ev => Array.isArray(ev.tags) && ev.tags.some(t =>
-      (t && typeof t.tag === 'string' && t.tag.toLowerCase() === 'insightout') ||
-      (t && typeof t.display_name === 'string' && t.display_name.toLowerCase() === 'insightout')
-    ));
-    console.log(`[eventbrite] fetched ${all.length} live event(s), ${filtered.length} tagged insightout`);
-    _ebCache = { data: filtered, fetchedAt: Date.now() };
-    return _ebCache.data;
-  } catch (e) {
-    console.error('[eventbrite] fetch failed — serving empty event list:', e.message);
-    return [];
-  }
-}
-
-// Format an Eventbrite naive-local datetime in its own timezone: "July 24, 2026 · 2:00 PM PT".
-// Falls back to the raw string with no TZ label if the timezone is missing or Intl throws.
+// Format a DB TIMESTAMPTZ in the event's own IANA timezone: "July 24, 2026 · 2:00 PM PDT".
+// Reused verbatim from PR9 (pure Intl formatter): a JS Date from the pg driver formats the
+// same way an ISO string did. Falls back to the raw value if the tz is missing or Intl throws.
 function formatEventDate(startLocal, startTimezone) {
   if (!startLocal) return '';
   try {
@@ -2486,62 +2514,204 @@ function formatEventDate(startLocal, startTimezone) {
   }
 }
 
-// Render one Eventbrite event as a card. Sold-out events get a muted treatment.
-function renderEventCard(event) {
-  const ta = event.ticket_availability || {};
-  const soldOut = ta.is_sold_out === true;
+// Short date "Jul 24" for deadlines. UTC-tolerant via the event tz.
+function cpEventShortDate(d, tz) {
+  if (!d) return '';
+  try {
+    return new Intl.DateTimeFormat('en-US', { timeZone: tz || undefined, month: 'short', day: 'numeric' }).format(new Date(d));
+  } catch (e) { return ''; }
+}
 
-  const title = cpEsc((event.name && event.name.text) || 'Untitled event');
-  const start = event.start || {};
-  const dateStr = cpEsc(formatEventDate(start.local, start.timezone));
+// Duration between start and end, humanized ("2 hours", "90 min"). '' when no end.
+function cpEventDuration(startsAt, endsAt) {
+  if (!startsAt || !endsAt) return '';
+  const mins = Math.round((new Date(endsAt) - new Date(startsAt)) / 60000);
+  if (mins <= 0) return '';
+  if (mins % 60 === 0) { const h = mins / 60; return `${h} hour${h === 1 ? '' : 's'}`; }
+  if (mins > 60) { const h = Math.floor(mins / 60), m = mins % 60; return `${h}h ${m}m`; }
+  return `${mins} min`;
+}
 
-  // Location
-  let location;
-  if (event.online_event === true) {
-    location = 'Online';
-  } else if (event.venue) {
-    const addr = event.venue.address || {};
-    const cityState = [addr.city, addr.region].filter(Boolean).join(', ');
-    location = [event.venue.name, cityState].filter(Boolean).join(' · ') || 'Location TBD';
-  } else {
-    location = 'Location TBD';
+const CP_EVENT_CATEGORY_LABEL = { Certification: 'Certification', Workshop: 'Workshop', 'Coach Training': 'Coach Training' };
+const CP_EVENT_CATEGORY_CLS = { Certification: 'cp-event-tag--cert', Workshop: 'cp-event-tag--workshop', 'Coach Training': 'cp-event-tag--training' };
+
+function cpEventPrice(ev) {
+  const c = Number(ev.price_cents || 0);
+  if (c <= 0) return 'Free';
+  return '$' + (c / 100).toFixed(c % 100 === 0 ? 0 : 2);
+}
+
+// Card location line: "Online" (async) / "Zoom" (live) / "{venue} · {city}, {state}" (in person).
+function cpEventCardLocation(ev) {
+  if (ev.event_type === 'virtual_async') return 'Online';
+  if (ev.event_type === 'virtual_live') return 'Zoom';
+  const cityState = [ev.venue_city, ev.venue_state].filter(Boolean).join(', ');
+  return [ev.venue_name, cityState].filter(Boolean).join(' · ') || 'In person';
+}
+
+// ICF CCE one-liner, or '' when both categories are 0 (spec: hidden when 0).
+function cpEventCceLine(ev) {
+  const core = Number(ev.icf_cce_core || 0), resource = Number(ev.icf_cce_resource || 0);
+  if (core === 0 && resource === 0) return '';
+  const parts = [];
+  if (core) parts.push(`${core} Core`);
+  if (resource) parts.push(`${resource} Resource`);
+  return `${parts.join(' · ')} ICF CCE`;
+}
+
+// Availability badge. Four states drive the net-new badge CSS. regCount is live.
+function cpEventStatus(ev, regCount) {
+  if (!ev.starts_at) return { key: 'coming', label: 'COMING SOON' };
+  if (ev.registration_deadline && new Date(ev.registration_deadline) < new Date())
+    return { key: 'closed', label: 'REGISTRATION CLOSED' };
+  if (ev.capacity != null && regCount >= ev.capacity)
+    return { key: 'soldout', label: 'SOLD OUT' };
+  return { key: 'available', label: 'AVAILABLE' };
+}
+
+// Cover image (card or modal crop) or a gradient placeholder when none uploaded.
+function cpEventCover(ev, size) {
+  if (!ev.cover_photo_path) return `<div class="cp-event-cover cp-event-cover--ph cp-event-cover--${size}"></div>`;
+  const src = `/uploads/event-covers/${ev.id}/${size}.jpg`;
+  return `<div class="cp-event-cover cp-event-cover--${size}"><img src="${cpEsc(src)}" alt="" loading="lazy"
+    onerror="this.parentNode.classList.add('cp-event-cover--ph');this.remove()"></div>`;
+}
+
+// The card's bottom CTA label reflects the coach's state (not an action itself — the card opens
+// the modal, where the real button lives).
+function cpEventCardCta(ev, status, coachStatus) {
+  if (coachStatus === 'registered') return `<span class="cp-event-cta cp-event-cta--done">Registered ✓</span>`;
+  if (coachStatus === 'waitlisted') return `<span class="cp-event-cta cp-event-cta--wait">On Waitlist</span>`;
+  if (status.key === 'closed') return `<span class="cp-event-cta cp-event-cta--muted">Registration Closed</span>`;
+  if (status.key === 'coming')  return `<span class="cp-event-cta cp-event-cta--muted">Coming Soon</span>`;
+  if (status.key === 'soldout') return `<span class="cp-event-cta">Join Waitlist</span>`;
+  return `<span class="cp-event-cta">Register &rarr; ${CP_TRAIN_ICON_EXTLINK}</span>`;
+}
+
+// One event card. ctx = { regCount, coachStatus }. The whole card is a button that opens the modal.
+function renderEventCard(ev, ctx) {
+  const status = cpEventStatus(ev, ctx.regCount);
+  const dateStr = ev.starts_at ? cpEsc(formatEventDate(ev.starts_at, ev.timezone)) : 'Date to be announced';
+  const cce = cpEventCceLine(ev);
+  const desc = ev.description ? cpEsc(String(ev.description).slice(0, 80)) + (String(ev.description).length > 80 ? '…' : '') : '';
+  const catCls = CP_EVENT_CATEGORY_CLS[ev.category] || 'cp-event-tag--training';
+  return `<article class="cp-event-card" role="button" tabindex="0" data-event-id="${ev.id}"
+    aria-label="${cpEsc(ev.title)} — view details">
+    ${cpEventCover(ev, 'card')}
+    <div class="cp-event-body">
+      <div class="cp-event-tags">
+        <span class="cp-event-tag ${catCls}">${cpEsc(CP_EVENT_CATEGORY_LABEL[ev.category] || ev.category)}</span>
+        <span class="cp-badge cp-event-badge cp-event-badge--${status.key}">${status.label}</span>
+      </div>
+      <h2 class="cp-event-title">${cpEsc(ev.title)}</h2>
+      <div class="cp-event-meta">${CP_TRAIN_ICON_CALENDAR}<span>${dateStr}</span></div>
+      <div class="cp-event-meta">${CP_TRAIN_ICON_MAPPIN}<span>${cpEsc(cpEventCardLocation(ev))}</span></div>
+      ${cce ? `<div class="cp-event-meta">${CP_TRAIN_ICON_AWARD}<span>${cpEsc(cce)}</span></div>` : ''}
+      ${desc ? `<p class="cp-event-desc">${desc}</p>` : ''}
+      <hr class="cp-event-divider">
+      <div class="cp-event-footer">
+        <span class="cp-event-price">${cpEsc(cpEventPrice(ev))}</span>
+        ${cpEventCardCta(ev, status, ctx.coachStatus)}
+      </div>
+    </div>
+  </article>`;
+}
+
+// Modal location block by type. zoom_url is NEVER rendered — virtual_live shows a note only.
+function cpEventModalLocation(ev, coachStatus) {
+  if (ev.event_type === 'virtual_live') {
+    const note = coachStatus === 'registered'
+      ? `<p class="cp-event-modal-note">The Zoom link has been emailed to you.</p>`
+      : `<p class="cp-event-modal-note">The Zoom link is emailed to registered participants.</p>`;
+    return `<div class="cp-event-modal-loc">${CP_TRAIN_ICON_MAPPIN}<span>Online via Zoom</span></div>${note}`;
   }
-  location = cpEsc(location);
-
-  const desc = cpEsc(event.summary || '');
-
-  // Price
-  let priceHtml;
-  if (event.is_free === true) {
-    priceHtml = `<span class="cp-event-price--free">Free</span>`;
-  } else {
-    const disp = ta.minimum_ticket_price && ta.minimum_ticket_price.display;
-    priceHtml = `<span class="cp-event-price--paid">${disp ? cpEsc(disp) : 'Paid'}</span>`;
+  if (ev.event_type === 'virtual_async') {
+    const link = (coachStatus === 'registered' && ev.async_url)
+      ? `<p class="cp-event-modal-note"><a href="${cpEsc(ev.async_url)}" target="_blank" rel="noopener noreferrer" class="cp-link">Watch the recording &rarr;</a></p>`
+      : `<p class="cp-event-modal-note">The link becomes available here once you register.</p>`;
+    return `<div class="cp-event-modal-loc">${CP_TRAIN_ICON_MAPPIN}<span>Online — watch anytime</span></div>${link}`;
   }
+  // in_person
+  const addr = [ev.venue_address, [ev.venue_city, ev.venue_state].filter(Boolean).join(', '), ev.venue_zip].filter(Boolean).join(' · ');
+  const site = ev.venue_website_url
+    ? `<p class="cp-event-modal-note"><a href="${cpEsc(ev.venue_website_url)}" target="_blank" rel="noopener noreferrer" class="cp-link">Venue website &rarr;</a></p>`
+    : '';
+  return `<div class="cp-event-modal-loc">${CP_TRAIN_ICON_MAPPIN}<span>${cpEsc([ev.venue_name, addr].filter(Boolean).join(' — ') || 'In person')}</span></div>${site}`;
+}
 
-  const badge = soldOut
-    ? `<span class="cp-badge cp-badge--muted">SOLD OUT</span>`
-    : `<span class="cp-badge cp-badge--success">AVAILABLE</span>`;
+// Capacity status line for the modal.
+function cpEventCapacityLine(ev, regCount, waitCount) {
+  if (ev.capacity == null) return `${regCount} registered`;
+  if (regCount >= ev.capacity) return `Sold out — ${waitCount} on waitlist`;
+  return `${regCount} of ${ev.capacity} spots filled`;
+}
 
-  const footerRight = soldOut
-    ? `<span class="cp-event-soldout-label">Sold Out</span>`
-    : `<a href="${cpEsc(event.url || '#')}" target="_blank" rel="noopener noreferrer" class="cp-event-cta">Register &rarr; ${CP_TRAIN_ICON_EXTLINK}</a>`;
+// The modal action button. ctx = { status, coachStatus, coachEmail }. Free → in-portal POST;
+// paid → ThriveCart hand-off. zoom_url never appears.
+function cpEventModalAction(ev, ctx) {
+  const isPaid = Number(ev.price_cents || 0) > 0;
+  if (ctx.coachStatus === 'registered') {
+    return `<button type="button" class="cp-event-btn cp-event-btn--cancel" data-action="cancel" data-event-id="${ev.id}">Cancel Registration</button>`;
+  }
+  if (ctx.coachStatus === 'waitlisted') {
+    return `<div class="cp-event-btn cp-event-btn--static">You're on the waitlist</div>`;
+  }
+  if (ctx.status.key === 'closed') return `<div class="cp-event-btn cp-event-btn--static">Registration Closed</div>`;
+  if (ctx.status.key === 'coming') return `<div class="cp-event-btn cp-event-btn--static">Coming Soon</div>`;
+  // Sold out (paid OR free): join the waitlist in-portal for free. For a paid event the seat, if
+  // it opens, is offered via a checkout email (CP-5) — the coach is not charged to wait. Checked
+  // before the paid branch so a sold-out paid event never shows "Register on ThriveCart".
+  if (ctx.status.key === 'soldout') {
+    return `<button type="button" class="cp-event-btn cp-event-btn--wait" data-action="register" data-event-id="${ev.id}">Join Waitlist</button>`;
+  }
+  if (isPaid) {
+    const url = ev.thrivecart_url
+      ? ev.thrivecart_url + (ev.thrivecart_url.includes('?') ? '&' : '?') + 'customer_email=' + encodeURIComponent(ctx.coachEmail || '')
+      : '#';
+    return `<a class="cp-event-btn cp-event-btn--pay" href="${cpEsc(url)}" target="_blank" rel="noopener noreferrer">Register on ThriveCart &rarr;</a>`;
+  }
+  return `<button type="button" class="cp-event-btn cp-event-btn--register" data-action="register" data-event-id="${ev.id}">Register</button>`;
+}
 
-  return `<div class="cp-event-card${soldOut ? ' cp-event-card--soldout' : ''}">
-    ${badge}
-    <h2 class="cp-event-title">${title}</h2>
-    <div class="cp-event-meta">${CP_TRAIN_ICON_CALENDAR}<span>${dateStr}</span></div>
-    <div class="cp-event-meta">${CP_TRAIN_ICON_MAPPIN}<span>${location}</span></div>
-    <p class="cp-event-desc">${desc}</p>
-    <hr class="cp-event-divider">
-    <div class="cp-event-footer">
-      <span class="cp-event-price">${priceHtml}</span>
-      ${footerRight}
+// Full detail modal body (injected into the shared overlay on card click). ctx carries live
+// counts + this coach's status + email. NEVER references ev.zoom_url.
+function renderEventModal(ev, ctx) {
+  const status = ctx.status;
+  const catCls = CP_EVENT_CATEGORY_CLS[ev.category] || 'cp-event-tag--training';
+  const dateStr = ev.starts_at ? cpEsc(formatEventDate(ev.starts_at, ev.timezone)) : 'Date to be announced';
+  const dur = cpEventDuration(ev.starts_at, ev.ends_at);
+  const cce = cpEventCceLine(ev);
+  const deadline = ev.registration_deadline ? cpEventShortDate(ev.registration_deadline, ev.timezone) : '';
+  const facilitator = ev.facilitator_name ? `
+    <div class="cp-event-modal-section">
+      <h3 class="cp-event-modal-h3">Facilitator</h3>
+      <p class="cp-event-modal-facil"><strong>${cpEsc(ev.facilitator_name)}</strong></p>
+      ${ev.facilitator_bio ? `<p class="cp-event-modal-bio">${cpEsc(ev.facilitator_bio)}</p>` : ''}
+    </div>` : '';
+  return `<div class="cp-event-modal-inner">
+    ${cpEventCover(ev, 'modal')}
+    <div class="cp-event-modal-pad">
+      <div class="cp-event-tags">
+        <span class="cp-event-tag ${catCls}">${cpEsc(CP_EVENT_CATEGORY_LABEL[ev.category] || ev.category)}</span>
+        <span class="cp-badge cp-event-badge cp-event-badge--${status.key}">${status.label}</span>
+      </div>
+      <h2 class="cp-event-modal-title">${cpEsc(ev.title)}</h2>
+      <div class="cp-event-modal-meta">${CP_TRAIN_ICON_CALENDAR}<span>${dateStr}</span></div>
+      ${dur ? `<div class="cp-event-modal-meta">${CP_TRAIN_ICON_CLOCK}<span>${cpEsc(dur)}${ev.timezone ? '' : ''}</span></div>` : ''}
+      ${cpEventModalLocation(ev, ctx.coachStatus)}
+      ${ev.description ? `<div class="cp-event-modal-section"><p class="cp-event-modal-desc">${cpEsc(ev.description)}</p></div>` : ''}
+      ${facilitator}
+      ${cce ? `<div class="cp-event-modal-meta">${CP_TRAIN_ICON_AWARD}<span>${cpEsc(cce)}</span></div>` : ''}
+      <div class="cp-event-modal-meta">${CP_TRAIN_ICON_USERS}<span>${cpEsc(cpEventCapacityLine(ev, ctx.regCount, ctx.waitCount))}</span></div>
+      <div class="cp-event-modal-meta">${CP_TRAIN_ICON_TAG}<span>${cpEsc(cpEventPrice(ev))}</span></div>
+      ${deadline ? `<p class="cp-event-modal-deadline">Register by ${cpEsc(deadline)}</p>` : ''}
+      <div class="cp-event-modal-actions">${cpEventModalAction(ev, ctx)}</div>
+      <p class="cp-event-modal-msg" data-event-msg hidden></p>
     </div>
   </div>`;
 }
 
-// Empty state — zero events after filtering, missing key, or fetch failure.
+// Empty state — reused verbatim from PR9 (with the Collective link).
 function renderTrainingEmptyState() {
   return `<div class="cp-training-empty">
     Nothing on the calendar right now — check back soon. In the meantime, head to
@@ -2551,12 +2721,39 @@ function renderTrainingEmptyState() {
 }
 
 app.get('/coach/training', requireCoach, requireOnboardingComplete, async (req, res) => {
-  res.set('Cache-Control', 'no-store');   // page carries per-coach chrome; event list is server-cached
-  const credits = await getCoachCreditBalance(req.session.coach_id).catch(() => null);
-  const events = await fetchEventbriteEvents();
-  const cardsHtml = events.length > 0
-    ? events.map(renderEventCard).join('')
-    : renderTrainingEmptyState();
+  res.set('Cache-Control', 'no-store');   // page carries per-coach chrome; event STATE is always live
+  const coachId = req.session.coach_id;
+  const credits = await getCoachCreditBalance(coachId).catch(() => null);
+
+  let events = [];
+  try { events = await eventsLib.getUpcomingEventsBase(); }
+  catch (e) { console.error('[GET /coach/training] event query failed:', e.message); }
+
+  const ids = events.map(e => e.id);
+  const [counts, statusMap, coach] = await Promise.all([
+    eventsLib.getCountsMap(ids).catch(() => ({})),
+    eventsLib.getCoachStatusMap(coachId, ids).catch(() => ({})),
+    db.getCoachById(coachId).catch(() => null),
+  ]);
+  const coachEmail = (coach && coach.email) || '';
+
+  let cardsHtml, modalsHtml = '';
+  if (events.length) {
+    cardsHtml = events.map(ev => {
+      const c = counts[ev.id] || { reg: 0, wait: 0 };
+      const coachStatus = statusMap[ev.id] || null;
+      return renderEventCard(ev, { regCount: c.reg, coachStatus });
+    }).join('');
+    modalsHtml = events.map(ev => {
+      const c = counts[ev.id] || { reg: 0, wait: 0 };
+      const coachStatus = statusMap[ev.id] || null;
+      const status = cpEventStatus(ev, c.reg);
+      const inner = renderEventModal(ev, { regCount: c.reg, waitCount: c.wait, status, coachStatus, coachEmail });
+      return `<template data-event-id="${ev.id}">${inner}</template>`;
+    }).join('');
+  } else {
+    cardsHtml = renderTrainingEmptyState();
+  }
 
   const bodyHtml = `
     <div class="cp-workspace">
@@ -2565,10 +2762,16 @@ app.get('/coach/training', requireCoach, requireOnboardingComplete, async (req, 
           <h1 class="cp-page-title">Coach Training</h1>
           <p class="cp-page-subtitle">Upcoming live workshops, webinars, and certification events.</p>
         </div>
-        <span class="cp-eb-attribution">Powered by Eventbrite</span>
       </div>
       <div class="cp-event-grid">
         ${cardsHtml}
+      </div>
+    </div>
+    <div id="cp-event-templates" hidden>${modalsHtml}</div>
+    <div class="cp-event-overlay" id="cp-event-overlay" hidden>
+      <div class="cp-event-modal" role="dialog" aria-modal="true" aria-label="Event details">
+        <button type="button" class="cp-event-modal-close" id="cp-event-modal-close" aria-label="Close">&times;</button>
+        <div id="cp-event-modal-body"></div>
       </div>
     </div>
   `;
@@ -2578,11 +2781,84 @@ app.get('/coach/training', requireCoach, requireOnboardingComplete, async (req, 
   }));
 });
 
-// JSON endpoint — same cached, filtered event list (client-side use if needed).
-app.get('/coach/training/events', requireCoach, requireOnboardingComplete, async (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  const events = await fetchEventbriteEvents();
-  res.json({ events });
+// ── Registration / waitlist / cancel (native, free events) ──────────────────────
+// Paid events register via the ThriveCart webhook, never here (a paid register attempt is
+// rejected with 409 so the client keeps the coach on the ThriveCart hand-off path).
+
+app.post('/coach/training/events/:id/register', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const eventId = parseInt(req.params.id, 10);
+  const coachId = req.session.coach_id;
+  if (!eventId) return res.status(400).json({ ok: false, error: 'bad_id' });
+  try {
+    const ev = await eventsLib.getEventWithVenue(eventId);
+    if (!ev || !ev.is_published || ev.is_cancelled) return res.status(409).json({ ok: false, error: 'unavailable', message: 'This event is no longer available.' });
+    // Paid events register via ThriveCart. The native route only ever lets a coach join the FREE
+    // waitlist of a sold-out paid event (waitlistOnly); actual registration comes from the webhook.
+    const isPaid = Number(ev.price_cents || 0) > 0;
+    const result = await eventsLib.registerCoach(eventId, coachId, isPaid ? { waitlistOnly: true } : {});
+    if (result.status === 'space_available') return res.status(409).json({ ok: false, error: 'use_checkout', message: 'A spot just opened — please register via checkout.' });
+    if (result.status === 'closed')    return res.status(409).json({ ok: false, error: 'closed', message: 'Registration is closed.' });
+    if (result.status === 'cancelled') return res.status(409).json({ ok: false, error: 'cancelled', message: 'This event has been cancelled.' });
+    if (result.status === 'not_found') return res.status(404).json({ ok: false, error: 'not_found' });
+    if (result.status === 'already_registered') return res.json({ ok: true, status: 'registered' });
+    if (result.status === 'already_waitlisted') return res.json({ ok: true, status: 'waitlisted' });
+
+    const coachRow = await db.getCoachById(coachId).catch(() => null);
+    const coach = { name: req.session.coach_name, email: coachRow && coachRow.email, coach_id: coachId };
+    if (coach.email) {
+      if (result.status === 'registered') {
+        eventEmails.sendRegistrationConfirmation({ event: ev, coach }).catch(e => console.error('[event-email] registration confirm failed:', e.message));
+      } else if (result.status === 'waitlisted') {
+        const position = await eventsLib.getWaitlistCount(eventId).catch(() => null);
+        eventEmails.sendWaitlistConfirmation({ event: ev, coach, position }).catch(e => console.error('[event-email] waitlist confirm failed:', e.message));
+      }
+    }
+    return res.json({ ok: true, status: result.status });
+  } catch (e) {
+    console.error('[POST /coach/training/events/:id/register] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/coach/training/events/:id/cancel', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const eventId = parseInt(req.params.id, 10);
+  const coachId = req.session.coach_id;
+  if (!eventId) return res.status(400).json({ ok: false, error: 'bad_id' });
+  try {
+    const ev = await eventsLib.getEventWithVenue(eventId);
+    if (!ev) return res.status(404).json({ ok: false, error: 'not_found' });
+
+    const result = await eventsLib.cancelRegistration(eventId, coachId);
+    if (result.status === 'not_registered') return res.status(409).json({ ok: false, error: 'not_registered', message: "You're not registered for this event." });
+
+    // Confirmation to the coach who cancelled.
+    const coachRow = await db.getCoachById(coachId).catch(() => null);
+    if (coachRow && coachRow.email) {
+      eventEmails.sendRegistrationCancellation({ event: ev, coach: { name: coachRow.name, email: coachRow.email, coach_id: coachId } })
+        .catch(e => console.error('[event-email] cancellation confirm failed:', e.message));
+    }
+    // Free event: a waitlister was auto-promoted into the seat → promotion email (with .ics).
+    if (result.promotedCoachId) {
+      const promoted = await db.getCoachById(result.promotedCoachId).catch(() => null);
+      if (promoted && promoted.email) {
+        eventEmails.sendWaitlistPromotion({ event: ev, coach: { name: promoted.name, email: promoted.email, coach_id: promoted.id } })
+          .catch(e => console.error('[event-email] waitlist promotion failed:', e.message));
+      }
+    }
+    // Paid event: the freed seat was offered to the next waitlister(s) → checkout-link email (CP-5,
+    // 24h window). They're registered only once the ThriveCart webhook confirms payment.
+    for (const offeredId of (result.paymentOfferedCoachIds || [])) {
+      const offered = await db.getCoachById(offeredId).catch(() => null);
+      if (offered && offered.email) {
+        eventEmails.sendWaitlistPaymentOffer({ event: ev, coach: { name: offered.name, email: offered.email, coach_id: offered.id } })
+          .catch(e => console.error('[event-email] waitlist payment offer failed:', e.message));
+      }
+    }
+    return res.json({ ok: true, status: 'cancelled' });
+  } catch (e) {
+    console.error('[POST /coach/training/events/:id/cancel] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'server_error' });
+  }
 });
 
 // ── Coach Portal PR10: My Account (spec §7.8) ───────────────────────────────────
@@ -8173,6 +8449,8 @@ function renderCoachesPage(coaches, errorMsg, flashMsg, isSuperAdmin = false) {
     <a href="/admin" class="nav-link">← Dashboard</a>
     <span class="nav-sep">|</span>
     ${isSuperAdmin ? `<a href="/admin/courses" class="nav-link">Course Catalog</a><span class="nav-sep">|</span>` : ''}
+    ${isSuperAdmin ? `<a href="/admin/events" class="nav-link">Events</a><span class="nav-sep">|</span>` : ''}
+    ${isSuperAdmin ? `<a href="/admin/venues" class="nav-link">Venues</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
@@ -12126,6 +12404,547 @@ app.post('/admin/courses/:id/delete', requireSuperAdmin, async (req, res) => {
 // Course enrollments are managed inside the Coach Profile modal (see the coach-profile POST
 // routes below), not on a standalone page. The coach_courses DB helpers remain.
 
+// =================== /admin/events + /admin/venues — Events Management (PR14) ===================
+// requireSuperAdmin, renderAdminCrudShell-style pages, PRG (?ok=1 / ?err=msg). Events use a
+// multipart form (cover upload → sharp pipeline). Matches the /admin/resources + /admin/courses
+// conventions. Venue selector on the event form is filtered client-side to in_person events.
+
+const EVENT_CATEGORY_OPTS = [
+  { v: 'Certification', l: 'Certification' },
+  { v: 'Workshop', l: 'Workshop' },
+  { v: 'Coach Training', l: 'Coach Training' },
+];
+const EVENT_TYPE_OPTS = [
+  { v: 'virtual_live', l: 'Virtual — Live' },
+  { v: 'virtual_async', l: 'Virtual — Async' },
+  { v: 'in_person', l: 'In Person' },
+];
+// Common IANA zones for the event-form selector (event times are wall-clock in this zone).
+const EVENT_TZ_OPTS = [
+  'America/Los_Angeles', 'America/Denver', 'America/Phoenix', 'America/Chicago',
+  'America/New_York', 'America/Anchorage', 'Pacific/Honolulu', 'Europe/London', 'UTC',
+].map(z => ({ v: z, l: z }));
+
+// ── Timezone-aware datetime conversion (no library) ──────────────────────────────
+// The admin types a wall-clock time (datetime-local) meant to be read in the event's IANA
+// timezone. These convert to/from a UTC instant for the timestamptz column, DST-aware.
+function tzOffsetMs(date, tz) {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+  const p = dtf.formatToParts(date).reduce((a, x) => { a[x.type] = x.value; return a; }, {});
+  const asUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  return asUTC - date.getTime();
+}
+// "2026-08-15T10:00" (wall clock in tz) → Date (UTC instant). Null/'' → null. No tz → treat as UTC.
+function wallClockToUtc(localStr, tz) {
+  if (!localStr) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(localStr);
+  if (!m) return null;
+  const [, y, mo, d, h, mi] = m.map(Number);
+  const guess = Date.UTC(y, mo - 1, d, h, mi);
+  if (!tz) return new Date(guess);
+  const off = tzOffsetMs(new Date(guess), tz);
+  return new Date(guess - off);
+}
+// timestamptz → "YYYY-MM-DDTHH:MM" wall clock in tz, for the edit form's datetime-local value.
+function utcToWallClockInput(ts, tz) {
+  if (!ts) return '';
+  try {
+    const d = new Date(ts);
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz || undefined, hourCycle: 'h23', year: 'numeric', month: '2-digit',
+      day: '2-digit', hour: '2-digit', minute: '2-digit',
+    });
+    const p = dtf.formatToParts(d).reduce((a, x) => { a[x.type] = x.value; return a; }, {});
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  } catch (e) { return ''; }
+}
+
+// Form body → typed, whitelisted event fields (''→null; dollars→cents; wall-clock→UTC).
+function eventFieldsFromBody(body) {
+  const b = body || {};
+  const s = (v) => { const t = (v == null ? '' : String(v)).trim(); return t === '' ? null : t; };
+  const tz = s(b.timezone);
+  const num = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+  const intOrNull = (v) => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
+  const priceCents = (() => { const n = parseFloat(b.price_dollars); return isNaN(n) ? 0 : Math.round(n * 100); })();
+  return {
+    title: s(b.title),
+    category: s(b.category),
+    event_type: s(b.event_type),
+    description: s(b.description),
+    facilitator_name: s(b.facilitator_name),
+    facilitator_bio: s(b.facilitator_bio),
+    timezone: tz,
+    starts_at: wallClockToUtc(b.starts_at, tz),
+    ends_at: wallClockToUtc(b.ends_at, tz),
+    registration_deadline: wallClockToUtc(b.registration_deadline, tz),
+    icf_cce_core: num(b.icf_cce_core),
+    icf_cce_resource: num(b.icf_cce_resource),
+    price_cents: priceCents,
+    thrivecart_url: s(b.thrivecart_url),
+    thrivecart_product_slug: s(b.thrivecart_product_slug),
+    capacity: intOrNull(b.capacity),
+    zoom_url: s(b.zoom_url),
+    async_url: s(b.async_url),
+    venue_id: intOrNull(b.venue_id),
+    is_published: b.is_published === 'on' || b.is_published === true,
+    is_featured: b.is_featured === 'on' || b.is_featured === true,
+  };
+}
+
+function validateEventInput(f) {
+  if (!f.title) return 'Title is required.';
+  if (!EVENT_CATEGORY_OPTS.some(o => o.v === f.category)) return 'A valid category is required.';
+  if (!EVENT_TYPE_OPTS.some(o => o.v === f.event_type)) return 'A valid event type is required.';
+  if (f.price_cents > 0 && !f.thrivecart_url) return 'Paid events need a ThriveCart checkout URL.';
+  if (f.event_type === 'in_person' && !f.venue_id) return 'In-person events need a venue.';
+  return null;
+}
+
+// Wrap the multer cover upload so its errors (size/type) become a PRG redirect, not a 500.
+function coverUploadMw(redirectBase) {
+  return (req, res, next) => eventCoverUpload(req, res, (err) => {
+    if (err) return res.redirect(redirectBase + '?err=' + encodeURIComponent(err.message || 'Cover upload failed.'));
+    next();
+  });
+}
+
+const adminEventDateCell = (ts, tz) => ts
+  ? new Date(ts).toLocaleString('en-US', { timeZone: tz || 'UTC', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+  : '—';
+
+function renderAdminEventsPage(list, editing, venues, toast) {
+  const opt = (opts, sel) => opts.map(o => `<option value="${esc(o.v)}"${String(o.v) === String(sel) ? ' selected' : ''}>${esc(o.l)}</option>`).join('');
+  const e = editing || {};
+  const isEdit = !!(editing && editing.id);
+  const rows = list.map(r => {
+    let status;
+    if (r.is_cancelled) status = '<span class="badge cancel">CANCELLED</span>';
+    else if (r.is_published) status = '<span class="badge pub">PUBLISHED</span>';
+    else status = '<span class="badge draft">DRAFT</span>';
+    const feat = r.is_featured ? ' <span class="badge feat">★</span>' : '';
+    const thumb = r.cover_photo_path
+      ? `<img class="thumb" src="/uploads/event-covers/${r.id}/card.jpg" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'thumb thumb--none'}))">`
+      : '<span class="thumb thumb--none"></span>';
+    const pubBtn = r.is_published
+      ? `<form method="POST" action="/admin/events/${r.id}/unpublish" style="display:inline"><button class="mini">Unpublish</button></form>`
+      : `<form method="POST" action="/admin/events/${r.id}/publish" style="display:inline"><button class="mini pub-btn">Publish</button></form>`;
+    const featBtn = r.is_featured
+      ? `<form method="POST" action="/admin/events/${r.id}/unfeature" style="display:inline"><button class="mini">Unfeature</button></form>`
+      : `<form method="POST" action="/admin/events/${r.id}/feature" style="display:inline"><button class="mini">Feature</button></form>`;
+    const cancelBtn = r.is_cancelled ? ''
+      : `<form method="POST" action="/admin/events/${r.id}/cancel" style="display:inline" onsubmit="return confirm('Cancel this event and email all registrants + waitlisted coaches?')"><button class="mini del">Cancel</button></form>`;
+    return `<tr>
+      <td>${thumb}</td>
+      <td>${esc(r.title)}${feat}</td>
+      <td>${esc(r.category)}</td>
+      <td>${esc((EVENT_TYPE_OPTS.find(o => o.v === r.event_type) || {}).l || r.event_type)}</td>
+      <td>${esc(adminEventDateCell(r.starts_at, r.timezone))}</td>
+      <td>${status}</td>
+      <td>${r.reg_count || 0}${r.wait_count ? ` (+${r.wait_count} wl)` : ''}</td>
+      <td class="act">
+        <a class="mini" href="/admin/events?edit=${r.id}#form">Edit</a>
+        ${pubBtn}${featBtn}
+        <a class="mini" href="/admin/events/${r.id}/registrations">Roster</a>
+        ${cancelBtn}
+        <form method="POST" action="/admin/events/${r.id}/delete" style="display:inline" onsubmit="return confirm('Permanently delete this event? (Only allowed with zero registrations.)')"><button class="mini del">Delete</button></form>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" class="empty">No events yet — create one below.</td></tr>';
+
+  const venueOpts = '<option value="">— none —</option>' + venues.map(v => `<option value="${v.id}"${String(v.id) === String(e.venue_id) ? ' selected' : ''}>${esc(v.name)}</option>`).join('');
+  const priceDollars = e.price_cents ? (Number(e.price_cents) / 100).toFixed(2) : '';
+
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Hive Admin — Events</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
+  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
+  .top-bar h1 { font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar nav a { color: #9FB4C0; font-size: 12px; text-decoration: none; margin-left: 16px; }
+  .top-bar nav a:hover { color: #fff; }
+  .container { max-width: 1040px; margin: 0 auto; padding: 28px 24px 80px; }
+  .toast { background: #e6f7ee; color: #1a7a4a; border: 1px solid #b7e3ca; border-radius: 6px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
+  .toast.err { background: #fdecec; color: #b23; border-color: #f3c0c0; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 36px; }
+  th, td { text-align: left; padding: 9px 12px; font-size: 12.5px; border-bottom: 1px solid #EFE8E0; vertical-align: middle; }
+  th { background: #FBFAF7; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #7A8A92; }
+  td.empty { color: #7A8A92; text-align: center; padding: 20px; }
+  td.act { white-space: nowrap; }
+  .thumb { display: inline-block; width: 56px; height: 32px; object-fit: cover; border-radius: 3px; vertical-align: middle; }
+  .thumb--none { background: #EFE8E0; }
+  .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.04em; }
+  .badge.pub { background: #e6f7ee; color: #1a7a4a; }
+  .badge.draft { background: #fef6e0; color: #9a6a00; }
+  .badge.cancel { background: #fdecec; color: #b23; }
+  .badge.feat { background: #FEF3E8; color: #B5590F; }
+  .mini { font-family: Georgia, serif; font-size: 12px; padding: 4px 9px; border-radius: 4px; border: 1px solid #D0DCE4; background: #fff; color: #1A2B33; cursor: pointer; text-decoration: none; display: inline-block; margin: 2px 2px 0 0; }
+  .mini:hover { background: #F2F6F8; }
+  .mini.pub-btn { background: #00b1d7; color: #fff; border-color: #00b1d7; }
+  .mini.del { color: #b23; border-color: #eecccc; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 22px 24px; }
+  .card h2 { font-size: 16px; margin: 0 0 18px; }
+  .fld { margin-bottom: 16px; }
+  .fld label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #7A96A6; font-weight: 700; margin-bottom: 5px; }
+  .fld input[type=text], .fld input[type=url], .fld input[type=number], .fld input[type=datetime-local], .fld select, .fld textarea { width: 100%; padding: 9px 11px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 14px; color: #1A2B33; }
+  .fld textarea { resize: vertical; min-height: 70px; }
+  .fld .hint { font-size: 11px; color: #7A96A6; margin-top: 4px; }
+  .row2 { display: flex; gap: 16px; } .row2 > .fld { flex: 1; }
+  .chk { display: flex; align-items: center; gap: 8px; } .chk input { width: auto; }
+  .actions { margin-top: 20px; display: flex; gap: 10px; align-items: center; }
+  .btn { font-family: Georgia, serif; font-size: 14px; font-weight: 700; padding: 9px 20px; border-radius: 5px; border: none; cursor: pointer; }
+  .btn.save { background: #00b1d7; color: #fff; } .btn.cancel { background: #eef2f4; color: #1A2B33; text-decoration: none; }
+</style></head>
+<body>
+  <div class="top-bar"><h1>Events</h1>
+    <nav><a href="/admin/venues">Venues</a><a href="/admin/coaches">Manage Coaches</a><a href="/admin">← Admin</a></nav>
+  </div>
+  <div class="container">
+    ${toast ? `<div class="toast${toast.err ? ' err' : ''}">${esc(toast.msg)}</div>` : ''}
+    <table>
+      <thead><tr><th></th><th>Title</th><th>Category</th><th>Type</th><th>Starts</th><th>Status</th><th>Reg</th><th>Actions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="card">
+      <h2 id="form">${isEdit ? 'Edit Event' : 'New Event'}</h2>
+      <form method="POST" action="${isEdit ? `/admin/events/${e.id}` : '/admin/events'}" enctype="multipart/form-data">
+        <div class="fld"><label>Title *</label><input type="text" name="title" value="${esc(e.title || '')}" required></div>
+        <div class="row2">
+          <div class="fld"><label>Category *</label><select name="category" required><option value="">— select —</option>${opt(EVENT_CATEGORY_OPTS, e.category)}</select></div>
+          <div class="fld"><label>Event Type *</label><select name="event_type" id="ev-type" required><option value="">— select —</option>${opt(EVENT_TYPE_OPTS, e.event_type)}</select></div>
+        </div>
+        <div class="fld"><label>Cover Photo (JPEG/PNG/WEBP, ≤5MB — auto-cropped to card + modal)</label><input type="file" name="cover_photo" accept="image/jpeg,image/png,image/webp">${e.cover_photo_path ? `<div class="hint">Current cover set. Uploading a new file replaces it.</div>` : ''}</div>
+        <div class="fld"><label>Description</label><textarea name="description">${esc(e.description || '')}</textarea></div>
+        <div class="row2">
+          <div class="fld"><label>Facilitator Name</label><input type="text" name="facilitator_name" value="${esc(e.facilitator_name || '')}"></div>
+          <div class="fld"><label>Timezone *</label><select name="timezone">${opt(EVENT_TZ_OPTS, e.timezone || 'America/Los_Angeles')}</select></div>
+        </div>
+        <div class="fld"><label>Facilitator Bio</label><textarea name="facilitator_bio" style="min-height:60px">${esc(e.facilitator_bio || '')}</textarea></div>
+        <div class="row2">
+          <div class="fld"><label>Starts At (event local time)</label><input type="datetime-local" name="starts_at" value="${esc(utcToWallClockInput(e.starts_at, e.timezone))}"></div>
+          <div class="fld"><label>Ends At</label><input type="datetime-local" name="ends_at" value="${esc(utcToWallClockInput(e.ends_at, e.timezone))}"></div>
+        </div>
+        <div class="row2">
+          <div class="fld"><label>Registration Deadline</label><input type="datetime-local" name="registration_deadline" value="${esc(utcToWallClockInput(e.registration_deadline, e.timezone))}"></div>
+          <div class="fld"><label>Capacity (blank = unlimited)</label><input type="number" name="capacity" min="1" value="${e.capacity != null ? esc(e.capacity) : ''}"></div>
+        </div>
+        <div class="row2">
+          <div class="fld"><label>ICF CCE — Core</label><input type="number" step="0.5" min="0" name="icf_cce_core" value="${esc(e.icf_cce_core != null ? e.icf_cce_core : 0)}"></div>
+          <div class="fld"><label>ICF CCE — Resource</label><input type="number" step="0.5" min="0" name="icf_cce_resource" value="${esc(e.icf_cce_resource != null ? e.icf_cce_resource : 0)}"></div>
+        </div>
+        <div class="fld"><label>Price (USD — 0 = free)</label><input type="number" step="0.01" min="0" name="price_dollars" id="ev-price" value="${esc(priceDollars)}"></div>
+        <div class="row2" id="ev-paid-flds" style="display:none">
+          <div class="fld"><label>ThriveCart Checkout URL</label><input type="url" name="thrivecart_url" value="${esc(e.thrivecart_url || '')}"></div>
+          <div class="fld"><label>ThriveCart Product Slug (webhook match)</label><input type="text" name="thrivecart_product_slug" value="${esc(e.thrivecart_product_slug || '')}"></div>
+        </div>
+        <div class="fld" id="ev-zoom-fld" style="display:none"><label>Zoom URL (virtual live — EMAIL ONLY, never shown to coaches)</label><input type="url" name="zoom_url" value="${esc(e.zoom_url || '')}"></div>
+        <div class="fld" id="ev-async-fld" style="display:none"><label>Async URL (virtual async — shown after registration)</label><input type="url" name="async_url" value="${esc(e.async_url || '')}"></div>
+        <div class="fld" id="ev-venue-fld" style="display:none"><label>Venue (in person)</label><select name="venue_id">${venueOpts}</select><div class="hint">Manage venues on the <a href="/admin/venues">Venues</a> page.</div></div>
+        <div class="fld chk"><input type="checkbox" name="is_published" id="ev-pub"${e.is_published ? ' checked' : ''}><label for="ev-pub" style="margin:0">Published (visible to coaches)</label></div>
+        <div class="fld chk"><input type="checkbox" name="is_featured" id="ev-feat"${e.is_featured ? ' checked' : ''}><label for="ev-feat" style="margin:0">Featured (sorts first in the grid)</label></div>
+        <div class="actions">
+          <button type="submit" class="btn save">${isEdit ? 'Save Changes' : 'Create Event'}</button>
+          ${isEdit ? '<a class="btn cancel" href="/admin/events">Cancel</a>' : ''}
+        </div>
+      </form>
+    </div>
+  </div>
+<script>
+  (function () {
+    var type = document.getElementById('ev-type');
+    var price = document.getElementById('ev-price');
+    function sync() {
+      var t = type.value;
+      document.getElementById('ev-zoom-fld').style.display  = (t === 'virtual_live') ? 'block' : 'none';
+      document.getElementById('ev-async-fld').style.display = (t === 'virtual_async') ? 'block' : 'none';
+      document.getElementById('ev-venue-fld').style.display = (t === 'in_person') ? 'block' : 'none';
+      document.getElementById('ev-paid-flds').style.display = (parseFloat(price.value) > 0) ? 'flex' : 'none';
+    }
+    type.addEventListener('change', sync); price.addEventListener('input', sync); sync();
+  })();
+</script>
+</body></html>`;
+}
+
+app.get('/admin/events', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const [list, venues] = await Promise.all([eventsLib.listEventsAdmin(), venuesLib.listVenues()]);
+  const editing = req.query.edit ? await eventsLib.getEventById(parseInt(req.query.edit, 10)) : null;
+  let toast = null;
+  if (req.query.ok) toast = { msg: 'Saved.', err: false };
+  if (req.query.err) toast = { msg: String(req.query.err).slice(0, 240), err: true };
+  res.send(renderAdminEventsPage(list, editing, venues, toast));
+});
+
+app.post('/admin/events', requireSuperAdmin, coverUploadMw('/admin/events'), async (req, res) => {
+  const fields = eventFieldsFromBody(req.body);
+  const err = validateEventInput(fields);
+  if (err) return res.redirect('/admin/events?err=' + encodeURIComponent(err));
+  try {
+    const id = await eventsLib.createEvent(fields);
+    if (req.file) {
+      const relPath = await processEventCover(req.file.buffer, id);
+      await eventsLib.updateEvent(id, { cover_photo_path: relPath });
+    }
+    res.redirect('/admin/events?ok=1');
+  } catch (e) {
+    console.error('[POST /admin/events] failed:', e.message);
+    res.redirect('/admin/events?err=' + encodeURIComponent('Create failed: ' + e.message));
+  }
+});
+
+app.post('/admin/events/:id', requireSuperAdmin, coverUploadMw('/admin/events'), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const fields = eventFieldsFromBody(req.body);
+  const err = validateEventInput(fields);
+  if (err) return res.redirect('/admin/events?edit=' + id + '&err=' + encodeURIComponent(err));
+  try {
+    if (req.file) fields.cover_photo_path = await processEventCover(req.file.buffer, id);
+    await eventsLib.updateEvent(id, fields);
+    res.redirect('/admin/events?ok=1');
+  } catch (e) {
+    console.error('[POST /admin/events/:id] failed:', e.message);
+    res.redirect('/admin/events?edit=' + id + '&err=' + encodeURIComponent('Save failed: ' + e.message));
+  }
+});
+
+app.post('/admin/events/:id/publish', requireSuperAdmin, async (req, res) => {
+  await eventsLib.setPublished(parseInt(req.params.id, 10), true).catch(e => console.error('[event publish]', e.message));
+  res.redirect('/admin/events?ok=1');
+});
+app.post('/admin/events/:id/unpublish', requireSuperAdmin, async (req, res) => {
+  await eventsLib.setPublished(parseInt(req.params.id, 10), false).catch(e => console.error('[event unpublish]', e.message));
+  res.redirect('/admin/events?ok=1');
+});
+app.post('/admin/events/:id/feature', requireSuperAdmin, async (req, res) => {
+  await eventsLib.setFeatured(parseInt(req.params.id, 10), true).catch(e => console.error('[event feature]', e.message));
+  res.redirect('/admin/events?ok=1');
+});
+app.post('/admin/events/:id/unfeature', requireSuperAdmin, async (req, res) => {
+  await eventsLib.setFeatured(parseInt(req.params.id, 10), false).catch(e => console.error('[event unfeature]', e.message));
+  res.redirect('/admin/events?ok=1');
+});
+
+// Cancel: flip is_cancelled + fan-out email #7 to all registrants + waitlisted coaches.
+app.post('/admin/events/:id/cancel', requireSuperAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    const ev = await eventsLib.getEventWithVenue(id);
+    const affected = await eventsLib.cancelEvent(id);
+    if (ev) {
+      for (const c of affected) {
+        eventEmails.sendEventCancellation({ event: ev, coach: { name: c.name, email: c.email, coach_id: c.coach_id } })
+          .catch(e => console.error('[event-email] cancellation blast failed:', e.message));
+      }
+    }
+    console.log(`[admin/events] cancelled event #${id}, notified ${affected.length} coach(es)`);
+    res.redirect('/admin/events?ok=1');
+  } catch (e) {
+    console.error('[POST /admin/events/:id/cancel] failed:', e.message);
+    res.redirect('/admin/events?err=' + encodeURIComponent('Cancel failed: ' + e.message));
+  }
+});
+
+// Hard delete: guarded to zero registrations (CP-3); also removes the cover directory.
+app.post('/admin/events/:id/delete', requireSuperAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    const result = await eventsLib.hardDeleteEvent(id);
+    if (!result.deleted && result.blockedByRegistrations > 0) {
+      return res.redirect('/admin/events?err=' + encodeURIComponent(
+        `Can't delete — ${result.blockedByRegistrations} registration(s) exist. Use Cancel to notify and close the event instead.`));
+    }
+    try { fs.rmSync(eventCoverDir(id), { recursive: true, force: true }); } catch (e) { /* best effort */ }
+    res.redirect('/admin/events?ok=1');
+  } catch (e) {
+    console.error('[POST /admin/events/:id/delete] failed:', e.message);
+    res.redirect('/admin/events?err=' + encodeURIComponent('Delete failed: ' + e.message));
+  }
+});
+
+// Per-event roster: registrations + waitlist.
+function renderAdminRosterPage(ev, regs, waitlist) {
+  const dt = (ts) => ts ? new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+  const regRows = regs.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name || '')}</td><td>${esc(r.email || '')}</td><td>${esc(dt(r.registered_at))}</td><td>${r.purchase_reference ? esc(r.purchase_reference) : '—'}</td></tr>`).join('')
+    || '<tr><td colspan="5" class="empty">No registrations yet.</td></tr>';
+  const wlRows = waitlist.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name || '')}</td><td>${esc(r.email || '')}</td><td>${esc(dt(r.waitlisted_at))}</td></tr>`).join('')
+    || '<tr><td colspan="4" class="empty">No one on the waitlist.</td></tr>';
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Hive Admin — Roster: ${esc(ev.title)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
+  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
+  .top-bar h1 { font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar a { color: #9FB4C0; font-size: 12px; text-decoration: none; margin-left: 16px; }
+  .top-bar a:hover { color: #fff; }
+  .container { max-width: 900px; margin: 0 auto; padding: 28px 24px 80px; }
+  h2 { font-size: 15px; margin: 26px 0 10px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  th, td { text-align: left; padding: 9px 12px; font-size: 13px; border-bottom: 1px solid #EFE8E0; }
+  th { background: #FBFAF7; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #7A8A92; }
+  td.empty { color: #7A8A92; text-align: center; padding: 20px; }
+  .sub { font-size: 13px; color: #7A8A92; margin: 4px 0 0; }
+</style></head>
+<body>
+  <div class="top-bar"><h1>Roster — ${esc(ev.title)}</h1>
+    <div><a href="/admin/events/${ev.id}/registrations.csv">Export CSV</a><a href="/admin/events">← Events</a></div>
+  </div>
+  <div class="container">
+    <p class="sub">${regs.length} registered${ev.capacity != null ? ` of ${ev.capacity}` : ''} · ${waitlist.length} on the waitlist</p>
+    <h2>Registrations</h2>
+    <table><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Registered</th><th>Order Ref</th></tr></thead><tbody>${regRows}</tbody></table>
+    <h2>Waitlist (FIFO)</h2>
+    <table><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Joined</th></tr></thead><tbody>${wlRows}</tbody></table>
+  </div>
+</body></html>`;
+}
+
+app.get('/admin/events/:id/registrations', requireSuperAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const ev = await eventsLib.getEventById(id);
+  if (!ev) return res.status(404).send('Event not found');
+  const [regs, waitlist] = await Promise.all([eventsLib.listRegistrations(id), eventsLib.listWaitlist(id)]);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(renderAdminRosterPage(ev, regs, waitlist));
+});
+
+app.get('/admin/events/:id/registrations.csv', requireSuperAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const ev = await eventsLib.getEventById(id);
+  if (!ev) return res.status(404).send('Event not found');
+  const [regs, waitlist] = await Promise.all([eventsLib.listRegistrations(id), eventsLib.listWaitlist(id)]);
+  const q = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  const iso = (ts) => ts ? new Date(ts).toISOString() : '';
+  const lines = ['list,name,email,timestamp,order_reference'];
+  regs.forEach(r => lines.push(['registration', r.name, r.email, iso(r.registered_at), r.purchase_reference || ''].map(q).join(',')));
+  waitlist.forEach(r => lines.push(['waitlist', r.name, r.email, iso(r.waitlisted_at), r.purchase_reference || ''].map(q).join(',')));
+  const safeTitle = String(ev.title || 'event').replace(/[^a-z0-9]+/gi, '_').slice(0, 40);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="roster_${id}_${safeTitle}.csv"`);
+  res.send(lines.join('\r\n'));
+});
+
+// ── /admin/venues — Venue directory ──────────────────────────────────────────────
+function renderAdminVenuesPage(list, editing, toast) {
+  const e = editing || {};
+  const isEdit = !!(editing && editing.id);
+  const rows = list.map(v => `<tr>
+    <td>${esc(v.name)}</td>
+    <td>${esc([v.city, v.state].filter(Boolean).join(', ') || '—')}</td>
+    <td>${v.website_url ? `<a href="${esc(v.website_url)}" target="_blank" rel="noopener">link</a>` : '—'}</td>
+    <td class="act">
+      <a class="mini" href="/admin/venues?edit=${v.id}#form">Edit</a>
+      <form method="POST" action="/admin/venues/${v.id}/delete" style="display:inline" onsubmit="return confirm('Delete this venue? Events referencing it keep their record but lose the link.')"><button class="mini del">Delete</button></form>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="4" class="empty">No venues yet — add one below.</td></tr>';
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Hive Admin — Venues</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
+  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
+  .top-bar h1 { font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar a { color: #9FB4C0; font-size: 12px; text-decoration: none; margin-left: 16px; }
+  .top-bar a:hover { color: #fff; }
+  .container { max-width: 900px; margin: 0 auto; padding: 28px 24px 80px; }
+  .toast { background: #e6f7ee; color: #1a7a4a; border: 1px solid #b7e3ca; border-radius: 6px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
+  .toast.err { background: #fdecec; color: #b23; border-color: #f3c0c0; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 36px; }
+  th, td { text-align: left; padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #EFE8E0; }
+  th { background: #FBFAF7; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #7A8A92; }
+  td.empty { color: #7A8A92; text-align: center; padding: 20px; }
+  td.act { white-space: nowrap; }
+  .mini { font-family: Georgia, serif; font-size: 12px; padding: 4px 10px; border-radius: 4px; border: 1px solid #D0DCE4; background: #fff; color: #1A2B33; cursor: pointer; text-decoration: none; display: inline-block; margin-right: 4px; }
+  .mini:hover { background: #F2F6F8; } .mini.del { color: #b23; border-color: #eecccc; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 22px 24px; }
+  .card h2 { font-size: 16px; margin: 0 0 18px; }
+  .fld { margin-bottom: 16px; }
+  .fld label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #7A96A6; font-weight: 700; margin-bottom: 5px; }
+  .fld input { width: 100%; padding: 9px 11px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 14px; color: #1A2B33; }
+  .row2 { display: flex; gap: 16px; } .row2 > .fld { flex: 1; }
+  .actions { margin-top: 20px; display: flex; gap: 10px; align-items: center; }
+  .btn { font-family: Georgia, serif; font-size: 14px; font-weight: 700; padding: 9px 20px; border-radius: 5px; border: none; cursor: pointer; }
+  .btn.save { background: #00b1d7; color: #fff; } .btn.cancel { background: #eef2f4; color: #1A2B33; text-decoration: none; }
+</style></head>
+<body>
+  <div class="top-bar"><h1>Venues</h1><div><a href="/admin/events">Events</a><a href="/admin">← Admin</a></div></div>
+  <div class="container">
+    ${toast ? `<div class="toast${toast.err ? ' err' : ''}">${esc(toast.msg)}</div>` : ''}
+    <table>
+      <thead><tr><th>Name</th><th>Location</th><th>Website</th><th>Actions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="card">
+      <h2 id="form">${isEdit ? 'Edit Venue' : 'New Venue'}</h2>
+      <form method="POST" action="${isEdit ? `/admin/venues/${e.id}` : '/admin/venues'}">
+        <div class="fld"><label>Name *</label><input type="text" name="name" value="${esc(e.name || '')}" required></div>
+        <div class="fld"><label>Address</label><input type="text" name="address" value="${esc(e.address || '')}"></div>
+        <div class="row2">
+          <div class="fld"><label>City</label><input type="text" name="city" value="${esc(e.city || '')}"></div>
+          <div class="fld"><label>State</label><input type="text" name="state" value="${esc(e.state || '')}"></div>
+          <div class="fld"><label>ZIP</label><input type="text" name="zip" value="${esc(e.zip || '')}"></div>
+        </div>
+        <div class="fld"><label>Website URL</label><input type="url" name="website_url" value="${esc(e.website_url || '')}"></div>
+        <div class="actions">
+          <button type="submit" class="btn save">${isEdit ? 'Save Changes' : 'Create Venue'}</button>
+          ${isEdit ? '<a class="btn cancel" href="/admin/venues">Cancel</a>' : ''}
+        </div>
+      </form>
+    </div>
+  </div>
+</body></html>`;
+}
+
+const venueFieldsFromBody = (b) => {
+  const s = (v) => { const t = (v == null ? '' : String(v)).trim(); return t === '' ? null : t; };
+  return { name: s(b.name), address: s(b.address), city: s(b.city), state: s(b.state), zip: s(b.zip), website_url: s(b.website_url) };
+};
+
+app.get('/admin/venues', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const list = await venuesLib.listVenues();
+  const editing = req.query.edit ? await venuesLib.getVenueById(parseInt(req.query.edit, 10)) : null;
+  let toast = null;
+  if (req.query.ok) toast = { msg: 'Saved.', err: false };
+  if (req.query.err) toast = { msg: String(req.query.err).slice(0, 200), err: true };
+  res.send(renderAdminVenuesPage(list, editing, toast));
+});
+
+app.post('/admin/venues', requireSuperAdmin, async (req, res) => {
+  const fields = venueFieldsFromBody(req.body);
+  if (!fields.name) return res.redirect('/admin/venues?err=' + encodeURIComponent('Venue name is required.'));
+  try { await venuesLib.createVenue(fields); res.redirect('/admin/venues?ok=1'); }
+  catch (e) { console.error('[POST /admin/venues]', e.message); res.redirect('/admin/venues?err=' + encodeURIComponent('Create failed: ' + e.message)); }
+});
+
+app.post('/admin/venues/:id', requireSuperAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const fields = venueFieldsFromBody(req.body);
+  if (!fields.name) return res.redirect('/admin/venues?edit=' + id + '&err=' + encodeURIComponent('Venue name is required.'));
+  try { await venuesLib.updateVenue(id, fields); res.redirect('/admin/venues?ok=1'); }
+  catch (e) { console.error('[POST /admin/venues/:id]', e.message); res.redirect('/admin/venues?edit=' + id + '&err=' + encodeURIComponent('Save failed: ' + e.message)); }
+});
+
+app.post('/admin/venues/:id/delete', requireSuperAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    const inUse = await venuesLib.countEventsForVenue(id);
+    if (inUse > 0) return res.redirect('/admin/venues?err=' + encodeURIComponent(
+      `This venue is used by ${inUse} active event(s). Reassign those events first.`));
+    await venuesLib.deleteVenue(id);
+    res.redirect('/admin/venues?ok=1');
+  } catch (e) {
+    console.error('[POST /admin/venues/:id/delete]', e.message);
+    res.redirect('/admin/venues?err=' + encodeURIComponent('Delete failed: ' + e.message));
+  }
+});
+
 // =================== /admin/content — SINGLE-PAGE PNG PREVIEW (PR 4b) ===================
 // Renders one client-report PDF page as a PNG so a super-admin sees a draft edit in context
 // before publishing. The draft value is injected onto a synthetic model (never the DB), the
@@ -12448,6 +13267,122 @@ app.post('/admin/coaches/provision', async (req, res) => {
     // Log identifiers for ops recovery; 500 makes ThriveCart retry, which the
     // purchase_reference idempotency guard makes safe.
     console.error('[thrivecart] webhook error — order:', req.body && req.body.order_id,
+      'email:', req.body && req.body.customer_email, '—', e.message);
+    return res.status(500).json({ error: 'WEBHOOK_ERROR' });
+  }
+});
+
+// ── PR14 — ThriveCart paid-event registration webhook (CP-5) ────────────────────
+// SIBLING to /admin/coaches/provision (never touches THRIVECART_SKU_MAP or the credit flow).
+// External endpoint: no session middleware, self-authenticates via the shared secret. Maps the
+// ThriveCart product slug → an event via events.thrivecart_product_slug, find-or-creates the
+// coach (reusing the exact chain the credit webhook uses), then registers (or waitlists if the
+// event is full at payment time — refund is handled MANUALLY, matching the credit-refund model).
+// Idempotent on order_id via event_registrations.purchase_reference: a retried order is a no-op.
+app.post('/webhooks/thrivecart/event', async (req, res) => {
+  // a. Shared secret (read at request time; fail closed if unset).
+  const secret = process.env.THRIVECART_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error('[thrivecart-event] THRIVECART_WEBHOOK_SECRET not set');
+    return res.status(500).json({ error: 'SERVER_CONFIG_ERROR' });
+  }
+  if (req.body.thrivecart_secret !== secret) {
+    console.warn('[thrivecart-event] invalid secret — rejected');
+    return res.status(401).json({ error: 'UNAUTHORIZED' });
+  }
+
+  try {
+    // b. Validate required payload fields.
+    const b = req.body || {};
+    const required = ['order_id', 'product_id', 'customer_email', 'customer_first_name', 'customer_last_name'];
+    for (const f of required) {
+      if (b[f] === undefined || b[f] === null || String(b[f]).trim() === '') {
+        return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Missing required field: ${f}` });
+      }
+    }
+    const orderId       = String(b.order_id);
+    const productSlug   = String(b.product_id);
+    const customerEmail = String(b.customer_email).toLowerCase().trim();
+    const firstName     = String(b.customer_first_name).trim();
+    const lastName      = String(b.customer_last_name).trim();
+
+    // c. Resolve the event by product slug.
+    const event = await eventsLib.getEventByProductSlug(productSlug);
+    if (!event) {
+      console.warn('[thrivecart-event] unknown product slug:', productSlug, 'order:', orderId);
+      return res.status(400).json({ error: 'UNKNOWN_EVENT', message: `No event matches product slug: ${productSlug}` });
+    }
+
+    // d. Find or create the coach — identical chain to the credit webhook (do not fork).
+    let coach = await db.getCoachByEmail(customerEmail);
+    if (!coach) {
+      const tempPassword = crypto.randomBytes(8).toString('hex');
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      const fullName = `${firstName} ${lastName}`.trim();
+      const newCoachId = await db.addCoach(fullName, customerEmail, hashedPassword, null);
+      if (!newCoachId) throw new Error('COACH_CREATE_FAILED');
+      const newUserId = await auth.createUserWithRoles(customerEmail, hashedPassword, ['client', 'coach']);
+      if (newUserId) {
+        await db.query('UPDATE coaches SET user_id = $1 WHERE id = $2', [newUserId, newCoachId]);
+        try {
+          const linked = await db.linkClientRecordsToUser(newUserId, customerEmail);
+          if (linked) console.log(`[thrivecart-event] linked ${linked} client record(s) to new coach user ${newUserId}`);
+        } catch (e) { console.error('[thrivecart-event] client linkage failed:', e.message); }
+        try {
+          const rawToken = await auth.generateResetToken(newUserId);
+          const appUrl = process.env.RAILWAY_PUBLIC_URL || 'https://enneagram.hiveleadership.com';
+          await sendPasswordResetEmail(customerEmail, `${appUrl}/coach/onboarding/password/${rawToken}`);
+        } catch (mailErr) { console.error('[thrivecart-event] welcome/reset email failed:', mailErr.message); }
+      }
+      coach = await db.getCoachByEmail(customerEmail);
+      console.log('[thrivecart-event] new coach created:', customerEmail);
+    }
+    if (!coach) throw new Error('COACH_RESOLVE_FAILED');
+
+    // e. Register (idempotent on order_id). Over-capacity → waitlist; refund handled MANUALLY.
+    const result = await eventsLib.registerCoach(event.id, coach.id, { purchaseReference: orderId });
+    if (result.status === 'already_processed') {
+      console.log('[thrivecart-event] duplicate order ignored:', orderId);
+      return res.status(200).json({ ok: true, alreadyProcessed: true });
+    }
+    if (result.status === 'already_registered' || result.status === 'already_waitlisted') {
+      // Coach already had a (free/manual) slot; treat as processed so ThriveCart stops retrying.
+      return res.status(200).json({ ok: true, alreadyProcessed: true });
+    }
+
+    const coachPayload = { name: coach.name, email: coach.email, coach_id: coach.id };
+    const fullEvent = await eventsLib.getEventWithVenue(event.id);
+    if (result.status === 'registered') {
+      // Covers both a first-time paid registration AND a waitlisted coach whose payment just
+      // promoted them into an open seat (result.promotedFromWaitlist) — same confirmation email.
+      eventEmails.sendRegistrationConfirmation({ event: fullEvent, coach: coachPayload })
+        .catch(e => console.error('[thrivecart-event] confirmation email failed:', e.message));
+      console.log('[thrivecart-event] registered — order:', orderId, 'coach:', customerEmail, 'event:', event.id,
+        result.promotedFromWaitlist ? '(promoted from waitlist)' : '');
+      return res.status(200).json({ ok: true, alreadyProcessed: false, status: 'registered', coachId: coach.id, eventId: event.id });
+    }
+    if (result.status === 'waitlisted_paid_full' || result.status === 'waitlisted_paid_late') {
+      // Coach was on the free waitlist, paid, but no seat is free. 'waitlisted_paid_late' means their
+      // 24h offer had already lapsed and the seat was reassigned; 'waitlisted_paid_full' is a plain
+      // over-capacity payment. Either way they stay waitlisted (order recorded); refund is MANUAL. No
+      // new email — they already have a waitlist confirmation. The distinct status keeps the log greppable.
+      console.warn(`[thrivecart-event] PAID-but-FULL (${result.status}) — manual refund review — order:`, orderId, 'coach:', customerEmail, 'event:', event.id);
+      return res.status(200).json({ ok: true, alreadyProcessed: false, status: result.status, coachId: coach.id, eventId: event.id });
+    }
+    if (result.status === 'waitlisted') {
+      // Paid but event was full at payment time. Coach is waitlisted; a refund may be owed and is
+      // processed MANUALLY by the team (see open-items list). Send the waitlist confirmation.
+      const position = await eventsLib.getWaitlistCount(event.id).catch(() => null);
+      eventEmails.sendWaitlistConfirmation({ event: fullEvent, coach: coachPayload, position })
+        .catch(e => console.error('[thrivecart-event] waitlist email failed:', e.message));
+      console.warn('[thrivecart-event] PAID-but-FULL — waitlisted, manual refund review — order:', orderId, 'coach:', customerEmail, 'event:', event.id);
+      return res.status(200).json({ ok: true, alreadyProcessed: false, status: 'waitlisted', coachId: coach.id, eventId: event.id });
+    }
+    // closed / cancelled / not_found: the event is no longer sellable — record for ops, manual refund.
+    console.warn('[thrivecart-event] non-registerable event state:', result.status, 'order:', orderId, 'event:', event.id);
+    return res.status(200).json({ ok: true, alreadyProcessed: false, status: result.status });
+  } catch (e) {
+    console.error('[thrivecart-event] webhook error — order:', req.body && req.body.order_id,
       'email:', req.body && req.body.customer_email, '—', e.message);
     return res.status(500).json({ error: 'WEBHOOK_ERROR' });
   }
@@ -15109,6 +16044,85 @@ setTimeout(() => {
   runReminderPoller();
   setInterval(runReminderPoller, 30 * 60 * 1000);
 }, 30 * 1000);
+
+// =================== PR14 — Event scheduled jobs (CP-1) ===================
+// Two hourly node-cron jobs, in-process. SINGLE Railway replica is assumed (consistent with
+// the former _ebCache single-replica note): more than one replica would double-fire these.
+// Both are idempotent — each row is guarded by reminder_sent_at / expiry_notified_at IS NULL
+// and stamped only after a successful send, so a mid-tick restart just retries next hour.
+
+// #2 — 48-hour reminder to registrants of events starting within 48h.
+async function runEventReminderJob() {
+  try {
+    const rows = await eventsLib.findRegistrationsNeedingReminder();
+    let sent = 0;
+    for (const r of rows) {
+      const event = {
+        id: r.event_id, title: r.title, event_type: r.event_type, starts_at: r.starts_at,
+        ends_at: r.ends_at, timezone: r.timezone, zoom_url: r.zoom_url, async_url: r.async_url,
+        description: r.description, venue_name: r.venue_name, venue_address: r.venue_address,
+        venue_city: r.venue_city, venue_state: r.venue_state, venue_zip: r.venue_zip,
+      };
+      const coach = { name: r.coach_name, email: r.coach_email, coach_id: r.coach_id };
+      if (!coach.email) { continue; }
+      try {
+        await eventEmails.sendReminder({ event, coach });
+        await eventsLib.markReminderSent(r.registration_id);
+        sent++;
+      } catch (e) { console.error('[event-cron] reminder send failed for reg', r.registration_id, '—', e.message); }
+    }
+    if (sent) console.log(`[event-cron] sent ${sent} 48h reminder(s)`);
+  } catch (e) { console.error('[event-cron] reminder job failed:', e.message); }
+}
+
+// #5 — 24-hour waitlist expiry notice to coaches still waitlisted on events starting within 24h.
+async function runEventWaitlistExpiryJob() {
+  try {
+    const rows = await eventsLib.findWaitlistNeedingExpiry();
+    let sent = 0;
+    for (const r of rows) {
+      const event = { id: r.event_id, title: r.title, starts_at: r.starts_at, timezone: r.timezone, event_type: 'virtual_live' };
+      const coach = { name: r.coach_name, email: r.coach_email, coach_id: r.coach_id };
+      if (!coach.email) { continue; }
+      try {
+        await eventEmails.sendWaitlistExpiry({ event, coach });
+        await eventsLib.markExpiryNotified(r.waitlist_id);
+        sent++;
+      } catch (e) { console.error('[event-cron] expiry send failed for waitlist', r.waitlist_id, '—', e.message); }
+    }
+    if (sent) console.log(`[event-cron] sent ${sent} waitlist expiry notice(s)`);
+  } catch (e) { console.error('[event-cron] waitlist expiry job failed:', e.message); }
+}
+
+// Paid pay-on-promotion: lapse offers older than 24h, release the held seat, and email the next
+// waitlister a fresh checkout link. Folded into the same hourly tick as the waitlist-expiry job
+// (no third cron job). Idempotent — sweepExpiredPaidOffers never re-offers a seat already held.
+async function runPaidOfferExpiryJob() {
+  try {
+    const swept = await eventsLib.sweepExpiredPaidOffers();
+    let offered = 0;
+    for (const { eventId, offeredCoachIds } of swept) {
+      const ev = await eventsLib.getEventWithVenue(eventId).catch(() => null);
+      if (!ev) continue;
+      for (const coachId of offeredCoachIds) {
+        const c = await db.getCoachById(coachId).catch(() => null);
+        if (!c || !c.email) continue;
+        try {
+          await eventEmails.sendWaitlistPaymentOffer({ event: ev, coach: { name: c.name, email: c.email, coach_id: c.id } });
+          offered++;
+        } catch (e) { console.error('[event-cron] payment-offer email failed for coach', coachId, '—', e.message); }
+      }
+    }
+    if (offered) console.log(`[event-cron] re-offered ${offered} seat(s) after 24h offer expiry`);
+  } catch (e) { console.error('[event-cron] paid offer-expiry job failed:', e.message); }
+}
+
+if (process.env.DATABASE_URL) {
+  cron.schedule('0 * * * *', runEventReminderJob);          // top of every hour
+  // The 24h waitlist-expiry tick also sweeps lapsed paid payment-offers (same tick, no new job).
+  cron.schedule('0 * * * *', async () => { await runEventWaitlistExpiryJob(); await runPaidOfferExpiryJob(); });
+  console.log('[event-cron] scheduled 48h reminder + 24h waitlist/offer expiry (hourly, in-process)');
+}
 
 // =================== START ===================
 
