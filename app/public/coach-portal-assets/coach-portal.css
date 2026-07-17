@@ -1390,3 +1390,135 @@ a { color: var(--color-primary); text-decoration: none; }
   .cp-res-modal { max-width: none; border-radius: 16px 16px 0 0; min-height: 85vh; max-height: 92vh; }
   .cp-res-frame--pdf { height: 70vh; }
 }
+
+/* ══ My Account (§7.8, PR10) ══════════════════════════════════════════════════════
+   Self-contained block (own @media queries) appended at file end so it never touches the
+   existing breakpoint blocks. Four .cp-card sections stacked vertically (24px via .cp-card
+   margin). */
+.cp-account-section-header {
+  font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--color-text-muted); margin: 0 0 16px;
+}
+
+/* Section 1 — Certifications */
+.cp-cert-cards { display: flex; gap: 16px; }
+.cp-cert-card {
+  flex: 1; display: flex; flex-direction: column;
+  border: 1px solid var(--color-border); border-radius: 12px; padding: 20px;
+}
+.cp-cert-card__icon { display: inline-flex; margin-bottom: 12px; }
+.cp-cert-card__icon svg { width: 20px; height: 20px; }
+.cp-cert-card__icon--io  { color: var(--color-primary); }
+.cp-cert-card__icon--icf { color: var(--color-accent); }
+.cp-cert-card__icon--locked { color: var(--color-border-strong); }
+.cp-cert-card__title { font-family: var(--font-heading); font-size: 16px; font-weight: 600; color: var(--color-text-heading); margin: 0; }
+.cp-cert-card__date { font-size: 13px; color: var(--color-text-muted); margin: 6px 0 0; }
+.cp-cert-card__units { font-size: 12px; font-weight: 600; color: var(--color-success); margin: 6px 0 0; }
+.cp-cert-card__divider { border-top: 1px solid var(--color-border); margin: 14px 0; }
+.cp-cert-card__cta {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--color-primary); font-size: 13px; font-weight: 600;
+}
+.cp-cert-card__cta svg { width: 14px; height: 14px; }
+.cp-cert-card__locked-sub { font-size: 12px; color: var(--color-text-muted); margin: 0; }
+.cp-cert-card--locked .cp-cert-card__title { color: var(--color-text-muted); font-weight: 600; }
+/* Locked card pins its subtext to the bottom so both cards align when one is active. */
+.cp-cert-card--locked .cp-cert-card__divider { margin-top: auto; }
+
+/* Section 2 — Courses Completed */
+.cp-courses-table { width: 100%; border-collapse: collapse; }
+.cp-courses-table thead th {
+  background: var(--color-bg-page); text-align: left; padding: 10px 14px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+.cp-courses-table tbody td { padding: 14px; font-size: 14px; color: var(--color-text-body); border-bottom: 1px solid var(--color-border); }
+.cp-courses-table tbody tr:nth-child(even) td { background: #FAFBFC; }
+.cp-courses-table__total-row td { background: var(--color-bg-page); font-weight: 700; color: var(--color-text-heading); font-size: 13px; border-bottom: none; padding: 18px 14px; vertical-align: top; }
+.cp-courses-mobile { display: none; }
+.cp-course-mcard { padding: 14px 0; border-bottom: 1px solid var(--color-border); }
+.cp-course-mcard:first-child { padding-top: 0; }
+.cp-course-mcard__title { font-size: 14px; font-weight: 600; color: var(--color-text-heading); margin: 0 0 4px; }
+.cp-course-mcard__meta { font-size: 12px; color: var(--color-text-muted); margin: 0 0 6px; }
+.cp-course-mcard__cce { margin: 0 0 8px; }
+.cp-courses-mobile__total {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  font-size: 13px; color: var(--color-text-muted); font-weight: 600; margin: 14px 0 0;
+}
+.cp-courses-mobile__total .cp-cce-stack { text-align: right; }
+
+/* ICF CCE stacked two-line display (Core Competency / Resource Development) — used in the
+   certificate card, the courses table cell + total row, and the mobile course cards. */
+.cp-cce-stack { display: inline-flex; flex-direction: column; line-height: 1.4; }
+.cp-cce-stack__line { white-space: nowrap; }
+
+/* Section 3 — Subscription & Billing */
+.cp-billing-section { display: flex; align-items: center; }
+.cp-billing-block { padding: 0 24px; }
+.cp-billing-block:first-child { padding-left: 0; }
+.cp-billing-block__label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; color: var(--color-text-muted); margin: 0 0 6px; }
+.cp-billing-block__value { font-size: 14px; font-weight: 600; color: var(--color-text-heading); margin: 0; }
+.cp-billing-block__sub { font-size: 12px; color: var(--color-text-muted); margin: 4px 0 0; }
+.cp-billing-divider { width: 1px; align-self: stretch; background: var(--color-border); }
+.cp-billing-manage {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+  color: var(--color-primary); font-size: 13px; font-weight: 600;
+}
+.cp-billing-manage svg { width: 14px; height: 14px; }
+
+/* Section 4 — Account Settings */
+.cp-settings-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; }
+.cp-settings-row + .cp-settings-row, .cp-settings-row--pw { border-top: 1px solid var(--color-border); }
+.cp-settings-row__info { display: flex; flex-direction: column; gap: 2px; }
+.cp-settings-row__label { font-size: 13px; font-weight: 600; color: var(--color-text-heading); }
+.cp-settings-row__value { font-size: 13px; color: var(--color-text-muted); }
+.cp-btn--edit {
+  background: none; border: 1px solid var(--color-primary); color: var(--color-primary);
+  font-size: 12px; font-weight: 600; padding: 6px 16px; border-radius: 6px;
+}
+.cp-btn--edit:disabled { opacity: 0.5; cursor: default; }
+.cp-btn--cancel { background: none; border: none; color: var(--color-text-muted); font-size: 13px; cursor: pointer; }
+.cp-btn--desat { background: rgba(0, 178, 217, 0.6) !important; }
+.cp-btn--loading { opacity: 0.7; cursor: not-allowed; }
+
+.cp-settings-expand { display: none; padding: 4px 0 16px; }
+.cp-settings-expand--open { display: block; }
+.cp-field { position: relative; margin-bottom: 14px; max-width: 420px; }
+.cp-field__label { display: block; font-size: 12px; font-weight: 600; color: var(--color-text-heading); margin-bottom: 6px; }
+.cp-field__input {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 6px;
+  font-family: var(--font-ui); font-size: 14px; color: var(--color-text-body);
+}
+.cp-field__input:focus { outline: none; border: 1.5px solid var(--color-primary); }
+.cp-field--pw .cp-field__input { padding-right: 40px; }
+.cp-field--error .cp-field__input, .cp-field__input.cp-field--error { border: 1.5px solid var(--color-error); }
+.cp-field-hint { font-size: 11px; color: var(--color-text-muted); margin: 4px 0 0; }
+.cp-field-error { font-size: 12px; color: var(--color-error); margin: 4px 0 0; }
+.cp-field-ok { font-size: 12px; color: var(--color-success); margin: 4px 0 0; }
+.cp-eye-btn {
+  position: absolute; right: 10px; top: 33px; background: none; border: none;
+  cursor: pointer; color: var(--color-text-muted); padding: 0; line-height: 0;
+}
+.cp-eye-btn svg { width: 18px; height: 18px; }
+.cp-eye-btn--on { color: var(--color-primary); }
+.cp-settings-actions { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.cp-inline-note { font-size: 13px; color: var(--color-success); margin: 8px 0 0; }
+
+.cp-password-banner {
+  display: flex; align-items: center; gap: 8px; margin: 8px 0;
+  background: var(--color-success-bg); color: var(--color-success);
+  border-radius: 6px; padding: 12px 16px; font-size: 13px; font-weight: 600;
+}
+.cp-password-banner__icon { display: inline-flex; }
+.cp-password-banner__icon svg { width: 18px; height: 18px; }
+
+@media (max-width: 767px) {
+  .cp-cert-cards { flex-direction: column; }
+  .cp-courses-table-wrap { display: none; }
+  .cp-courses-mobile { display: block; }
+  .cp-billing-section { flex-direction: column; align-items: stretch; }
+  .cp-billing-block { padding: 14px 0; border-top: 1px solid var(--color-border); }
+  .cp-billing-block:first-child { padding-top: 0; border-top: none; }
+  .cp-billing-divider { display: none; }
+  .cp-billing-manage { margin: 14px 0 0; justify-content: center; }
+}
