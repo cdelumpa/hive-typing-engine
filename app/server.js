@@ -2407,6 +2407,477 @@ app.get('/coach/resources/:id/body', requireCoach, requireOnboardingComplete, as
   }
 });
 
+// ── Coach Portal PR10: My Account (spec §7.8) ───────────────────────────────────
+// Four stacked cards: My Certifications, Courses Completed, Subscription & Billing,
+// Account Settings. Tier-3 (per-coach private) — straight per-request DB reads, no cache.
+// Certificate/course PDF generation is DEFERRED (ratified B): the download routes are stubs
+// that 404 cleanly until a PDF exists.
+
+// Coach-facing URL segment → DB enum (ratified Q9.1). The card CTAs use the short names.
+const CERT_TYPE_MAP = { insightout: 'insightout_coach', icf: 'icf_cce' };
+
+// The two certificate slots, in render order. iconCls tints the award icon per §7.8.
+const CP_CERT_SLOTS = [
+  { dbType: 'insightout_coach', shortName: 'insightout', title: 'InsightOut Certified Coach', iconCls: 'cp-cert-card__icon--io', showUnits: false },
+  { dbType: 'icf_cce',          shortName: 'icf',        title: 'ICF CCE Units Certificate',   iconCls: 'cp-cert-card__icon--icf', showUnits: true  },
+];
+
+// Lucide-style icons not already defined above (award / external-link / eye / eye-off).
+const CP_ICON_AWARD    = CP_ICON('<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>');
+const CP_ICON_EXTERNAL = CP_ICON('<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/>');
+const CP_ICON_EYE      = CP_ICON('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>');
+
+// Long-form date "Month DD, YYYY" (mockups use full month names). UTC so a DATE column at
+// midnight UTC never shifts a day under the server's local timezone.
+const cpLongDate = (d) => d
+  ? new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+  : '—';
+// Units: whole numbers show one decimal ("2.0"), fractional keep their value ("6.5") — matches mockups.
+const cpUnits = (n) => { const v = Number(n || 0); return Number.isInteger(v) ? v.toFixed(1) : String(v); };
+// ICF CCE units render as a stacked two-line display, label-first with full category names
+// (Core Competency + Resource Development) — the two categories coaches report separately for
+// ICF renewal.
+const cpCceStack = (core, resource) =>
+  `<span class="cp-cce-stack">` +
+    `<span class="cp-cce-stack__line">Core Competency: <strong>${cpEsc(cpUnits(core))}</strong></span>` +
+    `<span class="cp-cce-stack__line">Resource Development: <strong>${cpEsc(cpUnits(resource))}</strong></span>` +
+  `</span>`;
+
+function renderCoachAccountPage({ certs, courses, courseTotals, subscription, user, credits }) {
+  const email = (user && user.email) || '';
+
+  // ── Section 1 — My Certifications ──
+  const certCards = CP_CERT_SLOTS.map(slot => {
+    const rec = certs.find(c => c.type === slot.dbType);
+    if (!rec) {
+      // Ratified C: locked/placeholder slot for a type with no record.
+      return `<div class="cp-cert-card cp-cert-card--locked">
+        <span class="cp-cert-card__icon cp-cert-card__icon--locked" aria-hidden="true">${CP_ICON_LOCK}</span>
+        <h3 class="cp-cert-card__title">${cpEsc(slot.title)}</h3>
+        <div class="cp-cert-card__divider"></div>
+        <p class="cp-cert-card__locked-sub">Complete the InsightOut Certification program to unlock.</p>
+      </div>`;
+    }
+    const units = slot.showUnits
+      ? `<div class="cp-cert-card__units">${cpCceStack(rec.icf_cce_core, rec.icf_cce_resource)}</div>`
+      : '';
+    return `<div class="cp-cert-card">
+      <span class="cp-cert-card__icon ${slot.iconCls}" aria-hidden="true">${CP_ICON_AWARD}</span>
+      <h3 class="cp-cert-card__title">${cpEsc(slot.title)}</h3>
+      <p class="cp-cert-card__date">Completed ${cpEsc(cpLongDate(rec.completion_date))}</p>
+      ${units}
+      <div class="cp-cert-card__divider"></div>
+      <a class="cp-cert-card__cta" href="/coach/account/certificates/${slot.shortName}/download">${CP_ICON_DOWNLOAD}Download Certificate</a>
+    </div>`;
+  }).join('');
+
+  // ── Section 2 — Courses Completed ──
+  // Per-category CCE totals come from getCoachCourseTotals (SUM over the coach's enrollments).
+  const totalCore = (courseTotals && courseTotals.total_core) || 0;
+  const totalResource = (courseTotals && courseTotals.total_resource) || 0;
+  let coursesBody;
+  if (courses.length === 0) {
+    coursesBody = `<p class="cp-empty">No courses completed yet.</p>`;
+  } else {
+    // `courses` are enrollment rows: c.id is the enrollment id, c.name is the catalog name.
+    const tableRows = courses.map(c => `<tr>
+        <td>${cpEsc(c.name)}</td>
+        <td>${cpEsc(cpLongDate(c.completion_date))}</td>
+        <td>${cpCceStack(c.icf_cce_core, c.icf_cce_resource)}</td>
+        <td class="cp-courses-table__cert"><a class="cp-cert-card__cta" href="/coach/account/courses/${c.id}/certificate/download">${CP_ICON_DOWNLOAD}Download</a></td>
+      </tr>`).join('');
+    const mobileCards = courses.map(c => `<div class="cp-course-mcard">
+        <p class="cp-course-mcard__title">${cpEsc(c.name)}</p>
+        <p class="cp-course-mcard__meta">${cpEsc(cpLongDate(c.completion_date))}</p>
+        <div class="cp-course-mcard__cce">${cpCceStack(c.icf_cce_core, c.icf_cce_resource)}</div>
+        <a class="cp-cert-card__cta" href="/coach/account/courses/${c.id}/certificate/download">${CP_ICON_DOWNLOAD}Download Certificate</a>
+      </div>`).join('');
+    coursesBody = `<div class="cp-courses-table-wrap">
+        <table class="cp-courses-table">
+          <thead><tr><th>Course Name</th><th>Date Completed</th><th>ICF CCE Units</th><th>Certificate</th></tr></thead>
+          <tbody>${tableRows}</tbody>
+          <tfoot><tr class="cp-courses-table__total-row"><td>Total ICF CCE Units</td><td></td><td>${cpCceStack(totalCore, totalResource)}</td><td></td></tr></tfoot>
+        </table>
+      </div>
+      <div class="cp-courses-mobile">
+        ${mobileCards}
+        <div class="cp-courses-mobile__total"><span>Total ICF CCE Units</span>${cpCceStack(totalCore, totalResource)}</div>
+      </div>`;
+  }
+
+  // ── Section 3 — Subscription & Billing ── (graceful defaults when NULL, ratified A)
+  const planName  = (subscription && subscription.plan_name) || 'InsightOut Coach';
+  const priceText = (subscription && subscription.plan_price_cents != null)
+    ? `$${(subscription.plan_price_cents / 100).toFixed(2)} / year`
+    : '$199.00 / year';
+  let renewsDate = '—', renewsRel = '';
+  if (subscription && subscription.renewal_date) {
+    renewsDate = cpLongDate(subscription.renewal_date);
+    const days = Math.ceil((new Date(subscription.renewal_date) - new Date()) / 86400000);
+    if (days >= 0) renewsRel = `${days} days from today`;
+  }
+  const manageUrl = process.env.THRIVECART_MANAGE_BILLING_URL || '#';
+  const billingBlocks = `<div class="cp-billing-block">
+        <p class="cp-billing-block__label">Plan</p>
+        <p class="cp-billing-block__value">${cpEsc(planName)}</p>
+        <p class="cp-billing-block__sub">Annual membership</p>
+      </div>
+      <div class="cp-billing-divider" aria-hidden="true"></div>
+      <div class="cp-billing-block">
+        <p class="cp-billing-block__label">Annual Price</p>
+        <p class="cp-billing-block__value">${cpEsc(priceText)}</p>
+      </div>
+      <div class="cp-billing-divider" aria-hidden="true"></div>
+      <div class="cp-billing-block">
+        <p class="cp-billing-block__label">Renews</p>
+        <p class="cp-billing-block__value">${cpEsc(renewsDate)}</p>
+        ${renewsRel ? `<p class="cp-billing-block__sub">${cpEsc(renewsRel)}</p>` : ''}
+      </div>
+      <a class="cp-billing-manage" href="${cpEsc(manageUrl)}" target="_blank" rel="noopener noreferrer">Manage Billing ${CP_ICON_EXTERNAL}</a>`;
+
+  // ── Section 4 — Account Settings ──
+  const settings = `<div class="cp-settings-row">
+        <div class="cp-settings-row__info">
+          <span class="cp-settings-row__label">Email Address</span>
+          <span class="cp-settings-row__value">${cpEsc(email)}</span>
+        </div>
+        <button type="button" class="cp-btn cp-btn--edit" id="cp-email-edit" onclick="cpAccount.toggleExpand('cp-email-expand')">Edit</button>
+      </div>
+      <div class="cp-settings-expand" id="cp-email-expand">
+        <form id="cp-email-form" onsubmit="return cpAccount.saveEmail(event)">
+          <div class="cp-field">
+            <label class="cp-field__label" for="cp-email-new">New Email Address</label>
+            <input class="cp-field__input" type="email" id="cp-email-new" name="email" autocomplete="off" required>
+            <p class="cp-field-error" id="cp-email-new-err" hidden></p>
+          </div>
+          <div class="cp-field">
+            <label class="cp-field__label" for="cp-email-confirm">Confirm New Email Address</label>
+            <input class="cp-field__input" type="email" id="cp-email-confirm" name="confirm_email" autocomplete="off" required>
+            <p class="cp-field-error" id="cp-email-confirm-err" hidden></p>
+          </div>
+          <div class="cp-field cp-field--pw">
+            <label class="cp-field__label" for="cp-email-pw">Current Password</label>
+            <input class="cp-field__input" type="password" id="cp-email-pw" name="current_password" autocomplete="current-password" required>
+            <button type="button" class="cp-eye-btn" aria-label="Show password" onclick="cpAccount.toggleEye('cp-email-pw', this)">${CP_ICON_EYE}</button>
+            <p class="cp-field-error" id="cp-email-pw-err" hidden></p>
+          </div>
+          <div class="cp-settings-actions">
+            <button type="submit" class="cp-btn cp-btn--primary" id="cp-email-save">Save Changes</button>
+            <button type="button" class="cp-btn--cancel" onclick="cpAccount.toggleExpand('cp-email-expand')">Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="cp-password-banner" id="cp-password-banner" hidden>
+        <span class="cp-password-banner__icon" aria-hidden="true">${CP_ICON_CHECK}</span>
+        <span>Password change successful!</span>
+      </div>
+
+      <div class="cp-settings-row cp-settings-row--pw">
+        <div class="cp-settings-row__info">
+          <span class="cp-settings-row__label">Password</span>
+          <span class="cp-settings-row__value">••••••••••••</span>
+        </div>
+        <button type="button" class="cp-btn cp-btn--edit" id="cp-pw-edit" onclick="cpAccount.toggleExpand('cp-pw-expand')">Edit</button>
+      </div>
+      <div class="cp-settings-expand" id="cp-pw-expand">
+        <form id="cp-pw-form" onsubmit="return cpAccount.savePassword(event)">
+          <div class="cp-field cp-field--pw">
+            <label class="cp-field__label" for="cp-pw-current">Current Password</label>
+            <input class="cp-field__input" type="password" id="cp-pw-current" name="current_password" autocomplete="current-password" required>
+            <button type="button" class="cp-eye-btn" aria-label="Show password" onclick="cpAccount.toggleEye('cp-pw-current', this)">${CP_ICON_EYE}</button>
+            <p class="cp-field-error" id="cp-pw-current-err" hidden></p>
+          </div>
+          <div class="cp-field cp-field--pw">
+            <label class="cp-field__label" for="cp-pw-new">New Password</label>
+            <input class="cp-field__input" type="password" id="cp-pw-new" name="new_password" autocomplete="new-password" required oninput="cpAccount.checkPwMatch()">
+            <button type="button" class="cp-eye-btn" aria-label="Show password" onclick="cpAccount.toggleEye('cp-pw-new', this)">${CP_ICON_EYE}</button>
+            <p class="cp-field-hint">Min. 10 characters, at least one uppercase letter and one number.</p>
+            <!-- TODO: spec says min 8/special char — using existing validator rule set for consistency. -->
+            <p class="cp-field-error" id="cp-pw-new-err" hidden></p>
+          </div>
+          <div class="cp-field cp-field--pw">
+            <label class="cp-field__label" for="cp-pw-confirm">Confirm New Password</label>
+            <input class="cp-field__input" type="password" id="cp-pw-confirm" name="confirm_password" autocomplete="new-password" required oninput="cpAccount.checkPwMatch()">
+            <button type="button" class="cp-eye-btn" aria-label="Show password" onclick="cpAccount.toggleEye('cp-pw-confirm', this)">${CP_ICON_EYE}</button>
+            <p class="cp-field-error" id="cp-pw-confirm-err" hidden></p>
+            <p class="cp-field-ok" id="cp-pw-match" hidden>Passwords matched!</p>
+          </div>
+          <div class="cp-settings-actions">
+            <button type="submit" class="cp-btn cp-btn--primary" id="cp-pw-save">Save Changes</button>
+            <button type="button" class="cp-btn--cancel" onclick="cpAccount.toggleExpand('cp-pw-expand')">Cancel</button>
+          </div>
+        </form>
+      </div>`;
+
+  const body = `<h1 class="cp-page-title">My Account</h1>
+
+    <section class="cp-card">
+      <p class="cp-account-section-header">My Certifications</p>
+      <div class="cp-cert-cards">${certCards}</div>
+    </section>
+
+    <section class="cp-card">
+      <p class="cp-account-section-header">Courses Completed</p>
+      ${coursesBody}
+    </section>
+
+    <section class="cp-card">
+      <p class="cp-account-section-header">Subscription &amp; Billing</p>
+      <div class="cp-billing-section">${billingBlocks}</div>
+    </section>
+
+    <section class="cp-card">
+      <p class="cp-account-section-header">Account Settings</p>
+      ${settings}
+    </section>
+
+    ${CP_ACCOUNT_SCRIPT}`;
+
+  return renderCoachChrome({ activeNav: 'account', creditsPill: credits, avatar: user && user.name, bodyHtml: body });
+}
+
+// Inline page script (My Account only). Written without template literals / ${...} so it
+// nests cleanly inside the page template above. Namespaced on window.cpAccount.
+const CP_ACCOUNT_SCRIPT = `<script>
+(function () {
+  function byId(id) { return document.getElementById(id); }
+  function showErr(id, msg) { var el = byId(id); if (!el) return; el.textContent = msg; el.hidden = false; }
+  function clearErr(id) { var el = byId(id); if (el) el.hidden = true; }
+  function fieldWrap(inputId) { var i = byId(inputId); return i ? i.closest('.cp-field') : null; }
+  function markBad(inputId, bad) { var w = fieldWrap(inputId); if (!w) return; var i = byId(inputId); if (i) i.classList.toggle('cp-field--error', bad); }
+
+  var cpAccount = {
+    toggleExpand: function (id) {
+      var target = byId(id);
+      if (!target) return;
+      var opening = !target.classList.contains('cp-settings-expand--open');
+      // Only one section open at a time.
+      var all = document.querySelectorAll('.cp-settings-expand--open');
+      for (var i = 0; i < all.length; i++) all[i].classList.remove('cp-settings-expand--open');
+      if (opening) target.classList.add('cp-settings-expand--open');
+    },
+    toggleEye: function (inputId, btn) {
+      var i = byId(inputId);
+      if (!i) return;
+      var toText = i.type === 'password';
+      i.type = toText ? 'text' : 'password';
+      btn.classList.toggle('cp-eye-btn--on', toText);
+      btn.setAttribute('aria-label', toText ? 'Hide password' : 'Show password');
+    },
+    saveEmail: function (ev) {
+      ev.preventDefault();
+      ['cp-email-new-err', 'cp-email-confirm-err', 'cp-email-pw-err'].forEach(clearErr);
+      markBad('cp-email-pw', false); markBad('cp-email-confirm', false);
+      var email = byId('cp-email-new').value.trim();
+      var confirmEmail = byId('cp-email-confirm').value.trim();
+      var pw = byId('cp-email-pw').value;
+      var btn = byId('cp-email-save');
+      if (email !== confirmEmail) { markBad('cp-email-confirm', true); showErr('cp-email-confirm-err', 'Email addresses do not match.'); return false; }
+      btn.disabled = true; btn.classList.add('cp-btn--loading');
+      fetch('/coach/account/email', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, confirm_email: confirmEmail, current_password: pw })
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          btn.disabled = false; btn.classList.remove('cp-btn--loading');
+          if (res.ok && res.d && res.d.success) {
+            // Reflect the new address inline (no page reload) — server stores it lowercased.
+            var valueEl = byId('cp-email-edit').closest('.cp-settings-row').querySelector('.cp-settings-row__value');
+            if (valueEl) valueEl.textContent = email.toLowerCase();
+            byId('cp-email-expand').classList.remove('cp-settings-expand--open');
+            byId('cp-email-form').reset();
+            // Green success banner — same style/placement pattern as the password success banner.
+            var eb = byId('cp-email-banner');
+            if (!eb) {
+              eb = document.createElement('div');
+              eb.id = 'cp-email-banner';
+              eb.className = 'cp-password-banner';
+              eb.innerHTML = '<span class="cp-password-banner__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg></span><span>Email updated successfully.</span>';
+              byId('cp-email-expand').parentNode.insertBefore(eb, byId('cp-email-expand'));
+            }
+            eb.hidden = false;
+            return;
+          }
+          var err = (res.d && res.d.error) || 'error';
+          if (err === 'emails_dont_match') { markBad('cp-email-confirm', true); showErr('cp-email-confirm-err', 'Email addresses do not match.'); }
+          else if (err === 'wrong_password') { markBad('cp-email-pw', true); showErr('cp-email-pw-err', 'Incorrect password. Please try again.'); }
+          else if (err === 'email_taken') { markBad('cp-email-new', true); showErr('cp-email-new-err', 'That email address is already in use.'); }
+          else { showErr('cp-email-new-err', (res.d && res.d.message) || 'Something went wrong. Please try again.'); }
+        }).catch(function () { btn.disabled = false; btn.classList.remove('cp-btn--loading'); showErr('cp-email-new-err', 'Network error. Please try again.'); });
+      return false;
+    },
+    // Live feedback: show a green "Passwords matched!" note when New and Confirm agree.
+    checkPwMatch: function () {
+      var np = byId('cp-pw-new').value;
+      var cp = byId('cp-pw-confirm').value;
+      var matched = cp.length > 0 && np === cp;
+      byId('cp-pw-match').hidden = !matched;
+      if (matched) { clearErr('cp-pw-confirm-err'); markBad('cp-pw-confirm', false); }
+    },
+    savePassword: function (ev) {
+      ev.preventDefault();
+      ['cp-pw-current-err', 'cp-pw-new-err', 'cp-pw-confirm-err'].forEach(clearErr);
+      ['cp-pw-current', 'cp-pw-new', 'cp-pw-confirm'].forEach(function (id) { markBad(id, false); });
+      var cur = byId('cp-pw-current').value;
+      var np = byId('cp-pw-new').value;
+      var cp = byId('cp-pw-confirm').value;
+      var btn = byId('cp-pw-save');
+      var localBad = false;
+      if (np !== cp) { markBad('cp-pw-confirm', true); showErr('cp-pw-confirm-err', "Passwords don't match."); localBad = true; }
+      if (localBad) { btn.classList.add('cp-btn--desat'); return false; }
+      btn.disabled = true; btn.classList.add('cp-btn--loading');
+      fetch('/coach/account/password', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password: cur, new_password: np, confirm_password: cp })
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          btn.disabled = false; btn.classList.remove('cp-btn--loading');
+          if (res.ok && res.d && res.d.success) {
+            byId('cp-pw-expand').classList.remove('cp-settings-expand--open');
+            byId('cp-pw-form').reset();
+            byId('cp-pw-match').hidden = true;
+            btn.classList.remove('cp-btn--desat');
+            var banner = byId('cp-password-banner'); if (banner) banner.hidden = false;
+            return;
+          }
+          btn.classList.add('cp-btn--desat');
+          var err = (res.d && res.d.error) || 'error';
+          if (err === 'wrong_password') { markBad('cp-pw-current', true); showErr('cp-pw-current-err', 'Incorrect password. Please try again.'); }
+          else if (err === 'passwords_dont_match') { markBad('cp-pw-confirm', true); showErr('cp-pw-confirm-err', "Passwords don't match."); }
+          else if (err === 'weak_password') { markBad('cp-pw-new', true); showErr('cp-pw-new-err', (res.d && res.d.reason) || 'Password does not meet the requirements.'); }
+          else { showErr('cp-pw-new-err', (res.d && res.d.message) || 'Something went wrong. Please try again.'); }
+        }).catch(function () { btn.disabled = false; btn.classList.remove('cp-btn--loading'); btn.classList.add('cp-btn--desat'); showErr('cp-pw-new-err', 'Network error. Please try again.'); });
+      return false;
+    }
+  };
+  window.cpAccount = cpAccount;
+})();
+</script>`;
+
+app.get('/coach/account', requireCoach, requireOnboardingComplete, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const [certs, courses, courseTotals, subscription, user, credits] = await Promise.all([
+      db.getCoachCertifications(req.session.user_id),
+      db.getCourseEnrollmentsByCoach(req.session.coach_id),
+      db.getCoachCourseTotals(req.session.coach_id),
+      db.getCoachAccountSubscription(req.session.coach_id),
+      db.getUserById(req.session.user_id),
+      getCoachCreditBalance(req.session.coach_id).catch(() => null),
+    ]);
+    const view = { certs, courses, courseTotals, subscription, user: { ...(user || {}), name: req.session.coach_name }, credits };
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderCoachAccountPage(view));
+  } catch (e) {
+    console.error('[GET /coach/account] failed:', e.message);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(500).send(renderCoachChrome({
+      activeNav: 'account', creditsPill: null, avatar: req.session.coach_name,
+      bodyHtml: `<h1 class="cp-page-title">My Account</h1><section class="cp-card"><p class="cp-chart-msg">This page is temporarily unavailable. Please refresh in a moment.</p></section>`,
+    }));
+  }
+});
+
+// PATCH /coach/account/email — password-confirmed direct update (ratified E: no verification
+// email at launch). Returns JSON for the inline client flow.
+app.patch('/coach/account/email', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const { email, confirm_email, current_password } = req.body || {};
+  const addr = (email || '').toLowerCase().trim();
+  if (!addr || addr !== (confirm_email || '').toLowerCase().trim()) {
+    return res.status(400).json({ error: 'emails_dont_match', message: 'Email addresses do not match.' });
+  }
+  const user = await db.getUserById(req.session.user_id);
+  if (!user || !user.password_hash) {
+    return res.status(400).json({ error: 'wrong_password', message: 'Incorrect password. Please try again.' });
+  }
+  const match = await bcrypt.compare(current_password || '', user.password_hash);
+  if (!match) {
+    return res.status(403).json({ error: 'wrong_password', message: 'Incorrect password. Please try again.' });
+  }
+  // TODO: send verification email to new address before updating (post-launch)
+  const result = await db.updateCoachEmail(req.session.user_id, addr);
+  if (!result.ok) {
+    if (result.reason === 'email_taken') {
+      return res.status(409).json({ error: 'email_taken', message: 'That email address is already in use.' });
+    }
+    return res.status(500).json({ error: 'server_error', message: 'Could not update email. Please try again.' });
+  }
+  return res.json({ success: true });
+});
+
+// PATCH /coach/account/password — models /admin/password, but re-establishes the coach's own
+// session after invalidateAllSessions (ratified Q9.3) so they stay logged in, and returns JSON.
+app.patch('/coach/account/password', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const { current_password, new_password, confirm_password } = req.body || {};
+  if ((new_password || '') !== (confirm_password || '')) {
+    return res.status(400).json({ error: 'passwords_dont_match', message: "Passwords don't match." });
+  }
+  const user = await db.getUserById(req.session.user_id);
+  if (!user || !user.password_hash) {
+    return res.status(400).json({ error: 'wrong_password', message: 'Incorrect password. Please try again.' });
+  }
+  const match = await bcrypt.compare(current_password || '', user.password_hash);
+  if (!match) {
+    return res.status(403).json({ error: 'wrong_password', message: 'Incorrect password. Please try again.' });
+  }
+  const strength = auth.validatePasswordStrength(new_password || '');
+  if (!strength.valid) {
+    return res.status(400).json({ error: 'weak_password', reason: strength.reason });
+  }
+  try {
+    const newHash = await bcrypt.hash(new_password, 12);
+    await auth.updateUserPassword(req.session.user_id, newHash);
+    await auth.logAuthEvent(req.session.user_id, 'password_changed', req, { source: 'coach_account' });
+    // Preserve the onboarding flags: establishCoachSession derives them from the coach row,
+    // but getCoachById doesn't select them — so carry the current session's values across.
+    const wasOnboarded = req.session.onboarding_completed === true;
+    const wasWelcomeSeen = req.session.onboarding_welcome_seen === true;
+    await auth.invalidateAllSessions(req.session.user_id);
+    // Re-establish THIS session (regenerate wipes it) so the coach isn't logged out.
+    const roles = await auth.getUserRoles(req.session.user_id);
+    const coach = await db.getCoachById(req.session.coach_id);
+    await new Promise((resolve, reject) => {
+      establishCoachSession(req, user, roles, coach, (err) => err ? reject(err) : resolve());
+    });
+    req.session.onboarding_completed = wasOnboarded;
+    req.session.onboarding_welcome_seen = wasWelcomeSeen;
+    await sendPasswordChangedEmail(user.email).catch(() => {});
+    return res.json({ success: true });
+  } catch (e) {
+    console.error('[PATCH /coach/account/password] failed:', e.message);
+    return res.status(500).json({ error: 'server_error', message: 'Could not update password. Please try again.' });
+  }
+});
+
+// GET /coach/account/certificates/:type/download — authenticated stub. PDF generation is
+// deferred (ratified B): 404 cleanly until certificate_pdf_path is populated.
+app.get('/coach/account/certificates/:type/download', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const dbType = CERT_TYPE_MAP[req.params.type];
+  if (!dbType) return res.status(404).json({ error: 'invalid_type' });
+  const certs = await db.getCoachCertifications(req.session.user_id);
+  const cert = certs.find(c => c.type === dbType);
+  if (!cert) return res.status(404).json({ error: 'no_certification_record' });
+  if (!cert.certificate_pdf_path) {
+    return res.status(404).json({ error: 'certificate_not_generated', message: 'Certificate has not been generated yet.' });
+  }
+  // Future: stream the PDF file from cert.certificate_pdf_path.
+  return res.status(404).json({ error: 'certificate_not_generated', message: 'Certificate has not been generated yet.' });
+});
+
+// GET /coach/account/courses/:id/certificate/download — authenticated stub, scoped to the
+// coach's own course enrollments (:id is the coach_courses enrollment id; the
+// getCourseEnrollmentsByCoach lookup IS the ownership guard). The catalog model carries no
+// per-completion PDF path, so this always returns the not-generated stub until the deferred
+// certificate pipeline lands.
+app.get('/coach/account/courses/:id/certificate/download', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const enrollments = await db.getCourseEnrollmentsByCoach(req.session.coach_id);
+  const enrollment = enrollments.find(e => e.id === parseInt(req.params.id, 10));
+  if (!enrollment) return res.status(404).json({ error: 'not_found' });
+  // Future: stream the generated course certificate PDF.
+  return res.status(404).json({ error: 'certificate_not_generated', message: 'Certificate has not been generated yet.' });
+});
+
 // ── Coach Portal PR4b: retake workflow (coach side) ─────────────────────────────
 
 // POST /coach/clients/:id/retake-request — submit a retake request for approval.
@@ -5297,12 +5768,15 @@ function _renderCoachView(data){
   h+='<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">';
   h+=_profileRow('Name',c.name);
   h+=_profileRow('Email',c.email);
+  h+=_renderIcfRow(data);
   h+=_profileRow('Organization',c.organization || '—');
   h+=_profileRowRaw('Admin',adminBadge);
   h+=_profileRowRaw('Status',activeBadge);
   h+='</table>';
   h+=lu;
   h+=_renderCreditsSection(data);
+  h+=_renderCoursesSection(data);
+  h+=_renderCertsSection(data);
   h+=_renderRolesSection(data);
   h+='<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;">';
   h+='<p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">Edit History</p>';
@@ -5401,6 +5875,155 @@ function _roleErr(msg){
 function _refreshCoachModal(){
   if(_hiveRec && _hiveRec.coach) window.openCoachProfile(_hiveRec.coach.id);
 }
+
+// ── PR10: My Account inside the coach modal — ICF credential, courses, certifications ──
+function _dateOnly(d){ if(!d) return '—'; var dt=new Date(d); if(isNaN(dt.getTime())) return _esc(String(d)); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'}); }
+function _dateVal(d){ if(!d) return ''; var dt=new Date(d); if(isNaN(dt.getTime())) return ''; return dt.toISOString().slice(0,10); }
+function _num(v){ var n=Number(v||0); return (Math.round(n*10)/10).toString(); }
+function _sectionHead(label){ return '<div style="border-top:1px solid #EFE8E0;padding-top:12px;margin-bottom:20px;"><p style="font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin:0 0 8px;">'+_esc(label)+'</p>'; }
+function _cfLabel(){ return 'display:block;font-size:11px;color:#7A96A6;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;margin-bottom:4px;'; }
+function _cfInput(){ return 'width:100%;padding:8px 10px;border:1px solid #D0DCE4;border-radius:4px;font-family:Georgia,serif;font-size:13px;color:#1A2B33;box-sizing:border-box;'; }
+function _cfRow(id,type,label,val){ var step=type==='number'?' step="0.1"':''; return '<div style="margin-bottom:8px;"><label for="'+id+'" style="'+_cfLabel()+'">'+label+'</label><input type="'+type+'" id="'+id+'"'+step+' value="'+_esc(val==null?'':String(val))+'" style="'+_cfInput()+'"></div>'; }
+
+// ICF CREDENTIAL — an info-table row + a hidden accordion row of designation checkboxes.
+function _renderIcfRow(data){
+  var desigs=data.icfDesignations||[];
+  var display=desigs.length?desigs.join(', '):'Not Specified';
+  var editLink=_IS_ADMIN?' <a href="#" onclick="_toggleIcfEdit();return false;" style="color:#00b1d7;font-size:12px;text-decoration:none;margin-left:8px;">Edit</a>':'';
+  var row='<tr style="border-bottom:1px solid #EFE8E0;"><td style="padding:8px 0;color:#7A96A6;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;width:34%;vertical-align:top;">ICF Credential</td><td style="padding:8px 0;font-size:13px;">'+_esc(display)+editLink+'</td></tr>';
+  if(!_IS_ADMIN) return row;
+  var cid=data.coach.id;
+  var boxes=['ACC','PCC','MCC','ACTC'].map(function(d){
+    var checked=desigs.indexOf(d)!==-1?'checked':'';
+    return '<label style="display:inline-block;margin-right:14px;font-size:13px;color:#1A2B33;"><input type="checkbox" class="icf-box" value="'+d+'" '+checked+' style="margin-right:5px;vertical-align:middle;">'+d+'</label>';
+  }).join('');
+  var acc='<tr id="icf-edit-row" style="display:none;"><td colspan="2" style="padding:4px 0 14px;"><div style="background:#F7F4EF;border-radius:6px;padding:12px 14px;">'+boxes
+    +'<div style="margin-top:10px;">'
+    +'<button type="button" onclick="_saveIcfDesignations('+cid+')" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;">Save</button>'
+    +' <a href="#" onclick="_toggleIcfEdit();return false;" style="color:#7A96A6;font-size:12px;margin-left:10px;">Cancel</a>'
+    +'<span id="icf-msg" style="font-size:12px;margin-left:10px;"></span>'
+    +'</div></div></td></tr>';
+  return row+acc;
+}
+window._toggleIcfEdit=function(){ var r=document.getElementById('icf-edit-row'); if(r) r.style.display=(r.style.display==='none'||!r.style.display)?'table-row':'none'; };
+window._saveIcfDesignations=function(coachId){
+  var sel=[]; Array.prototype.forEach.call(document.querySelectorAll('.icf-box'),function(b){ if(b.checked) sel.push(b.value); });
+  var msg=document.getElementById('icf-msg');
+  fetch('/admin/coaches/'+coachId+'/icf-designations',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({designations:sel})})
+    .then(function(r){return r.json();})
+    .then(function(d){ if(d&&d.ok){_refreshCoachModal();} else if(msg){msg.textContent=(d&&d.message)||'Save failed.';msg.style.color='#c0392b';} })
+    .catch(function(){ if(msg){msg.textContent='Network error.';msg.style.color='#c0392b';} });
+};
+
+// COURSES COMPLETED — enrollment table + Add Course accordion (super-admin).
+function _renderCoursesSection(data){
+  var cid=data.coach.id, enr=data.enrollments||[];
+  var h=_sectionHead('Courses Completed');
+  if(enr.length===0){
+    h+='<p style="font-size:13px;color:#7A96A6;margin:0 0 10px;">No courses completed yet.</p>';
+  } else {
+    var th='<tr><th style="text-align:left;padding:4px 8px 4px 0;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#7A96A6;">Course</th><th style="text-align:left;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#7A96A6;">Completed</th><th style="text-align:right;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#7A96A6;">Core</th><th style="text-align:right;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#7A96A6;">Resource</th><th></th></tr>';
+    var rows=enr.map(function(e){
+      var del=_IS_SUPER_ADMIN?('<a href="#" onclick="_deleteCourseEnrollment('+cid+','+e.id+');return false;" style="color:#c0392b;font-size:12px;">Delete</a>'):'';
+      return '<tr style="border-bottom:1px solid #F3EEE8;">'
+        +'<td style="padding:6px 8px 6px 0;font-size:13px;color:#1A2B33;">'+_esc(e.name)+'</td>'
+        +'<td style="padding:6px 8px;font-size:13px;color:#7A96A6;white-space:nowrap;">'+_dateOnly(e.completion_date)+'</td>'
+        +'<td style="padding:6px 8px;font-size:13px;color:#1A2B33;text-align:right;">'+_num(e.icf_cce_core)+'</td>'
+        +'<td style="padding:6px 8px;font-size:13px;color:#1A2B33;text-align:right;">'+_num(e.icf_cce_resource)+'</td>'
+        +'<td style="padding:6px 0;text-align:right;white-space:nowrap;">'+del+'</td></tr>';
+    }).join('');
+    h+='<table style="width:100%;border-collapse:collapse;margin-bottom:10px;">'+th+rows+'</table>';
+  }
+  if(_IS_SUPER_ADMIN){
+    var opts=(data.courseCatalog||[]).map(function(c){ return '<option value="'+c.id+'">'+_esc(c.name)+' — Core: '+_num(c.icf_cce_core)+', Resource: '+_num(c.icf_cce_resource)+'</option>'; }).join('');
+    h+='<a href="#" onclick="_toggleAddCourse();return false;" style="color:#00b1d7;font-size:12px;">+ Add Course Completion</a>'
+      +'<div id="add-course-form" style="display:none;background:#F7F4EF;border-radius:6px;padding:12px 14px;margin-top:8px;">'
+      +'<select id="add-course-select" style="'+_cfInput()+'margin-bottom:8px;"><option value="">— select course —</option>'+opts+'</select>'
+      +'<input type="date" id="add-course-date" style="'+_cfInput()+'margin-bottom:8px;">'
+      +'<button type="button" onclick="_addCourseEnrollment('+cid+')" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;">Add</button>'
+      +'<span id="add-course-msg" style="font-size:12px;margin-left:10px;"></span>'
+      +'</div>';
+  }
+  return h+'</div>';
+}
+window._toggleAddCourse=function(){ var f=document.getElementById('add-course-form'); if(f) f.style.display=(f.style.display==='none'||!f.style.display)?'block':'none'; };
+window._addCourseEnrollment=function(coachId){
+  var sel=document.getElementById('add-course-select'), dt=document.getElementById('add-course-date'), msg=document.getElementById('add-course-msg');
+  if(!sel||!sel.value){ if(msg){msg.textContent='Select a course.';msg.style.color='#c0392b';} return; }
+  fetch('/admin/coaches/'+coachId+'/courses',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({course_id:sel.value,completion_date:dt?dt.value:''})})
+    .then(function(r){return r.json();})
+    .then(function(d){ if(d&&d.ok){_refreshCoachModal();} else if(msg){msg.textContent=(d&&d.message)||'Add failed.';msg.style.color='#c0392b';} })
+    .catch(function(){ if(msg){msg.textContent='Network error.';msg.style.color='#c0392b';} });
+};
+window._deleteCourseEnrollment=function(coachId,enrollmentId){
+  if(!confirm('Delete this course completion?')) return;
+  fetch('/admin/coaches/'+coachId+'/courses/'+enrollmentId+'/delete',{method:'POST',headers:{Accept:'application/json'}})
+    .then(function(r){return r.json();})
+    .then(function(d){ if(d&&d.ok)_refreshCoachModal(); else alert((d&&d.message)||'Delete failed.'); })
+    .catch(function(){ alert('Network error.'); });
+};
+
+// CERTIFICATIONS — two fixed slots, each with inline add/edit form (super-admin).
+function _renderCertsSection(data){
+  var cid=data.coach.id, certs=data.certifications||[], evalOpts=data.evaluatorOptions||[], noUser=!data.user_id;
+  var SLOTS=[['insightout_coach','InsightOut Certified Coach'],['icf_cce','ICF CCE Units Certificate']];
+  var h=_sectionHead('Certifications');
+  h+=SLOTS.map(function(s){
+    var rec=certs.filter(function(c){return c.type===s[0];})[0];
+    return _renderCertSlot(cid,s[0],s[1],rec,evalOpts,noUser);
+  }).join('');
+  return h+'</div>';
+}
+function _renderCertSlot(cid,type,label,rec,evalOpts,noUser){
+  var summary,actions;
+  if(rec){
+    summary='<div style="font-size:12px;color:#7A96A6;margin-top:2px;">Completed '+_dateOnly(rec.completion_date)+'</div>'
+      +'<div style="font-size:12px;color:#1A2B33;margin-top:2px;">Core Competency: <strong>'+_num(rec.icf_cce_core)+'</strong> &nbsp;·&nbsp; Resource Development: <strong>'+_num(rec.icf_cce_resource)+'</strong></div>';
+    actions=_IS_SUPER_ADMIN?('<a href="#" onclick="_toggleCertForm(\\''+type+'\\');return false;" style="color:#00b1d7;font-size:12px;">Edit</a> <a href="#" onclick="_deleteCert('+cid+','+rec.id+');return false;" style="color:#c0392b;font-size:12px;margin-left:6px;">Delete</a>'):'';
+  } else {
+    summary='<div style="font-size:12px;color:#7A96A6;margin-top:2px;">Not yet awarded</div>';
+    if(_IS_SUPER_ADMIN && noUser) actions='<span style="color:#7A96A6;font-size:11px;">No linked user account</span>';
+    else actions=_IS_SUPER_ADMIN?('<a href="#" onclick="_toggleCertForm(\\''+type+'\\');return false;" style="color:#00b1d7;font-size:12px;">Add</a>'):'';
+  }
+  var header='<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid #F3EEE8;"><div><div style="font-size:13px;font-weight:700;color:#1A2B33;">'+_esc(label)+'</div>'+summary+'</div><div style="white-space:nowrap;padding-left:10px;">'+actions+'</div></div>';
+  var form='';
+  if(_IS_SUPER_ADMIN && !noUser){
+    var e=rec||{};
+    var evalSel=rec?rec.evaluator_id:null;
+    var evalHtml='<option value="">— none —</option>'+evalOpts.map(function(o){ return '<option value="'+o.id+'"'+(String(o.id)===String(evalSel)?' selected':'')+'>'+_esc(o.name)+'</option>'; }).join('');
+    var saveArgs=cid+',\\''+type+'\\','+(rec?rec.id:'null');
+    form='<div id="cert-form-'+type+'" style="display:none;background:#F7F4EF;border-radius:6px;padding:12px 14px;margin:6px 0 10px;">'
+      +_cfRow('cf-date-'+type,'date','Completion Date *',_dateVal(e.completion_date))
+      +_cfRow('cf-ver-'+type,'text','Program Version',e.program_version||'')
+      +'<div style="margin-bottom:8px;"><label style="'+_cfLabel()+'">Evaluator</label><select id="cf-eval-'+type+'" style="'+_cfInput()+'">'+evalHtml+'</select></div>'
+      +'<div style="margin-bottom:8px;"><label style="'+_cfLabel()+'">Debrief Outcome</label><textarea id="cf-debrief-'+type+'" style="'+_cfInput()+'min-height:48px;">'+_esc(e.debrief_evaluation_outcome||'')+'</textarea></div>'
+      +'<div style="display:flex;gap:8px;"><div style="flex:1;">'+_cfRow('cf-core-'+type,'number','Core Competency CCE',(e.icf_cce_core!=null?e.icf_cce_core:0))+'</div><div style="flex:1;">'+_cfRow('cf-res-'+type,'number','Resource Development CCE',(e.icf_cce_resource!=null?e.icf_cce_resource:0))+'</div></div>'
+      +'<div style="margin-bottom:8px;"><label style="'+_cfLabel()+'">Notes</label><textarea id="cf-notes-'+type+'" style="'+_cfInput()+'min-height:48px;">'+_esc(e.notes||'')+'</textarea></div>'
+      +'<button type="button" onclick="_saveCert('+saveArgs+')" style="background:#00b1d7;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;">Save</button>'
+      +' <a href="#" onclick="_toggleCertForm(\\''+type+'\\');return false;" style="color:#7A96A6;font-size:12px;margin-left:10px;">Cancel</a>'
+      +'<span id="cert-msg-'+type+'" style="font-size:12px;margin-left:10px;"></span>'
+      +'</div>';
+  }
+  return header+form;
+}
+window._toggleCertForm=function(type){ var f=document.getElementById('cert-form-'+type); if(f) f.style.display=(f.style.display==='none'||!f.style.display)?'block':'none'; };
+window._saveCert=function(coachId,type,certId){
+  var g=function(suffix){ var el=document.getElementById('cf-'+suffix+'-'+type); return el?el.value:''; };
+  var body={type:type,completion_date:g('date'),program_version:g('ver'),evaluator_id:g('eval'),debrief_outcome:g('debrief'),icf_cce_core:g('core'),icf_cce_resource:g('res'),notes:g('notes')};
+  var url='/admin/coaches/'+coachId+'/certifications'+(certId?('/'+certId):'');
+  var msg=document.getElementById('cert-msg-'+type);
+  fetch(url,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(body)})
+    .then(function(r){return r.json();})
+    .then(function(d){ if(d&&d.ok){_refreshCoachModal();} else if(msg){msg.textContent=(d&&d.message)||'Save failed.';msg.style.color='#c0392b';} })
+    .catch(function(){ if(msg){msg.textContent='Network error.';msg.style.color='#c0392b';} });
+};
+window._deleteCert=function(coachId,certId){
+  if(!confirm('Delete this certification?')) return;
+  fetch('/admin/coaches/'+coachId+'/certifications/'+certId+'/delete',{method:'POST',headers:{Accept:'application/json'}})
+    .then(function(r){return r.json();})
+    .then(function(d){ if(d&&d.ok)_refreshCoachModal(); else alert((d&&d.message)||'Delete failed.'); })
+    .catch(function(){ alert('Network error.'); });
+};
 
 window._toggleRole = function(el){
   var uid=el.dataset.userId, role=el.dataset.role, grant=el.checked;
@@ -7371,6 +7994,7 @@ function renderCoachesPage(coaches, errorMsg, flashMsg, isSuperAdmin = false) {
   <div style="display:flex;align-items:center;gap:16px;">
     <a href="/admin" class="nav-link">← Dashboard</a>
     <span class="nav-sep">|</span>
+    ${isSuperAdmin ? `<a href="/admin/courses" class="nav-link">Course Catalog</a><span class="nav-sep">|</span>` : ''}
     <a href="/admin/logout" class="nav-link">Sign out</a>
   </div>
 </div>
@@ -11170,6 +11794,160 @@ app.post('/admin/resources/:id/delete', requireSuperAdmin, async (req, res) => {
   res.redirect('/admin/resources?ok=1');
 });
 
+// =================== /admin/courses — Course Catalog (PR10) ===================
+// The coach-agnostic course CATALOG. Certifications and per-coach course enrollments moved
+// into the Coach Profile modal (see the /admin/coaches/:coachId/* routes). Matches the
+// /admin/resources pattern: single self-contained page, ?edit=id inline form,
+// POST-redirect-GET with ?ok=1 / ?err=msg, requireSuperAdmin.
+
+const CERT_TYPE_ADMIN_OPTS = [
+  { v: 'insightout_coach', l: 'InsightOut Certified Coach' },
+  { v: 'icf_cce',          l: 'ICF CCE Units Certificate' },
+];
+const CERT_TYPE_LABELS = { insightout_coach: 'InsightOut Certified Coach', icf_cce: 'ICF CCE Units' };
+
+// DATE column (Date at midnight UTC) → "YYYY-MM-DD" for an <input type=date> value.
+const dateInputVal = (d) => d ? new Date(d).toISOString().slice(0, 10) : '';
+// DATE column → "Mon DD, YYYY" for list display (UTC, no day-shift).
+const adminDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : '—';
+
+// Shared page shell — reuses the /admin/resources visual language.
+function renderAdminCrudShell(title, toast, tableHead, tableRows, formHtml) {
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Hive Admin — ${esc(title)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, serif; background: #F7F4EF; color: #1A2B33; }
+  .top-bar { background: #1A2B33; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 20; }
+  .top-bar h1 { font-size: 18px; margin: 0; font-weight: 700; }
+  .top-bar a { color: #9FB4C0; font-size: 12px; text-decoration: none; }
+  .top-bar a:hover { color: #fff; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 28px 24px 80px; }
+  .toast { background: #e6f7ee; color: #1a7a4a; border: 1px solid #b7e3ca; border-radius: 6px; padding: 10px 14px; font-size: 13px; margin-bottom: 20px; }
+  .toast.err { background: #fdecec; color: #b23; border-color: #f3c0c0; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 36px; }
+  th, td { text-align: left; padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #EFE8E0; vertical-align: middle; }
+  th { background: #FBFAF7; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #7A8A92; }
+  td.empty { color: #7A8A92; text-align: center; padding: 20px; }
+  td.act { white-space: nowrap; }
+  .mini { font-family: Georgia, serif; font-size: 12px; padding: 4px 10px; border-radius: 4px; border: 1px solid #D0DCE4; background: #fff; color: #1A2B33; cursor: pointer; text-decoration: none; display: inline-block; margin-right: 4px; }
+  .mini:hover { background: #F2F6F8; }
+  .mini.del { color: #b23; border-color: #eecccc; }
+  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 22px 24px; }
+  .card h2 { font-size: 16px; margin: 0 0 18px; }
+  .fld { margin-bottom: 16px; }
+  .fld label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #7A96A6; font-weight: 700; margin-bottom: 5px; }
+  .fld input[type=text], .fld input[type=number], .fld input[type=date], .fld select, .fld textarea { width: 100%; padding: 9px 11px; border: 1px solid #D0DCE4; border-radius: 4px; font-family: Georgia, serif; font-size: 14px; color: #1A2B33; }
+  .fld textarea { resize: vertical; min-height: 80px; }
+  .row2 { display: flex; gap: 16px; } .row2 > .fld { flex: 1; }
+  .actions { margin-top: 20px; display: flex; gap: 10px; align-items: center; }
+  .btn { font-family: Georgia, serif; font-size: 14px; font-weight: 700; padding: 9px 20px; border-radius: 5px; border: none; cursor: pointer; }
+  .btn.save { background: #00b1d7; color: #fff; } .btn.cancel { background: #eef2f4; color: #1A2B33; text-decoration: none; }
+</style></head>
+<body>
+  <div class="top-bar"><h1>${esc(title)}</h1>
+    <nav style="display:flex;gap:16px;align-items:center">
+      <a href="/admin/coaches">Manage Coaches</a>
+      <a href="/admin">← Back to Admin</a>
+    </nav>
+  </div>
+  <div class="container">
+    ${toast ? `<div class="toast${toast.err ? ' err' : ''}">${esc(toast.msg)}</div>` : ''}
+    <table>
+      <thead><tr>${tableHead}</tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+    <div class="card">${formHtml}</div>
+  </div>
+</body></html>`;
+}
+
+const optionList = (opts, sel) => opts.map(o => `<option value="${esc(o.v)}"${String(o.v) === String(sel) ? ' selected' : ''}>${esc(o.l)}</option>`).join('');
+
+// Certifications are managed inside the Coach Profile modal (see the coach-profile POST
+// routes below), not on a standalone page. The certification DB helpers remain.
+
+// ── /admin/courses ── course CATALOG (coach-agnostic). Enrollments live in the Coach Profile modal.
+function renderAdminCoursesPage(list, editing, toast) {
+  const e = editing || {};
+  const isEdit = !!(editing && editing.id);
+  const rows = list.map(r => `<tr>
+      <td>${esc(r.name)}</td>
+      <td>${esc(r.description || '—')}</td>
+      <td>${r.icf_cce_core != null ? esc(String(r.icf_cce_core)) : '—'}</td>
+      <td>${r.icf_cce_resource != null ? esc(String(r.icf_cce_resource)) : '—'}</td>
+      <td class="act">
+        <a class="mini" href="/admin/courses?edit=${r.id}">Edit</a>
+        <form method="POST" action="/admin/courses/${r.id}/delete" style="display:inline" onsubmit="return confirm('Delete this catalog course? Any coach enrollments in it are removed too.')"><button class="mini del">Delete</button></form>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="5" class="empty">No catalog courses yet — create one below.</td></tr>';
+  const form = `<h2 id="form">${isEdit ? 'Edit Course' : 'New Course'}</h2>
+      <form method="POST" action="${isEdit ? `/admin/courses/${e.id}` : '/admin/courses'}">
+        <div class="fld"><label>Course Name *</label><input type="text" name="name" value="${esc(e.name || '')}" required></div>
+        <div class="fld"><label>Description</label><textarea name="description">${esc(e.description || '')}</textarea></div>
+        <div class="row2">
+          <div class="fld"><label>Core Competency Units (CCE)</label><input type="number" step="0.1" name="icf_cce_core" value="${e.icf_cce_core != null ? esc(String(e.icf_cce_core)) : '0'}"></div>
+          <div class="fld"><label>Resource Development Units (CCE)</label><input type="number" step="0.1" name="icf_cce_resource" value="${e.icf_cce_resource != null ? esc(String(e.icf_cce_resource)) : '0'}"></div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn save">${isEdit ? 'Save Changes' : 'Create Record'}</button>
+          ${isEdit ? '<a class="btn cancel" href="/admin/courses">Cancel</a>' : ''}
+        </div>
+      </form>`;
+  const head = '<th>Name</th><th>Description</th><th>Core CCE</th><th>Resource CCE</th><th>Actions</th>';
+  return renderAdminCrudShell('Course Catalog', toast, head, rows, form);
+}
+
+function courseFieldsFromBody(b) {
+  return {
+    name: (b.name || '').trim(),
+    description: (b.description || '').trim() || null,
+    icfCceCore: (b.icf_cce_core === '' || b.icf_cce_core == null) ? 0 : b.icf_cce_core,
+    icfCceResource: (b.icf_cce_resource === '' || b.icf_cce_resource == null) ? 0 : b.icf_cce_resource,
+  };
+}
+
+app.get('/admin/courses', requireSuperAdmin, async (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  const list = await db.getAllCourses();
+  const editing = req.query.edit ? await db.getCourseById(parseInt(req.query.edit, 10)) : null;
+  let toast = null;
+  if (req.query.ok) toast = { msg: 'Saved.', err: false };
+  if (req.query.err) toast = { msg: String(req.query.err).slice(0, 200), err: true };
+  res.send(renderAdminCoursesPage(list, editing, toast));
+});
+
+app.post('/admin/courses', requireSuperAdmin, async (req, res) => {
+  if (!(req.body && req.body.name && req.body.name.trim())) return res.redirect('/admin/courses?err=' + encodeURIComponent('Course name is required.'));
+  try {
+    await db.createCourse(courseFieldsFromBody(req.body));
+    res.redirect('/admin/courses?ok=1');
+  } catch (e) {
+    console.error('[POST /admin/courses] failed:', e.message);
+    res.redirect('/admin/courses?err=' + encodeURIComponent('Create failed: ' + e.message));
+  }
+});
+
+app.post('/admin/courses/:id', requireSuperAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!(req.body && req.body.name && req.body.name.trim())) return res.redirect('/admin/courses?edit=' + id + '&err=' + encodeURIComponent('Course name is required.'));
+  try {
+    await db.updateCourse(id, courseFieldsFromBody(req.body));
+    res.redirect('/admin/courses?ok=1');
+  } catch (e) {
+    console.error('[POST /admin/courses/:id] failed:', e.message);
+    res.redirect('/admin/courses?edit=' + id + '&err=' + encodeURIComponent('Save failed: ' + e.message));
+  }
+});
+
+app.post('/admin/courses/:id/delete', requireSuperAdmin, async (req, res) => {
+  await db.deleteCourse(parseInt(req.params.id, 10)).catch(e => console.error('[course delete]', e.message));
+  res.redirect('/admin/courses?ok=1');
+});
+
+// Course enrollments are managed inside the Coach Profile modal (see the coach-profile POST
+// routes below), not on a standalone page. The coach_courses DB helpers remain.
+
 // =================== /admin/content — SINGLE-PAGE PNG PREVIEW (PR 4b) ===================
 // Renders one client-report PDF page as a PNG so a super-admin sees a draft edit in context
 // before publishing. The draft value is injected onto a synthetic model (never the DB), the
@@ -13391,6 +14169,18 @@ app.get('/admin/coaches/:coach_id/profile', requireAdmin, async (req, res) => {
     }
   }
 
+  // PR10 (My Account in the modal): certifications (0–2, by the coach's user_id), course
+  // enrollments (joined to the catalog), the full catalog for the Add Course dropdown, and
+  // the coach's ICF designations. Each guarded so one failure doesn't blank the whole modal.
+  const certifications = coach.user_id ? await db.getCoachCertifications(coach.user_id).catch(() => []) : [];
+  const enrollments = await db.getCourseEnrollmentsByCoach(coach.id).catch(() => []);
+  const courseCatalog = await db.getAllCourses().catch(() => []);
+  const profile = await db.getCoachProfile(coach.id).catch(() => null);
+  const icfDesignations = (profile && Array.isArray(profile.icf_designations)) ? profile.icf_designations : [];
+  // The certifications table stores evaluator_id (FK → users), so the modal's Evaluator field
+  // is a dropdown of admin/evaluator users, not free text.
+  const evaluatorOptions = await db.getEvaluatorOptions().catch(() => []);
+
   return res.json({
     coach,
     history,
@@ -13400,7 +14190,145 @@ app.get('/admin/coaches/:coach_id/profile', requireAdmin, async (req, res) => {
     is_self: isSelf,
     accountId,        // null if no account exists yet
     creditBalances,   // { standard_assessment, leadership_report, team_report }
+    certifications,   // 0–2 records for this coach's user_id
+    enrollments,      // coach_courses joined to courses catalog
+    courseCatalog,    // full catalog for the Add Course dropdown
+    icfDesignations,  // string[] e.g. ['ACC','PCC']
+    evaluatorOptions, // [{id, name}] for the certification Evaluator dropdown
   });
+});
+
+// ── Coach Profile modal: ICF designations / course enrollments / certifications (PR10) ──
+// All JSON endpoints; the modal re-fetches the profile after each to re-render.
+
+const ICF_DESIGNATION_SET = ['ACC', 'PCC', 'MCC', 'ACTC'];
+
+// ICF CREDENTIAL edit — profile-level, same access as other profile edits (requireAdmin).
+app.post('/admin/coaches/:coach_id/icf-designations', requireAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  if (!coachId) return res.status(400).json({ ok: false, error: 'INVALID_COACH_ID' });
+  const coach = await db.getCoachById(coachId);
+  if (!coach) return res.status(404).json({ ok: false, error: 'COACH_NOT_FOUND' });
+  const raw = Array.isArray(req.body && req.body.designations) ? req.body.designations : [];
+  // Keep only known designations, in canonical order, deduped.
+  const clean = ICF_DESIGNATION_SET.filter(d => raw.includes(d));
+  try {
+    await db.updateCoachIcfDesignations(coachId, clean);
+    return res.json({ ok: true, designations: clean });
+  } catch (e) {
+    console.error('[icf-designations] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'SAVE_FAILED' });
+  }
+});
+
+// COURSES COMPLETED — add an enrollment (super-admin, matching credit grants).
+app.post('/admin/coaches/:coach_id/courses', requireSuperAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  if (!coachId) return res.status(400).json({ ok: false, error: 'INVALID_COACH_ID' });
+  const coach = await db.getCoachById(coachId);
+  if (!coach) return res.status(404).json({ ok: false, error: 'COACH_NOT_FOUND' });
+  const courseId = parseInt((req.body || {}).course_id, 10);
+  if (!courseId) return res.status(400).json({ ok: false, error: 'COURSE_REQUIRED', message: 'Course is required.' });
+  try {
+    await db.createCourseEnrollment({
+      coachId,
+      courseId,
+      completionDate: (req.body.completion_date || '').trim() || null,
+    });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[coach courses add] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'ADD_FAILED', message: e.message });
+  }
+});
+
+// COURSES COMPLETED — delete an enrollment (scoped to this coach for safety).
+app.post('/admin/coaches/:coach_id/courses/:enrollment_id/delete', requireSuperAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  const enrollmentId = parseInt(req.params.enrollment_id, 10);
+  if (!coachId || !enrollmentId) return res.status(400).json({ ok: false, error: 'INVALID_ID' });
+  const enr = await db.getCoachCourseEnrollmentById(enrollmentId);
+  if (!enr || enr.coach_id !== coachId) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  try {
+    await db.deleteCourseEnrollment(enrollmentId);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[coach courses delete] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'DELETE_FAILED' });
+  }
+});
+
+// CERTIFICATIONS — build the field object shared by create + update from the JSON body.
+function certModalFields(body, type) {
+  const b = body || {};
+  return {
+    type,
+    completionDate: (b.completion_date || '').trim() || null,
+    programVersion: (b.program_version || '').trim() || null,
+    evaluatorId: b.evaluator_id ? parseInt(b.evaluator_id, 10) : null,
+    debriefOutcome: (b.debrief_outcome || '').trim() || null,
+    icfCceCore: (b.icf_cce_core === '' || b.icf_cce_core == null) ? 0 : b.icf_cce_core,
+    icfCceResource: (b.icf_cce_resource === '' || b.icf_cce_resource == null) ? 0 : b.icf_cce_resource,
+    notes: (b.notes || '').trim() || null,
+  };
+}
+
+// CERTIFICATIONS — create (super-admin). Requires the coach to have a linked user account.
+app.post('/admin/coaches/:coach_id/certifications', requireSuperAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  if (!coachId) return res.status(400).json({ ok: false, error: 'INVALID_COACH_ID' });
+  const coach = await db.getCoachById(coachId);
+  if (!coach) return res.status(404).json({ ok: false, error: 'COACH_NOT_FOUND' });
+  if (!coach.user_id) return res.status(400).json({ ok: false, error: 'NO_USER', message: 'Coach has no linked user account.' });
+  const type = (req.body || {}).type;
+  if (!['insightout_coach', 'icf_cce'].includes(type)) return res.status(400).json({ ok: false, error: 'INVALID_TYPE' });
+  if (!(req.body.completion_date || '').trim()) return res.status(400).json({ ok: false, error: 'DATE_REQUIRED', message: 'Completion date is required.' });
+  try {
+    await db.insertCertification({ userId: coach.user_id, ...certModalFields(req.body, type) });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[cert add] failed:', e.message);
+    // A duplicate (user_id, type) hits the partial unique index.
+    const dup = /certifications_user_type_key/.test(e.message);
+    return res.status(dup ? 409 : 500).json({ ok: false, error: dup ? 'DUPLICATE' : 'ADD_FAILED', message: dup ? 'This coach already has that certificate type.' : e.message });
+  }
+});
+
+// CERTIFICATIONS — update (super-admin). Type is immutable (identifies the slot).
+app.post('/admin/coaches/:coach_id/certifications/:id', requireSuperAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  const id = parseInt(req.params.id, 10);
+  if (!coachId || !id) return res.status(400).json({ ok: false, error: 'INVALID_ID' });
+  const coach = await db.getCoachById(coachId);
+  if (!coach || !coach.user_id) return res.status(404).json({ ok: false, error: 'COACH_NOT_FOUND' });
+  const existing = (await db.getCoachCertifications(coach.user_id)).find(c => c.id === id);
+  if (!existing) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  if (!(req.body.completion_date || '').trim()) return res.status(400).json({ ok: false, error: 'DATE_REQUIRED', message: 'Completion date is required.' });
+  try {
+    await db.updateCertification(id, certModalFields(req.body, existing.type));
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[cert update] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'SAVE_FAILED', message: e.message });
+  }
+});
+
+// CERTIFICATIONS — delete (super-admin, scoped to this coach).
+app.post('/admin/coaches/:coach_id/certifications/:id/delete', requireSuperAdmin, async (req, res) => {
+  const coachId = parseInt(req.params.coach_id, 10);
+  const id = parseInt(req.params.id, 10);
+  if (!coachId || !id) return res.status(400).json({ ok: false, error: 'INVALID_ID' });
+  const coach = await db.getCoachById(coachId);
+  if (!coach || !coach.user_id) return res.status(404).json({ ok: false, error: 'COACH_NOT_FOUND' });
+  const existing = (await db.getCoachCertifications(coach.user_id)).find(c => c.id === id);
+  if (!existing) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  try {
+    await db.deleteCertification(id);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[cert delete] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'DELETE_FAILED' });
+  }
 });
 
 // PR11 — Grant credits to a coach (super-admin only). JSON. Auto-creates the coach's

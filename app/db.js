@@ -533,6 +533,15 @@ CREATE TABLE IF NOT EXISTS accounts (
 CREATE UNIQUE INDEX IF NOT EXISTS accounts_coach_id_key
   ON accounts (coach_id) WHERE coach_id IS NOT NULL;
 
+-- PR10 (My Account §7.8, ratified decision A): subscription/billing fields set MANUALLY by
+-- Cai/Mo when ThriveCart renews a coach's membership. Nullable for every existing row
+-- (webhook- and seed-created accounts leave them NULL); the coach page renders hardcoded
+-- fallbacks for plan/price and an em dash for a missing renewal_date.
+ALTER TABLE accounts
+  ADD COLUMN IF NOT EXISTS plan_name        VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS plan_price_cents INTEGER,
+  ADD COLUMN IF NOT EXISTS renewal_date     DATE;
+
 -- ── Table: credit_types ── reference data (roles pattern). Seeded in PR3. name is the
 -- machine key referenced by requested_report_types.
 --
@@ -658,10 +667,90 @@ CREATE TABLE IF NOT EXISTS certifications (
   completion_date             DATE,
   evaluator_id                INTEGER REFERENCES users(id) ON DELETE SET NULL,
   debrief_evaluation_outcome  TEXT,
-  icf_cce_units               NUMERIC,
+  icf_cce_core                NUMERIC DEFAULT 0,
+  icf_cce_resource            NUMERIC DEFAULT 0,
   notes                       TEXT,
   created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- PR10 (My Account §7.8): two columns the coach-facing certificate cards need.
+-- The type column distinguishes which of the two certificate slots a record fills (one
+-- record per type per coach); certificate_pdf_path is the server-side path to the generated
+-- PDF (NULL until the deferred generation pipeline writes it). ADD COLUMN IF NOT EXISTS is
+-- idempotent across the every-boot SCHEMA_SQL re-run; the table is schema-only with no
+-- writers before this PR, so there is nothing to migrate.
+ALTER TABLE certifications
+  ADD COLUMN IF NOT EXISTS type VARCHAR(50)
+    CHECK (type IN ('insightout_coach', 'icf_cce')),
+  ADD COLUMN IF NOT EXISTS certificate_pdf_path TEXT;
+
+-- PR10 addition: ICF tracks CCE in two separate categories — Core Competency and Resource
+-- Development — which coaches report independently for renewal. Split the single unit column
+-- into two. Idempotent across the every-boot re-run; DROP the old column once the new ones
+-- exist (the table has no production rows — local demo data is reseeded).
+ALTER TABLE certifications ADD COLUMN IF NOT EXISTS icf_cce_core NUMERIC DEFAULT 0;
+ALTER TABLE certifications ADD COLUMN IF NOT EXISTS icf_cce_resource NUMERIC DEFAULT 0;
+ALTER TABLE certifications DROP COLUMN IF EXISTS icf_cce_units;
+
+-- One certification record per type per coach, enforced at the DB layer. Partial (WHERE
+-- type IS NOT NULL) so any legacy typeless row is exempt.
+CREATE UNIQUE INDEX IF NOT EXISTS certifications_user_type_key
+  ON certifications (user_id, type)
+  WHERE type IS NOT NULL;
+
+-- ── Table: courses ── (PR10 refactor) master CATALOG of courses, admin-owned. Decoupled
+-- from any coach: one row per distinct course, reused across coaches. A coach's completion
+-- of a course is an enrollment row in coach_courses (below). This replaces the earlier
+-- per-coach model, which forced admins to re-type the same course name for every coach.
+CREATE TABLE IF NOT EXISTS courses (
+  id                SERIAL PRIMARY KEY,
+  name              VARCHAR(255) NOT NULL,
+  description       TEXT,
+  icf_cce_core      NUMERIC DEFAULT 0,
+  icf_cce_resource  NUMERIC DEFAULT 0,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- PR10 addition: split ICF CCE units into Core Competency and Resource Development.
+-- Idempotent; DROP the old single column once the two new ones exist.
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS icf_cce_core NUMERIC DEFAULT 0;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS icf_cce_resource NUMERIC DEFAULT 0;
+ALTER TABLE courses DROP COLUMN IF EXISTS icf_cce_units;
+
+-- PR10 refactor migration: reshape the per-coach courses table into the catalog above.
+-- The course-name column was "title"; rename it to "name" (guarded so it runs once and only
+-- when the rename is still pending). Then drop the per-coach/date columns and any orphaned
+-- legacy columns so the live table matches the CREATE above. NOTE: coach_id and completed_date
+-- were NOT NULL, so they MUST be dropped or the catalog createCourse (which supplies neither)
+-- would fail. (The provided spec named the date column "completion_date"; the real column is
+-- "completed_date" — both are dropped so the intent holds regardless.)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'courses' AND column_name = 'title')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'courses' AND column_name = 'name') THEN
+    ALTER TABLE courses RENAME COLUMN title TO name;
+  END IF;
+END $$;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS description TEXT;
+DROP INDEX IF EXISTS courses_coach_id_idx;
+ALTER TABLE courses DROP COLUMN IF EXISTS coach_id;
+ALTER TABLE courses DROP COLUMN IF EXISTS completed_date;
+ALTER TABLE courses DROP COLUMN IF EXISTS completion_date;
+ALTER TABLE courses DROP COLUMN IF EXISTS certificate_pdf_path;
+ALTER TABLE courses DROP COLUMN IF EXISTS created_by;
+ALTER TABLE courses DROP COLUMN IF EXISTS updated_at;
+
+-- ── Table: coach_courses ── (PR10 refactor) enrollment: one row per coach-course completion.
+-- coach_id + course_id both CASCADE so removing a coach or a catalog course cleans up its
+-- enrollments. completion_date is when the coach finished the course.
+CREATE TABLE IF NOT EXISTS coach_courses (
+  id               SERIAL PRIMARY KEY,
+  coach_id         INTEGER NOT NULL REFERENCES coaches(id) ON DELETE CASCADE,
+  course_id        INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  completion_date  DATE,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS coach_courses_coach_id_idx ON coach_courses (coach_id);
+CREATE INDEX IF NOT EXISTS coach_courses_course_id_idx ON coach_courses (course_id);
 
 -- ── Table: teams ── (schema-only this build) roster of clients grouped for a Team
 -- Report, decoupled from billing. leader_client_id is the designated report recipient.
@@ -1862,6 +1951,18 @@ async function upsertCoachProfile(coachId, p) {
 async function getCoachProfile(coachId) {
   const r = await query('SELECT * FROM coach_profiles WHERE coach_id = $1 LIMIT 1', [coachId]);
   return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+// Update ONLY icf_designations without touching the rest of the profile (the coach-profile
+// modal edits this field in isolation). Upsert so a coach with no profile row still gets one.
+// designations is a string[] (e.g. ['ACC','PCC']) or null/empty to clear.
+async function updateCoachIcfDesignations(coachId, designations) {
+  const val = (Array.isArray(designations) && designations.length) ? designations : null;
+  await query(
+    `INSERT INTO coach_profiles (coach_id, icf_designations)
+     VALUES ($1, $2)
+     ON CONFLICT (coach_id) DO UPDATE SET icf_designations = EXCLUDED.icf_designations, updated_at = NOW()`,
+    [coachId, val]
+  );
 }
 // Active curated keyword labels for the autocomplete / validation set.
 async function getActiveKeywordTags() {
@@ -3740,10 +3841,272 @@ async function cancelAssessment(assessmentId, reason, cancelledBy) {
   }
 }
 
+// ── MY ACCOUNT HELPERS (PR10) ───────────────────────────────────────
+// Tier-3 (per-coach private) data — straight per-request queries, no module cache.
+
+// All certification records for a user. Queried by users.id directly (session.user_id):
+// certifications keys on user_id, and coaches.user_id is nullable, so joining through
+// coaches would silently drop a coach whose link is unset. Returns [] on DB error.
+async function getCoachCertifications(userId) {
+  const r = await query(
+    `SELECT id, user_id, type, program_version, completion_date, evaluator_id,
+            debrief_evaluation_outcome, icf_cce_core, icf_cce_resource,
+            certificate_pdf_path, notes, created_at
+       FROM certifications
+      WHERE user_id = $1
+      ORDER BY completion_date DESC NULLS LAST, id DESC`,
+    [userId]
+  );
+  return r ? r.rows : [];
+}
+
+// All course completions (enrollments) for a coach, newest first, joined to the catalog for
+// name/description/CCE. `id` is the ENROLLMENT id (coach_courses.id); course_id is the catalog
+// id. Returns [] on DB error.
+async function getCourseEnrollmentsByCoach(coachId) {
+  const r = await query(
+    `SELECT cc.id, cc.course_id, c.name, c.description,
+            c.icf_cce_core, c.icf_cce_resource, cc.completion_date
+       FROM coach_courses cc
+       JOIN courses c ON c.id = cc.course_id
+      WHERE cc.coach_id = $1
+      ORDER BY cc.completion_date DESC NULLS LAST, cc.id DESC`,
+    [coachId]
+  );
+  return r ? r.rows : [];
+}
+
+// The coach's subscription/billing fields (nullable). Returns the single row or null.
+async function getCoachAccountSubscription(coachId) {
+  const r = await query(
+    `SELECT plan_name, plan_price_cents, renewal_date
+       FROM accounts
+      WHERE coach_id = $1 AND account_type = 'coach'
+      LIMIT 1`,
+    [coachId]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// Change the coach's email across BOTH the login row (users) and the domain row
+// (coaches, matched by the same user_id). Both columns are UNIQUE, so we pre-check each
+// for a collision with a DIFFERENT record before writing, then update transactionally.
+// Returns { ok: true } or { ok: false, reason: 'email_taken' }.
+async function updateCoachEmail(userId, newEmail) {
+  if (!pool) return { ok: false, reason: 'db_unavailable' };
+  const addr = (newEmail || '').toLowerCase().trim();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const uDup = await client.query(
+      'SELECT 1 FROM users WHERE LOWER(email) = $1 AND id != $2 LIMIT 1',
+      [addr, userId]
+    );
+    if (uDup.rows.length > 0) { await client.query('ROLLBACK'); return { ok: false, reason: 'email_taken' }; }
+    const cDup = await client.query(
+      'SELECT 1 FROM coaches WHERE LOWER(email) = $1 AND (user_id IS NULL OR user_id != $2) LIMIT 1',
+      [addr, userId]
+    );
+    if (cDup.rows.length > 0) { await client.query('ROLLBACK'); return { ok: false, reason: 'email_taken' }; }
+    await client.query('UPDATE users SET email = $1, updated_at = NOW() WHERE id = $2', [addr, userId]);
+    await client.query('UPDATE coaches SET email = $1, updated_at = NOW() WHERE user_id = $2', [addr, userId]);
+    await client.query('COMMIT');
+    return { ok: true };
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    console.error('[db] updateCoachEmail failed:', e.message);
+    return { ok: false, reason: 'db_error' };
+  } finally {
+    client.release();
+  }
+}
+
+// ── Admin CRUD: certifications ──
+// ICF CCE units are tracked in two categories (Core Competency, Resource Development);
+// empty/null coerces to 0 to match the columns' DEFAULT 0.
+const cceNum = (v) => (v === '' || v == null) ? 0 : v;
+
+async function insertCertification({ userId, type, programVersion, completionDate, evaluatorId, debriefOutcome, icfCceCore, icfCceResource, notes }) {
+  const r = await query(
+    `INSERT INTO certifications (user_id, type, program_version, completion_date, evaluator_id, debrief_evaluation_outcome, icf_cce_core, icf_cce_resource, notes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING *`,
+    [userId, type, programVersion || null, completionDate, evaluatorId || null,
+     (debriefOutcome || '').trim() || null, cceNum(icfCceCore), cceNum(icfCceResource), notes || null]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function updateCertification(id, { type, programVersion, completionDate, evaluatorId, debriefOutcome, icfCceCore, icfCceResource, notes }) {
+  const r = await query(
+    `UPDATE certifications
+        SET type = $2, program_version = $3, completion_date = $4, evaluator_id = $5,
+            debrief_evaluation_outcome = $6, icf_cce_core = $7, icf_cce_resource = $8, notes = $9
+      WHERE id = $1
+      RETURNING *`,
+    [id, type, programVersion || null, completionDate, evaluatorId || null,
+     (debriefOutcome || '').trim() || null, cceNum(icfCceCore), cceNum(icfCceResource), notes || null]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function deleteCertification(id) {
+  await query('DELETE FROM certifications WHERE id = $1', [id]);
+}
+
+// ── Admin CRUD: courses catalog ──
+// The catalog is coach-agnostic: name + description + the two CCE values. A coach's
+// completion of a course lives in coach_courses (enrollment helpers below).
+async function createCourse({ name, description, icfCceCore, icfCceResource }) {
+  const r = await query(
+    `INSERT INTO courses (name, description, icf_cce_core, icf_cce_resource)
+     VALUES ($1, $2, $3, $4)
+     RETURNING *`,
+    [name, (description || '').trim() || null, cceNum(icfCceCore), cceNum(icfCceResource)]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function updateCourse(id, { name, description, icfCceCore, icfCceResource }) {
+  const r = await query(
+    `UPDATE courses
+        SET name = $2, description = $3, icf_cce_core = $4, icf_cce_resource = $5
+      WHERE id = $1
+      RETURNING *`,
+    [id, name, (description || '').trim() || null, cceNum(icfCceCore), cceNum(icfCceResource)]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function deleteCourse(id) {
+  await query('DELETE FROM courses WHERE id = $1', [id]);
+}
+
+// The full course catalog — admin list + the coach-courses enrollment form's Course dropdown.
+async function getAllCourses() {
+  const r = await query(
+    `SELECT id, name, description, icf_cce_core, icf_cce_resource, created_at
+       FROM courses
+      ORDER BY name`
+  );
+  return r ? r.rows : [];
+}
+
+// ── Admin CRUD: coach_courses enrollments ──
+// One enrollment = one coach's completion of one catalog course.
+async function getCoachCourseEnrollmentById(id) {
+  const r = await query(
+    `SELECT cc.id, cc.coach_id, cc.course_id, cc.completion_date, c.name AS course_name
+       FROM coach_courses cc
+       JOIN courses c ON c.id = cc.course_id
+      WHERE cc.id = $1
+      LIMIT 1`,
+    [id]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function createCourseEnrollment({ coachId, courseId, completionDate }) {
+  const r = await query(
+    `INSERT INTO coach_courses (coach_id, course_id, completion_date)
+     VALUES ($1, $2, $3)
+     RETURNING *`,
+    [coachId, courseId, completionDate || null]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// coach_id is not editable on update — only the course and its completion date.
+async function updateCourseEnrollment(id, { courseId, completionDate }) {
+  const r = await query(
+    `UPDATE coach_courses
+        SET course_id = $2, completion_date = $3
+      WHERE id = $1
+      RETURNING *`,
+    [id, courseId, completionDate || null]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+async function deleteCourseEnrollment(id) {
+  await query('DELETE FROM coach_courses WHERE id = $1', [id]);
+}
+
+// Per-category CCE totals across a coach's enrollments (Courses Completed total row).
+// COALESCE so a coach with no enrollments returns 0/0 rather than NULL/NULL.
+async function getCoachCourseTotals(coachId) {
+  const r = await query(
+    `SELECT COALESCE(SUM(c.icf_cce_core), 0)     AS total_core,
+            COALESCE(SUM(c.icf_cce_resource), 0) AS total_resource
+       FROM coach_courses cc
+       JOIN courses c ON c.id = cc.course_id
+      WHERE cc.coach_id = $1`,
+    [coachId]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : { total_core: 0, total_resource: 0 };
+}
+
+// Admin: set the billing fields on the coach's accounts row.
+async function updateAccountSubscription(coachId, { planName, planPriceCents, renewalDate }) {
+  await query(
+    `UPDATE accounts
+        SET plan_name = $1, plan_price_cents = $2, renewal_date = $3
+      WHERE coach_id = $4 AND account_type = 'coach'`,
+    [planName || null, (planPriceCents === '' || planPriceCents == null) ? null : planPriceCents,
+     renewalDate || null, coachId]
+  );
+}
+
+// Admin dropdowns. Directory of all coaches with both keys the modal / catalog forms need
+// (coach_id for enrollments, user_id for certifications).
+async function getCoachDirectory() {
+  const r = await query('SELECT id AS coach_id, user_id, name, email FROM coaches ORDER BY name');
+  return r ? r.rows : [];
+}
+
+// Admin/super-admin users (Cai/Mo) as certification evaluators — evaluator_id → users(id),
+// display name pulled from the linked coaches row.
+async function getEvaluatorOptions() {
+  const r = await query(
+    `SELECT u.id, c.name
+       FROM users u
+       JOIN coaches c ON c.user_id = u.id
+      WHERE c.is_admin = TRUE OR c.is_super_admin = TRUE
+      ORDER BY c.name`
+  );
+  return r ? r.rows : [];
+}
+
+async function getCourseById(id) {
+  const r = await query('SELECT * FROM courses WHERE id = $1 LIMIT 1', [id]);
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
 module.exports = {
   pool,
   initDb,
   query,
+  // My Account (PR10)
+  getCoachCertifications,
+  getCourseEnrollmentsByCoach,
+  getCoachAccountSubscription,
+  updateCoachEmail,
+  insertCertification,
+  updateCertification,
+  deleteCertification,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  getAllCourses,
+  getCoachCourseEnrollmentById,
+  createCourseEnrollment,
+  updateCourseEnrollment,
+  deleteCourseEnrollment,
+  getCoachCourseTotals,
+  updateAccountSubscription,
+  getCoachDirectory,
+  getEvaluatorOptions,
+  getCourseById,
   findOrCreateCoach,
   createClient,
   createAssessment,
@@ -3793,6 +4156,7 @@ module.exports = {
   getPublishedAnnouncements,
   upsertCoachProfile,
   getCoachProfile,
+  updateCoachIcfDesignations,
   getActiveKeywordTags,
   setCoachActive,
   reassignClients,
