@@ -998,6 +998,99 @@ DROP TRIGGER IF EXISTS update_resources_updated_at ON resources;
 CREATE TRIGGER update_resources_updated_at
   BEFORE UPDATE ON resources
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- PR14 — Events Management System (venues, events, registrations, waitlist).
+-- Replaces the Eventbrite-sourced /coach/training (PR9) with a native DB-driven
+-- platform. Structural template: the resources table above. Create order matters
+-- for the FKs: venues -> events -> event_registrations / event_waitlist.
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS venues (
+  id           SERIAL PRIMARY KEY,
+  name         TEXT NOT NULL,
+  address      TEXT,
+  city         TEXT,
+  state        TEXT,
+  zip          TEXT,
+  website_url  TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+DROP TRIGGER IF EXISTS update_venues_updated_at ON venues;
+CREATE TRIGGER update_venues_updated_at
+  BEFORE UPDATE ON venues
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS events (
+  id                       SERIAL PRIMARY KEY,
+  title                    TEXT NOT NULL,
+  category                 TEXT NOT NULL CHECK (category IN ('Certification','Workshop','Coach Training')),
+  event_type               TEXT NOT NULL CHECK (event_type IN ('virtual_live','virtual_async','in_person')),
+  cover_photo_path         TEXT,
+  description              TEXT,
+  facilitator_name         TEXT,
+  facilitator_bio          TEXT,
+  starts_at                TIMESTAMPTZ,
+  ends_at                  TIMESTAMPTZ,
+  timezone                 TEXT,                       -- IANA tz, e.g. 'America/Los_Angeles'
+  icf_cce_core             NUMERIC DEFAULT 0,          -- hidden in UI when 0
+  icf_cce_resource         NUMERIC DEFAULT 0,          -- hidden in UI when 0
+  price_cents              INTEGER DEFAULT 0,          -- 0 => free => native in-portal register
+  thrivecart_url           TEXT,                       -- checkout URL for paid events
+  thrivecart_product_slug  TEXT,                       -- CP-5: webhook maps slug → event
+  capacity                 INTEGER,                    -- NULL => uncapped
+  registration_deadline    TIMESTAMPTZ,
+  zoom_url                 TEXT,                       -- virtual_live only; EMAIL-ONLY, never client-facing
+  async_url                TEXT,                       -- virtual_async only
+  venue_id                 INTEGER REFERENCES venues(id) ON DELETE SET NULL,  -- in_person only
+  is_published             BOOLEAN DEFAULT false,
+  is_featured              BOOLEAN DEFAULT false,
+  is_cancelled             BOOLEAN DEFAULT false,
+  created_at               TIMESTAMPTZ DEFAULT NOW(),
+  updated_at               TIMESTAMPTZ DEFAULT NOW()
+);
+-- One event per ThriveCart product slug (the webhook resolves slug → event). Partial so
+-- the many free events (slug NULL) are never constrained.
+CREATE UNIQUE INDEX IF NOT EXISTS events_thrivecart_slug_uniq
+  ON events (thrivecart_product_slug) WHERE thrivecart_product_slug IS NOT NULL;
+CREATE INDEX IF NOT EXISTS events_starts_at_idx ON events (starts_at);
+DROP TRIGGER IF EXISTS update_events_updated_at ON events;
+CREATE TRIGGER update_events_updated_at
+  BEFORE UPDATE ON events
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS event_registrations (
+  id                 SERIAL PRIMARY KEY,
+  event_id           INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  coach_id           INTEGER NOT NULL REFERENCES coaches(id) ON DELETE CASCADE,
+  registered_at      TIMESTAMPTZ DEFAULT NOW(),
+  reminder_sent_at   TIMESTAMPTZ,   -- CP-1 dedupe for the 48h reminder job
+  purchase_reference TEXT           -- CP-5: ThriveCart order_id for paid events; NULL for free
+);
+-- One active registration per coach per event.
+CREATE UNIQUE INDEX IF NOT EXISTS event_registrations_event_coach_uniq
+  ON event_registrations (event_id, coach_id);
+-- Idempotency for the paid webhook: a retried ThriveCart order is a safe no-op.
+CREATE UNIQUE INDEX IF NOT EXISTS event_registrations_purchase_ref_uniq
+  ON event_registrations (purchase_reference) WHERE purchase_reference IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS event_waitlist (
+  id                 SERIAL PRIMARY KEY,
+  event_id           INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  coach_id           INTEGER NOT NULL REFERENCES coaches(id) ON DELETE CASCADE,
+  waitlisted_at      TIMESTAMPTZ DEFAULT NOW(),   -- FIFO ordering for promotion
+  expiry_notified_at TIMESTAMPTZ,                 -- CP-1 dedupe for the 24h expiry job
+  purchase_reference TEXT                          -- set if arrived via over-capacity paid webhook
+);
+CREATE UNIQUE INDEX IF NOT EXISTS event_waitlist_event_coach_uniq
+  ON event_waitlist (event_id, coach_id);
+-- Paid pay-on-promotion (CP-5, ratified): when a seat opens on a PAID event we email the FIFO
+-- head a checkout link instead of auto-registering. payment_offered_at stamps the active offer
+-- (holds the freed seat); offer_expired_at records that a 24h offer lapsed (the seat is released
+-- and re-offered to the next coach, but the lapsed coach keeps their FIFO slot on the waitlist).
+ALTER TABLE event_waitlist ADD COLUMN IF NOT EXISTS payment_offered_at TIMESTAMPTZ;
+ALTER TABLE event_waitlist ADD COLUMN IF NOT EXISTS offer_expired_at TIMESTAMPTZ;
 `;
 
 const SEED_SQL = `

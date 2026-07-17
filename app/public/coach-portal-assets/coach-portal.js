@@ -983,3 +983,77 @@
 
   applyFilter('all');
 })();
+
+/* ── Coach Training event detail modal (PR14) ─────────────────────────────────────
+   Deliberately a SEPARATE top-level IIFE (not inside the shared island above): the island
+   runs page-specific sections that assume their own DOM, and a throw in any of them must not
+   prevent the Training page's modal from binding. Self-contained — defines its own $.
+   The grid is server-rendered; each event ships a hidden <template> carrying its detail HTML
+   (already escaped server-side, with zoom_url deliberately absent). Clicking a card clones its
+   template into the shared overlay. Register / Join Waitlist / Cancel buttons POST to the
+   state-machine routes and reload on success. No-ops on pages without the overlay. */
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var overlay = $('cp-event-overlay');
+  var body    = $('cp-event-modal-body');
+  var closeEl = $('cp-event-modal-close');
+  var templates = $('cp-event-templates');
+  if (!overlay || !body || !templates) return;
+
+  var lastFocus = null;
+
+  function openEvent(id) {
+    var tpl = templates.querySelector('template[data-event-id="' + id + '"]');
+    if (!tpl) return;
+    body.innerHTML = tpl.innerHTML;
+    overlay.hidden = false;
+    document.body.style.overflow = 'hidden';
+    lastFocus = document.activeElement;
+    var firstBtn = body.querySelector('button, a');
+    if (firstBtn) firstBtn.focus();
+  }
+  function closeEvent() {
+    overlay.hidden = true;
+    body.innerHTML = '';
+    document.body.style.overflow = '';
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+
+  closeEl && closeEl.addEventListener('click', closeEvent);
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) closeEvent(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !overlay.hidden) closeEvent(); });
+
+  [].slice.call(document.querySelectorAll('.cp-event-card')).forEach(function (card) {
+    card.addEventListener('click', function () { openEvent(card.getAttribute('data-event-id')); });
+    card.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEvent(card.getAttribute('data-event-id')); }
+    });
+  });
+
+  // Delegated register/cancel actions inside the modal.
+  body.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-action]') : null;
+    if (!btn) return;
+    var action = btn.getAttribute('data-action');
+    var id = btn.getAttribute('data-event-id');
+    if (action !== 'register' && action !== 'cancel') return;
+    e.preventDefault();
+    var msg = body.querySelector('[data-event-msg]');
+    btn.disabled = true;
+    var orig = btn.textContent;
+    btn.textContent = action === 'cancel' ? 'Cancelling…' : 'Registering…';
+    fetch('/coach/training/events/' + encodeURIComponent(id) + '/' + action, {
+      method: 'POST', headers: { Accept: 'application/json' },
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (res.ok && res.d && res.d.ok) { location.reload(); return; }
+        btn.disabled = false; btn.textContent = orig;
+        if (msg) { msg.hidden = false; msg.textContent = (res.d && res.d.message) || 'Something went wrong. Please try again.'; }
+      })
+      .catch(function () {
+        btn.disabled = false; btn.textContent = orig;
+        if (msg) { msg.hidden = false; msg.textContent = 'Network error. Please try again.'; }
+      });
+  });
+})();

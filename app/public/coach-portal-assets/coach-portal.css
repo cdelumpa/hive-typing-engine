@@ -1524,7 +1524,10 @@ a { color: var(--color-primary); text-decoration: none; }
 }
 
 /* ============================================================
-   PR9 — COACH TRAINING
+   PR14 — COACH TRAINING (native DB-driven events)
+   Grid of cover-photo cards → detail modal. Reuses the PR9
+   card/grid/meta scaffold; adds covers, category tags, the
+   four status badges, and the detail modal.
    ============================================================ */
 
 /* --- Page header --- */
@@ -1542,14 +1545,6 @@ a { color: var(--color-primary); text-decoration: none; }
   margin: 4px 0 0;
 }
 
-.cp-eb-attribution {
-  font-family: var(--font-ui);
-  font-size: 11px;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  padding-top: 6px; /* optical alignment with page title */
-}
-
 /* --- Event grid --- */
 .cp-event-grid {
   display: grid;
@@ -1564,24 +1559,88 @@ a { color: var(--color-primary); text-decoration: none; }
   }
 }
 
-/* --- Event card --- */
+/* --- Event card (whole card is a button that opens the modal) --- */
 .cp-event-card {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  padding: 20px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: box-shadow 0.15s ease;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  text-align: left;
 }
 
 .cp-event-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
 }
 
-.cp-event-card--soldout {
-  background: var(--color-bg-page);
+.cp-event-card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
+
+.cp-event-body {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* --- Cover photo (card + modal crops) --- */
+.cp-event-cover {
+  width: 100%;
+  background: var(--color-bg-page);
+  overflow: hidden;
+}
+.cp-event-cover--card  { aspect-ratio: 600 / 340; }
+.cp-event-cover--modal { aspect-ratio: 1200 / 480; }
+.cp-event-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+/* Placeholder when no cover is uploaded (or the image 404s). */
+.cp-event-cover--ph {
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-accent-light));
+}
+
+/* --- Tag + status badge row --- */
+.cp-event-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cp-event-tag {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.cp-event-tag--cert     { color: var(--color-primary-dark); background: var(--color-primary-light); }
+.cp-event-tag--workshop { color: var(--color-accent-dark);  background: var(--color-accent-light); }
+.cp-event-tag--training { color: var(--color-success);      background: var(--color-success-bg); }
+
+/* The four availability badges (net-new). */
+.cp-event-badge {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.cp-event-badge--available { color: var(--color-success);      background: var(--color-success-bg); }
+.cp-event-badge--soldout   { color: var(--color-error);        background: var(--color-error-bg); }
+.cp-event-badge--closed    { color: var(--color-text-muted);   background: var(--color-bg-page); border: 1px solid var(--color-border); }
+.cp-event-badge--coming    { color: var(--color-primary-dark); background: var(--color-primary-light); }
 
 /* --- Card internals --- */
 .cp-event-title {
@@ -1637,17 +1696,11 @@ a { color: var(--color-primary); text-decoration: none; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 12px;
+  margin-top: auto;
+  padding-top: 12px;
 }
 
-.cp-event-price--free {
-  font-family: var(--font-ui);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-success);
-}
-
-.cp-event-price--paid {
+.cp-event-price {
   font-family: var(--font-ui);
   font-size: 14px;
   font-weight: 600;
@@ -1662,23 +1715,10 @@ a { color: var(--color-primary); text-decoration: none; }
   font-size: 13px;
   font-weight: 600;
   color: var(--color-primary);
-  text-decoration: none;
 }
-
-.cp-event-cta:hover {
-  text-decoration: underline;
-}
-
-.cp-event-soldout-label {
-  font-family: var(--font-ui);
-  font-size: 13px;
-  color: var(--color-text-muted);
-}
-
-/* Override: spec's SOLD OUT badge has no border (cp-badge--muted has one) */
-.cp-event-card--soldout .cp-badge--muted {
-  border: none;
-}
+.cp-event-cta--done  { color: var(--color-success); }
+.cp-event-cta--wait  { color: var(--color-accent-dark); }
+.cp-event-cta--muted { color: var(--color-text-muted); }
 
 /* --- Empty state --- */
 .cp-training-empty {
@@ -1697,4 +1737,165 @@ a { color: var(--color-primary); text-decoration: none; }
 
 .cp-link:hover {
   text-decoration: underline;
+}
+
+/* ============================================================
+   PR14 — Event detail modal
+   ============================================================ */
+.cp-event-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 42, 53, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+  z-index: 200;
+}
+.cp-event-overlay[hidden] { display: none; }
+
+.cp-event-modal {
+  position: relative;
+  background: var(--color-bg-card);
+  border-radius: 14px;
+  max-width: 640px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.cp-event-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-text-heading);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+}
+.cp-event-modal-close:hover { background: #fff; }
+
+.cp-event-modal-inner .cp-event-cover--modal { border-radius: 0; }
+
+.cp-event-modal-pad { padding: 20px 24px 26px; }
+
+.cp-event-modal-title {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-heading);
+  margin: 12px 0 0;
+}
+
+.cp-event-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--color-text-body);
+}
+.cp-event-modal-meta svg { flex-shrink: 0; color: var(--color-text-muted); }
+
+.cp-event-modal-loc {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-heading);
+}
+.cp-event-modal-loc svg { flex-shrink: 0; color: var(--color-text-muted); }
+
+.cp-event-modal-note {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 4px 0 0 20px;
+}
+
+.cp-event-modal-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+.cp-event-modal-h3 {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin: 0 0 8px;
+}
+.cp-event-modal-desc,
+.cp-event-modal-bio {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text-body);
+  margin: 0;
+}
+.cp-event-modal-facil { font-family: var(--font-ui); font-size: 15px; margin: 0 0 4px; color: var(--color-text-heading); }
+
+.cp-event-modal-deadline {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--color-accent-dark);
+  margin: 14px 0 0;
+}
+
+.cp-event-modal-actions { margin-top: 20px; }
+
+.cp-event-btn {
+  display: inline-block;
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 12px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.cp-event-btn--register,
+.cp-event-btn--pay { background: var(--color-primary); color: #fff; text-decoration: none; }
+.cp-event-btn--register:hover,
+.cp-event-btn--pay:hover { background: var(--color-primary-dark); }
+.cp-event-btn--wait { background: var(--color-accent); color: #fff; }
+.cp-event-btn--wait:hover { background: var(--color-accent-dark); }
+.cp-event-btn--cancel { background: var(--color-bg-page); color: var(--color-error); border: 1px solid var(--color-error); }
+.cp-event-btn--cancel:hover { background: var(--color-error-bg); }
+.cp-event-btn--static {
+  background: var(--color-bg-page);
+  color: var(--color-text-muted);
+  cursor: default;
+  border: 1px solid var(--color-border);
+}
+.cp-event-btn:disabled { opacity: 0.6; cursor: default; }
+
+.cp-event-modal-msg {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--color-error);
+  margin: 12px 0 0;
+  text-align: center;
+}
+
+@media (max-width: 767px) {
+  .cp-event-overlay { padding: 16px 10px; }
+  .cp-event-modal-title { font-size: 19px; }
+  .cp-event-modal-pad { padding: 18px 18px 22px; }
 }
