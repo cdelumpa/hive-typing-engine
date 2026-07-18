@@ -6822,7 +6822,7 @@ window._saveIcfDesignations=function(coachId){
     .catch(function(){ if(msg){msg.textContent='Network error.';msg.style.color='#c0392b';} });
 };
 
-// COURSES COMPLETED — enrollment table + Add Course accordion (super-admin).
+// COURSES COMPLETED — enrollment table + Add Course accordion (admin).
 function _renderCoursesSection(data){
   var cid=data.coach.id, enr=data.enrollments||[];
   var h=_sectionHead('Courses Completed');
@@ -6831,7 +6831,7 @@ function _renderCoursesSection(data){
   } else {
     var th='<tr><th style="text-align:left;padding:4px 8px 4px 0;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#7A96A6;">Course</th><th style="text-align:left;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#7A96A6;">Completed</th><th style="text-align:right;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#7A96A6;">Core</th><th style="text-align:right;padding:4px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#7A96A6;">Resource</th><th></th></tr>';
     var rows=enr.map(function(e){
-      var del=_IS_SUPER_ADMIN?('<a href="#" onclick="_deleteCourseEnrollment('+cid+','+e.id+');return false;" style="color:#c0392b;font-size:12px;">Delete</a>'):'';
+      var del=_IS_ADMIN?('<a href="#" onclick="_deleteCourseEnrollment('+cid+','+e.id+');return false;" style="color:#c0392b;font-size:12px;">Delete</a>'):'';
       return '<tr style="border-bottom:1px solid #F3EEE8;">'
         +'<td style="padding:6px 8px 6px 0;font-size:13px;color:#1A2B33;">'+_esc(e.name)+'</td>'
         +'<td style="padding:6px 8px;font-size:13px;color:#7A96A6;white-space:nowrap;">'+_dateOnly(e.completion_date)+'</td>'
@@ -6841,7 +6841,7 @@ function _renderCoursesSection(data){
     }).join('');
     h+='<table style="width:100%;border-collapse:collapse;margin-bottom:10px;">'+th+rows+'</table>';
   }
-  if(_IS_SUPER_ADMIN){
+  if(_IS_ADMIN){
     var opts=(data.courseCatalog||[]).map(function(c){ return '<option value="'+c.id+'">'+_esc(c.name)+' — Core: '+_num(c.icf_cce_core)+', Resource: '+_num(c.icf_cce_resource)+'</option>'; }).join('');
     h+='<a href="#" onclick="_toggleAddCourse();return false;" style="color:#00b1d7;font-size:12px;">+ Add Course Completion</a>'
       +'<div id="add-course-form" style="display:none;background:#F7F4EF;border-radius:6px;padding:12px 14px;margin-top:8px;">'
@@ -6870,7 +6870,7 @@ window._deleteCourseEnrollment=function(coachId,enrollmentId){
     .catch(function(){ alert('Network error.'); });
 };
 
-// CERTIFICATIONS — two fixed slots, each with inline add/edit form (super-admin).
+// CERTIFICATIONS — two fixed slots, each with inline add/edit form (admin).
 function _renderCertsSection(data){
   var cid=data.coach.id, certs=data.certifications||[], evalOpts=data.evaluatorOptions||[], noUser=!data.user_id;
   var SLOTS=[['insightout_coach','InsightOut Certified Coach'],['icf_cce','ICF CCE Units Certificate']];
@@ -6886,15 +6886,15 @@ function _renderCertSlot(cid,type,label,rec,evalOpts,noUser){
   if(rec){
     summary='<div style="font-size:12px;color:#7A96A6;margin-top:2px;">Completed '+_dateOnly(rec.completion_date)+'</div>'
       +'<div style="font-size:12px;color:#1A2B33;margin-top:2px;">Core Competency: <strong>'+_num(rec.icf_cce_core)+'</strong> &nbsp;·&nbsp; Resource Development: <strong>'+_num(rec.icf_cce_resource)+'</strong></div>';
-    actions=_IS_SUPER_ADMIN?('<a href="#" onclick="_toggleCertForm(\\''+type+'\\');return false;" style="color:#00b1d7;font-size:12px;">Edit</a> <a href="#" onclick="_deleteCert('+cid+','+rec.id+');return false;" style="color:#c0392b;font-size:12px;margin-left:6px;">Delete</a>'):'';
+    actions=_IS_ADMIN?('<a href="#" onclick="_toggleCertForm(\\''+type+'\\');return false;" style="color:#00b1d7;font-size:12px;">Edit</a> <a href="#" onclick="_deleteCert('+cid+','+rec.id+');return false;" style="color:#c0392b;font-size:12px;margin-left:6px;">Delete</a>'):'';
   } else {
     summary='<div style="font-size:12px;color:#7A96A6;margin-top:2px;">Not yet awarded</div>';
-    if(_IS_SUPER_ADMIN && noUser) actions='<span style="color:#7A96A6;font-size:11px;">No linked user account</span>';
-    else actions=_IS_SUPER_ADMIN?('<a href="#" onclick="_toggleCertForm(\\''+type+'\\');return false;" style="color:#00b1d7;font-size:12px;">Add</a>'):'';
+    if(_IS_ADMIN && noUser) actions='<span style="color:#7A96A6;font-size:11px;">No linked user account</span>';
+    else actions=_IS_ADMIN?('<a href="#" onclick="_toggleCertForm(\\''+type+'\\');return false;" style="color:#00b1d7;font-size:12px;">Add</a>'):'';
   }
   var header='<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid #F3EEE8;"><div><div style="font-size:13px;font-weight:700;color:#1A2B33;">'+_esc(label)+'</div>'+summary+'</div><div style="white-space:nowrap;padding-left:10px;">'+actions+'</div></div>';
   var form='';
-  if(_IS_SUPER_ADMIN && !noUser){
+  if(_IS_ADMIN && !noUser){
     var e=rec||{};
     var evalSel=rec?rec.evaluator_id:null;
     var evalHtml='<option value="">— none —</option>'+evalOpts.map(function(o){ return '<option value="'+o.id+'"'+(String(o.id)===String(evalSel)?' selected':'')+'>'+_esc(o.name)+'</option>'; }).join('');
@@ -15889,8 +15889,8 @@ app.post('/admin/coaches/:coach_id/icf-designations', requireAdmin, async (req, 
   }
 });
 
-// COURSES COMPLETED — add an enrollment (super-admin, matching credit grants).
-app.post('/admin/coaches/:coach_id/courses', requireSuperAdmin, async (req, res) => {
+// COURSES COMPLETED — add an enrollment (admin; credit grants stay super-admin).
+app.post('/admin/coaches/:coach_id/courses', requireAdmin, async (req, res) => {
   const coachId = parseInt(req.params.coach_id, 10);
   if (!coachId) return res.status(400).json({ ok: false, error: 'INVALID_COACH_ID' });
   const coach = await db.getCoachById(coachId);
@@ -15911,7 +15911,7 @@ app.post('/admin/coaches/:coach_id/courses', requireSuperAdmin, async (req, res)
 });
 
 // COURSES COMPLETED — delete an enrollment (scoped to this coach for safety).
-app.post('/admin/coaches/:coach_id/courses/:enrollment_id/delete', requireSuperAdmin, async (req, res) => {
+app.post('/admin/coaches/:coach_id/courses/:enrollment_id/delete', requireAdmin, async (req, res) => {
   const coachId = parseInt(req.params.coach_id, 10);
   const enrollmentId = parseInt(req.params.enrollment_id, 10);
   if (!coachId || !enrollmentId) return res.status(400).json({ ok: false, error: 'INVALID_ID' });
@@ -15941,8 +15941,8 @@ function certModalFields(body, type) {
   };
 }
 
-// CERTIFICATIONS — create (super-admin). Requires the coach to have a linked user account.
-app.post('/admin/coaches/:coach_id/certifications', requireSuperAdmin, async (req, res) => {
+// CERTIFICATIONS — create (admin). Requires the coach to have a linked user account.
+app.post('/admin/coaches/:coach_id/certifications', requireAdmin, async (req, res) => {
   const coachId = parseInt(req.params.coach_id, 10);
   if (!coachId) return res.status(400).json({ ok: false, error: 'INVALID_COACH_ID' });
   const coach = await db.getCoachById(coachId);
@@ -15962,8 +15962,8 @@ app.post('/admin/coaches/:coach_id/certifications', requireSuperAdmin, async (re
   }
 });
 
-// CERTIFICATIONS — update (super-admin). Type is immutable (identifies the slot).
-app.post('/admin/coaches/:coach_id/certifications/:id', requireSuperAdmin, async (req, res) => {
+// CERTIFICATIONS — update (admin). Type is immutable (identifies the slot).
+app.post('/admin/coaches/:coach_id/certifications/:id', requireAdmin, async (req, res) => {
   const coachId = parseInt(req.params.coach_id, 10);
   const id = parseInt(req.params.id, 10);
   if (!coachId || !id) return res.status(400).json({ ok: false, error: 'INVALID_ID' });
@@ -15981,8 +15981,8 @@ app.post('/admin/coaches/:coach_id/certifications/:id', requireSuperAdmin, async
   }
 });
 
-// CERTIFICATIONS — delete (super-admin, scoped to this coach).
-app.post('/admin/coaches/:coach_id/certifications/:id/delete', requireSuperAdmin, async (req, res) => {
+// CERTIFICATIONS — delete (admin, scoped to this coach).
+app.post('/admin/coaches/:coach_id/certifications/:id/delete', requireAdmin, async (req, res) => {
   const coachId = parseInt(req.params.coach_id, 10);
   const id = parseInt(req.params.id, 10);
   if (!coachId || !id) return res.status(400).json({ ok: false, error: 'INVALID_ID' });
