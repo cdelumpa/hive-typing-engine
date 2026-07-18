@@ -253,23 +253,35 @@ const eventCoverUpload = multer({
   },
 }).single('cover_photo');
 
+// PR11 (CP-7): the storage layout is {UPLOAD_DIR}/{subdir}/{id}/{size}.jpg for every image
+// kind, so the directory resolver and the resize loop are shared. Only the subdir and the
+// size map differ per kind — nothing about the pipeline was ever event-specific except
+// those two literals.
+function uploadDirFor(subdir, id) {
+  return path.join(UPLOAD_DIR, subdir, String(id));
+}
 function eventCoverDir(eventId) {
-  return path.join(UPLOAD_DIR, 'event-covers', String(eventId));
+  return uploadDirFor('event-covers', eventId);
 }
 
-// Process an uploaded buffer into the two crops. Returns the relative path stored on the event
-// row (cover_photo_path); the size suffix is appended by the render/serve layer. Throws on a
-// non-image buffer (surfaced as an admin save error).
-async function processEventCover(buffer, eventId) {
-  const dir = eventCoverDir(eventId);
+// Process an uploaded buffer into one file per entry in `sizes`. Returns the relative path
+// stored on the owning row (events.cover_photo_path / coach_profiles.photo_url); the size
+// suffix is appended by the render/serve layer. Throws on a non-image buffer (surfaced as a
+// save error by the caller).
+async function processImage(buffer, { subdir, id, sizes }) {
+  const dir = uploadDirFor(subdir, id);
   fs.mkdirSync(dir, { recursive: true });
-  for (const [size, { w, h }] of Object.entries(COVER_SIZES)) {
+  for (const [size, { w, h }] of Object.entries(sizes)) {
     await sharp(buffer)
       .resize(w, h, { fit: 'cover', position: 'centre' })
       .jpeg({ quality: 85 })
       .toFile(path.join(dir, `${size}.jpg`));
   }
-  return `event-covers/${eventId}`;   // relative; served as /uploads/<this>/<size>.jpg
+  return `${subdir}/${id}`;   // relative; served as /uploads/<this>/<size>.jpg
+}
+
+async function processEventCover(buffer, eventId) {
+  return processImage(buffer, { subdir: 'event-covers', id: eventId, sizes: COVER_SIZES });
 }
 
 // Serve a processed cover. Validates the size segment and the numeric id; 404 on any miss so a
@@ -279,6 +291,39 @@ app.get('/uploads/event-covers/:eventId/:size.jpg', (req, res) => {
   const eventId = parseInt(req.params.eventId, 10);
   if (!COVER_SIZES[size] || !eventId) return res.status(404).end();
   const file = path.join(eventCoverDir(eventId), `${size}.jpg`);
+  if (!fs.existsSync(file)) return res.status(404).end();
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.type('jpeg').sendFile(file);
+});
+
+// ── PR11: coach avatars (§7.9) ───────────────────────────────────────────────────
+// CP-5: two SQUARE variants — sm (96px) for the header/nav and identity card, lg (256px)
+// for the profile page and client-facing reports. The coach crops to a circle CLIENT-side
+// before upload, so sharp's fit:'cover' here is a no-op resize on an already-square image
+// rather than the blind centre-crop it performs for event covers (which would decapitate
+// anyone whose face isn't centred).
+const AVATAR_SIZES = { sm: { w: 96, h: 96 }, lg: { w: 256, h: 256 } };
+function coachAvatarDir(coachId) { return uploadDirFor('avatars', coachId); }
+
+const coachAvatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },   // 5 MB, same ceiling as event covers
+  fileFilter: (req, file, cb) => {
+    const ok = ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype);
+    cb(ok ? null : new Error('Photo must be a JPEG, PNG, or WEBP image.'), ok);
+  },
+}).single('photo');
+
+// Serve a processed avatar. Same shape (and same path-traversal defense) as the event-cover
+// route: `size` must be a literal key of AVATAR_SIZES and `coachId` must survive parseInt,
+// so neither segment can inject "..". CP-2: avatars are PUBLIC — they ride the /uploads/
+// basic-auth carve-out above, which is a deliberate decision (headshots appear in
+// client-facing reports), not an inherited accident.
+app.get('/uploads/avatars/:coachId/:size.jpg', (req, res) => {
+  const size = req.params.size;
+  const coachId = parseInt(req.params.coachId, 10);
+  if (!AVATAR_SIZES[size] || !coachId) return res.status(404).end();
+  const file = path.join(coachAvatarDir(coachId), `${size}.jpg`);
   if (!fs.existsSync(file)) return res.status(404).end();
   res.setHeader('Cache-Control', 'public, max-age=86400');
   res.type('jpeg').sendFile(file);
@@ -3469,6 +3514,427 @@ app.post('/coach/retake-requests/:id/launch', requireCoach, requireOnboardingCom
   }
 });
 
+// ── Coach Portal PR11: My Profile (§7.9) ─────────────────────────────────────────
+// The nav has linked /coach/profile since PR1 (CP_NAV_ZONES) and the avatar menu since
+// PR3, but the route never existed — both links 404'd on main. This section closes that
+// and, just as importantly, gives coach_profiles a READER: bio / directory_opt_in /
+// keywords were write-only (onboarding wrote them, nothing read them back), and a coach
+// who clicked "Finish Later" had no route to complete their profile at all.
+//
+// Field set is shared with onboarding Screen 2 (§7.10) — the partials below are mounted
+// twice: here in the two-column layout, and in onboarding's 480px single column.
+const CP_ICF_DESIGNATIONS = ['ACC', 'PCC', 'MCC', 'ACTC'];
+const CP_MAX_KEYWORDS = 10;
+const CP_MAX_KEYWORD_LEN = 40;
+
+// Keyword normalizer, shared by My Profile's PATCH and onboarding Screen 2's POST so the
+// two can't validate differently.
+//
+// RATIFIED: free text is allowed and is stored on the COACH'S OWN PROFILE ONLY. keyword_tags
+// stays a curated, admin-managed set — nothing here ever writes to it. Auto-promoting typed
+// keywords would push typos, casing variants and one-off phrases into every other coach's
+// autocomplete, so the curated list is read for suggestions and never mutated by coach input.
+//
+// Still enforced: trim, non-empty, per-keyword length cap, case-insensitive de-dupe within
+// the coach's own list, and the 10-keyword cap. Rendering safety is handled at the render
+// layer (cpEsc server-side, textContent client-side), not by mangling the stored value.
+function cpNormalizeKeywords(raw) {
+  const list = raw == null ? [] : (Array.isArray(raw) ? raw : [raw]);
+  const seen = new Set();
+  const out = [];
+  for (const item of list) {
+    const k = String(item == null ? '' : item).trim();
+    if (!k) continue;                                   // drop empty / whitespace-only
+    if (k.length > CP_MAX_KEYWORD_LEN) {
+      return { error: `Keywords must be ${CP_MAX_KEYWORD_LEN} characters or fewer.` };
+    }
+    const dedupeKey = k.toLowerCase();
+    if (seen.has(dedupeKey)) continue;                  // case-insensitive de-dupe
+    seen.add(dedupeKey);
+    out.push(k);
+  }
+  if (out.length > CP_MAX_KEYWORDS) {
+    return { error: `Please choose at most ${CP_MAX_KEYWORDS} keywords.` };
+  }
+  return { keywords: out };
+}
+
+// Avatar URL with a MANDATORY cache-buster (CP-6). Filenames are deterministic
+// ({size}.jpg) and the serving route sets max-age=86400, so without ?v= a coach who
+// replaces their photo would keep seeing the old one for up to 24 hours. updated_at
+// moves on every profile write, including the photo upload itself.
+function cpAvatarUrl(profile, size) {
+  if (!profile || !profile.photo_url) return null;
+  const v = profile.updated_at ? new Date(profile.updated_at).getTime() : 0;
+  return `/uploads/${profile.photo_url}/${size}.jpg?v=${v}`;
+}
+
+// Shared photo widget — mounted in both layouts. Falls back to cpInitials() when
+// photo_url is null, which is also the CP-9 "remove photo" resting state.
+function cpPhotoWidget({ profile, coachName, variant }) {
+  const url = cpAvatarUrl(profile, 'sm');
+  const inner = url
+    ? `<img src="${cpEsc(url)}" alt="" class="cp-photo-img" id="cp-photo-img">`
+    : `<span class="cp-photo-initials" id="cp-photo-initials">${cpEsc(cpInitials(coachName))}</span>`;
+  const optional = variant === 'onboarding' ? ' <span class="cp-photo-optional">(optional)</span>' : '';
+  const label = variant === 'onboarding' ? 'Upload photo' : 'Change photo';
+  return `<div class="cp-photo cp-photo--${variant}">
+        <div class="cp-photo-circle" id="cp-photo-circle" data-initials="${cpEsc(cpInitials(coachName))}">${inner}</div>
+        <input type="file" id="cp-photo-file" class="cp-photo-file" accept="image/jpeg,image/png,image/webp" hidden>
+        <button type="button" class="cp-photo-link" id="cp-photo-trigger">${label}</button>${optional}
+        <button type="button" class="cp-photo-remove" id="cp-photo-remove"${url ? '' : ' hidden'}>Remove photo</button>
+        <p class="cp-photo-err" id="cp-photo-err" hidden></p>
+        <!-- Photo feedback belongs WITH the photo. The photo saves instantly on crop
+             confirm (never via Save Changes), so confirmation shown down beside a still-
+             disabled Save button read as "nothing happened". Compact variant fits the
+             220px identity column; onboarding's 480px column gets the same element. -->
+        ${cpSuccessBanner('cp-photo-banner', 'compact')}
+      </div>`;
+}
+
+// Circular crop modal (§7.9). One instance per page; the client island wires it to
+// whichever photo widget is mounted. Mobile renders as a full-screen bottom sheet with a
+// drag handle (CSS), matching the Name Change modal's responsive treatment.
+function cpCropModalHtml() {
+  return `<div class="cp-modal-backdrop" id="cp-crop-modal" hidden>
+      <div class="cp-modal cp-crop-modal" role="dialog" aria-modal="true" aria-labelledby="cp-crop-title">
+        <div class="cp-sheet-handle" aria-hidden="true"></div>
+        <h2 class="cp-modal-title" id="cp-crop-title">Position your photo</h2>
+        <p class="cp-crop-copy">Drag to reposition and use the slider to zoom. Your photo appears as a circle across the portal and in client-facing reports.</p>
+        <div class="cp-crop-stage" id="cp-crop-stage">
+          <canvas class="cp-crop-canvas" id="cp-crop-canvas" width="320" height="320"></canvas>
+          <div class="cp-crop-mask" aria-hidden="true"></div>
+        </div>
+        <label class="cp-field-label cp-crop-zoom-label" for="cp-crop-zoom">Zoom</label>
+        <input class="cp-crop-zoom" id="cp-crop-zoom" type="range" min="1" max="3" step="0.01" value="1">
+        <p class="cp-modal-msg cp-modal-msg--err" id="cp-crop-err" hidden></p>
+        <div class="cp-modal-foot">
+          <button type="button" class="cp-btn cp-btn--ghost" data-crop-cancel>Cancel</button>
+          <button type="button" class="cp-btn cp-btn--primary" id="cp-crop-confirm">Save photo</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// Shared editable field set (§7.9 right column / §7.10 Screen 2). `variant` controls only
+// what §7.10 omits: alternate email + phone are directory-contact fields that Screen 2
+// does not collect. Everything else is identical markup so the two layouts can't drift.
+function cpProfileFieldsHtml({ profile, tags, variant }) {
+  const p = profile || {};
+  const icfSelected = new Set(p.icf_designations || []);
+  const icf = CP_ICF_DESIGNATIONS.map(d => `
+          <label class="cp-check"><input type="checkbox" name="icf_designations" value="${d}"${icfSelected.has(d) ? ' checked' : ''}> <span>${d}</span></label>`).join('');
+
+  const optIn = p.directory_opt_in === true;
+  const keywords = Array.isArray(p.keywords) ? p.keywords : [];
+  // Keywords are emitted as one hidden input per tag so onboarding's existing
+  // POST handler (toArr(req.body.keywords)) keeps working untouched; My Profile's
+  // PATCH reads the same DOM state and sends JSON.
+  const chips = keywords.map(k => `
+            <span class="cp-tag" data-tag="${cpEsc(k)}">${cpEsc(k)}<button type="button" class="cp-tag-x" aria-label="Remove ${cpEsc(k)}">&times;</button><input type="hidden" name="keywords" value="${cpEsc(k)}"></span>`).join('');
+
+  const contact = variant === 'profile' ? `
+      <div class="cp-field">
+        <label class="cp-field-label" for="cp-alt-email">Alternate Email (optional)</label>
+        <input class="cp-input" type="email" id="cp-alt-email" name="alternate_email" value="${cpEsc(p.alternate_email || '')}" placeholder="you@example.com">
+      </div>
+      <div class="cp-field">
+        <label class="cp-field-label" for="cp-phone">Phone (optional)</label>
+        <input class="cp-input" type="tel" id="cp-phone" name="phone" value="${cpEsc(p.phone || '')}" placeholder="(555) 555-5555">
+      </div>` : '';
+
+  const bioHint = variant === 'profile'
+    ? 'Appears on your directory listing and in client-facing InsightOut reports.'
+    : 'Appears in client-facing InsightOut reports.';
+
+  return `
+      <div class="cp-field">
+        <label class="cp-field-label" for="cp-bio">Bio</label>
+        <textarea class="cp-input cp-textarea cp-textarea--${variant}" id="cp-bio" name="bio" placeholder="A brief professional bio for your directory listing and client-facing profile…">${cpEsc(p.bio || '')}</textarea>
+        <p class="cp-hint">${bioHint}</p>
+      </div>
+
+      <div class="cp-field">
+        <label class="cp-field-label">ICF Designation</label>
+        <p class="cp-hint">Select all that apply.</p>
+        <div class="cp-check-grid">${icf}</div>
+      </div>
+${contact}
+      <div class="cp-field">
+        <div class="cp-toggle-row">
+          <span class="cp-toggle-copy">
+            <span class="cp-toggle-title">List me in the InsightOut Coach Directory</span>
+            <span class="cp-toggle-note">Your profile will appear on insightoutenneagram.com so prospective clients can find and book a debrief with you.</span>
+          </span>
+          <label class="cp-switch">
+            <input type="checkbox" name="directory_opt_in" id="cp-directory-optin" value="true"${optIn ? ' checked' : ''}>
+            <span class="cp-switch-track" aria-hidden="true"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="cp-field cp-keywords" id="cp-keywords"${optIn ? '' : ' hidden'} data-max="${CP_MAX_KEYWORDS}" data-maxlen="${CP_MAX_KEYWORD_LEN}">
+        <label class="cp-field-label" for="cp-tag-input">Keywords (up to ${CP_MAX_KEYWORDS})</label>
+        <div class="cp-tag-box" id="cp-tag-box">${chips}
+          <input class="cp-tag-input" id="cp-tag-input" type="text" autocomplete="off" placeholder="Type to search or add your own…" aria-label="Add a keyword">
+        </div>
+        <ul class="cp-tag-menu" id="cp-tag-menu" hidden role="listbox"></ul>
+        <p class="cp-hint">Helps clients find you by area of expertise. Choose from the suggested list, or type your own and press Enter.</p>
+        <p class="cp-tag-cap" id="cp-tag-cap" hidden>You've reached the ${CP_MAX_KEYWORDS}-keyword limit.</p>
+      </div>`;
+}
+
+// Green success banner. Reuses .cp-password-banner — the treatment §7.8 already established
+// on My Account (check-circle #4F845C on #DFEAD8, radius 6, padding 12px 16px) rather than
+// inventing a second success style. Rendered hidden; the client fills the text and reveals it.
+function cpSuccessBanner(id, variant) {
+  const cls = variant === 'compact' ? 'cp-password-banner cp-password-banner--compact' : 'cp-password-banner';
+  return `<div class="${cls}" id="${id}" hidden>
+          <span class="cp-password-banner__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg></span>
+          <span data-banner-text>Saved.</span>
+        </div>`;
+}
+
+// Name Change Confirmation Modal (§7.9). The copy is load-bearing: it is the only place a
+// coach is told that renaming does not retroactively update issued certificates or
+// already-generated reports.
+function cpNameModalHtml() {
+  return `<div class="cp-modal-backdrop" id="cp-name-modal" hidden>
+      <div class="cp-modal cp-name-modal" role="dialog" aria-modal="true" aria-labelledby="cp-name-modal-title">
+        <div class="cp-sheet-handle" aria-hidden="true"></div>
+        <div class="cp-warn-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5"/><path d="M12 16.2v.2"/></svg>
+        </div>
+        <h2 class="cp-modal-title cp-modal-title--center" id="cp-name-modal-title">Are you sure?</h2>
+        <p class="cp-name-modal-copy">Your name appears on issued certificates and client-facing InsightOut reports. Changing it won't update documents already generated.</p>
+        <p class="cp-name-modal-change" id="cp-name-modal-change"></p>
+        <p class="cp-modal-msg cp-modal-msg--err" id="cp-name-modal-err" hidden></p>
+        <div class="cp-modal-foot">
+          <button type="button" class="cp-btn cp-btn--ghost" data-name-cancel>Cancel</button>
+          <button type="button" class="cp-btn cp-btn--primary" id="cp-name-confirm">Yes, update my name</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// Full My Profile page (§7.9): one white card, two columns on desktop/tablet
+// (220px identity card + flex-1 fields), stacked on mobile.
+function renderCoachProfilePage({ profile, tags, credits, coachName }) {
+  const parts = String(coachName || '').trim().split(/\s+/).filter(Boolean);
+  const firstName = parts.length ? parts[0] : '';
+  const lastName  = parts.length > 1 ? parts.slice(1).join(' ') : '';
+
+  const bodyHtml = `<h1 class="cp-page-title">My Profile</h1>
+        <section class="cp-card cp-profile">
+          <div class="cp-profile-grid">
+            <aside class="cp-identity">
+              <div class="cp-identity-card">
+                ${cpPhotoWidget({ profile, coachName, variant: 'profile' })}
+                <div class="cp-identity-name" id="cp-identity-name">
+                  <p class="cp-identity-name-text" id="cp-identity-name-text">${cpEsc(coachName || '')}</p>
+                  <p class="cp-identity-role">InsightOut Certified Coach</p>
+                </div>
+                <div class="cp-identity-divider"></div>
+                <button type="button" class="cp-edit-name-link" id="cp-edit-name-link">Edit Name &rarr;</button>
+                <div class="cp-edit-name" id="cp-edit-name" hidden>
+                  <label class="cp-field-label" for="cp-first-name">First Name</label>
+                  <input class="cp-input" type="text" id="cp-first-name" value="${cpEsc(firstName)}" autocomplete="given-name">
+                  <label class="cp-field-label" for="cp-last-name">Last Name</label>
+                  <input class="cp-input" type="text" id="cp-last-name" value="${cpEsc(lastName)}" autocomplete="family-name">
+                  <p class="cp-field-error" id="cp-name-err" hidden></p>
+                  <button type="button" class="cp-btn cp-btn--primary cp-btn--block" id="cp-save-name">Save Name</button>
+                  <button type="button" class="cp-btn--cancel" id="cp-cancel-name">Cancel</button>
+                </div>
+              </div>
+            </aside>
+
+            <div class="cp-profile-fields">
+              <form id="cp-profile-form" onsubmit="return false;">
+                ${cpProfileFieldsHtml({ profile, tags, variant: 'profile' })}
+                <div class="cp-save-row">
+                  <!-- Field-save feedback lives with the Save button; photo feedback lives
+                       with the photo (see cpPhotoWidget). Two actions, two locations. -->
+                  ${cpSuccessBanner('cp-profile-banner')}
+                  <p class="cp-save-msg" id="cp-save-msg" hidden></p>
+                  <button type="button" class="cp-btn cp-btn--ghost" id="cp-profile-cancel">Cancel</button>
+                  <!-- Disabled until a tracked field actually differs from its loaded
+                       value; the client re-enables it and resets the baseline after save. -->
+                  <button type="button" class="cp-btn cp-btn--primary" id="cp-profile-save" disabled>Save Changes</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+        ${cpNameModalHtml()}
+        ${cpCropModalHtml()}`;
+
+  return renderCoachChrome({
+    activeNav: 'profile',
+    creditsPill: credits,
+    avatar: coachName,
+    bodyHtml,
+  });
+}
+
+app.get('/coach/profile', requireCoach, requireOnboardingComplete, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const coachId = req.session.coach_id;
+  try {
+    const [profile, tags, credits] = await Promise.all([
+      db.getCoachProfile(coachId),
+      db.getActiveKeywordTags().catch(() => []),
+      getCoachCreditBalance(coachId).catch(() => null),
+    ]);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderCoachProfilePage({
+      profile: profile || {},
+      tags,
+      credits,
+      coachName: req.session.coach_name,
+    }));
+  } catch (e) {
+    console.error('[GET /coach/profile] failed:', e.message);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(500).send(renderCoachChrome({
+      activeNav: 'profile', creditsPill: null, avatar: req.session.coach_name,
+      bodyHtml: `<h1 class="cp-page-title">My Profile</h1><section class="cp-card"><p class="cp-chart-msg">This page is temporarily unavailable. Please refresh in a moment.</p></section>`,
+    }));
+  }
+});
+
+// Curated keyword autocomplete source (CP-4). keyword_tags already exists and is seeded;
+// admin CRUD for it is deliberately deferred, so this route is read-only.
+// requireCoach ONLY (no requireOnboardingComplete): this route is also consumed by the
+// onboarding Screen 2 tag input, where onboarding_completed is still false by definition.
+// Gating it would bounce a mid-onboarding coach to /coach/onboarding/profile mid-fetch.
+app.get('/coach/profile/keywords/suggestions', requireCoach, async (req, res) => {
+  try {
+    res.json({ ok: true, keywords: await db.getActiveKeywordTags() });
+  } catch (e) {
+    console.error('[GET /coach/profile/keywords/suggestions] failed:', e.message);
+    res.status(500).json({ ok: false, error: 'server_error', keywords: [] });
+  }
+});
+
+// PATCH /coach/profile — the six editable directory fields. alternate_email and phone have
+// had parameters plumbed into upsertCoachProfile since PR2 but no caller ever supplied them;
+// this is the first route that does.
+app.patch('/coach/profile', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const coachId = req.session.coach_id;
+  const b = req.body || {};
+  const toArr = (v) => v == null ? [] : (Array.isArray(v) ? v : [v]);
+
+  const bio = (b.bio || '').trim() || null;
+  const icf = toArr(b.icf_designations).filter(d => CP_ICF_DESIGNATIONS.includes(d));
+  const directoryOptIn = b.directory_opt_in === true || b.directory_opt_in === 'true';
+  const altEmail = (b.alternate_email || '').trim() || null;
+  const phone = (b.phone || '').trim() || null;
+
+  if (altEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(altEmail)) {
+    return res.status(400).json({ ok: false, error: 'bad_email', message: 'Please enter a valid alternate email address.' });
+  }
+
+  try {
+    // Keywords are only meaningful when the coach is listed in the directory. Free text is
+    // accepted (see cpNormalizeKeywords) but still normalized server-side — the client
+    // widget is a convenience, never the authority.
+    let keywords = [];
+    if (directoryOptIn) {
+      const norm = cpNormalizeKeywords(b.keywords);
+      if (norm.error) {
+        return res.status(400).json({ ok: false, error: 'bad_keywords', message: norm.error });
+      }
+      keywords = norm.keywords;
+    }
+    await db.upsertCoachProfile(coachId, {
+      bio,
+      icf_designations: icf.length ? icf : null,
+      alternate_email: altEmail,
+      phone,
+      directory_opt_in: directoryOptIn,
+      keywords: keywords.length ? keywords : null,
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[PATCH /coach/profile] failed:', e.message);
+    res.status(500).json({ ok: false, error: 'server_error', message: 'Could not save your profile. Please try again.' });
+  }
+});
+
+// PATCH /coach/profile/name — CP-3: the confirmation modal is the ONLY gate (no password
+// re-entry), but the server still requires confirmed:true so the route cannot be driven
+// without the modal having been presented. The warning it carries — that renaming does not
+// update already-issued certificates or generated reports — is the reason it exists.
+app.patch('/coach/profile/name', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const b = req.body || {};
+  if (b.confirmed !== true) {
+    return res.status(400).json({ ok: false, error: 'not_confirmed', message: 'This change must be confirmed first.' });
+  }
+  const first = (b.first_name || '').trim();
+  const last  = (b.last_name || '').trim();
+  if (!first || !last) {
+    return res.status(400).json({ ok: false, error: 'name_required', message: 'Please enter both a first and last name.' });
+  }
+  const name = `${first} ${last}`;
+  try {
+    const coach = await db.getCoachById(req.session.coach_id);
+    if (!coach) return res.status(404).json({ ok: false, error: 'not_found', message: 'Coach not found.' });
+    // updateCoach is the existing admin-side writer; email/organization are passed through
+    // unchanged so this only ever moves the name. The coach is their own editor here, so
+    // updated_by records them rather than an admin.
+    await db.updateCoach(coach.id, { name, email: coach.email, organization: coach.organization }, name);
+    req.session.coach_name = name;
+    res.json({ ok: true, name });
+  } catch (e) {
+    console.error('[PATCH /coach/profile/name] failed:', e.message);
+    res.status(500).json({ ok: false, error: 'server_error', message: 'Could not update your name. Please try again.' });
+  }
+});
+
+// POST /coach/profile/photo — CP-8: coach self-service, so requireCoach plus an implicit
+// ownership check. The coach id comes from the SESSION and is never accepted from the
+// request, so a coach can only ever write their own avatar; there is no id to tamper with.
+// requireCoach ONLY — shared with onboarding Screen 2 (see the suggestions route above).
+app.post('/coach/profile/photo', requireCoach, (req, res) => {
+  coachAvatarUpload(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      return res.status(400).json({ ok: false, error: 'upload_failed', message: uploadErr.message || 'Photo upload failed.' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ ok: false, error: 'no_file', message: 'Please choose an image to upload.' });
+    }
+    const coachId = req.session.coach_id;
+    try {
+      const relPath = await processImage(req.file.buffer, { subdir: 'avatars', id: coachId, sizes: AVATAR_SIZES });
+      await db.setCoachPhotoUrl(coachId, relPath);
+      const profile = await db.getCoachProfile(coachId);
+      // Hand back the cache-busted URL (CP-6) so the client can swap the image in place
+      // without a reload and without ever showing the previous photo.
+      res.json({ ok: true, photo_url: cpAvatarUrl(profile, 'sm') });
+    } catch (e) {
+      console.error('[POST /coach/profile/photo] failed:', e.message);
+      res.status(500).json({ ok: false, error: 'server_error', message: 'Could not save your photo. Please try again.' });
+    }
+  });
+});
+
+// POST /coach/profile/photo/remove — CP-9, net-new (PR14 only ever cleaned up on whole-event
+// delete). Removes the files AND nulls the column so the identity card falls back to
+// cpInitials(). Best-effort on the unlink: a missing directory must not block the DB write,
+// or a coach could be stuck with a photo they can't remove.
+// requireCoach ONLY — shared with onboarding Screen 2 (see the suggestions route above).
+app.post('/coach/profile/photo/remove', requireCoach, async (req, res) => {
+  const coachId = req.session.coach_id;
+  try {
+    await db.setCoachPhotoUrl(coachId, null);
+    try { fs.rmSync(coachAvatarDir(coachId), { recursive: true, force: true }); } catch (e) { /* best effort */ }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[POST /coach/profile/photo/remove] failed:', e.message);
+    res.status(500).json({ ok: false, error: 'server_error', message: 'Could not remove your photo. Please try again.' });
+  }
+});
+
 // ── Coach Portal onboarding flow (PR2) — Design Spec §7.10 ───────────────────────
 // Server-rendered stub convention (matches PR1's shell). Registered before the blanket
 // static mount. Screen 1 (password) is token-gated; Screens 1B/2 + defer/dismiss are
@@ -3504,6 +3970,11 @@ function renderOnboardingShell({ step, bodyHtml }) {
     <div class="cp-ob-card">${bodyHtml}</div>
   </main>
   <footer class="cp-ob-footer">© 2026 Hive, Inc. &nbsp;|&nbsp; <a href="#">Privacy Policy</a> &nbsp;|&nbsp; <a href="#">Terms of Use</a></footer>
+  <!-- PR11: the onboarding shell now loads the portal's client island too — Screen 2's
+       photo widget and keyword tag input are the same shared components My Profile uses,
+       and every block in that file no-ops when its anchor element is absent, so the
+       password screens are unaffected. -->
+  <script src="/coach/assets/coach-portal.js" defer></script>
 </body></html>`;
 }
 
@@ -3538,50 +4009,27 @@ function renderPasswordSuccessScreen() {
   ` });
 }
 
-// Screen 2 — Complete Your Profile. Photo affordance is non-functional in PR2 (deferred).
-function renderCompleteProfileScreen(keywordTags, errorMsg) {
+// Screen 2 — Complete Your Profile.
+// PR11 retrofit: the photo affordance is now real (shared circular-crop widget) and the
+// keyword checkboxes are now the shared tag input with curated autocomplete. The field set
+// itself comes from cpProfileFieldsHtml — the SAME partial My Profile renders — so the two
+// screens can no longer drift. Only the layout differs (480px single column here).
+// Everything else on this screen, and all onboarding routing/gating, is unchanged.
+function renderCompleteProfileScreen(keywordTags, errorMsg, profile, coachName) {
   const err = errorMsg ? `<p class="cp-ob-error">${_obEsc(errorMsg)}</p>` : '';
-  const icf = ['ACC', 'PCC', 'MCC', 'ACTC'].map(d =>
-    `<label class="cp-ob-check"><input type="checkbox" name="icf_designations" value="${d}"> ${d}</label>`).join('');
-  const chips = (keywordTags || []).map(t =>
-    `<label class="cp-ob-chip"><input type="checkbox" name="keywords" value="${_obEsc(t)}"> ${_obEsc(t)}</label>`).join('');
   return renderOnboardingShell({ step: 2, bodyHtml: `
     <h1 class="cp-ob-title">Complete your profile</h1>
     <p class="cp-ob-sub">This takes about two minutes. You can always update these details later in My Profile.</p>
     ${err}
     <form method="POST" action="/coach/onboarding/profile" class="cp-ob-form">
-      <div class="cp-ob-photo">
-        <div class="cp-ob-photo-circle">&#128100;</div>
-        <button type="button" class="cp-ob-photo-link" onclick="alert('Photo upload coming soon.')">Upload photo</button>
-        <span class="cp-ob-optional">(optional)</span>
-      </div>
-
-      <label class="cp-ob-label" for="bio">Bio</label>
-      <textarea class="cp-ob-input cp-ob-textarea" id="bio" name="bio" placeholder="A brief professional bio for your directory listing and client-facing profile…"></textarea>
-      <p class="cp-ob-hint">Appears in client-facing InsightOut reports.</p>
-
-      <label class="cp-ob-label">ICF Designation</label>
-      <div class="cp-ob-check-grid">${icf}</div>
-
-      <label class="cp-ob-toggle-row">
-        <span>
-          <span class="cp-ob-toggle-title">List me in the InsightOut Coach Directory</span>
-          <span class="cp-ob-toggle-note">Your profile will appear on insightoutenneagram.com so prospective clients can find and book a debrief with you.</span>
-        </span>
-        <input type="checkbox" name="directory_opt_in" id="directory_opt_in" value="true" onchange="document.getElementById('cp-ob-keywords').style.display=this.checked?'block':'none'">
-      </label>
-
-      <div id="cp-ob-keywords" class="cp-ob-keywords" style="display:none">
-        <label class="cp-ob-label">Keywords (up to 10)</label>
-        <p class="cp-ob-hint">Helps clients find you by area of expertise. Choose from the suggested list.</p>
-        <div class="cp-ob-chips">${chips || '<span class="cp-ob-hint">No keywords available yet.</span>'}</div>
-      </div>
-
+      ${cpPhotoWidget({ profile: profile || {}, coachName, variant: 'onboarding' })}
+      ${cpProfileFieldsHtml({ profile: profile || {}, tags: keywordTags, variant: 'onboarding' })}
       <button class="cp-ob-btn" type="submit">Save Profile</button>
     </form>
     <form method="POST" action="/coach/onboarding/defer" class="cp-ob-defer-form">
       <button type="submit" class="cp-ob-defer">Finish Later</button>
     </form>
+    ${cpCropModalHtml()}
   ` });
 }
 
@@ -3659,7 +4107,10 @@ app.post('/coach/onboarding/password', async (req, res) => {
 app.get('/coach/onboarding/profile', requireCoach, async (req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   const tags = await db.getActiveKeywordTags().catch(() => []);
-  res.send(renderCompleteProfileScreen(tags, null));
+  // PR11: the photo uploads immediately (not on form submit), so the saved profile must be
+  // read back or a coach who set a photo would see it vanish on re-render.
+  const profile = await db.getCoachProfile(req.session.coach_id).catch(() => null);
+  res.send(renderCompleteProfileScreen(tags, null, profile, req.session.coach_name));
 });
 
 // (5) POST Screen 2 — save profile, mark onboarding complete, land on the portal.
@@ -3673,13 +4124,15 @@ app.post('/coach/onboarding/profile', requireCoach, async (req, res) => {
   let keywords = toArr(req.body.keywords);
 
   try {
-    if (directoryOptIn && keywords.length) {
-      const allowed = new Set(await db.getActiveKeywordTags());
-      keywords = keywords.filter(k => allowed.has(k));
-      if (keywords.length > 10) {
+    if (directoryOptIn) {
+      // Same normalizer My Profile uses — free text allowed, keyword_tags never written.
+      const norm = cpNormalizeKeywords(keywords);
+      if (norm.error) {
         const tags = await db.getActiveKeywordTags();
-        return res.send(renderCompleteProfileScreen(tags, 'Please choose at most 10 keywords.'));
+        const prof = await db.getCoachProfile(coachId).catch(() => null);
+        return res.send(renderCompleteProfileScreen(tags, norm.error, prof, req.session.coach_name));
       }
+      keywords = norm.keywords;
     } else {
       keywords = [];  // keywords only apply when directory opt-in is on
     }
@@ -3693,7 +4146,8 @@ app.post('/coach/onboarding/profile', requireCoach, async (req, res) => {
   } catch (e) {
     console.error('[onboarding/profile] error:', e.message);
     const tags = await db.getActiveKeywordTags().catch(() => []);
-    res.send(renderCompleteProfileScreen(tags, 'Something went wrong saving your profile. Please try again.'));
+    const prof = await db.getCoachProfile(coachId).catch(() => null);
+    res.send(renderCompleteProfileScreen(tags, 'Something went wrong saving your profile. Please try again.', prof, req.session.coach_name));
   }
 });
 
