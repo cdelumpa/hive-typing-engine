@@ -2057,6 +2057,19 @@ async function updateCoachIcfDesignations(coachId, designations) {
     [coachId, val]
   );
 }
+// PR11: the first writer photo_url has ever had. The column was added in PR2 alongside the
+// rest of coach_profiles but upload was deferred, so it sat permanently NULL — the note on
+// upsertCoachProfile about "preserving" it was true but vacuous. Upsert so a coach with no
+// profile row still gets one, and accept null so CP-9 (remove photo) uses the same path.
+async function setCoachPhotoUrl(coachId, photoUrl) {
+  await query(
+    `INSERT INTO coach_profiles (coach_id, photo_url)
+     VALUES ($1, $2)
+     ON CONFLICT (coach_id) DO UPDATE SET photo_url = EXCLUDED.photo_url, updated_at = NOW()`,
+    [coachId, photoUrl || null]
+  );
+}
+
 // Active curated keyword labels for the autocomplete / validation set.
 async function getActiveKeywordTags() {
   const r = await query('SELECT label FROM keyword_tags WHERE active = TRUE ORDER BY label');
@@ -4250,6 +4263,7 @@ module.exports = {
   upsertCoachProfile,
   getCoachProfile,
   updateCoachIcfDesignations,
+  setCoachPhotoUrl,
   getActiveKeywordTags,
   setCoachActive,
   reassignClients,

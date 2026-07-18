@@ -1057,3 +1057,611 @@
       });
   });
 })();
+
+/* ============================================================
+   PR11 — My Profile (§7.9) + shared onboarding profile fields (§7.10)
+   Mounted on BOTH surfaces. Every block below no-ops when its anchor element
+   is absent, so the same file drives the two-column profile page and
+   onboarding Screen 2 without branching on which page it is.
+   ============================================================ */
+(function () {
+  'use strict';
+  function byId(id) { return document.getElementById(id); }
+
+  /* ── Shared success banner ────────────────────────────────────────────────
+     Reuses the §7.8 My Account treatment (.cp-password-banner). One banner per
+     page, fired by profile save, photo save and photo remove alike.
+     Dismissal: the portal has no timeout/auto-dismiss convention (the account
+     page simply leaves its banner up), so this follows suit — it stays visible
+     until the next edit, at which point markDirty() clears it. */
+  // Two banners, two locations: photo actions report next to the photo (it saves
+  // instantly, so feedback beside a still-disabled Save button read as a no-op), field
+  // saves report next to Save Changes. Showing one always clears the other, so a stale
+  // "Photo updated." can never sit on screen alongside a later "Profile saved."
+  var BANNER_IDS = ['cp-photo-banner', 'cp-profile-banner'];
+
+  function hideBanner() {
+    BANNER_IDS.forEach(function (id) {
+      var b = byId(id);
+      if (b) b.hidden = true;
+    });
+  }
+  function showBanner(text, which) {
+    hideBanner();
+    var b = byId(which || 'cp-profile-banner');
+    if (!b) return;
+    var slot = b.querySelector('[data-banner-text]');
+    if (slot) slot.textContent = text;
+    b.hidden = false;
+  }
+
+  /* ── Dirty-state tracking for the Save Changes button ─────────────────────
+     Compares a normalized snapshot of all six tracked fields against the value
+     loaded from the server, so reverting an edit re-disables the button rather
+     than leaving it armed. Photo actions are deliberately NOT tracked: the crop
+     modal uploads immediately via fetch, so a photo is never pending a save. */
+  function profileSnapshot() {
+    var icf = Array.prototype.map.call(
+      document.querySelectorAll('input[name="icf_designations"]:checked'),
+      function (c) { return c.value; }).sort();
+    var keywords = Array.prototype.map.call(
+      document.querySelectorAll('#cp-tag-box .cp-tag'),
+      function (t) { return t.getAttribute('data-tag'); });
+    return JSON.stringify({
+      bio: ((byId('cp-bio') || {}).value || '').trim(),
+      icf: icf,
+      alt: ((byId('cp-alt-email') || {}).value || '').trim(),
+      phone: ((byId('cp-phone') || {}).value || '').trim(),
+      optIn: !!(byId('cp-directory-optin') || {}).checked,
+      // Keywords are compared in full regardless of the opt-in toggle, so that
+      // toggling OFF and back ON — which preserves the tags per spec — nets out
+      // clean instead of registering as a spurious edit.
+      keywords: keywords
+    });
+  }
+
+  var baseline = null;
+  function refreshDirty() {
+    var btn = byId('cp-profile-save');
+    if (!btn || baseline === null) return;
+    btn.disabled = (profileSnapshot() === baseline);
+  }
+  // Any edit invalidates a previously shown success banner.
+  function markDirty() { hideBanner(); refreshDirty(); }
+  function resetBaseline() { baseline = profileSnapshot(); refreshDirty(); }
+
+  /* ── Circular crop modal ──────────────────────────────────────────────────
+     Net-new: there was no crop/canvas code in the codebase before this. It
+     exists because the server resize (sharp fit:'cover', position:'centre') is
+     a blind centre-crop — fine for landscape event art, but it decapitates any
+     headshot whose face isn't dead-centre. The coach picks the framing here and
+     the server only ever resizes an already-square image.
+
+     The canvas is the full square; the circular window is a CSS mask overlay so
+     the coach can still see the parts of the photo falling outside the crop
+     while dragging. Export is the inscribed square at 512px — the server
+     produces the 96/256 variants from it. */
+  // Canvas backing size. Must match the canvas element's width/height attributes; the
+  // DISPLAY size is fluid (CSS), and pointer deltas are converted into backing units via
+  // the stage's measured rect, so the two are allowed to differ.
+  var STAGE = 320;
+  var EXPORT = 512;     // upload resolution; >= the largest variant (256) for headroom
+
+  var crop = {
+    img: null, scale: 1, minScale: 1, x: 0, y: 0,
+    dragging: false, lastX: 0, lastY: 0, onDone: null
+  };
+
+  function cropEls() {
+    return {
+      modal: byId('cp-crop-modal'), canvas: byId('cp-crop-canvas'),
+      stage: byId('cp-crop-stage'), zoom: byId('cp-crop-zoom'),
+      confirm: byId('cp-crop-confirm'), err: byId('cp-crop-err')
+    };
+  }
+
+  // Keep the image covering the whole square at all times — no letterboxing gaps
+  // can appear inside the circle regardless of pan or zoom.
+  function clampCrop() {
+    var w = crop.img.naturalWidth * crop.scale;
+    var h = crop.img.naturalHeight * crop.scale;
+    if (crop.x > 0) crop.x = 0;
+    if (crop.y > 0) crop.y = 0;
+    if (crop.x < STAGE - w) crop.x = STAGE - w;
+    if (crop.y < STAGE - h) crop.y = STAGE - h;
+  }
+
+  function drawCrop() {
+    var e = cropEls();
+    if (!e.canvas || !crop.img) return;
+    var ctx = e.canvas.getContext('2d');
+    ctx.clearRect(0, 0, STAGE, STAGE);
+    ctx.drawImage(crop.img, crop.x, crop.y,
+      crop.img.naturalWidth * crop.scale, crop.img.naturalHeight * crop.scale);
+  }
+
+  function openCrop(file, onDone) {
+    var e = cropEls();
+    if (!e.modal) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      var img = new Image();
+      img.onload = function () {
+        crop.img = img;
+        crop.minScale = Math.max(STAGE / img.naturalWidth, STAGE / img.naturalHeight);
+        crop.scale = crop.minScale;
+        // Start centred.
+        crop.x = (STAGE - img.naturalWidth * crop.scale) / 2;
+        crop.y = (STAGE - img.naturalHeight * crop.scale) / 2;
+        crop.onDone = onDone;
+        if (e.zoom) e.zoom.value = 1;
+        if (e.err) { e.err.hidden = true; e.err.textContent = ''; }
+        clampCrop(); drawCrop();
+        e.modal.hidden = false;
+      };
+      img.onerror = function () { window.alert('That file could not be read as an image.'); };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function closeCrop() {
+    var e = cropEls();
+    if (e.modal) e.modal.hidden = true;
+    crop.img = null; crop.onDone = null;
+  }
+
+  (function wireCrop() {
+    var e = cropEls();
+    if (!e.modal) return;
+
+    // Pointer drag to reposition.
+    e.stage.addEventListener('pointerdown', function (ev) {
+      if (!crop.img) return;
+      crop.dragging = true; crop.lastX = ev.clientX; crop.lastY = ev.clientY;
+      e.stage.setPointerCapture(ev.pointerId);
+    });
+    e.stage.addEventListener('pointermove', function (ev) {
+      if (!crop.dragging || !crop.img) return;
+      // The canvas is displayed at CSS width that may differ from STAGE on mobile,
+      // so translate pointer delta into backing-store units.
+      var ratio = STAGE / e.stage.getBoundingClientRect().width;
+      crop.x += (ev.clientX - crop.lastX) * ratio;
+      crop.y += (ev.clientY - crop.lastY) * ratio;
+      crop.lastX = ev.clientX; crop.lastY = ev.clientY;
+      clampCrop(); drawCrop();
+    });
+    ['pointerup', 'pointercancel'].forEach(function (t) {
+      e.stage.addEventListener(t, function () { crop.dragging = false; });
+    });
+
+    // Zoom about the centre of the circle so the subject doesn't drift.
+    e.zoom.addEventListener('input', function () {
+      if (!crop.img) return;
+      var next = crop.minScale * parseFloat(e.zoom.value || '1');
+      var cx = (STAGE / 2 - crop.x) / crop.scale;
+      var cy = (STAGE / 2 - crop.y) / crop.scale;
+      crop.scale = next;
+      crop.x = STAGE / 2 - cx * crop.scale;
+      crop.y = STAGE / 2 - cy * crop.scale;
+      clampCrop(); drawCrop();
+    });
+
+    e.modal.addEventListener('click', function (ev) {
+      // Backdrop click / Cancel — the backdrop IS the overlay element.
+      if (ev.target === e.modal || ev.target.hasAttribute('data-crop-cancel')) closeCrop();
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && !e.modal.hidden) closeCrop();
+    });
+
+    e.confirm.addEventListener('click', function () {
+      if (!crop.img) return;
+      var out = document.createElement('canvas');
+      out.width = EXPORT; out.height = EXPORT;
+      var k = EXPORT / STAGE;
+      out.getContext('2d').drawImage(crop.img, crop.x * k, crop.y * k,
+        crop.img.naturalWidth * crop.scale * k, crop.img.naturalHeight * crop.scale * k);
+      var done = crop.onDone;
+      out.toBlob(function (blob) {
+        if (!blob) { e.err.hidden = false; e.err.textContent = 'Could not process that image. Please try another.'; return; }
+        if (done) done(blob);
+      }, 'image/jpeg', 0.92);
+    });
+  })();
+
+  /* ── Photo widget (upload + remove) ─────────────────────────────────────── */
+  (function wirePhoto() {
+    var trigger = byId('cp-photo-trigger');
+    var file = byId('cp-photo-file');
+    var circle = byId('cp-photo-circle');
+    var removeBtn = byId('cp-photo-remove');
+    var errEl = byId('cp-photo-err');
+    if (!trigger || !file || !circle) return;
+
+    function showErr(msg) { if (errEl) { errEl.hidden = false; errEl.textContent = msg; } }
+    function clearErr() { if (errEl) { errEl.hidden = true; errEl.textContent = ''; } }
+
+    function paint(url) {
+      if (url) {
+        circle.innerHTML = '<img src="' + url + '" alt="" class="cp-photo-img" id="cp-photo-img">';
+        if (removeBtn) removeBtn.hidden = false;
+      } else {
+        // Onboarding has no header avatar to read from, so the initials ride on the
+        // circle itself as a data attribute.
+        var initials = circle.getAttribute('data-initials') || '';
+        circle.innerHTML = '<span class="cp-photo-initials" id="cp-photo-initials">' + initials + '</span>';
+        if (removeBtn) removeBtn.hidden = true;
+      }
+    }
+
+    trigger.addEventListener('click', function () { clearErr(); file.click(); });
+
+    file.addEventListener('change', function () {
+      var f = file.files && file.files[0];
+      if (!f) return;
+      clearErr();
+      openCrop(f, function (blob) {
+        var fd = new FormData();
+        fd.append('photo', blob, 'avatar.jpg');
+        var confirmBtn = byId('cp-crop-confirm');
+        confirmBtn.disabled = true; confirmBtn.classList.add('cp-btn--loading');
+        fetch('/coach/profile/photo', { method: 'POST', body: fd })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            confirmBtn.disabled = false; confirmBtn.classList.remove('cp-btn--loading');
+            if (res.ok && res.d && res.d.ok) {
+              paint(res.d.photo_url); closeCrop();
+              // "saved", not "updated": the photo persists the moment the crop is
+              // confirmed, and the coach needs the copy to say so unambiguously —
+              // Save Changes stays disabled, so nothing else confirms it.
+              showBanner('Photo saved.', 'cp-photo-banner');
+              return;
+            }
+            var e = cropEls();
+            e.err.hidden = false;
+            e.err.textContent = (res.d && res.d.message) || 'Could not save your photo. Please try again.';
+          })
+          .catch(function () {
+            confirmBtn.disabled = false; confirmBtn.classList.remove('cp-btn--loading');
+            var e = cropEls();
+            e.err.hidden = false; e.err.textContent = 'Network error. Please try again.';
+          });
+      });
+      // Allow re-selecting the same file after a cancel.
+      file.value = '';
+    });
+
+    if (removeBtn) {
+      removeBtn.addEventListener('click', function () {
+        clearErr();
+        removeBtn.disabled = true;
+        fetch('/coach/profile/photo/remove', { method: 'POST', headers: { Accept: 'application/json' } })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            removeBtn.disabled = false;
+            if (res.ok && res.d && res.d.ok) { paint(null); showBanner('Photo removed.', 'cp-photo-banner'); return; }
+            showErr((res.d && res.d.message) || 'Could not remove your photo.');
+          })
+          .catch(function () { removeBtn.disabled = false; showErr('Network error. Please try again.'); });
+      });
+    }
+  })();
+
+  /* ── Directory opt-in → conditional keywords ────────────────────────────── */
+  (function wireDirectoryToggle() {
+    var toggle = byId('cp-directory-optin');
+    var block = byId('cp-keywords');
+    if (!toggle || !block) return;
+    toggle.addEventListener('change', function () {
+      // Spec §7.9: keywords are PRESERVED in state when toggled off, not deleted.
+      // The tags stay in the DOM (and their hidden inputs with them); only visibility
+      // changes. The server independently ignores keywords when opt-in is false.
+      block.hidden = !toggle.checked;
+      markDirty();
+    });
+  })();
+
+  /* ── Keyword tag input with curated autocomplete ────────────────────────── */
+  (function wireTags() {
+    var wrap = byId('cp-keywords');
+    var box = byId('cp-tag-box');
+    var input = byId('cp-tag-input');
+    var menu = byId('cp-tag-menu');
+    var cap = byId('cp-tag-cap');
+    if (!wrap || !box || !input || !menu) return;
+
+    var max = parseInt(wrap.getAttribute('data-max'), 10) || 10;
+    var MAX_LEN = parseInt(wrap.getAttribute('data-maxlen'), 10) || 40;
+    var suggestions = null;   // lazy-loaded once
+
+    function selected() {
+      return Array.prototype.map.call(box.querySelectorAll('.cp-tag'), function (t) {
+        return t.getAttribute('data-tag');
+      });
+    }
+    function atCap() { return selected().length >= max; }
+
+    function syncCap() {
+      var full = atCap();
+      input.disabled = full;
+      input.placeholder = full ? '' : 'Type to search or add your own…';
+      if (cap) cap.hidden = !full;
+      if (full) hideMenu();
+    }
+
+    function showTagErr(msg) {
+      if (!cap) return;
+      cap.hidden = false;
+      cap.textContent = msg;
+      cap.setAttribute('data-transient', '1');
+    }
+    function clearTagErr() {
+      if (cap && cap.getAttribute('data-transient')) {
+        cap.removeAttribute('data-transient');
+        cap.textContent = "You've reached the " + max + '-keyword limit.';
+        cap.hidden = !atCap();
+      }
+    }
+
+    function addTag(label) {
+      if (!label || atCap()) return;
+      clearTagErr();
+      // Case-insensitive de-dupe, mirroring the server's normalizer.
+      var lower = label.toLowerCase();
+      var dup = selected().some(function (t) { return t.toLowerCase() === lower; });
+      if (dup) { input.value = ''; hideMenu(); return; }
+      var span = document.createElement('span');
+      span.className = 'cp-tag';
+      span.setAttribute('data-tag', label);
+      span.textContent = label;
+      var x = document.createElement('button');
+      x.type = 'button'; x.className = 'cp-tag-x'; x.innerHTML = '&times;';
+      x.setAttribute('aria-label', 'Remove ' + label);
+      span.appendChild(x);
+      // Hidden input so onboarding's plain form POST still submits keywords[]
+      // through the existing PR2 handler untouched.
+      var hidden = document.createElement('input');
+      hidden.type = 'hidden'; hidden.name = 'keywords'; hidden.value = label;
+      span.appendChild(hidden);
+      box.insertBefore(span, input);
+      input.value = '';
+      syncCap(); hideMenu();
+      markDirty();            // adding a keyword is an edit
+    }
+
+    box.addEventListener('click', function (ev) {
+      if (ev.target.classList.contains('cp-tag-x')) {
+        ev.target.parentNode.remove();
+        syncCap();
+        markDirty();          // removing a keyword is an edit too
+        return;
+      }
+      if (!input.disabled) input.focus();
+    });
+
+    function hideMenu() { menu.hidden = true; menu.innerHTML = ''; }
+
+    function renderMenu(list) {
+      menu.innerHTML = '';
+      if (!list.length) {
+        var none = document.createElement('li');
+        none.className = 'cp-tag-empty';
+        none.textContent = 'No matching keywords.';
+        menu.appendChild(none);
+      } else {
+        list.forEach(function (label) {
+          var li = document.createElement('li');
+          li.className = 'cp-tag-option';
+          li.setAttribute('role', 'option');
+          li.textContent = label;
+          li.addEventListener('mousedown', function (ev) { ev.preventDefault(); addTag(label); });
+          menu.appendChild(li);
+        });
+      }
+      menu.hidden = false;
+    }
+
+    function filterAndShow() {
+      if (!suggestions || atCap()) return;
+      var q = input.value.trim().toLowerCase();
+      var chosen = selected();
+      renderMenu(suggestions.filter(function (label) {
+        return chosen.indexOf(label) === -1 && label.toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 20));
+    }
+
+    function loadSuggestions(then) {
+      if (suggestions) { then(); return; }
+      fetch('/coach/profile/keywords/suggestions', { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { suggestions = (d && d.keywords) || []; then(); })
+        .catch(function () { suggestions = []; then(); });
+    }
+
+    input.addEventListener('focus', function () { loadSuggestions(filterAndShow); });
+    input.addEventListener('input', function () { loadSuggestions(filterAndShow); });
+    input.addEventListener('blur', function () { window.setTimeout(hideMenu, 120); });
+    input.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();   // never submit the onboarding form from the tag field
+        // RATIFIED: Enter commits the TYPED TEXT, curated or not. Free text is saved to
+        // this coach's profile only — it is never promoted into keyword_tags, which stays
+        // a curated admin-managed set shared across every coach's autocomplete.
+        var typed = input.value.trim();
+        if (!typed) return;
+        if (typed.length > MAX_LEN) {
+          showTagErr('Keywords must be ' + MAX_LEN + ' characters or fewer.');
+          return;
+        }
+        // If it matches a curated label case-insensitively, adopt the curated casing so
+        // "Leadership" and "leadership" can't both end up on the same profile.
+        var canonical = typed;
+        if (suggestions) {
+          for (var si = 0; si < suggestions.length; si++) {
+            if (suggestions[si].toLowerCase() === typed.toLowerCase()) { canonical = suggestions[si]; break; }
+          }
+        }
+        addTag(canonical);
+      } else if (ev.key === 'Backspace' && !input.value) {
+        var tags = box.querySelectorAll('.cp-tag');
+        if (tags.length) { tags[tags.length - 1].remove(); syncCap(); }
+      } else if (ev.key === 'Escape') {
+        hideMenu();
+      }
+    });
+
+    syncCap();
+    // Preload the curated list when the block is already visible, so the casing-adoption
+    // check on Enter isn't racing an in-flight fetch. When the block is hidden (directory
+    // opt-in off) nothing is fetched until the coach actually opens it.
+    if (!wrap.hidden) loadSuggestions(function () {});
+
+  })();
+
+  /* ── Edit Name + Name Change Confirmation Modal ─────────────────────────── */
+  (function wireEditName() {
+    var link = byId('cp-edit-name-link');
+    var panel = byId('cp-edit-name');
+    var nameBlock = byId('cp-identity-name');
+    var first = byId('cp-first-name');
+    var last = byId('cp-last-name');
+    var saveBtn = byId('cp-save-name');
+    var cancelBtn = byId('cp-cancel-name');
+    var errEl = byId('cp-name-err');
+    var modal = byId('cp-name-modal');
+    if (!link || !panel || !modal) return;
+
+    var origFirst = first.value, origLast = last.value;
+
+    function expand(open) {
+      panel.hidden = !open;
+      nameBlock.hidden = open;
+      link.hidden = open;
+      if (errEl) errEl.hidden = true;
+    }
+    function closeModal() { modal.hidden = true; }
+
+    link.addEventListener('click', function () { expand(true); });
+    cancelBtn.addEventListener('click', function () {
+      first.value = origFirst; last.value = origLast;
+      expand(false);
+    });
+
+    saveBtn.addEventListener('click', function () {
+      var f = first.value.trim(), l = last.value.trim();
+      if (!f || !l) {
+        errEl.hidden = false;
+        errEl.textContent = 'Please enter both a first and last name.';
+        return;
+      }
+      // §7.9: the confirmation modal always precedes the commit — the server
+      // independently requires confirmed:true, so this can't be bypassed.
+      byId('cp-name-modal-change').textContent =
+        (origFirst + ' ' + origLast).trim() + '  →  ' + f + ' ' + l;
+      byId('cp-name-modal-err').hidden = true;
+      modal.hidden = false;
+    });
+
+    modal.addEventListener('click', function (ev) {
+      if (ev.target === modal || ev.target.hasAttribute('data-name-cancel')) closeModal();
+    });
+
+    byId('cp-name-confirm').addEventListener('click', function () {
+      var btn = this;
+      var f = first.value.trim(), l = last.value.trim();
+      btn.disabled = true; btn.classList.add('cp-btn--loading');
+      fetch('/coach/profile/name', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: f, last_name: l, confirmed: true })
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          btn.disabled = false; btn.classList.remove('cp-btn--loading');
+          if (res.ok && res.d && res.d.ok) {
+            origFirst = f; origLast = l;
+            byId('cp-identity-name-text').textContent = res.d.name;
+            closeModal(); expand(false);
+            return;
+          }
+          var em = byId('cp-name-modal-err');
+          em.hidden = false;
+          em.textContent = (res.d && res.d.message) || 'Could not update your name.';
+        })
+        .catch(function () {
+          btn.disabled = false; btn.classList.remove('cp-btn--loading');
+          var em = byId('cp-name-modal-err');
+          em.hidden = false; em.textContent = 'Network error. Please try again.';
+        });
+    });
+  })();
+
+  /* ── Save profile (My Profile page only; onboarding posts its form) ─────── */
+  (function wireProfileSave() {
+    var saveBtn = byId('cp-profile-save');
+    var cancelBtn = byId('cp-profile-cancel');
+    var msg = byId('cp-save-msg');
+    if (!saveBtn) return;
+
+    function collect() {
+      var icf = Array.prototype.map.call(
+        document.querySelectorAll('input[name="icf_designations"]:checked'),
+        function (c) { return c.value; });
+      var keywords = Array.prototype.map.call(
+        document.querySelectorAll('#cp-tag-box .cp-tag'),
+        function (t) { return t.getAttribute('data-tag'); });
+      return {
+        bio: (byId('cp-bio') || {}).value || '',
+        icf_designations: icf,
+        alternate_email: (byId('cp-alt-email') || {}).value || '',
+        phone: (byId('cp-phone') || {}).value || '',
+        directory_opt_in: !!(byId('cp-directory-optin') || {}).checked,
+        keywords: keywords
+      };
+    }
+
+    function show(kind, text) {
+      if (!msg) return;
+      msg.hidden = false;
+      msg.className = 'cp-save-msg cp-save-msg--' + kind;
+      msg.textContent = text;
+    }
+
+    saveBtn.addEventListener('click', function () {
+      if (msg) msg.hidden = true;
+      saveBtn.disabled = true; saveBtn.classList.add('cp-btn--loading');
+      fetch('/coach/profile', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(collect())
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          saveBtn.disabled = false; saveBtn.classList.remove('cp-btn--loading');
+          if (res.ok && res.d && res.d.ok) {
+            showBanner('Profile saved.', 'cp-profile-banner');
+            resetBaseline();   // newly-saved values become the new clean state
+            return;
+          }
+          show('err', (res.d && res.d.message) || 'Could not save your profile.');
+        })
+        .catch(function () {
+          saveBtn.disabled = false; saveBtn.classList.remove('cp-btn--loading');
+          show('err', 'Network error. Please try again.');
+        });
+    });
+
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', function () { window.location.reload(); });
+    }
+
+    // Track the four directly-edited controls; keywords and the directory toggle mark
+    // themselves dirty from their own widgets above.
+    ['cp-bio', 'cp-alt-email', 'cp-phone'].forEach(function (id) {
+      var el = byId(id);
+      if (el) el.addEventListener('input', markDirty);
+    });
+    Array.prototype.forEach.call(
+      document.querySelectorAll('input[name="icf_designations"]'),
+      function (c) { c.addEventListener('change', markDirty); });
+
+    resetBaseline();   // capture the loaded state; Save starts disabled
+  })();
+})();

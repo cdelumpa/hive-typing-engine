@@ -1899,3 +1899,200 @@ a { color: var(--color-primary); text-decoration: none; }
   .cp-event-modal-title { font-size: 19px; }
   .cp-event-modal-pad { padding: 18px 18px 22px; }
 }
+
+/* ============================================================
+   PR11 — MY PROFILE (§7.9) + shared onboarding profile fields (§7.10)
+   Self-contained block (own @media queries) appended at file end so it never
+   touches the existing breakpoint blocks. Every component here is mounted
+   TWICE: in the two-column My Profile card and in onboarding's 480px single
+   column — the only variant hooks are .cp-photo--onboarding and
+   .cp-textarea--onboarding. Modals reuse .cp-modal-backdrop / .cp-modal /
+   .cp-sheet-handle; only the inner panels are new.
+   ============================================================ */
+
+/* --- Two-column card (220px identity + flex-1 fields, 24px gap) --- */
+.cp-profile-grid { display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: start; }
+.cp-identity-card {
+  border: 1px solid var(--color-border); border-radius: 8px; padding: 20px;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+}
+.cp-identity-name-text { font-family: var(--font-heading); font-size: 18px; font-weight: 600; color: var(--color-text-heading); margin: 14px 0 0; }
+.cp-identity-role { font-size: 11px; color: var(--color-text-muted); margin: 4px 0 0; }
+.cp-identity-divider { width: 100%; height: 1px; background: var(--color-border); margin-top: 16px; }
+.cp-edit-name-link {
+  background: none; border: none; cursor: pointer; padding: 0;
+  font-family: var(--font-ui); font-size: 12px; font-weight: 600;
+  color: var(--color-primary); margin-top: 12px;
+}
+.cp-edit-name-link:hover { color: var(--color-primary-dark); }
+.cp-edit-name { width: 100%; margin-top: 12px; text-align: left; }
+.cp-edit-name .cp-field-label { margin-top: 10px; }
+.cp-edit-name .cp-field-label:first-child { margin-top: 0; }
+.cp-edit-name .cp-input:focus { border-width: 1.5px; }
+.cp-btn--block { display: block; width: 100%; margin-top: 12px; }
+.cp-edit-name .cp-btn--cancel { display: block; width: 100%; margin-top: 8px; text-align: center; }
+
+/* --- Photo + circular crop affordance --- */
+.cp-photo { display: flex; flex-direction: column; align-items: center; }
+.cp-photo-circle {
+  width: 80px; height: 80px; border-radius: 50%; overflow: hidden;
+  border: 2px solid var(--color-primary); background: var(--color-bg-page);
+  display: flex; align-items: center; justify-content: center; flex: none;
+}
+.cp-photo-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cp-photo-initials { font-family: var(--font-ui); font-size: 24px; font-weight: 700; color: var(--color-text-muted); }
+.cp-photo-link {
+  background: none; border: none; cursor: pointer; padding: 0; margin-top: 8px;
+  font-family: var(--font-ui); font-size: 11px; color: var(--color-primary);
+}
+.cp-photo-link:hover { color: var(--color-primary-dark); }
+.cp-photo-optional { font-size: 11px; color: var(--color-text-muted); }
+.cp-photo-remove {
+  background: none; border: none; cursor: pointer; padding: 0; margin-top: 4px;
+  font-family: var(--font-ui); font-size: 11px; color: var(--color-text-muted);
+}
+.cp-photo-remove:hover { color: var(--color-error); }
+.cp-photo-err { font-size: 11px; color: var(--color-error); margin: 6px 0 0; text-align: center; }
+/* Onboarding Screen 2 uses a 72px circle (§7.10) vs My Profile's 80px (§7.9). */
+.cp-photo--onboarding .cp-photo-circle { width: 72px; height: 72px; }
+.cp-photo--onboarding { margin-bottom: 20px; }
+
+/* --- Shared editable fields --- */
+.cp-profile-fields .cp-field { max-width: none; margin-bottom: 20px; }
+.cp-textarea { height: 88px; resize: vertical; padding: 10px 12px; line-height: 1.5; }
+.cp-textarea--onboarding { height: 80px; }
+.cp-check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-top: 8px; max-width: 320px; }
+.cp-check-grid .cp-check { font-size: 13px; color: var(--color-text-body); }
+
+/* --- Directory opt-in toggle --- */
+.cp-toggle-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.cp-toggle-copy { display: block; }
+.cp-toggle-title { display: block; font-size: 13px; font-weight: 600; color: var(--color-text-heading); }
+.cp-toggle-note { display: block; font-size: 12px; color: var(--color-text-muted); margin-top: 4px; }
+.cp-switch { position: relative; flex: none; width: 40px; height: 22px; cursor: pointer; }
+.cp-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.cp-switch-track {
+  display: block; width: 40px; height: 22px; border-radius: 100px;
+  background: var(--color-border); transition: background var(--duration-fast) ease;
+}
+.cp-switch-track::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF;
+  transition: transform var(--duration-fast) ease;
+}
+.cp-switch input:checked + .cp-switch-track { background: var(--color-primary); }
+.cp-switch input:checked + .cp-switch-track::after { transform: translateX(18px); }
+.cp-switch input:focus-visible + .cp-switch-track { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* --- Keyword tag input --- */
+.cp-keywords { position: relative; }
+.cp-tag-box {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  border: 1px solid var(--color-border); border-radius: 6px;
+  padding: 7px 10px; min-height: 38px; background: var(--color-bg-card);
+}
+.cp-tag-box:focus-within { border-color: var(--color-primary); }
+.cp-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--color-primary-light); color: var(--color-primary);
+  border-radius: 100px; padding: 3px 10px; font-size: 12px;
+}
+.cp-tag-x { background: none; border: none; cursor: pointer; color: inherit; font-size: 14px; line-height: 1; padding: 0; }
+.cp-tag-input {
+  flex: 1; min-width: 120px; border: none; outline: none;
+  font-family: var(--font-ui); font-size: 13px; color: var(--color-text-body); background: transparent;
+}
+.cp-tag-input:disabled { background: transparent; cursor: not-allowed; }
+.cp-tag-menu {
+  position: absolute; z-index: 20; left: 0; right: 0; margin: 4px 0 0; padding: 4px 0;
+  list-style: none; background: var(--color-bg-card);
+  border: 1px solid var(--color-border); border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10); max-height: 200px; overflow-y: auto;
+}
+.cp-tag-option { padding: 7px 12px; font-size: 13px; color: var(--color-text-body); cursor: pointer; }
+.cp-tag-option:hover, .cp-tag-option[aria-selected="true"] { background: var(--color-primary-light); color: var(--color-primary); }
+.cp-tag-empty { padding: 7px 12px; font-size: 12px; color: var(--color-text-muted); font-style: italic; }
+.cp-tag-cap { font-size: 11px; color: var(--color-accent-dark); margin: 6px 0 0; }
+
+/* --- Photo feedback banner (compact) ---
+   Same treatment as §7.8's .cp-password-banner — identical colors, icon and radius — just
+   scaled to survive the 220px identity column: tighter padding, 12px text, a 15px icon and
+   a wrapping line-height. align-self:stretch because .cp-photo centers its children, and
+   the banner should span the card's content width rather than shrink-wrap. */
+.cp-password-banner--compact {
+  align-self: stretch;
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+  align-items: flex-start;
+  text-align: left;
+}
+.cp-password-banner--compact .cp-password-banner__icon svg { width: 15px; height: 15px; }
+.cp-password-banner--compact .cp-password-banner__icon { padding-top: 1px; }
+
+/* --- Save row --- */
+.cp-save-row {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  border-top: 1px solid var(--color-border); padding-top: 20px; margin-top: 24px;
+}
+.cp-save-row .cp-password-banner { margin: 0 auto 0 0; flex: 0 1 auto; }
+.cp-save-msg { margin: 0 auto 0 0; font-size: 12px; }
+.cp-save-msg--ok { color: var(--color-success); }
+.cp-save-msg--err { color: var(--color-error); }
+
+/* --- Name Change Confirmation Modal --- */
+.cp-warn-icon { display: flex; justify-content: center; color: var(--color-accent); }
+.cp-modal-title--center { text-align: center; margin-top: 12px; }
+.cp-name-modal-copy { font-size: 13px; color: var(--color-text-body); line-height: 1.6; margin: 0; text-align: center; }
+.cp-name-modal-change { font-size: 13px; font-style: italic; color: var(--color-text-muted); margin: 12px 0 0; text-align: center; }
+
+/* --- Circular crop modal --- */
+.cp-crop-copy { font-size: 13px; color: var(--color-text-muted); line-height: 1.6; margin: 0 0 16px; }
+/* Fluid square: the stage scales with the modal (and with the mobile bottom sheet)
+   instead of being pinned to a fixed pixel size. aspect-ratio keeps it square at every
+   width, so the inscribed circle below is always a true circle. */
+.cp-crop-stage {
+  position: relative; width: 100%; max-width: 320px; aspect-ratio: 1 / 1;
+  margin: 0 auto; border-radius: 8px; overflow: hidden; background: #1E2A35;
+  touch-action: none; cursor: grab;
+}
+.cp-crop-stage:active { cursor: grabbing; }
+.cp-crop-canvas { display: block; width: 100%; height: 100%; }
+/* The circular window is a mask overlay, not a clip on the canvas — the coach needs to
+   see the parts of the photo that fall OUTSIDE the crop while dragging.
+   closest-side is load-bearing: a bare `circle` sizes to FARTHEST-CORNER, so the old
+   49.5% stop resolved against the 204px corner ray of a 288px square and drew a circle
+   only 70% of the canvas width — while the export took the full inscribed square. The
+   coach was shown less than what got saved. closest-side makes the ray exactly half the
+   width, so 100% is the inscribed circle and preview == exported region. */
+.cp-crop-mask {
+  position: absolute; inset: 0; pointer-events: none;
+  background: rgba(30, 42, 53, 0.55);
+  -webkit-mask: radial-gradient(circle closest-side at 50% 50%, transparent 0 99.5%, #000 100%);
+  mask: radial-gradient(circle closest-side at 50% 50%, transparent 0 99.5%, #000 100%);
+}
+.cp-crop-zoom-label { margin: 16px 0 6px; }
+.cp-crop-zoom { width: 100%; accent-color: var(--color-primary); }
+
+@media (max-width: 1023px) {
+  /* Tablet keeps the two-column shape per §7.9; only the fields column narrows. */
+  .cp-profile-grid { grid-template-columns: 220px 1fr; gap: 20px; }
+}
+
+@media (max-width: 767px) {
+  .cp-profile-grid { grid-template-columns: 1fr; gap: 20px; }
+  .cp-check-grid { max-width: none; }
+  /* Save Changes above Cancel (§7.9) — DOM order is Cancel-then-Save, so reverse. */
+  .cp-save-row { flex-direction: column-reverse; align-items: stretch; gap: 8px; }
+  .cp-save-row .cp-password-banner { order: 99; margin: 0 0 4px; }
+  .cp-save-row .cp-btn { width: 100%; }
+  .cp-save-msg { margin: 4px 0 0; text-align: center; }
+  /* Both modals inherit the bottom-sheet treatment from the shared .cp-modal mobile
+     block above — min-height/drag handle, .cp-modal-foot margin-top:auto, column-reverse
+     actions and full-width buttons. Nothing to restate here.
+     The stage is fluid (width:100% + aspect-ratio), so the circle scales with the sheet
+     rather than staying pinned — the cap just stops it dominating a large phone. */
+  .cp-crop-stage { max-width: 340px; }
+}
