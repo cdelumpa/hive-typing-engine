@@ -23,6 +23,7 @@
 'use strict';
 
 const { TYPE_STATEMENTS, INSTINCT_STATEMENTS, TYPE_GEOMETRY } = require('./stage1_labels');
+const apiErrors = require('./api_errors');   // PR20: Anthropic error classification + backoff
 
 // ── Config (prompt spec §1) ──────────────────────────────────────────────────────
 const PROMPT_VERSION = 'EM-v1.2';
@@ -471,6 +472,18 @@ async function runExperimentalAnalysis({ assessmentId, model, trigger, callClaud
         break;
       } catch (e) {
         lastErr = e;
+        // PR20: classify before retrying. Previously this caught everything and
+        // immediately retried with no backoff, so a bad key burned both attempts.
+        const c = apiErrors.classifyApiError(e);
+        console.error(`[em][analysis] attempt ${attempt} failed — kind=${c.kind} status=${c.status ?? 'n/a'}: ${c.message}`);
+        // Credit exhaustion aborts the whole chain (and suppresses the SM fallback).
+        if (c.isCredit) throw new apiErrors.CreditExhaustedError(c.message);
+        if (!c.retryable) { console.error(`[em][analysis] non-retryable (${c.kind}) — failing fast`); break; }
+        if (attempt < 2) {
+          const wait = apiErrors.backoffMs(attempt, c.retryAfterMs);
+          console.warn(`[em][analysis] retrying in ${wait}ms (kind=${c.kind}${c.retryAfterMs ? ', honoring retry-after' : ''})`);
+          await new Promise((r) => setTimeout(r, wait));
+        }
       }
     }
     if (!parsed) return logFailure('EM call/parse failed: ' + (lastErr && lastErr.message));
@@ -733,6 +746,16 @@ async function runEmReportCall({ emAnalysis, responsesSnapshot, contextFields, c
       break;
     } catch (e) {
       lastErr = e;
+      // PR20: same classification as the analysis loop above.
+      const c = apiErrors.classifyApiError(e);
+      console.error(`[em][report] attempt ${attempt} failed — kind=${c.kind} status=${c.status ?? 'n/a'}: ${c.message}`);
+      if (c.isCredit) throw new apiErrors.CreditExhaustedError(c.message);
+      if (!c.retryable) { console.error(`[em][report] non-retryable (${c.kind}) — failing fast`); break; }
+      if (attempt < 2) {
+        const wait = apiErrors.backoffMs(attempt, c.retryAfterMs);
+        console.warn(`[em][report] retrying in ${wait}ms (kind=${c.kind}${c.retryAfterMs ? ', honoring retry-after' : ''})`);
+        await new Promise((r) => setTimeout(r, wait));
+      }
     }
   }
   if (!parsed) {

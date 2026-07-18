@@ -39,6 +39,7 @@ const { TYPE_NAMES: CMS_TYPE_NAMES, INSTINCT_NAME: EM_INSTINCT_NAME } = require(
 const db = require('./db');
 const auth = require('./auth');
 const experimentalAnalysis = require('./experimental_analysis');  // EM prompt builder + engine (PR4/PR5)
+const apiErrors = require('./api_errors');            // PR20: Anthropic error classification + backoff
 const { adaptEmToContract } = require('./em_report_adapter');     // EM two-call output -> SM api_result contract (PR8b)
 const { applyCall2DeterministicStamps } = require('./call2_stamp'); // Call #2 deterministic stamping + REDIRECT fixes (Defects #2/#3/#4)
 const emContentLibrary = require('./content/content_library.json'); // server-side subtype-name resolution (PR8b contextFields)
@@ -4291,10 +4292,36 @@ if (!ANTHROPIC_TRANSPORT_OK) {
   Machine-checkable at: GET /health -> anthropic_transport
 ${bar}\n`);
 }
+// PR20: maxRetries and timeout are pinned HERE, on the client, so they cannot be
+// missed the way per-call options can.
+//
+// maxRetries: 0 — the SDK defaults to 2, which silently MULTIPLIED every
+// hand-rolled loop in this file (3 attempts became 9 HTTP requests; an em_only
+// assessment could reach 21). The hand-rolled loops are now the single source of
+// retry truth. What this gives up: the SDK's own retry-after handling and its
+// 408/409/429/5xx policy — both re-implemented in api_errors.js.
+//
+// timeout — the SDK default is 600s (10 min), which is the root cause of the
+// multi-hour worst cases: nothing else bounded a hung request.
+//
+// MEASURED, not guessed. A first pass at 180s (the top of the reviewed range)
+// BROKE the happy path: the real /api/analyze Call #1 exceeded it and timed out
+// mid-generation on the sp4 fixture. The largest legitimate generations here run
+// at max_tokens 12000 (SM Call #2, /api/analyze) and 8000 (EM report), and a
+// timeout shorter than a slow-but-valid generation turns working assessments
+// into failures — a worse outcome than the slow path it replaces.
+//
+// 300s is set from the measured p100 of a real sp4 run (see PR20 report) with
+// headroom, and still cuts the per-attempt ceiling in half vs the SDK default.
+// Env-overridable so it can be tuned from Railway without a code deploy.
+const ANTHROPIC_TIMEOUT_MS = Number(process.env.ANTHROPIC_TIMEOUT_MS || 300_000);
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+  maxRetries: 0,
+  timeout: ANTHROPIC_TIMEOUT_MS,
   ...(anthropicFetch ? { fetch: anthropicFetch } : {}),
 });
+console.log(`[startup] Anthropic client: maxRetries=0, timeout=${ANTHROPIC_TIMEOUT_MS}ms`);
 
 // =================== PROMPT CONSTANTS ===================
 // Moved from app/public/app.js — these are server-only concerns.
@@ -5165,6 +5192,9 @@ async function callClaudeWithRetry(systemPrompt, userMessage) {
         system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: userMessage }],
       });
+      if (!response?.content?.length || typeof response.content[0].text !== 'string') {
+        const e = new Error('model returned empty content'); e.name = 'EmptyContentError'; throw e;
+      }
       const text  = response.content[0].text;
       const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
       const result = JSON.parse(clean);
@@ -5183,9 +5213,24 @@ async function callClaudeWithRetry(systemPrompt, userMessage) {
       console.log(`[claude] success — attempt ${attempt}, confirmed_type=${result?.hypothesis?.confirmed_type}, confidence=${result?.hypothesis?.confidence_level}`);
       return result;
     } catch (err) {
-      console.error(`[claude] attempt ${attempt} failed:`, err.message);
-      if (attempt < 3) await delay(Math.pow(2, attempt) * 1000);
-      else throw err;
+      const c = apiErrors.classifyApiError(err);
+      console.error(`[claude] attempt ${attempt} failed — kind=${c.kind} status=${c.status ?? 'n/a'}: ${c.message}`);
+
+      // Credit exhaustion short-circuits the whole chain (suppresses the em_only
+      // -> SM fallback in runBackgroundJob). Never retried.
+      if (c.isCredit) throw new apiErrors.CreditExhaustedError(c.message);
+      // 400/401/403 — retrying cannot change the outcome. Fail fast.
+      if (!c.retryable) { console.error(`[claude] non-retryable (${c.kind}) — failing fast, no further attempts`); throw err; }
+      // A parse/empty-content failure is a model problem, not an API problem: at
+      // most ONE retry rather than burning the full budget on a prose response.
+      const budget = (c.kind === apiErrors.KIND.PARSE) ? 2 : 3;
+      if (attempt >= budget) {
+        console.error(`[claude] exhausted ${c.kind} budget (${budget} attempt${budget > 1 ? 's' : ''}) — giving up`);
+        throw err;
+      }
+      const wait = apiErrors.backoffMs(attempt, c.retryAfterMs);
+      console.warn(`[claude] retrying in ${wait}ms (kind=${c.kind}${c.retryAfterMs ? ', honoring retry-after' : ''})`);
+      await delay(wait);
     }
   }
 }
@@ -5280,6 +5325,14 @@ async function runEmPrimary({ assessmentId, clientId, scores, intake, responsesS
     console.log(`[em][primary] #${assessmentId} EM-primary OK — type=${adapted.hypothesis.confirmed_type} (analysis=${analysisModelId}, report=opus)`);
     return adapted;
   } catch (e) {
+    // PR20: credit exhaustion must NOT degrade into the SM fallback. Returning
+    // null here sends runBackgroundJob into callClaudeWithRetry, which is
+    // guaranteed to fail the same way — that is the path that tripled an
+    // outage's cost. Rethrow so the chain short-circuits.
+    if (e && e.isCreditExhausted) {
+      console.error(`[em][primary][CREDIT] #${assessmentId} credit/billing failure — aborting chain, SM fallback suppressed`);
+      throw e;
+    }
     console.error(`[em][primary] #${assessmentId} EM-primary failed (falling back to SM):`, e && e.message);
     return null;
   }
@@ -5369,6 +5422,25 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     // gate. session_state is already null, so the in_progress branch will
     // render the "contact your coach" dead-end message.
     if (clientId) await db.updateClientStatus(clientId, 'in_progress');
+
+    // PR20: credit exhaustion is an OPERATOR problem, not a per-assessment one.
+    // The generic "processing failed after all retries" coach email is actively
+    // misleading here — it implies a transient fault a retry might clear, when
+    // in fact every assessment will fail identically until the account is
+    // topped up. Emit an unmissable operator-specific signal instead.
+    if (err && err.isCreditExhausted) {
+      const bar = '='.repeat(72);
+      console.error(`\n${bar}
+[CREDIT-EXHAUSTED] Anthropic API credit/billing failure.
+  Assessment #${assessmentId} aborted. The EM -> SM fallback was SUPPRESSED
+  (it would have failed identically and tripled the cost of the outage).
+  EVERY assessment will fail this way until the Anthropic account is funded.
+  Detail: ${err.message}
+${bar}\n`);
+      await sendErrorNotification(intake, err, { creditExhausted: true }).catch(() => {});
+      return;
+    }
+
     await sendErrorNotification(intake, err);
     return;
   }
@@ -5499,16 +5571,27 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
   }
 }
 
-async function sendErrorNotification(intake, err) {
+async function sendErrorNotification(intake, err, opts = {}) {
   if (!process.env.SENDGRID_API_KEY) return;
   const coachEmail = process.env.COACH_EMAIL_CAI || process.env.COACH_EMAIL;
+  // PR20: credit exhaustion gets its own subject and body. The generic wording
+  // ("failed after all retries") reads as a transient per-client fault; a credit
+  // failure is account-wide and blocks every assessment until it is fixed.
+  const credit = opts.creditExhausted === true;
   try {
     await sgMail.send({
       to:      coachEmail,
       from:    { name: 'InsightOut by Hive', email: process.env.SENDGRID_FROM_EMAIL },
-      subject: `[Hive Error] Assessment processing failed — ${intake.firstName} ${intake.lastName}`,
+      subject: credit
+        ? `[Hive ACTION REQUIRED] Anthropic credit exhausted — ALL assessments are failing`
+        : `[Hive Error] Assessment processing failed — ${intake.firstName} ${intake.lastName}`,
       text: [
-        `Assessment processing failed after all retries.`,
+        credit
+          ? `Anthropic API credit/billing failure. This is NOT a per-client fault:\n` +
+            `every assessment will fail until the Anthropic account is funded.\n\n` +
+            `No retry will clear this. The EM -> SM fallback was suppressed.\n` +
+            `Action: top up the Anthropic account, then re-run affected assessments.`
+          : `Assessment processing failed after all retries.`,
         ``,
         `Client: ${intake.firstName} ${intake.lastName}`,
         `Email: ${intake.email}`,
@@ -6191,6 +6274,9 @@ app.post('/api/analyze', async (req, res) => {
         messages: [{ role: 'user', content: userMessage }],
       });
 
+      if (!response?.content?.length || typeof response.content[0].text !== 'string') {
+        const e = new Error('model returned empty content'); e.name = 'EmptyContentError'; throw e;
+      }
       const text    = response.content[0].text;
       const clean   = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
       const result  = JSON.parse(clean);
@@ -6199,12 +6285,23 @@ app.post('/api/analyze', async (req, res) => {
       console.log(`[analyze] success — attempt ${attempt}, ${elapsed}s, confirmed_type=${result?.hypothesis?.confirmed_type}, confidence=${result?.hypothesis?.confidence_level}, outcome=${result?.hypothesis?.stage4_outcome}, flags=${result?.flags?.length ?? 0}`);
       return res.json({ ok: true, result });
     } catch (err) {
-      console.error(`[analyze] attempt ${attempt} failed:`, err.message);
-      if (attempt < 3) await delay(Math.pow(2, attempt) * 1000);
+      const c = apiErrors.classifyApiError(err);
+      console.error(`[analyze] attempt ${attempt} failed — kind=${c.kind} status=${c.status ?? 'n/a'}: ${c.message}`);
+
+      if (c.isCredit) {
+        console.error('[analyze][CREDIT] Anthropic credit/billing failure — aborting, no further attempts');
+        break;
+      }
+      if (!c.retryable) { console.error(`[analyze] non-retryable (${c.kind}) — failing fast, no further attempts`); break; }
+      const budget = (c.kind === apiErrors.KIND.PARSE) ? 2 : 3;
+      if (attempt >= budget) { console.error(`[analyze] exhausted ${c.kind} budget (${budget}) — giving up`); break; }
+      const wait = apiErrors.backoffMs(attempt, c.retryAfterMs);
+      console.warn(`[analyze] retrying in ${wait}ms (kind=${c.kind}${c.retryAfterMs ? ', honoring retry-after' : ''})`);
+      await delay(wait);
     }
   }
 
-  console.error('[analyze] all 3 attempts failed — returning fallback to client');
+  console.error('[analyze] attempts exhausted — returning fallback to client');
   return res.status(500).json({
     ok:      false,
     message: 'Your results are being prepared — check your email within 24 hours.',
