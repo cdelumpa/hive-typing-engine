@@ -171,6 +171,9 @@ function getCreditPackages() {
   });
 }
 app.use((req, res, next) => {
+  // Liveness/transport probe must be reachable without credentials — a platform
+  // healthcheck carries none. Exposes no data beyond boot transport state.
+  if (req.path === '/health') return next();
   if (req.path === '/admin/login' || req.path.startsWith('/admin')) return next();
   // Coach portal (pages + /coach/assets/* static): session-gated via requireCoach, not
   // basic auth — mirrors the /admin exemption above.
@@ -208,6 +211,21 @@ function injectAssessmentBootstrap(html, intake, bootstrap) {
   if (bootstrap) tags += `\n<script>window.__hiveBootstrap = ${JSON.stringify(bootstrap)};</script>`;
   return html.replace('</head>', `${tags}\n</head>`);
 }
+
+// Liveness + transport health. Unauthenticated and deliberately info-light.
+// anthropic_transport reports whether the HTTP/1.1 undici pin was applied at
+// boot (see the degraded-transport alarm near the Anthropic client). Returns
+// 503 when degraded so a Railway healthcheckPath can fail the deploy and hold
+// the previous release, rather than promoting a known-bad transport state.
+// ANTHROPIC_TRANSPORT_OK is declared later at module scope; this handler only
+// reads it at request time, after module evaluation has completed.
+app.get('/health', (req, res) => {
+  const ok = ANTHROPIC_TRANSPORT_OK;
+  res.status(ok ? 200 : 503).json({
+    ok,
+    anthropic_transport: ok ? 'http1-pinned' : 'DEGRADED-unpinned',
+  });
+});
 
 // Serve the assessment SPA shell with the logo inlined (and intake when a
 // token session is active). The logo is injected unconditionally so the chrome
@@ -4253,6 +4271,26 @@ try {
 } catch (e) {
   console.error('[startup] could not pin Anthropic HTTP/1.1 via undici:', e.message);
 }
+
+// Degraded-transport alarm. The try/catch above is deliberately non-fatal, but a
+// silent fallback is NOT acceptable: without the H1 pin the SDK may negotiate
+// HTTP/2, which is exactly the Railway "Premature close" failure this block
+// exists to prevent. Previously the only signal was one stderr line, which is
+// indistinguishable from noise in a deploy log. Make it unmissable, and make it
+// machine-checkable via GET /health so a Railway healthcheckPath can gate on it.
+const ANTHROPIC_TRANSPORT_OK = !!anthropicFetch;
+if (!ANTHROPIC_TRANSPORT_OK) {
+  const bar = '='.repeat(72);
+  console.error(`\n${bar}
+[startup][DEGRADED] Anthropic transport is NOT pinned to HTTP/1.1.
+  The undici require failed, so the SDK will use its default fetch and may
+  negotiate HTTP/2. On Railway this causes mid-stream "Premature close"
+  errors on api.anthropic.com — assessments will fail intermittently.
+  This process is still serving traffic in a known-bad transport state.
+  Fix: ensure 'undici' resolves in app/node_modules, then redeploy.
+  Machine-checkable at: GET /health -> anthropic_transport
+${bar}\n`);
+}
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
   ...(anthropicFetch ? { fetch: anthropicFetch } : {}),
@@ -5655,7 +5693,10 @@ Engine gap: ${gap || 'Not yet available'}`;
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 400,
-      system: [{ type: 'text', text: BETA_STATE_ANALYSIS_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      // No cache_control: BETA_STATE_ANALYSIS_SYSTEM is 145 tokens, far below
+      // Sonnet 4.6's 2,048-token minimum cacheable prefix. A marker here never
+      // creates a cache entry (measured: cache_creation_input_tokens = 0).
+      system: [{ type: 'text', text: BETA_STATE_ANALYSIS_SYSTEM }],
       messages: [{ role: 'user', content: userMessage }],
     });
     const text = ((response.content[0] && response.content[0].text) || '').trim();
@@ -5804,7 +5845,10 @@ Based on these responses, identify 2-3 Enneagram types most consistent with this
       // uses to keep the mini-call functional.
       model: 'claude-sonnet-4-6',
       max_tokens: 300,
-      system: [{ type: 'text', text: STAGE0_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      // No cache_control: STAGE0_SYSTEM is 220 tokens, far below Sonnet 4.6's
+      // 2,048-token minimum cacheable prefix. A marker here never creates a
+      // cache entry (measured: cache_creation_input_tokens = 0).
+      system: [{ type: 'text', text: STAGE0_SYSTEM }],
       messages: [{ role: 'user', content: userMessage }],
     });
     const text = response.content[0].text;
@@ -5884,7 +5928,10 @@ Return a revised hypothesis list in exactly this format:
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 300,
-      system: [{ type: 'text', text: CT_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      // No cache_control: CT_SYSTEM is 301 tokens, far below Sonnet 4.6's
+      // 2,048-token minimum cacheable prefix. A marker here never creates a
+      // cache entry (measured: cache_creation_input_tokens = 0).
+      system: [{ type: 'text', text: CT_SYSTEM }],
       messages: [{ role: 'user', content: userMessage }],
     });
     const text = response.content[0].text;
@@ -6053,7 +6100,11 @@ app.post('/api/call1', async (req, res) => {
     const stream = client.messages.stream({
       model: 'claude-sonnet-4-6',
       max_tokens: 2000,
-      system: [{ type: 'text', text: CALL1_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      // No cache_control: CALL1_SYSTEM is 1,459 tokens — 589 short of Sonnet
+      // 4.6's 2,048-token minimum cacheable prefix, so a marker here never
+      // creates a cache entry. Closest of the inert prompts to the threshold:
+      // if CALL1_SYSTEM grows past 2,048, a marker becomes worth re-adding.
+      system: [{ type: 'text', text: CALL1_SYSTEM }],
       messages: [{ role: 'user', content: userMessage }],
     });
     const response = await stream.finalMessage();
@@ -10885,7 +10936,10 @@ ${BETA_SYNTHESIS_OUTPUT_FORMAT}`;
     const response = await client.messages.create({
       model: BETA_ANALYSIS_MODEL,
       max_tokens: 4000,
-      system: [{ type: 'text', text: BETA_SYNTHESIS_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      // No cache_control: BETA_SYNTHESIS_SYSTEM is 168 tokens, far below the
+      // 4,096-token minimum cacheable prefix for Opus (BETA_ANALYSIS_MODEL).
+      // A marker here never creates a cache entry.
+      system: [{ type: 'text', text: BETA_SYNTHESIS_SYSTEM }],
       messages: [{ role: 'user', content: userMessage }],
     });
     usage = response.usage || null;

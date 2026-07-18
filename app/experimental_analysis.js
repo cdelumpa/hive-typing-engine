@@ -204,6 +204,8 @@ function _geometryTableText() {
 
 // EM_SYSTEM_PROMPT — Part A (spec §2–§3 + §5.1 output schema). Fixed and cacheable;
 // assembled once at module load. PR5 applies cache_control: ephemeral at call time.
+// Measured 4,611 tokens — clears the minimum cacheable prefix on both arms
+// (Sonnet 2,048 / Opus 4,096), so the marker does real work here.
 const EM_SYSTEM_PROMPT = [
   _ROLE,
   'TYPE GEOMETRY REFERENCE TABLE\n' + _GEO_INTRO + '\n\n' + _geometryTableText(),
@@ -549,7 +551,14 @@ async function runExperimentalAnalysis({ assessmentId, model, trigger, callClaud
 const EM_REPORT_PROMPT_VERSION = 'EM-Report-v1.1';
 const EM_REPORT_MAX_TOKENS = 8000;
 
-// Part A — system prompt (fixed, cacheable). Verbatim from report-prompt spec §2–§5.
+// Part A — system prompt (fixed). Verbatim from report-prompt spec §2–§5.
+// NOT cacheable in practice: 2,533 tokens — 1,563 short of the 4,096-token
+// minimum cacheable prefix for Opus, and this call is hard-pinned to Opus
+// because the report is client-facing (C5). The shared callClaude adapters
+// still send cache_control, which is correct — the same adapters carry
+// EM_SYSTEM_PROMPT (4,611 tok), which does cache. The marker is a no-op on
+// this call only. It would cache on Sonnet; moving the report there was
+// rejected — quality outranks ~$0.006/report.
 const EM_REPORT_SYSTEM_PROMPT = `You are an expert Enneagram coach writing personalized reports for clients who have completed the InsightOut assessment. You have been given a structured analysis of this client's assessment data. Your job is to translate that analysis into two report registers: a coach report (for the coach preparing the debrief) and a client report (for the client to read after the debrief).
 
 You write in warm, direct, plain-English. You never use clinical or academic language. You never mention the Narrative Enneagram or any proprietary framework by name. You never reference scores, sliders, dimensional analysis, passes, or any engine mechanics. You write as if you are a skilled practitioner who has studied this person's responses and formed a clear hypothesis.
