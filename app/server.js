@@ -13275,43 +13275,89 @@ app.post('/admin/coaches/provision', async (req, res) => {
 // ── PR14 — ThriveCart paid-event registration webhook (CP-5) ────────────────────
 // SIBLING to /admin/coaches/provision (never touches THRIVECART_SKU_MAP or the credit flow).
 // External endpoint: no session middleware, self-authenticates via the shared secret. Maps the
-// ThriveCart product slug → an event via events.thrivecart_product_slug, find-or-creates the
-// coach (reusing the exact chain the credit webhook uses), then registers (or waitlists if the
-// event is full at payment time — refund is handled MANUALLY, matching the credit-refund model).
-// Idempotent on order_id via event_registrations.purchase_reference: a retried order is a no-op.
+// ThriveCart product → an event via events.thrivecart_product_slug, find-or-creates the coach
+// (reusing the exact chain the credit webhook uses), then registers (or waitlists if the event is
+// full — refund handled MANUALLY). Idempotent on order_id via event_registrations.purchase_reference.
+//
+// FIELD MAPPING (corrected against ThriveCart's REAL order.success payload, PR14 follow-up):
+// ThriveCart sends application/x-www-form-urlencoded with base_product (int), order_id, event,
+// mode, thrivecart_secret, and NESTED customer[email]/[first_name]/[last_name] + order[total] (cents).
+// There is NO product_id / customer_email / customer_first_name flat field. Because the global
+// urlencoded parser is extended:false, customer[email] arrives as the FLAT key
+// req.body['customer[email]'] (not req.body.customer.email) — the helpers below read either shape.
+
+// Read a ThriveCart nested field (customer[email]) whether the parser produced a nested object or
+// the flat bracketed key. Returns '' when absent.
+function tcNested(b, obj, key) {
+  const nested = (b[obj] && typeof b[obj] === 'object') ? b[obj][key] : undefined;
+  if (nested !== undefined && nested !== null && String(nested).trim() !== '') return String(nested).trim();
+  const flat = b[`${obj}[${key}]`];
+  return (flat !== undefined && flat !== null && String(flat).trim() !== '') ? String(flat).trim() : '';
+}
+// Primary product id = base_product; fallback = the integer in purchase_map_flat / purchase_map[0]
+// ("product-12" → "12"), since bumps/upsells can shift which field is cleanest.
+function tcProductId(b) {
+  const bp = b.base_product;
+  if (bp !== undefined && bp !== null && String(bp).trim() !== '') return String(bp).trim();
+  const src = b.purchase_map_flat || b['purchase_map[0]'] || (b.purchase_map && b.purchase_map['0']);
+  const m = src ? String(src).match(/product-(\d+)/) : null;
+  return m ? m[1] : '';
+}
+
+// Verification ping: ThriveCart GETs/HEADs the URL when you save the webhook and requires a 2xx.
+// app.get also answers HEAD. Pure liveness ack — never processes anything.
+app.get('/webhooks/thrivecart/event', (req, res) =>
+  res.status(200).json({ ok: true, message: 'ThriveCart event webhook ready' }));
+
 app.post('/webhooks/thrivecart/event', async (req, res) => {
-  // a. Shared secret (read at request time; fail closed if unset).
+  const b = req.body || {};
   const secret = process.env.THRIVECART_WEBHOOK_SECRET;
+
+  // ACKNOWLEDGE THE PING vs ACT ON A REAL ORDER are separated (STEP 3): a verification ping, an
+  // unconfigured secret, or a bad/absent secret ALL return 200 so ThriveCart can save the webhook
+  // and its retry behaviour stays sane — but nothing is processed unless the secret matches.
   if (!secret) {
-    console.error('[thrivecart-event] THRIVECART_WEBHOOK_SECRET not set');
-    return res.status(500).json({ error: 'SERVER_CONFIG_ERROR' });
+    console.error('[thrivecart-event] THRIVECART_WEBHOOK_SECRET not set — acknowledging, not processing');
+    return res.status(200).json({ ok: true, ignored: true, reason: 'server_unconfigured' });
   }
-  if (req.body.thrivecart_secret !== secret) {
-    console.warn('[thrivecart-event] invalid secret — rejected');
-    return res.status(401).json({ error: 'UNAUTHORIZED' });
+  if (b.thrivecart_secret !== secret) {
+    console.warn('[thrivecart-event] missing/invalid secret — acknowledging (verification ping or unauthorized), not processing');
+    return res.status(200).json({ ok: true, ignored: true, reason: 'unverified' });
   }
 
+  // Only act on completed orders — ignore refunds/subscription/etc. events for now.
+  const eventType = String(b.event || '').trim();
+  if (eventType !== 'order.success') {
+    console.log('[thrivecart-event] ignoring event type:', eventType || '(none)');
+    return res.status(200).json({ ok: true, ignored: true, reason: 'event_type', event: eventType || null });
+  }
+
+  const mode = String(b.mode || '').trim() || 'unknown';   // 'test' | 'live'
   try {
-    // b. Validate required payload fields.
-    const b = req.body || {};
-    const required = ['order_id', 'product_id', 'customer_email', 'customer_first_name', 'customer_last_name'];
-    for (const f of required) {
-      if (b[f] === undefined || b[f] === null || String(b[f]).trim() === '') {
-        return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Missing required field: ${f}` });
-      }
-    }
-    const orderId       = String(b.order_id);
-    const productSlug   = String(b.product_id);
-    const customerEmail = String(b.customer_email).toLowerCase().trim();
-    const firstName     = String(b.customer_first_name).trim();
-    const lastName      = String(b.customer_last_name).trim();
+    const orderId       = String(b.order_id || '').trim();
+    const productId     = tcProductId(b);
+    const customerEmail = tcNested(b, 'customer', 'email').toLowerCase();
+    const firstName     = tcNested(b, 'customer', 'first_name');
+    const lastName      = tcNested(b, 'customer', 'last_name');
 
-    // c. Resolve the event by product slug.
-    const event = await eventsLib.getEventByProductSlug(productSlug);
-    if (!event) {
-      console.warn('[thrivecart-event] unknown product slug:', productSlug, 'order:', orderId);
-      return res.status(400).json({ error: 'UNKNOWN_EVENT', message: `No event matches product slug: ${productSlug}` });
+    // Missing critical fields on a secret-verified order.success = a permanent problem, not a
+    // transient one — ack 200 (don't trigger a ThriveCart retry storm) but log loudly.
+    if (!orderId || !productId || !customerEmail) {
+      console.error('[thrivecart-event] order.success missing fields — order:', orderId || '(none)',
+        'base_product:', productId || '(none)', 'email:', customerEmail || '(none)', 'mode:', mode);
+      return res.status(200).json({ ok: true, ignored: true, reason: 'missing_fields' });
     }
+
+    // Resolve the event by product id (admins enter the numeric base_product into
+    // thrivecart_product_slug). Unknown product → ack 200 (may be a non-event purchase hitting this URL).
+    const event = await eventsLib.getEventByProductSlug(productId);
+    if (!event) {
+      console.warn('[thrivecart-event] no event matches base_product', productId, '— order:', orderId,
+        'mode:', mode, '(ignoring; may be a non-event product)');
+      return res.status(200).json({ ok: true, ignored: true, reason: 'unknown_product', product: productId });
+    }
+    console.log('[thrivecart-event] order.success — order:', orderId, 'base_product:', productId,
+      'event:', event.id, 'email:', customerEmail, 'mode:', mode);
 
     // d. Find or create the coach — identical chain to the credit webhook (do not fork).
     let coach = await db.getCoachByEmail(customerEmail);
@@ -13382,8 +13428,9 @@ app.post('/webhooks/thrivecart/event', async (req, res) => {
     console.warn('[thrivecart-event] non-registerable event state:', result.status, 'order:', orderId, 'event:', event.id);
     return res.status(200).json({ ok: true, alreadyProcessed: false, status: result.status });
   } catch (e) {
-    console.error('[thrivecart-event] webhook error — order:', req.body && req.body.order_id,
-      'email:', req.body && req.body.customer_email, '—', e.message);
+    // Transient/processing error → 500 so ThriveCart retries; the order_id idempotency guard makes retries safe.
+    console.error('[thrivecart-event] webhook error — order:', b.order_id,
+      'email:', tcNested(b, 'customer', 'email'), '—', e.message);
     return res.status(500).json({ error: 'WEBHOOK_ERROR' });
   }
 });
