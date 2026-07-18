@@ -11,11 +11,17 @@ const assert = require('assert');
 const path = require('path');
 const auth = require(path.join(__dirname, '..', 'app', 'auth'));
 
-let passed = 0;
+let passed = 0, failed = 0;
 function check(label, fn) {
-  fn();
-  passed++;
-  console.log(`  ✓  ${label}`);
+  try {
+    fn();
+    passed++;
+    console.log(`  ✓  ${label}`);
+  } catch (err) {
+    failed++;
+    console.log(`  ✗  ${label}`);
+    console.log(`     ${err.message}`);
+  }
 }
 
 console.log('\n=== auth.js unit tests ===\n');
@@ -125,5 +131,5 @@ check('does not trip for a non-super_admin self-revoke', () => {
   assert.strictEqual(selfRevokeGuard('coach', 42, 42), false);
 });
 
-console.log(`\n=== RESULT: ${passed} passed, 0 failed ===\n`);
-process.exit(0);
+console.log(`\n=== RESULT: ${passed} passed, ${failed} failed ===\n`);
+process.exit(failed > 0 ? 1 : 0);
