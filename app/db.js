@@ -1286,10 +1286,30 @@ async function initDb() {
   }
 }
 
-// ─── Query helper — never throws, logs errors ──────────────────────────────────
+// ─── Query helper — returns null on query error, throws if unconfigured ────────
+//
+// Two different nulls used to come out of here, and conflating them cost real
+// debugging time. A failed statement returns null (callers null-check that, and
+// several deliberately re-raise it as DB_ERROR). But an UNCONFIGURED pool used to
+// return null too — so a script with no DATABASE_URL ran every write, got null
+// back, and reported success while writing nothing. That is not a degraded mode,
+// it is a lie. It now throws.
+//
+// Deliberately thrown at first use, not at module load: tests/auth_test.js
+// requires app/auth.js (which pulls in this module) with no DATABASE_URL to
+// exercise pure functions that never touch the DB. Throwing at load would break
+// that legitimate case; throwing here only ever fires on an actual query attempt.
 
 async function query(sql, params) {
-  if (!pool) return null;
+  if (!pool) {
+    throw new Error(
+      'DATABASE_URL is not set, so this query cannot run. ' +
+      'The most likely cause is a script that requires app/db.js without loading dotenv first — ' +
+      'db.js deliberately does not load it. Run via `node scripts/dev-local.js` for local work, ' +
+      'or load the right .env in your script before requiring db.js. ' +
+      'Note app/.env points at PRODUCTION; .env.dev.local is the local database.'
+    );
+  }
   try {
     return await pool.query(sql, params);
   } catch (e) {
