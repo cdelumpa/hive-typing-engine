@@ -90,6 +90,8 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-brand { display: flex; flex-direction: column; padding: 0 8px 8px; }
 .cp-brand-mark { font-family: var(--font-heading); font-size: 20px; font-weight: bold; color: #FFFFFF; }
 .cp-brand-sub  { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
+/* Tablet-only abbreviation — revealed by the 64px rail, hidden everywhere else. */
+.cp-brand-abbr { display: none; font-family: var(--font-heading); font-size: 18px; font-weight: bold; color: #FFFFFF; }
 
 .cp-nav-zone { display: flex; flex-direction: column; }
 .cp-nav-eyebrow {
@@ -101,8 +103,13 @@ a { color: var(--color-primary); text-decoration: none; }
   margin: 0 0 8px 8px;
 }
 
+/* Icon + label row. The icon renders at every breakpoint; only the tablet rail drops the
+   label. Keeping one flex layout for all three means the active pill, hover, and spacing
+   are defined once instead of per-breakpoint. */
 .cp-nav-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 8px 12px;
   border-radius: 6px;
   color: var(--color-text-footer);
@@ -114,8 +121,16 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-nav-item--active { background: var(--color-primary); color: #FFFFFF; }
 .cp-nav-ext { color: var(--color-text-muted); font-size: 11px; }
 
+/* currentColor on the SVG means the icon inherits the active/hover colour for free. */
+.cp-nav-icon { display: flex; flex-shrink: 0; }
+.cp-nav-icon svg { width: 18px; height: 18px; }
+.cp-nav-label { min-width: 0; }
+
 .cp-nav-foot { margin-top: auto; padding-top: 16px; }
-.cp-nav-logout { display: block; padding: 8px 12px; color: var(--color-text-muted); font-size: 13px; }
+.cp-nav-logout {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; color: var(--color-text-muted); font-size: 13px;
+}
 .cp-nav-logout:hover { color: var(--color-error); }
 
 /* Main column */
@@ -954,14 +969,51 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-reports-body a { color: var(--color-primary); }
 
 /* ── §3.4 Breakpoints ───────────────────────────────────────────────────── */
-/* Tablet. PR1 collapsed the rail to a 64px strip with font-size:0 labels, on the
-   assumption an icon set would land later. It hasn't, so that rule rendered a blank dark
-   column with no usable nav. Until the icon set exists, tablet keeps a labelled (narrower)
-   rail — readable beats aspirational. The 64px icon strip is a backlog item, not a gap
-   this PR should paper over by inventing icons. */
-@media (max-width: 1023px) {
-  .cp-nav { width: 200px; padding: 24px 12px; }
+/* Tablet, 768–1023px: the 64px icon-only rail from §5.2, finally buildable now that every
+   nav item carries an icon (PR22). PR1 shipped a 64px strip with font-size:0 labels before
+   the icons existed, which rendered a blank dark column; PR1's follow-up backed that out to
+   a 200px labelled rail as the honest interim. Both are now superseded.
+   Note this rail is the SAME markup desktop renders (renderCoachNavZones call #1) — there
+   is no separate tablet render, so everything below is a CSS narrowing of the desktop rail.
+   The drawer (call #2) takes over at ≤767px and must not inherit any of this, hence the
+   min-width floor on the media query. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .cp-nav { width: var(--nav-width-tablet); padding: 24px 8px; gap: 20px; align-items: center; }
+
+  .cp-brand { padding: 0 0 8px; align-items: center; }
+  .cp-brand-mark, .cp-brand-sub { display: none; }
+  .cp-brand-abbr { display: block; }
+
+  .cp-nav-zone { align-items: center; gap: 4px; }
+  /* The eyebrows can't fit, but they're the only thing grouping nine links, so they stay in
+     the a11y tree — clipped, not display:none. A hairline stands in for them visually. */
+  .cp-nav-eyebrow {
+    position: absolute; width: 1px; height: 1px; margin: -1px;
+    padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .cp-nav-zone + .cp-nav-zone { border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 16px; }
+
+  /* Square 40px tap target, icon centred. Active state moves onto the icon square itself. */
+  .cp-nav-item, .cp-nav-logout {
+    position: relative;
+    justify-content: center;
+    width: 40px; height: 40px;
+    padding: 0; gap: 0;
+  }
+  /* Same clip treatment as the eyebrow: display:none would strip the accessible name and
+     leave the rail as nine unlabelled links. title= is the sighted hover affordance. */
+  .cp-nav-label {
+    position: absolute; width: 1px; height: 1px; margin: -1px;
+    padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  /* The external ↗ survives the label being hidden by becoming a corner badge. */
+  .cp-nav-ext { position: absolute; top: 1px; right: 3px; font-size: 9px; line-height: 1; }
+
+  .cp-nav-foot { display: flex; justify-content: center; }
   .cp-workspace { padding: 24px; }
+}
+
+@media (max-width: 1023px) {
   .cp-metrics { gap: 12px; }
   .cp-metric-value { font-size: 26px; }
 
