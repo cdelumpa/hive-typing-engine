@@ -13287,13 +13287,21 @@ app.post('/admin/coaches/provision', async (req, res) => {
     }
 
     // f. Record purchased credits (idempotent on order_id / purchase_reference).
+    // grantedBy → credit_transactions.created_by, which is an FK to users(id), NOT coaches(id).
+    // This previously passed coach.id and threw a FK violation on every real order; it was never
+    // observed because no order ever survived the (wrong) product_id validation to reach here.
+    // For a self-serve purchase the acting user is the coach's own user row (mirroring the admin
+    // route's req.session.user_id). getCoachByEmail() doesn't select user_id but getCoachById()
+    // does; NULL is tolerated (column is nullable / ON DELETE SET NULL) if the coach is unlinked.
+    const coachFull = await db.getCoachById(coach.id).catch(() => null);
+    const actingUserId = (coachFull && coachFull.user_id) || null;
     const result = await db.recordPurchasedCredits(
       accountId,
       skuConfig.creditTypeName,
       skuConfig.quantity,
       orderId,
       priceCents,
-      coach.id,
+      actingUserId,
       `ThriveCart order ${orderId}`
     );
     if (result && result.alreadyProcessed) {
