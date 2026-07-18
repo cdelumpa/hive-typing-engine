@@ -13146,46 +13146,92 @@ app.post('/admin/coaches/new', requireAdmin, async (req, res) => {
   }
 });
 
-// ── ThriveCart coach-provisioning webhook (PR9) ────────────────────────────────
+// ── ThriveCart coach-provisioning webhook (PR9, field mapping fixed in PR15) ────
 // External endpoint — NO admin middleware (those 302-redirect a sessionless caller).
 // /admin/* bypasses the global basic-auth gate, so this route is reachable and
 // self-authenticates via the shared secret in the request body. Idempotent: a retried
 // order is a safe no-op (recordPurchasedCredits dedupes on purchase_reference), so
 // returning 500 on transient errors — which makes ThriveCart retry — is safe.
+//
+// PR15 — corrected against ThriveCart's REAL order.success payload (same class of bugs the
+// event webhook had, proven fixed in production). ThriveCart sends base_product (int),
+// order_id, event, mode, thrivecart_secret, NESTED customer[email]/[first_name]/[last_name]
+// and order[total] ALREADY IN CENTS. There is no product_id / flat customer_email / dollars
+// amount. Because the global urlencoded parser is extended:false, nested keys arrive FLAT
+// (req.body['customer[email]']) — tcNested()/tcProductId() below read either shape.
+
+// Verification ping: ThriveCart GETs/HEADs the URL when you save the webhook and requires a
+// 2xx, which is why this webhook could never be saved before. app.get also answers HEAD.
+// Pure liveness ack — never processes anything.
+app.get('/admin/coaches/provision', (req, res) =>
+  res.status(200).json({ ok: true, message: 'ThriveCart credit webhook ready' }));
+
 app.post('/admin/coaches/provision', async (req, res) => {
-  // a. Verify the shared secret (read at request time, not boot — fail closed if unset).
+  const b = req.body || {};
   const secret = process.env.THRIVECART_WEBHOOK_SECRET;
+
+  // ACKNOWLEDGE THE PING vs ACT ON A REAL ORDER are separated (CP-C): a verification ping, an
+  // unconfigured secret, or a bad/absent secret ALL return 200 so ThriveCart can save the
+  // webhook and its retries behave — but nothing is processed unless the secret matches.
   if (!secret) {
-    console.error('[thrivecart] THRIVECART_WEBHOOK_SECRET not set');
-    return res.status(500).json({ error: 'SERVER_CONFIG_ERROR' });
+    console.error('[thrivecart] THRIVECART_WEBHOOK_SECRET not set — acknowledging, not processing');
+    return res.status(200).json({ ok: true, ignored: true, reason: 'server_unconfigured' });
   }
-  if (req.body.thrivecart_secret !== secret) {
-    console.warn('[thrivecart] invalid secret — rejected');
-    return res.status(401).json({ error: 'UNAUTHORIZED' });
+  if (b.thrivecart_secret !== secret) {
+    console.warn('[thrivecart] missing/invalid secret — acknowledging (verification ping or unauthorized), not processing');
+    return res.status(200).json({ ok: true, ignored: true, reason: 'unverified' });
   }
 
+  // CP-B — only act on completed orders. Previously there was NO gating at all, so a refund or
+  // subscription event with a valid secret would have attempted a credit grant.
+  const eventType = String(b.event || '').trim();
+  if (eventType !== 'order.success') {
+    console.log('[thrivecart] ignoring event type:', eventType || '(none)');
+    return res.status(200).json({ ok: true, ignored: true, reason: 'event_type', event: eventType || null });
+  }
+
+  const mode = String(b.mode || '').trim() || 'unknown';   // 'test' | 'live'
   try {
-    // b. Validate required payload fields.
-    const b = req.body || {};
-    const required = ['order_id', 'product_id', 'customer_email', 'customer_first_name', 'customer_last_name', 'order_total'];
-    for (const f of required) {
-      if (b[f] === undefined || b[f] === null || String(b[f]).trim() === '') {
-        return res.status(400).json({ error: 'VALIDATION_ERROR', message: `Missing required field: ${f}` });
+    // CP-A — real field mapping. order[total] is ALREADY CENTS: no ×100.
+    const orderId       = String(b.order_id || '').trim();
+    const productId     = tcProductId(b);
+    const customerEmail = tcNested(b, 'customer', 'email').toLowerCase();
+    const firstName     = tcNested(b, 'customer', 'first_name');
+    const lastName      = tcNested(b, 'customer', 'last_name');
+    const rawTotal      = tcNested(b, 'order', 'total');
+    const priceCents    = rawTotal !== '' ? Math.round(Number(rawTotal)) : null;
+
+    // CP-D — missing critical fields on a secret-verified order.success is a PERMANENT problem,
+    // not a transient one: ack 200 so ThriveCart doesn't retry forever, but log loudly.
+    if (!orderId || !productId || !customerEmail) {
+      console.error('[thrivecart] order.success missing fields — order:', orderId || '(none)',
+        'base_product:', productId || '(none)', 'email:', customerEmail || '(none)', 'mode:', mode);
+      return res.status(200).json({ ok: true, ignored: true, reason: 'missing_fields' });
+    }
+
+    // CP-F — single-item grants only. A bundled order still grants just the base product, but
+    // must be loudly visible rather than silently under-granting (tripwire if bundling returns).
+    const mapFlat = String(b.purchase_map_flat || '').trim();
+    if (mapFlat) {
+      const items = mapFlat.split(',').map(s => s.trim()).filter(Boolean);
+      if (items.length > 1) {
+        console.warn('[thrivecart] BUNDLED ORDER — granting BASE PRODUCT ONLY. order:', orderId,
+          'base_product:', productId, 'all items:', items.join(' | '),
+          '— extra items were NOT granted; review manually.');
       }
     }
-    const orderId       = String(b.order_id);
-    const productId     = String(b.product_id);
-    const customerEmail = String(b.customer_email).toLowerCase().trim();
-    const firstName     = String(b.customer_first_name).trim();
-    const lastName      = String(b.customer_last_name).trim();
-    const priceCents    = Math.round(parseFloat(b.order_total) * 100);
 
-    // c. Look up the SKU.
-    const skuConfig = THRIVECART_SKU_MAP[productId];
+    // CP-E — SKU map unchanged; only the lookup key changed (tcProductId, not b.product_id).
+    // CP-D — an id that isn't a credit product (e.g. 12 = Foundations, a COURSE) legitimately
+    // hits this catch-all webhook on every sale: ack 200 rather than 400-retry-storm.
+    const skuConfig = THRIVECART_SKU_MAP[String(productId)];
     if (!skuConfig) {
-      console.warn('[thrivecart] unknown product_id:', productId, 'order:', orderId);
-      return res.status(400).json({ error: 'UNKNOWN_SKU', message: `Unrecognised product_id: ${productId}` });
+      console.log('[thrivecart] base_product', productId, 'is not a credit SKU — ignoring. order:',
+        orderId, 'mode:', mode, '(e.g. a course purchase)');
+      return res.status(200).json({ ok: true, ignored: true, reason: 'not_a_credit_sku', product: String(productId) });
     }
+    console.log('[thrivecart] order.success — order:', orderId, 'base_product:', productId,
+      'qty:', skuConfig.quantity, 'email:', customerEmail, 'total_cents:', priceCents, 'mode:', mode);
 
     // d. Find or create the coach.
     let coach = await db.getCoachByEmail(customerEmail);
@@ -13265,9 +13311,10 @@ app.post('/admin/coaches/provision', async (req, res) => {
     });
   } catch (e) {
     // Log identifiers for ops recovery; 500 makes ThriveCart retry, which the
-    // purchase_reference idempotency guard makes safe.
-    console.error('[thrivecart] webhook error — order:', req.body && req.body.order_id,
-      'email:', req.body && req.body.customer_email, '—', e.message);
+    // purchase_reference idempotency guard makes safe. Reserved for TRANSIENT/unexpected
+    // failures only — permanent problems (bad fields, non-credit SKU) ack 200 above.
+    console.error('[thrivecart] webhook error — order:', b.order_id,
+      'email:', tcNested(b, 'customer', 'email'), '—', e.message);
     return res.status(500).json({ error: 'WEBHOOK_ERROR' });
   }
 });
