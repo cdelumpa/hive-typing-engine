@@ -472,8 +472,6 @@ function renderCoachChrome({ activeNav = 'home', creditsPill = null, avatar = nu
       <div class="cp-brand">
         <span class="cp-brand-mark">InsightOut</span>
         <span class="cp-brand-sub">by Hive, Inc.</span>
-        <!-- 64px tablet rail can't hold the wordmark; CSS swaps in this abbreviation. -->
-        <span class="cp-brand-abbr" aria-hidden="true">IO</span>
       </div>
       ${renderCoachNavZones(activeNav)}
       <div class="cp-nav-foot">

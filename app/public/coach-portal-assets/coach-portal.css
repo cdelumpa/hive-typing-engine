@@ -90,8 +90,6 @@ a { color: var(--color-primary); text-decoration: none; }
 .cp-brand { display: flex; flex-direction: column; padding: 0 8px 8px; }
 .cp-brand-mark { font-family: var(--font-heading); font-size: 20px; font-weight: bold; color: #FFFFFF; }
 .cp-brand-sub  { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
-/* Tablet-only abbreviation — revealed by the 64px rail, hidden everywhere else. */
-.cp-brand-abbr { display: none; font-family: var(--font-heading); font-size: 18px; font-weight: bold; color: #FFFFFF; }
 
 .cp-nav-zone { display: flex; flex-direction: column; }
 .cp-nav-eyebrow {
@@ -978,11 +976,19 @@ a { color: var(--color-primary); text-decoration: none; }
    The drawer (call #2) takes over at ≤767px and must not inherit any of this, hence the
    min-width floor on the media query. */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .cp-nav { width: var(--nav-width-tablet); padding: 24px 8px; gap: 20px; align-items: center; }
-
-  .cp-brand { padding: 0 0 8px; align-items: center; }
-  .cp-brand-mark, .cp-brand-sub { display: none; }
-  .cp-brand-abbr { display: block; }
+  /* The rail carries no branding at this width — the wordmark moves into the right-hand
+     pane's header instead (same .cp-header-brand element mobile already uses). Top padding
+     matches --header-height so the first icon lines up with the bottom of that header
+     rather than floating above it. */
+  .cp-nav {
+    width: var(--nav-width-tablet);
+    padding: var(--header-height) 8px 24px;
+    gap: 20px;
+    align-items: center;
+  }
+  /* Scoped to the rail: the drawer reuses .cp-brand and must keep its own wordmark. */
+  .cp-nav .cp-brand { display: none; }
+  .cp-header-brand { display: flex; }
 
   .cp-nav-zone { align-items: center; gap: 4px; }
   /* The eyebrows can't fit, but they're the only thing grouping nine links, so they stay in
