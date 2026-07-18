@@ -5192,6 +5192,9 @@ async function callClaudeWithRetry(systemPrompt, userMessage) {
         system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: userMessage }],
       });
+      if (!response?.content?.length || typeof response.content[0].text !== 'string') {
+        const e = new Error('model returned empty content'); e.name = 'EmptyContentError'; throw e;
+      }
       const text  = response.content[0].text;
       const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
       const result = JSON.parse(clean);
@@ -5210,9 +5213,24 @@ async function callClaudeWithRetry(systemPrompt, userMessage) {
       console.log(`[claude] success — attempt ${attempt}, confirmed_type=${result?.hypothesis?.confirmed_type}, confidence=${result?.hypothesis?.confidence_level}`);
       return result;
     } catch (err) {
-      console.error(`[claude] attempt ${attempt} failed:`, err.message);
-      if (attempt < 3) await delay(Math.pow(2, attempt) * 1000);
-      else throw err;
+      const c = apiErrors.classifyApiError(err);
+      console.error(`[claude] attempt ${attempt} failed — kind=${c.kind} status=${c.status ?? 'n/a'}: ${c.message}`);
+
+      // Credit exhaustion short-circuits the whole chain (suppresses the em_only
+      // -> SM fallback in runBackgroundJob). Never retried.
+      if (c.isCredit) throw new apiErrors.CreditExhaustedError(c.message);
+      // 400/401/403 — retrying cannot change the outcome. Fail fast.
+      if (!c.retryable) { console.error(`[claude] non-retryable (${c.kind}) — failing fast, no further attempts`); throw err; }
+      // A parse/empty-content failure is a model problem, not an API problem: at
+      // most ONE retry rather than burning the full budget on a prose response.
+      const budget = (c.kind === apiErrors.KIND.PARSE) ? 2 : 3;
+      if (attempt >= budget) {
+        console.error(`[claude] exhausted ${c.kind} budget (${budget} attempt${budget > 1 ? 's' : ''}) — giving up`);
+        throw err;
+      }
+      const wait = apiErrors.backoffMs(attempt, c.retryAfterMs);
+      console.warn(`[claude] retrying in ${wait}ms (kind=${c.kind}${c.retryAfterMs ? ', honoring retry-after' : ''})`);
+      await delay(wait);
     }
   }
 }
@@ -6218,6 +6236,9 @@ app.post('/api/analyze', async (req, res) => {
         messages: [{ role: 'user', content: userMessage }],
       });
 
+      if (!response?.content?.length || typeof response.content[0].text !== 'string') {
+        const e = new Error('model returned empty content'); e.name = 'EmptyContentError'; throw e;
+      }
       const text    = response.content[0].text;
       const clean   = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
       const result  = JSON.parse(clean);
@@ -6226,12 +6247,23 @@ app.post('/api/analyze', async (req, res) => {
       console.log(`[analyze] success — attempt ${attempt}, ${elapsed}s, confirmed_type=${result?.hypothesis?.confirmed_type}, confidence=${result?.hypothesis?.confidence_level}, outcome=${result?.hypothesis?.stage4_outcome}, flags=${result?.flags?.length ?? 0}`);
       return res.json({ ok: true, result });
     } catch (err) {
-      console.error(`[analyze] attempt ${attempt} failed:`, err.message);
-      if (attempt < 3) await delay(Math.pow(2, attempt) * 1000);
+      const c = apiErrors.classifyApiError(err);
+      console.error(`[analyze] attempt ${attempt} failed — kind=${c.kind} status=${c.status ?? 'n/a'}: ${c.message}`);
+
+      if (c.isCredit) {
+        console.error('[analyze][CREDIT] Anthropic credit/billing failure — aborting, no further attempts');
+        break;
+      }
+      if (!c.retryable) { console.error(`[analyze] non-retryable (${c.kind}) — failing fast, no further attempts`); break; }
+      const budget = (c.kind === apiErrors.KIND.PARSE) ? 2 : 3;
+      if (attempt >= budget) { console.error(`[analyze] exhausted ${c.kind} budget (${budget}) — giving up`); break; }
+      const wait = apiErrors.backoffMs(attempt, c.retryAfterMs);
+      console.warn(`[analyze] retrying in ${wait}ms (kind=${c.kind}${c.retryAfterMs ? ', honoring retry-after' : ''})`);
+      await delay(wait);
     }
   }
 
-  console.error('[analyze] all 3 attempts failed — returning fallback to client');
+  console.error('[analyze] attempts exhausted — returning fallback to client');
   return res.status(500).json({
     ok:      false,
     message: 'Your results are being prepared — check your email within 24 hours.',
