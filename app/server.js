@@ -355,7 +355,7 @@ const CP_NAV_ZONES = [
   { eyebrow: 'Grow', items: [
     { route: '/coach/resources', label: 'Resources',             id: 'resources' },
     { route: '/coach/training',  label: 'Coach Training',        id: 'training' },
-    { route: 'https://hive.mn.co', label: 'Enneagram Collective', id: 'collective', external: true },
+    { route: 'https://enneagramcollective.co/', label: 'Enneagram Collective', id: 'collective', external: true },
   ]},
   { eyebrow: 'Manage', items: [
     { route: '/coach/account',   label: 'My Account',            id: 'account' },
@@ -2759,7 +2759,7 @@ function renderEventModal(ev, ctx) {
 function renderTrainingEmptyState() {
   return `<div class="cp-training-empty">
     Nothing on the calendar right now — check back soon. In the meantime, head to
-    <a href="https://hive.mn.co" target="_blank" rel="noopener noreferrer" class="cp-link">the Collective</a>
+    <a href="https://enneagramcollective.co/" target="_blank" rel="noopener noreferrer" class="cp-link">the Collective</a>
     to connect with fellow coaches.
   </div>`;
 }
