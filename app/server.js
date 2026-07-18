@@ -4323,6 +4323,38 @@ const client = new Anthropic({
 });
 console.log(`[startup] Anthropic client: maxRetries=0, timeout=${ANTHROPIC_TIMEOUT_MS}ms`);
 
+// PR21: stop_reason visibility.
+//
+// stop_reason was never captured anywhere — the callClaude adapters returned only
+// { text, usage } and discarded it. That made truncation INVISIBLE: when a model
+// hits its max_tokens ceiling the JSON is cut off mid-object, extractJSON/JSON.parse
+// then throws, and the failure surfaces as kind=parse — indistinguishable from a
+// model returning prose. The two look identical in the logs but have opposite fixes
+// (raise the cap vs. fix the prompt).
+//
+// This codebase has already been bitten by exactly that: EM_MAX_TOKENS was raised
+// from 3000 to 6000 because "that cap truncated real runs"
+// (experimental_analysis.js:30). EM_REPORT_MAX_TOKENS (8000) has never been tested
+// against its ceiling, and AI Call #1 runs at max_tokens 2000 — the tightest cap here.
+//
+// max_tokens gets its own WARN line rather than being appended to a success line, so
+// it is greppable in Railway logs: grep '\[TRUNCATED\]'.
+// This is visibility only — no max_tokens value is changed.
+function logStopReason(tag, response, ctx = '') {
+  const sr = (response && response.stop_reason) || null;
+  const where = ctx ? ` ${ctx}` : '';
+  if (sr === 'max_tokens') {
+    console.warn(
+      `[${tag}][TRUNCATED]${where} stop_reason=max_tokens — output hit the max_tokens ` +
+      `ceiling and is cut off mid-generation. Any downstream JSON parse WILL fail. ` +
+      `This is a length problem, not a parsing problem.`
+    );
+  } else {
+    console.log(`[${tag}] stop_reason=${sr ?? 'unknown'}${where}`);
+  }
+  return sr;
+}
+
 // =================== PROMPT CONSTANTS ===================
 // Moved from app/public/app.js — these are server-only concerns.
 // CRITICAL: OUTPUT_FORMAT must remain the ABSOLUTE LAST content in the user
@@ -5192,6 +5224,9 @@ async function callClaudeWithRetry(systemPrompt, userMessage) {
         system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: userMessage }],
       });
+      // Logged before the parse so a truncation is named as such on the line
+      // above the SyntaxError it causes.
+      logStopReason('claude', response, 'SM Call #2 model=claude-sonnet-4-6 max_tokens=12000');
       if (!response?.content?.length || typeof response.content[0].text !== 'string') {
         const e = new Error('model returned empty content'); e.name = 'EmptyContentError'; throw e;
       }
@@ -5288,7 +5323,8 @@ async function runEmPrimary({ assessmentId, clientId, scores, intake, responsesS
         system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: user }],
       });
-      return { text: response.content[0].text, usage: response.usage };
+      logStopReason('em-primary', response, `#${assessmentId} model=${model} max_tokens=${max_tokens}`);
+      return { text: response.content[0].text, usage: response.usage, stop_reason: response.stop_reason };
     };
 
     const analysisModelId = (emModel === 'opus') ? experimentalAnalysis.EM_MODEL_OPUS : experimentalAnalysis.EM_MODEL_SONNET;
@@ -5543,7 +5579,8 @@ ${bar}\n`);
           system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
           messages: [{ role: 'user', content: user }],
         });
-        return { text: response.content[0].text, usage: response.usage };
+        logStopReason('em-parallel', response, `#${assessmentId} model=${model} max_tokens=${max_tokens}`);
+        return { text: response.content[0].text, usage: response.usage, stop_reason: response.stop_reason };
       };
       // Auto-fire model is driven by app_settings.em_model (captured in step 1c): 'sonnet' /
       // 'opus' fire one; 'sonnet_and_opus' fires both sequentially. Each runExperimentalAnalysis
@@ -6192,6 +6229,10 @@ app.post('/api/call1', async (req, res) => {
     });
     const response = await stream.finalMessage();
     console.log(`[call1] usage — ${JSON.stringify(response.usage)}`);
+    // Streaming path: stop_reason is not on the stream, only on the accumulated
+    // finalMessage() — easy to miss, which is why it was never captured here.
+    // This is also the tightest cap in the codebase (max_tokens 2000).
+    logStopReason('call1', response, 'model=claude-sonnet-4-6 max_tokens=2000 (streamed)');
     const text = response.content[0].text;
     const stripped = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
     const clean = extractFirstJsonObject(stripped);
@@ -6274,6 +6315,9 @@ app.post('/api/analyze', async (req, res) => {
         messages: [{ role: 'user', content: userMessage }],
       });
 
+      // Logged before the parse so a truncation is named as such on the line
+      // above the SyntaxError it causes.
+      logStopReason('analyze', response, 'model=claude-sonnet-4-6 max_tokens=12000');
       if (!response?.content?.length || typeof response.content[0].text !== 'string') {
         const e = new Error('model returned empty content'); e.name = 'EmptyContentError'; throw e;
       }
@@ -11110,7 +11154,8 @@ app.post('/admin/experiment/raw-analysis/:assessment_id', requireSuperAdmin, asy
       messages: [{ role: 'user', content: user }],
     });
     console.log(`[em] usage — ${JSON.stringify(response.usage)}`);
-    return { text: response.content[0].text, usage: response.usage };
+    logStopReason('em-raw', response, `model=${modelId} max_tokens=${max_tokens}`);
+    return { text: response.content[0].text, usage: response.usage, stop_reason: response.stop_reason };
   };
 
   try {
@@ -11756,7 +11801,8 @@ app.post('/admin/em-lab/report/:assessment_id', requireSuperAdmin, async (req, r
         system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
         messages: [{ role: 'user', content: user }],
       });
-      return { text: response.content[0].text, usage: response.usage };
+      logStopReason('em-rerun', response, `#${aid} model=${modelId} max_tokens=${max_tokens}`);
+      return { text: response.content[0].text, usage: response.usage, stop_reason: response.stop_reason };
     };
 
     const contextFields = resolveEmContextFields(emAnalysis, intake);
