@@ -5655,7 +5655,10 @@ Engine gap: ${gap || 'Not yet available'}`;
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 400,
-      system: [{ type: 'text', text: BETA_STATE_ANALYSIS_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      // No cache_control: BETA_STATE_ANALYSIS_SYSTEM is 145 tokens, far below
+      // Sonnet 4.6's 2,048-token minimum cacheable prefix. A marker here never
+      // creates a cache entry (measured: cache_creation_input_tokens = 0).
+      system: [{ type: 'text', text: BETA_STATE_ANALYSIS_SYSTEM }],
       messages: [{ role: 'user', content: userMessage }],
     });
     const text = ((response.content[0] && response.content[0].text) || '').trim();
@@ -5804,7 +5807,10 @@ Based on these responses, identify 2-3 Enneagram types most consistent with this
       // uses to keep the mini-call functional.
       model: 'claude-sonnet-4-6',
       max_tokens: 300,
-      system: [{ type: 'text', text: STAGE0_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      // No cache_control: STAGE0_SYSTEM is 220 tokens, far below Sonnet 4.6's
+      // 2,048-token minimum cacheable prefix. A marker here never creates a
+      // cache entry (measured: cache_creation_input_tokens = 0).
+      system: [{ type: 'text', text: STAGE0_SYSTEM }],
       messages: [{ role: 'user', content: userMessage }],
     });
     const text = response.content[0].text;
@@ -5884,7 +5890,10 @@ Return a revised hypothesis list in exactly this format:
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 300,
-      system: [{ type: 'text', text: CT_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      // No cache_control: CT_SYSTEM is 301 tokens, far below Sonnet 4.6's
+      // 2,048-token minimum cacheable prefix. A marker here never creates a
+      // cache entry (measured: cache_creation_input_tokens = 0).
+      system: [{ type: 'text', text: CT_SYSTEM }],
       messages: [{ role: 'user', content: userMessage }],
     });
     const text = response.content[0].text;
@@ -6053,7 +6062,11 @@ app.post('/api/call1', async (req, res) => {
     const stream = client.messages.stream({
       model: 'claude-sonnet-4-6',
       max_tokens: 2000,
-      system: [{ type: 'text', text: CALL1_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      // No cache_control: CALL1_SYSTEM is 1,459 tokens — 589 short of Sonnet
+      // 4.6's 2,048-token minimum cacheable prefix, so a marker here never
+      // creates a cache entry. Closest of the inert prompts to the threshold:
+      // if CALL1_SYSTEM grows past 2,048, a marker becomes worth re-adding.
+      system: [{ type: 'text', text: CALL1_SYSTEM }],
       messages: [{ role: 'user', content: userMessage }],
     });
     const response = await stream.finalMessage();
@@ -10885,7 +10898,10 @@ ${BETA_SYNTHESIS_OUTPUT_FORMAT}`;
     const response = await client.messages.create({
       model: BETA_ANALYSIS_MODEL,
       max_tokens: 4000,
-      system: [{ type: 'text', text: BETA_SYNTHESIS_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      // No cache_control: BETA_SYNTHESIS_SYSTEM is 168 tokens, far below the
+      // 4,096-token minimum cacheable prefix for Opus (BETA_ANALYSIS_MODEL).
+      // A marker here never creates a cache entry.
+      system: [{ type: 'text', text: BETA_SYNTHESIS_SYSTEM }],
       messages: [{ role: 'user', content: userMessage }],
     });
     usage = response.usage || null;
