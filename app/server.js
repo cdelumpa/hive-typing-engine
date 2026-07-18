@@ -365,21 +365,36 @@ const cpEsc = (s) => String(s == null ? '' : s)
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 // Nav zone model — one source of truth, rendered twice (desktop rail + mobile drawer).
+//
+// `icon` holds the inner paths of a Lucide-style glyph, not a finished <svg>. The wrapping
+// happens in renderCoachNavZones via CP_ICON, which is declared further down (§7.2) — this
+// literal is evaluated at module load, so it can't call CP_ICON here, but the renderer runs
+// later and can. Icons exist for the 64px tablet rail (§5.2), where they are the only
+// affordance; desktop and the mobile drawer show them beside the label.
 const CP_NAV_ZONES = [
   { eyebrow: 'My Practice', items: [
-    { route: '/coach',           label: 'Home',                  id: 'home' },
-    { route: '/coach/clients',   label: 'My Clients',            id: 'clients' },
-    { route: '/coach/reports',   label: 'My Reports',            id: 'reports' },
+    { route: '/coach',           label: 'Home',                  id: 'home',
+      icon: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/>' },
+    { route: '/coach/clients',   label: 'My Clients',            id: 'clients',
+      icon: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
+    { route: '/coach/reports',   label: 'My Reports',            id: 'reports',
+      icon: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>' },
   ]},
   { eyebrow: 'Grow', items: [
-    { route: '/coach/resources', label: 'Resources',             id: 'resources' },
-    { route: '/coach/training',  label: 'Coach Training',        id: 'training' },
-    { route: 'https://enneagramcollective.co/', label: 'Enneagram Collective', id: 'collective', external: true },
+    { route: '/coach/resources', label: 'Resources',             id: 'resources',
+      icon: '<path d="M12 7v14"/><path d="M3 5h6a3 3 0 0 1 3 3 3 3 0 0 1 3-3h6v13h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3H3Z"/>' },
+    { route: '/coach/training',  label: 'Coach Training',        id: 'training',
+      icon: '<path d="M12 4 2 9l10 5 10-5-10-5Z"/><path d="M6 11.5V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5"/>' },
+    { route: 'https://enneagramcollective.co/', label: 'Enneagram Collective', id: 'collective', external: true,
+      icon: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z"/>' },
   ]},
   { eyebrow: 'Manage', items: [
-    { route: '/coach/account',   label: 'My Account',            id: 'account' },
-    { route: '/coach/profile',   label: 'My Profile',            id: 'profile' },
-    { route: '/coach/credits',   label: 'Manage Credits',        id: 'credits', creditsSlot: true },
+    { route: '/coach/account',   label: 'My Account',            id: 'account',
+      icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2v2.5M12 19.5V22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2 12h2.5M19.5 12H22M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/>' },
+    { route: '/coach/profile',   label: 'My Profile',            id: 'profile',
+      icon: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
+    { route: '/coach/credits',   label: 'Manage Credits',        id: 'credits', creditsSlot: true,
+      icon: '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>' },
   ]},
 ];
 
@@ -417,7 +432,17 @@ function renderCoachNavZones(activeNav, { drawer = false, credits = null } = {})
       const pill = (drawer && it.creditsSlot)
         ? ` <span class="cp-pill cp-pill--inline">${cpEsc(cpCreditsText(credits))}</span>`
         : '';
-      return `<a href="${it.route}"${cls}${ext}>${cpEsc(it.label)}${arrow}${pill}</a>`;
+      // The label is wrapped so the tablet rail can hide it with a clip-based
+      // visually-hidden rule rather than display:none. At 64px the icon is the only thing
+      // painted, but the anchor must keep an accessible name — display:none would strip it
+      // from the a11y tree and leave nine unlabelled links. title= adds the sighted hover
+      // tooltip on top of that; it is not a substitute for the text.
+      // The ↗ and the credits pill stay OUTSIDE the label span: the tablet rail hides the
+      // label, and the external affordance has to survive that (it becomes a corner badge
+      // on the icon). Inline order is unchanged at desktop — icon, label, ↗, pill.
+      const icon = it.icon ? `<span class="cp-nav-icon">${CP_ICON(it.icon)}</span>` : '';
+      return `<a href="${it.route}"${cls}${ext} title="${cpEsc(it.label)}">` +
+             `${icon}<span class="cp-nav-label">${cpEsc(it.label)}</span>${arrow}${pill}</a>`;
     }).join('\n        ');
     return `<div class="cp-nav-zone">
         <p class="cp-nav-eyebrow">${cpEsc(zone.eyebrow)}</p>
@@ -447,10 +472,15 @@ function renderCoachChrome({ activeNav = 'home', creditsPill = null, avatar = nu
       <div class="cp-brand">
         <span class="cp-brand-mark">InsightOut</span>
         <span class="cp-brand-sub">by Hive, Inc.</span>
+        <!-- 64px tablet rail can't hold the wordmark; CSS swaps in this abbreviation. -->
+        <span class="cp-brand-abbr" aria-hidden="true">IO</span>
       </div>
       ${renderCoachNavZones(activeNav)}
       <div class="cp-nav-foot">
-        <a href="/admin/logout" class="cp-nav-logout">Log out</a>
+        <a href="/admin/logout" class="cp-nav-logout" title="Log out">
+          <span class="cp-nav-icon">${CP_ICON('<path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3"/><path d="m16 17 5-5-5-5"/><line x1="21" y1="12" x2="9" y2="12"/>')}</span>
+          <span class="cp-nav-label">Log out</span>
+        </a>
       </div>
     </nav>
 
