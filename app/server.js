@@ -171,6 +171,9 @@ function getCreditPackages() {
   });
 }
 app.use((req, res, next) => {
+  // Liveness/transport probe must be reachable without credentials — a platform
+  // healthcheck carries none. Exposes no data beyond boot transport state.
+  if (req.path === '/health') return next();
   if (req.path === '/admin/login' || req.path.startsWith('/admin')) return next();
   // Coach portal (pages + /coach/assets/* static): session-gated via requireCoach, not
   // basic auth — mirrors the /admin exemption above.
@@ -208,6 +211,21 @@ function injectAssessmentBootstrap(html, intake, bootstrap) {
   if (bootstrap) tags += `\n<script>window.__hiveBootstrap = ${JSON.stringify(bootstrap)};</script>`;
   return html.replace('</head>', `${tags}\n</head>`);
 }
+
+// Liveness + transport health. Unauthenticated and deliberately info-light.
+// anthropic_transport reports whether the HTTP/1.1 undici pin was applied at
+// boot (see the degraded-transport alarm near the Anthropic client). Returns
+// 503 when degraded so a Railway healthcheckPath can fail the deploy and hold
+// the previous release, rather than promoting a known-bad transport state.
+// ANTHROPIC_TRANSPORT_OK is declared later at module scope; this handler only
+// reads it at request time, after module evaluation has completed.
+app.get('/health', (req, res) => {
+  const ok = ANTHROPIC_TRANSPORT_OK;
+  res.status(ok ? 200 : 503).json({
+    ok,
+    anthropic_transport: ok ? 'http1-pinned' : 'DEGRADED-unpinned',
+  });
+});
 
 // Serve the assessment SPA shell with the logo inlined (and intake when a
 // token session is active). The logo is injected unconditionally so the chrome
@@ -4252,6 +4270,26 @@ try {
   console.log('[startup] Anthropic client pinned to HTTP/1.1 (undici allowH2:false)');
 } catch (e) {
   console.error('[startup] could not pin Anthropic HTTP/1.1 via undici:', e.message);
+}
+
+// Degraded-transport alarm. The try/catch above is deliberately non-fatal, but a
+// silent fallback is NOT acceptable: without the H1 pin the SDK may negotiate
+// HTTP/2, which is exactly the Railway "Premature close" failure this block
+// exists to prevent. Previously the only signal was one stderr line, which is
+// indistinguishable from noise in a deploy log. Make it unmissable, and make it
+// machine-checkable via GET /health so a Railway healthcheckPath can gate on it.
+const ANTHROPIC_TRANSPORT_OK = !!anthropicFetch;
+if (!ANTHROPIC_TRANSPORT_OK) {
+  const bar = '='.repeat(72);
+  console.error(`\n${bar}
+[startup][DEGRADED] Anthropic transport is NOT pinned to HTTP/1.1.
+  The undici require failed, so the SDK will use its default fetch and may
+  negotiate HTTP/2. On Railway this causes mid-stream "Premature close"
+  errors on api.anthropic.com — assessments will fail intermittently.
+  This process is still serving traffic in a known-bad transport state.
+  Fix: ensure 'undici' resolves in app/node_modules, then redeploy.
+  Machine-checkable at: GET /health -> anthropic_transport
+${bar}\n`);
 }
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
