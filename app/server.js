@@ -353,7 +353,6 @@ const CP_NAV_ZONES = [
     { route: '/coach/reports',   label: 'My Reports',            id: 'reports' },
   ]},
   { eyebrow: 'Grow', items: [
-    { route: '/coach/advisor',   label: 'My InsightOut Advisor', id: 'advisor' },
     { route: '/coach/resources', label: 'Resources',             id: 'resources' },
     { route: '/coach/training',  label: 'Coach Training',        id: 'training' },
     { route: 'https://hive.mn.co', label: 'Enneagram Collective', id: 'collective', external: true },
