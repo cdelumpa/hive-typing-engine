@@ -5325,6 +5325,14 @@ async function runEmPrimary({ assessmentId, clientId, scores, intake, responsesS
     console.log(`[em][primary] #${assessmentId} EM-primary OK — type=${adapted.hypothesis.confirmed_type} (analysis=${analysisModelId}, report=opus)`);
     return adapted;
   } catch (e) {
+    // PR20: credit exhaustion must NOT degrade into the SM fallback. Returning
+    // null here sends runBackgroundJob into callClaudeWithRetry, which is
+    // guaranteed to fail the same way — that is the path that tripled an
+    // outage's cost. Rethrow so the chain short-circuits.
+    if (e && e.isCreditExhausted) {
+      console.error(`[em][primary][CREDIT] #${assessmentId} credit/billing failure — aborting chain, SM fallback suppressed`);
+      throw e;
+    }
     console.error(`[em][primary] #${assessmentId} EM-primary failed (falling back to SM):`, e && e.message);
     return null;
   }
@@ -5414,6 +5422,25 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
     // gate. session_state is already null, so the in_progress branch will
     // render the "contact your coach" dead-end message.
     if (clientId) await db.updateClientStatus(clientId, 'in_progress');
+
+    // PR20: credit exhaustion is an OPERATOR problem, not a per-assessment one.
+    // The generic "processing failed after all retries" coach email is actively
+    // misleading here — it implies a transient fault a retry might clear, when
+    // in fact every assessment will fail identically until the account is
+    // topped up. Emit an unmissable operator-specific signal instead.
+    if (err && err.isCreditExhausted) {
+      const bar = '='.repeat(72);
+      console.error(`\n${bar}
+[CREDIT-EXHAUSTED] Anthropic API credit/billing failure.
+  Assessment #${assessmentId} aborted. The EM -> SM fallback was SUPPRESSED
+  (it would have failed identically and tripled the cost of the outage).
+  EVERY assessment will fail this way until the Anthropic account is funded.
+  Detail: ${err.message}
+${bar}\n`);
+      await sendErrorNotification(intake, err, { creditExhausted: true }).catch(() => {});
+      return;
+    }
+
     await sendErrorNotification(intake, err);
     return;
   }
@@ -5544,16 +5571,27 @@ async function runBackgroundJob(systemPrompt, userMessage, intake, scores, asses
   }
 }
 
-async function sendErrorNotification(intake, err) {
+async function sendErrorNotification(intake, err, opts = {}) {
   if (!process.env.SENDGRID_API_KEY) return;
   const coachEmail = process.env.COACH_EMAIL_CAI || process.env.COACH_EMAIL;
+  // PR20: credit exhaustion gets its own subject and body. The generic wording
+  // ("failed after all retries") reads as a transient per-client fault; a credit
+  // failure is account-wide and blocks every assessment until it is fixed.
+  const credit = opts.creditExhausted === true;
   try {
     await sgMail.send({
       to:      coachEmail,
       from:    { name: 'InsightOut by Hive', email: process.env.SENDGRID_FROM_EMAIL },
-      subject: `[Hive Error] Assessment processing failed — ${intake.firstName} ${intake.lastName}`,
+      subject: credit
+        ? `[Hive ACTION REQUIRED] Anthropic credit exhausted — ALL assessments are failing`
+        : `[Hive Error] Assessment processing failed — ${intake.firstName} ${intake.lastName}`,
       text: [
-        `Assessment processing failed after all retries.`,
+        credit
+          ? `Anthropic API credit/billing failure. This is NOT a per-client fault:\n` +
+            `every assessment will fail until the Anthropic account is funded.\n\n` +
+            `No retry will clear this. The EM -> SM fallback was suppressed.\n` +
+            `Action: top up the Anthropic account, then re-run affected assessments.`
+          : `Assessment processing failed after all retries.`,
         ``,
         `Client: ${intake.firstName} ${intake.lastName}`,
         `Email: ${intake.email}`,
