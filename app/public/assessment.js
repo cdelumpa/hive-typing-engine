@@ -3004,6 +3004,12 @@ function attachHandlers() {
   // screens or interstitials (§0G.6). All resumable state was rehydrated at boot.
   const btnResumeContinue = document.getElementById('btn-resume-continue');
   if (btnResumeContinue) btnResumeContinue.addEventListener('click', () => {
+    // Belt-and-suspenders: a cold return skips the Welcome screen, so /begin never fires and
+    // the session never gets stamped with assessmentClientId — leaving mid-assessment /api/*
+    // calls to hit the basic-auth gate. beginAssessment() is idempotent (guarded by state._begun,
+    // server no-ops a repeat) and fires the same POST /begin the Start button would, re-stamping
+    // the session. The server also stamps on serve, so this is a redundant safety net.
+    beginAssessment();
     state.phase = state._resumeTarget || 'stage0';
     render();
   });
