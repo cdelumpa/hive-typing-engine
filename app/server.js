@@ -101,10 +101,15 @@ app.use(session({
   },
 }));
 
-// Basic auth — protects all routes except /admin (session auth) and token-based assessment sessions
+// Basic auth — protects all routes except /admin (session auth) and token-based assessment sessions.
+// Fail-fast: the gate is production-active (registered unconditionally below), so a missing
+// credential env var must refuse to boot rather than silently fall back to a public default.
+if (!process.env.BASIC_AUTH_USER || !process.env.BASIC_AUTH_PASSWORD) {
+  throw new Error('BASIC_AUTH_USER and BASIC_AUTH_PASSWORD must be set in environment variables.');
+}
 const basicAuthMiddleware = basicAuth({
   users: {
-    [process.env.BASIC_AUTH_USER || 'hive-enneagram']: process.env.BASIC_AUTH_PASSWORD || '9Types!',
+    [process.env.BASIC_AUTH_USER]: process.env.BASIC_AUTH_PASSWORD,
   },
   challenge: true,
   realm: 'Hive Typing Engine',
@@ -8820,6 +8825,12 @@ app.get('/assessment/:token', async (req, res) => {
         // 'resume-direct' falls through to the saved phase with no client change.
         const activeSession = !!(req.session && req.session.assessmentClientId === tokenRow.client_id);
         const route = activeSession ? 'resume-direct' : 'resume';
+        // Stamp the session on a cold return so mid-assessment /api/* calls clear the basic-auth
+        // gate (see the global middleware's session bypass). activeSession is read ABOVE, so the
+        // resume-screen UX (resume vs resume-direct) is unaffected. This sets only the auth-bypass
+        // flag — status/used_at side effects stay in POST /begin. express-session persists the
+        // modified session on response end, so no explicit save() is needed here.
+        req.session.assessmentClientId = tokenRow.client_id;
         html = injectAssessmentBootstrap(html, intake, { route, is_beta: tokenRow.is_beta === true }).replace('</head>', `${sessionTag}\n</head>`);
         return res.send(html);
       } catch (e) {
@@ -8872,6 +8883,10 @@ app.get('/assessment/:token', async (req, res) => {
       coaches = (all || []).filter((c) => c.is_active).map((c) => c.name);
     } catch (e) { /* roster is best-effort; intake falls back to seeded coaches */ }
     const bootstrap = { route: recordComplete ? 'profile-confirm' : 'intake', coaches, is_beta: tokenRow.is_beta === true };
+    // Stamp the session for a valid token served fresh, so any subsequent /api/* call clears the
+    // basic-auth gate even if the client reaches an AI call before POST /begin lands. Auth-bypass
+    // flag only; status/used_at side effects stay in POST /begin. Persisted on response end.
+    req.session.assessmentClientId = tokenRow.client_id;
     let html = fs.readFileSync(INDEX_HTML_PATH, 'utf8');
     html = injectAssessmentBootstrap(html, intake, bootstrap);
     return res.send(html);
