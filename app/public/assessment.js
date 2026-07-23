@@ -2434,6 +2434,7 @@ function renderTypesToInstinctsBridge() {
   return `<div class="screen">
     ${renderPartmap('part1')}
     <p class="ic-subhead bridge-encouragement"><span class="bridge-encouragement-lead">Great work so far.</span> You’re in the home stretch of Part 1 — a few more questions and you’ll be on to Part 2!</p>
+    <p class="ic-subhead">These next questions take a different angle — which basic needs you tend to prioritize, and how. Same as before: go with your first reaction.</p>
     <div class="nav-row">
       <button class="btn btn-ghost" id="btn-back">Back</button>
       <div class="spacer"></div>
