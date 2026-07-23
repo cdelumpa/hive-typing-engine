@@ -6324,6 +6324,19 @@ app.post('/api/call1', async (req, res) => {
 });
 
 // Original endpoint — kept unchanged for the test runner
+//
+// Request-scoped, unlike /api/submit: nobody is waiting on the result but the caller
+// that opened this socket, and nothing here is persisted. So when that caller goes away
+// — Ctrl-C on a fixture run, a killed test process — the work is worthless and every
+// further token is wasted spend. Without an abort, a disconnect used to leave the
+// in-flight call running to completion AND let the retry loop below fund up to two more,
+// all writing to a socket no one reads.
+//
+// This is deliberately NOT the pattern for the other AI routes. /api/submit runs
+// runBackgroundJob fire-and-forget precisely so it OUTLIVES the request (the client
+// closes the tab and gets the report by email), and /api/call1 persists its result via
+// saveCall1Result so a dropped client can resume without paying for Call #1 twice.
+// Aborting either on disconnect would destroy work that is meant to survive it.
 app.post('/api/analyze', async (req, res) => {
   const { contextBlock } = req.body;
   const systemPrompt = `${SYSTEM_PROMPT}\n\n${TASK_INSTRUCTIONS}`;
@@ -6333,7 +6346,24 @@ app.post('/api/analyze', async (req, res) => {
 
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  // Must be res.on('close'), NOT req.on('close'): on an IncomingMessage, 'close' fires
+  // once the request body has been read — which body-parser does immediately — so a req
+  // hook aborts every call the instant it arrives, not when the caller leaves. On the
+  // response, 'close' fires when the connection actually closes; writableEnded then
+  // separates a normal finish from a disconnect, so a completed request never aborts.
+  const ac = new AbortController();
+  res.on('close', () => {
+    if (!res.writableEnded && !ac.signal.aborted) {
+      console.warn('[analyze] client disconnected — aborting in-flight call, no further attempts');
+      ac.abort();
+    }
+  });
+
   for (let attempt = 1; attempt <= 3; attempt++) {
+    // Covers the gap between a retry's backoff sleep and the next call: without this,
+    // a disconnect during the wait would still buy attempt N+1.
+    if (ac.signal.aborted) return;
+
     try {
       const response = await client.messages.create({
         model: 'claude-sonnet-4-6',
@@ -6346,7 +6376,7 @@ app.post('/api/analyze', async (req, res) => {
           },
         ],
         messages: [{ role: 'user', content: userMessage }],
-      });
+      }, { signal: ac.signal });
 
       // Logged before the parse so a truncation is named as such on the line
       // above the SyntaxError it causes.
@@ -6362,6 +6392,15 @@ app.post('/api/analyze', async (req, res) => {
       console.log(`[analyze] success — attempt ${attempt}, ${elapsed}s, confirmed_type=${result?.hypothesis?.confirmed_type}, confidence=${result?.hypothesis?.confidence_level}, outcome=${result?.hypothesis?.stage4_outcome}, flags=${result?.flags?.length ?? 0}`);
       return res.json({ ok: true, result });
     } catch (err) {
+      // An abort surfaces here as a thrown error, but it is not a failure — it is us
+      // cancelling on purpose. Return before classification so it is never counted as an
+      // attempt, retried, or logged as though the API broke.
+      if (ac.signal.aborted) {
+        const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+        console.warn(`[analyze] aborted after ${elapsed}s on attempt ${attempt} — client gone, nothing to return`);
+        return;
+      }
+
       const c = apiErrors.classifyApiError(err);
       console.error(`[analyze] attempt ${attempt} failed — kind=${c.kind} status=${c.status ?? 'n/a'}: ${c.message}`);
 
@@ -6377,6 +6416,11 @@ app.post('/api/analyze', async (req, res) => {
       await delay(wait);
     }
   }
+
+  // Aborted runs already returned above; this guard covers the break-out-of-loop paths
+  // (credit failure, non-retryable, budget exhausted) racing a disconnect. Writing to a
+  // closed socket is harmless but logs a misleading "returning fallback" line.
+  if (ac.signal.aborted) return;
 
   console.error('[analyze] attempts exhausted — returning fallback to client');
   return res.status(500).json({
