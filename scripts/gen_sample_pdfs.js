@@ -121,11 +121,12 @@ Final open response (optional): ${finalOpen}`;
 }
 
 const http = require('http');
+const { basicAuthHeader } = require(path.join(__dirname, '..', 'tests', 'lib', 'basic-auth'));
 
 function postAnalyze(systemPrompt, userMessage) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({ systemPrompt, userMessage });
-    const authHeader = 'Basic ' + Buffer.from('hive-enneagram:9Types!').toString('base64');
+    const authHeader = basicAuthHeader();
     const req = http.request({
       hostname: 'localhost', port: 3000, path: '/api/analyze', method: 'POST',
       headers: {

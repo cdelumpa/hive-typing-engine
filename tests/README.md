@@ -77,8 +77,24 @@ Fixtures resolve as `tests/fixtures/<name>.json`. The remaining files in
 names. Run with no argument to have the runner list what is available.
 
 The runner authenticates with `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`,
-falling back to `hive-enneagram` / `9Types!` (`tests/run_test.js:150-151`,
-matching the server defaults at `app/server.js:106-107`).
+resolved by `tests/lib/basic-auth.js`: `process.env` first, then whatever
+`app/.env` holds — the same file the server boots from, so a local run
+matches the server without any manual export. If neither supplies both
+values the runner throws before making a request; there is deliberately no
+hardcoded fallback pair, because a stale one silently 401s once the password
+rotates. There are no server-side defaults to fall back to either —
+`app/server.js:107` refuses to boot when the vars are unset.
+
+Only those two keys are read out of `app/.env`, and nothing is written into
+`process.env`. Do not "simplify" this to `dotenv.config()` or
+`node -r dotenv/config`: `app/.env`'s `DATABASE_URL` points at **production**,
+and the runner needs no database at all (`[db] DATABASE_URL not set —
+database features disabled` in its output is expected and correct — the
+server holds the DB connection).
+
+A preflight runs before any billable call and separates the three failure
+modes that otherwise all surface mid-run: server not started
+(`ECONNREFUSED`), server up but rejecting the credentials (401), and ready.
 
 ### What the fixture suite does *not* cover
 

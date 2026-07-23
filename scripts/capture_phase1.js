@@ -93,9 +93,7 @@ delete require.cache[tmpMod];
 const { buildCall2Context } = require(tmpMod);
 
 // ── HTTP (same auth/POST as run_test.js) ──
-const authUser = process.env.BASIC_AUTH_USER || 'hive-enneagram';
-const authPass = process.env.BASIC_AUTH_PASSWORD || '9Types!';
-const authHeader = 'Basic ' + Buffer.from(`${authUser}:${authPass}`).toString('base64');
+const authHeader = require(path.join(__dirname, '..', 'tests', 'lib', 'basic-auth')).basicAuthHeader();
 function post(routePath, payload) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify(payload);
