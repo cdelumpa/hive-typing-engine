@@ -46,6 +46,8 @@ const renderReport = require(path.join(__dirname, '..', 'app', 'render_report'))
 // this in runBackgroundJob AFTER Call #2 returns; /api/analyze does NOT, so the runner
 // replays it here to be faithful to what a completed assessment actually persists.
 const { applyCall2DeterministicStamps } = require(path.join(__dirname, '..', 'app', 'call2_stamp'));
+// Per-kind page-container contract + counter, shared with tests/report_pages_test.js.
+const { PAGE_INVENTORY, EXPECTED_PAGES, countPages, pageBreakdown } = require(path.join(__dirname, 'lib', 'report_page_inventory'));
 
 // ─── Args ─────────────────────────────────────────────────────────────────────
 const fixtureName = (process.argv[2] || '').toLowerCase();
@@ -362,11 +364,29 @@ async function runAssert() {
   const intake = state.intake || {};
   const client = { first_name: intake.firstName || 'Test', last_name: intake.lastName || 'Client', organization: intake.organization, date: 'June 2026' };
   const coach = { full_name: intake.coach || 'Cai Delumpa', type: null, instinct: null };
+  // Page-container inventory differs by report kind (drift documented in
+  // docs/client_report_test_coverage_audit_072326.md): the COACH renderer emits
+  // class="report-page" ×3; the CLIENT renderer emits .cover ×3 (Title/TOC/Welcome),
+  // .page ×1 (P2 primer), and .p3-page….p8-page ×6 = 10 containers, none matching
+  // "report-page". The old counter only matched "report-page", so the client count
+  // was structurally always 0. The contract + counter live in tests/lib so this
+  // live runner and the offline structural test (tests/report_pages_test.js) share
+  // one source of truth and can never drift.
   for (const [kind, fn] of [['coach', renderReport.renderCoachReport], ['client', renderReport.renderClientReport]]) {
     try {
       const r = await fn({ apiResult: result, client, coach });
-      const pageCount = (r.html.match(/class="report-page/g) || []).length;
-      checkTrue(`${kind} report renders (${pageCount} pages)`, typeof r.html === 'string' && r.html.length > 0);
+      const rendered = typeof r.html === 'string' && r.html.length > 0;
+      if (!rendered) { checkTrue(`${kind} report renders`, false); continue; }
+      const expected = EXPECTED_PAGES[kind];
+      const total = countPages(r.html, kind);
+      checkTrue(`${kind} report renders (${total}/${expected} pages)`, total >= expected);
+      // Per-selector inventory (stronger than the total): each expected container
+      // present its expected count. Catches a *specific* page vanishing while a
+      // duplicate keeps the total intact, and an unexpected extra page.
+      const found = pageBreakdown(r.html, kind);
+      for (const [sel, want] of Object.entries(PAGE_INVENTORY[kind])) {
+        checkTrue(`${kind} .${sel} ×${want} (found ${found[sel]})`, found[sel] === want);
+      }
     } catch (e) {
       checkTrue(`${kind} report renders`, false);
       console.log(`      ${e.message}`);
