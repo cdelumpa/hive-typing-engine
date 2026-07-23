@@ -147,9 +147,52 @@ delete require.cache[tmpMod];
 const { buildContextBlock, buildCall2Context } = require(tmpMod);
 
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
-const authUser = process.env.BASIC_AUTH_USER || 'hive-enneagram';
-const authPass = process.env.BASIC_AUTH_PASSWORD || '9Types!';
-const authHeader = 'Basic ' + Buffer.from(`${authUser}:${authPass}`).toString('base64');
+// Credentials come from process.env, else app/.env — see tests/lib/basic-auth.js.
+// No fallback pair lives here: a stale literal is how a rotated password turned into a
+// 401 that read as a JSON parse error.
+const { resolveBasicAuth, basicAuthHeader } = require(path.join(__dirname, 'lib', 'basic-auth'));
+const { source: authSource } = resolveBasicAuth();
+const authHeader = basicAuthHeader();
+
+// Turn a non-2xx into a message that names the likely cause. 401 is the one worth
+// spelling out: the credentials resolved fine locally but the server disagreed.
+function describeHttpFailure(routePath, statusCode, body) {
+  const snippet = (body || '').slice(0, 400).trim();
+  if (statusCode === 401) {
+    return `HTTP 401 from ${routePath} — Basic Auth rejected (credentials came from ${authSource}).\n` +
+           '  The server was reached, so it is running; it did not accept these credentials.\n' +
+           '  Check that BASIC_AUTH_USER / BASIC_AUTH_PASSWORD in app/.env match the values the\n' +
+           '  server booted with, and that no stale export is shadowing them in this shell.';
+  }
+  return `HTTP ${statusCode} from ${routePath}${snippet ? `\n${snippet}` : ''}`;
+}
+
+// Fail fast, before anything billable. Distinguishes the three states that otherwise all
+// surface mid-run: server down, server up but rejecting us, server ready. One unauthenticated-
+// cost GET against the app root — no Anthropic call, no fixture work.
+function preflight() {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname: 'localhost', port: 3000, path: '/', method: 'GET',
+      headers: { 'Authorization': authHeader },
+      timeout: 10000,
+    }, (res) => {
+      res.resume();
+      if (res.statusCode === 401) return reject(new Error(describeHttpFailure('/', 401, '')));
+      console.log(`[preflight] server up, auth accepted (credentials from ${authSource})\n`);
+      resolve();
+    });
+    req.on('error', (e) => reject(new Error(
+      e.code === 'ECONNREFUSED'
+        ? 'Server is not running on localhost:3000.\n' +
+          '  Start it from the repo root: node scripts/dev-local.js\n' +
+          '  (dev-local points the server at the LOCAL database; plain `npm start` uses app/.env, which is production.)'
+        : `Preflight request failed: ${e.message}`
+    )));
+    req.on('timeout', () => req.destroy(new Error('Preflight timed out after 10s against localhost:3000')));
+    req.end();
+  });
+}
 
 function post(routePath, payload) {
   return new Promise((resolve, reject) => {
@@ -170,6 +213,12 @@ function post(routePath, payload) {
       res.on('end', () => {
         const elapsed = ((Date.now() - start) / 1000).toFixed(1);
         console.log(`[API] ${routePath} done — ${elapsed}s, HTTP ${res.statusCode}`);
+        // Status first: a 401 carries an empty body, so parsing before checking turns an
+        // auth failure into "Unexpected end of JSON input" and sends the reader hunting
+        // through the payload instead of the credentials.
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          return reject(new Error(describeHttpFailure(routePath, res.statusCode, data)));
+        }
         try { resolve(JSON.parse(data)); }
         catch (e) { reject(new Error(`Parse error from ${routePath}: ${e.message}\n${data.slice(0,400)}`)); }
       });
@@ -330,6 +379,7 @@ async function runAssert() {
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
 (async () => {
+  await preflight();
   if (CAPTURE_MODE) await runCapture();
   else await runAssert();
 })().catch(e => { console.error('\n[ERROR]', e.message); process.exit(1); });
