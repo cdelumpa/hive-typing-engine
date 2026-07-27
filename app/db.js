@@ -1619,6 +1619,7 @@ const ADMIN_ROWS_SELECT = `
     r_co.pdf_path   AS coach_pdf,
     a.pdf_generated_at,
     a.email_sent_at,
+    a.auto_send_report,
     (a.scores_snapshot IS NOT NULL) AS has_scores_snapshot,
     (a.api_result IS NOT NULL)      AS has_api_result,
     a.elapsed_seconds,
@@ -2593,6 +2594,30 @@ async function getAssessmentPayload(clientId) {
     [clientId]
   );
   return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// Assessment-scoped payload. getAssessmentPayload picks a client's LATEST assessment, which
+// is ambiguous once retakes exist — a coach resending from an older card would hit the wrong
+// row. This targets the exact assessment the card represents. Returns status + client_id so
+// callers can enforce ownership and the complete-only guard without a second query.
+async function getAssessmentPayloadById(assessmentId) {
+  const r = await query(
+    `SELECT id AS assessment_id, client_id, status, api_result, scores_snapshot, responses,
+            pdf_generated_at, email_sent_at, auto_send_report
+     FROM assessments WHERE id = $1 LIMIT 1`,
+    [assessmentId]
+  );
+  return r && r.rows.length > 0 ? r.rows[0] : null;
+}
+
+// Flip the client-report delivery preference (auto_send_report) after provisioning. The
+// route enforces ownership and that the assessment is still pre-completion — post-completion
+// the flag is inert (delivery already ran), so this writer is not the place to send anything.
+async function setAssessmentDeliveryPreference(assessmentId, autoSend) {
+  await query(
+    'UPDATE assessments SET auto_send_report = $1 WHERE id = $2',
+    [!!autoSend, assessmentId]
+  );
 }
 
 // ─── Coach Debrief Confirmation ────────────────────────────────────────────────
@@ -4317,6 +4342,8 @@ module.exports = {
   resendInviteTransaction,
   retakeTransaction,
   getAssessmentPayload,
+  getAssessmentPayloadById,
+  setAssessmentDeliveryPreference,
   getAssessmentOwnerCoachId,
   updateCoachDebrief,
   getClientWithCoach,
