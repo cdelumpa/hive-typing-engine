@@ -209,6 +209,67 @@
     dbDate.addEventListener('change', saveDebrief);
   }
 
+  /* Report delivery preference — Auto-send / Hold radios, one block per pre-completion
+     assessment card, saved on change. Only rendered before the report exists; the server
+     also refuses the change once complete, so a stale page can't write a misleading value. */
+  Array.prototype.forEach.call(document.querySelectorAll('.cp-delivery'), function (block) {
+    var hint = block.querySelector('.cp-delivery-hint');
+    Array.prototype.forEach.call(block.querySelectorAll('input[type="radio"]'), function (radio) {
+      radio.addEventListener('change', function () {
+        if (!radio.checked) return;
+        var auto = radio.value === 'true';
+        setHint(hint, 'Saving…', false);
+        fetch('/coach/clients/' + block.dataset.client + '/delivery', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ assessmentId: block.dataset.assessment, autoSendReport: auto }),
+        }).then(function (r) {
+          if (!r.ok) throw new Error('save failed');
+          setHint(hint, auto ? 'Saved — will send automatically' : 'Saved — held for manual delivery', false);
+        }).catch(function () {
+          setHint(hint, 'Not saved — please try again', true);
+        });
+      });
+    });
+  });
+
+  /* Send / Resend client report — completed assessment cards. Confirms first (it emails the
+     client), disables the button during the request, then reflects the new state in place
+     (label flips to "Resend Report", status line updates) without a reload. */
+  Array.prototype.forEach.call(document.querySelectorAll('.cp-asmt-send'), function (block) {
+    var btn = block.querySelector('.cp-resend-btn');
+    var status = block.querySelector('.cp-send-status');
+    var hint = block.querySelector('.cp-send-hint');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var firstSend = btn.textContent.indexOf('Resend') === -1;
+      var msg = firstSend
+        ? 'Send the report to this client by email now?'
+        : 'Resend the report to this client by email?';
+      if (!window.confirm(msg)) return;
+      btn.disabled = true;
+      setHint(hint, 'Sending…', false);
+      fetch('/coach/clients/' + block.dataset.client + '/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ assessmentId: block.dataset.assessment }),
+      }).then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      }).then(function (res) {
+        btn.disabled = false;
+        if (!res.ok) throw new Error((res.d && res.d.message) || 'send failed');
+        btn.textContent = 'Resend Report';
+        if (status) status.textContent = 'Sent just now';
+        setHint(hint, 'Report sent', false);
+      }).catch(function (err) {
+        btn.disabled = false;
+        setHint(hint, err.message || 'Not sent — please try again', true);
+      });
+    });
+  });
+
   /* Create New Assessment modal → POST /coach/clients/provision (coach-scoped; the request
      carries no coachId — the server pins it to the session). */
   var modal = $('cp-modal');

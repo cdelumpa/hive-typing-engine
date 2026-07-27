@@ -1135,6 +1135,29 @@ function renderAssessmentHistory(assessments) {
     };
     const links = [link(a.client_pdf, 'Client Report'), link(a.coach_pdf, 'Coach Report')].filter(Boolean).join('');
 
+    // Delivery preference toggle — only meaningful BEFORE the report is generated (matching
+    // the server guard on /coach/clients/:id/delivery). Once complete, the flag is inert and
+    // we show the send/resend control instead. Cancelled assessments show neither.
+    const isPreCompletion = !a.cancelled_at && (eff === 'not_started' || eff === 'in_progress');
+    const autoSend = a.auto_send_report === true;
+    const deliveryBlock = isPreCompletion ? `
+              <div class="cp-delivery" data-client="${a.client_id}" data-assessment="${a.assessment_id}">
+                <p class="cp-eyebrow cp-eyebrow--sp">Report Delivery</p>
+                <label class="cp-radio"><input type="radio" name="cp-delivery-${a.assessment_id}" value="true"${autoSend ? ' checked' : ''}> Send automatically when ready</label>
+                <label class="cp-radio"><input type="radio" name="cp-delivery-${a.assessment_id}" value="false"${autoSend ? '' : ' checked'}> Hold report — I'll deliver manually</label>
+                <p class="cp-saved-hint cp-delivery-hint" hidden></p>
+              </div>` : '';
+
+    // Send / Resend control — completed assessments only. "Send Report to Client" until the
+    // client email has gone out (email_sent_at NULL, e.g. a held report); "Resend Report"
+    // afterward. The status line mirrors the admin dashboard's Email column.
+    const sendBlock = (isComplete && !a.cancelled_at) ? `
+              <div class="cp-asmt-send" data-client="${a.client_id}" data-assessment="${a.assessment_id}">
+                <button type="button" class="cp-resend-btn">${a.email_sent_at ? 'Resend Report' : 'Send Report to Client'}</button>
+                <span class="cp-send-status">${a.email_sent_at ? `Sent ${cpEsc(cpDate(a.email_sent_at))}` : 'Not yet sent to client'}</span>
+                <span class="cp-saved-hint cp-send-hint" hidden></span>
+              </div>` : '';
+
     return `
             <article class="cp-asmt">
               <div class="cp-asmt-head">
@@ -1143,7 +1166,9 @@ function renderAssessmentHistory(assessments) {
               </div>
               <p class="cp-asmt-meta">${meta}</p>
               ${typeLine}
+              ${deliveryBlock}
               ${links ? `<div class="cp-asmt-links">${links}</div>` : ''}
+              ${sendBlock}
             </article>`;
   }).join('');
 }
@@ -1738,6 +1763,122 @@ app.post('/coach/clients/:id/debrief', requireCoach, requireOnboardingComplete, 
   } catch (e) {
     console.error('[POST /coach/clients/:id/debrief] failed:', e.message);
     return res.status(500).json({ ok: false, error: 'SAVE_FAILED' });
+  }
+});
+
+// POST /coach/clients/:id/delivery — change the client-report delivery preference
+// (auto_send_report) AFTER provisioning. The provisioning modal sets this once; this lets a
+// coach flip Auto-send ↔ Hold while the client is still working, without cancelling and
+// re-provisioning. Post-completion the flag is inert (delivery already ran), so this is
+// gated to pre-completion states — the UI hides the toggle then, and the server refuses it
+// too so a stale page can't write a misleading value. Ownership is enforced two ways:
+// loadOwnedClient pins the client to the session, and the assessment must belong to it.
+app.post('/coach/clients/:id/delivery', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const client = await loadOwnedClient(req, res, req.params.id);
+  if (!client) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const assessmentId = parseInt(req.body.assessmentId, 10);
+  if (!assessmentId || isNaN(assessmentId)) {
+    return res.status(400).json({ ok: false, error: 'BAD_ASSESSMENT' });
+  }
+  const autoSendReport = req.body.autoSendReport === true || req.body.autoSendReport === 'true';
+
+  try {
+    const asmt = await db.getAssessmentPayloadById(assessmentId);
+    if (!asmt || asmt.client_id !== client.id) {
+      return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+    }
+    // Pre-completion only. 'complete' has already delivered (or intentionally held) — flipping
+    // the flag now would change nothing and misrepresent state. 'processing' is mid-delivery.
+    if (asmt.status === 'complete' || asmt.status === 'processing') {
+      return res.status(409).json({ ok: false, error: 'LOCKED', message: 'Delivery preference can only be changed before the report is generated.' });
+    }
+    await db.setAssessmentDeliveryPreference(assessmentId, autoSendReport);
+    db.logClientEvent({
+      clientId: client.id, assessmentId,
+      eventType: 'delivery_pref_changed',
+      eventDescription: `Report delivery set to ${autoSendReport ? 'auto-send' : 'hold for manual delivery'}`,
+      actor: req.session.coach_name,
+    });
+    return res.json({ ok: true, autoSendReport });
+  } catch (e) {
+    console.error('[POST /coach/clients/:id/delivery] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'SAVE_FAILED' });
+  }
+});
+
+// POST /coach/clients/:id/resend — coach-initiated report delivery. Mirrors /admin/resend's
+// send-and-stamp, but coach-scoped and targeted at a specific assessment (retakes mean a
+// client can hold several complete rows). Deliberate divergence from admin: this sends the
+// CLIENT report only — the coach already holds both PDFs on the card and got the coach prep
+// at completion, so re-mailing themselves on every click is noise. sendClientReportEmail is
+// called with autoSendReport=true, so it delivers and stamps email_sent_at regardless of the
+// hold flag — this action IS the manual delivery a held report was waiting for.
+app.post('/coach/clients/:id/resend', requireCoach, requireOnboardingComplete, async (req, res) => {
+  const client = await loadOwnedClient(req, res, req.params.id);
+  if (!client) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+  const assessmentId = parseInt(req.body.assessmentId, 10);
+  if (!assessmentId || isNaN(assessmentId)) {
+    return res.status(400).json({ ok: false, error: 'BAD_ASSESSMENT' });
+  }
+
+  try {
+    const payload = await db.getAssessmentPayloadById(assessmentId);
+    if (!payload || payload.client_id !== client.id) {
+      return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+    }
+    if (payload.status !== 'complete') {
+      return res.status(409).json({ ok: false, error: 'NOT_COMPLETE', message: 'The report is not ready to send yet.' });
+    }
+    if (!payload.api_result) {
+      return res.status(400).json({ ok: false, error: 'NO_PAYLOAD', message: 'No stored report data for this assessment.' });
+    }
+
+    const clientInfo = await db.getClientWithCoach(client.id);
+    if (!clientInfo) return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+
+    const intake = {
+      firstName:          clientInfo.first_name,
+      lastName:           clientInfo.last_name,
+      email:              clientInfo.email,
+      organization:       clientInfo.organization || '',
+      coach:              clientInfo.coach_name,
+      coach_email:        clientInfo.coach_email,
+      coach_organization: clientInfo.coach_organization,
+    };
+
+    const result = typeof payload.api_result === 'string' ? JSON.parse(payload.api_result) : payload.api_result;
+    const scores = typeof payload.scores_snapshot === 'string'
+      ? JSON.parse(payload.scores_snapshot)
+      : (payload.scores_snapshot || {});
+
+    // Regenerate PDFs if missing (same guard as admin resend), so a report whose files were
+    // pruned still delivers rather than sending a note-only email.
+    if (!payload.pdf_generated_at) {
+      await db.deleteReportsByAssessmentId(assessmentId);
+      try {
+        await generateReportPDFs(result, scores, intake, assessmentId);
+        await db.query(`UPDATE assessments SET pdf_generated_at = NOW() WHERE id = $1`, [assessmentId]);
+      } catch (e) {
+        console.error('[coach/resend] PDF regeneration failed:', e.message);
+      }
+    }
+
+    const reports = await db.getAssessmentReports(assessmentId);
+    await sendClientReportEmail(intake, result, reports.clientPdf, assessmentId, true);
+
+    db.logClientEvent({
+      clientId: client.id, assessmentId,
+      eventType: 'report_delivered',
+      eventDescription: 'Client report delivered (coach manual send)',
+      actor: req.session.coach_name,
+    });
+    console.log(`[coach/resend] client report sent for assessment #${assessmentId} by coach #${req.session.coach_id}`);
+    return res.json({ ok: true, email_sent_at: new Date().toISOString() });
+  } catch (e) {
+    console.error('[POST /coach/clients/:id/resend] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'SEND_FAILED', message: 'Email delivery failed. Please try again.' });
   }
 });
 
