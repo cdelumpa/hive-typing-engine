@@ -250,6 +250,110 @@ Standard precaution: commit or stash before starting, so `git checkout` is a cle
 
 ---
 
+## 8. Round 2 — guard design, the asterisk, and the fast path
+
+Added 12 August 2026 after audit review. §8.1 supersedes the guard recommendation implied in §5.1 and §6.
+
+### 8.1 The sha256 discriminator is sound for its target case — but the CI check strictly dominates it, and the build-time refusal should be retired
+
+**The design problem you identified is real, and worse than stated.** Post-reconciliation, a legitimate Word edit is *indistinguishable* to the current guard from the corruption it exists to prevent: Mo edits the docx, rebuilds, fields change, the guard refuses. `--accept-drift` becomes the normal authoring path, and a flag used routinely is not a guard.
+
+**Is the docx-hash discriminator sound?** For the case it targets, yes. But it mishandles **all three** edge cases you named, and they are not exotic — two of them are already scheduled work:
+
+| Case | Docx hash | Content differs | Discriminator says | Correct answer |
+|---|---|---|---|---|
+| Mo edits docx, rebuilds | changed | yes | proceed ✓ | proceed |
+| Someone edits JSON directly | unchanged | yes | refuse ✓ | refuse |
+| **Docx and JSON both edited** | changed | yes | **proceed** — silently discards the JSON edit | rebuild wins, but the discard should be visible |
+| **Parser/schema change** (the ~10-line wing-field extension) | unchanged | yes | **refuse** ✗ | proceed |
+| **`INTERIM_*` constant corrected** (e.g. Wings content for types 1–8) | unchanged | yes | **refuse** ✗ | proceed |
+
+The last two are the same failure: the *script* is the source of the change, and hashing the docx cannot see that. Fixing it needs a second hash over the builder — but any edit to the script, including a comment, would then disarm the guard. That is a wider hole than the one being closed.
+
+**The deeper issue: the build-time guard is checking the wrong thing at the wrong moment.** It compares *pending output* against *committed JSON* at the moment someone happens to rebuild — which may be weeks after the offending edit, and lands on whoever rebuilt rather than whoever edited.
+
+**The CI invariant catches strictly more, with no heuristic:**
+
+| Scenario | Build-time guard | CI invariant |
+|---|---|---|
+| JSON edited directly | caught, at next rebuild | **caught, in the PR that does it** |
+| Docx edited, rebuilt, both committed | **blocked (false positive)** | passes |
+| **Docx edited but never rebuilt** | **invisible** | **caught** |
+| Parser / `INTERIM_*` change | **blocked (false positive)** | passes once rebuilt |
+| Docx + JSON edited together | silently discards JSON edit | caught if JSON ≠ build |
+
+The CI check needs no discriminator, no flag, and no notion of "legitimate". It asserts one fact — *the committed JSON is what this docx and this script produce* — which is exactly the invariant, and it catches the docx-edited-but-not-rebuilt case the guard structurally cannot.
+
+**Recommendation: retire the build-time refusal; let the script go back to being a simple deterministic producer.**
+
+- Replace the refusal with an **informational summary** — print what changed and proceed. Useful, harmless, no flag.
+- **Remove `--accept-drift` entirely.** With no refusal there is nothing to override, which is the outcome §6 wanted rather than the flag becoming load-bearing.
+- **Sequencing matters:** the guard must survive until the patch is complete, because "the guard stops objecting" is the reconciliation's own success signal (§5.1). Retire it in the same PR, *after* the patch verifies. It was scaffolding for exactly this operation, and it did its job — it blocked a 130-field revert and then served as the proof the revert was resolved.
+
+**What the CI check asserts** (this is the only enforcement that survives):
+
+```
+build(docx + INTERIM_* constants + builder) == committed content_library.json,
+compared over all leaf fields, ignoring _meta
+```
+
+Built to a temporary location so CI can never mutate the committed artifact — `verify_content_library.js` already does this. On failure it should list the differing paths, since "which fields" is the whole diagnostic.
+
+### 8.2 Be precise about what green proves — measured
+
+**Measured:** of **1,376** leaf fields in the library, **23** are produced by script constants rather than parsed from Word:
+
+| Source | Leaves |
+|---|---|
+| `INTERIM_WELCOME` → `static.welcome.*` | 7 |
+| `INTERIM_WINGS_USING` → `static.wings_using` | 1 |
+| `INTERIM_WINGS_V3` → `type_9.wings.*` | 15 |
+| **Total script-sourced** | **23** |
+| **Word-sourced** | **1,353** |
+
+**So Word is canonical for 98.3% of leaves after reconciliation, not 100%.** A green check proves `JSON == build(docx + constants)`, which is a weaker claim than `JSON == build(docx)`.
+
+Agreed this belongs in the check's own output, not only here. The check should print something to the effect of:
+
+> `Word-canonical: 1353/1376 leaves. 23 leaves come from INTERIM_* constants in build_content_library.js (static.welcome, static.wings_using, type_9 v3 wing fields) and are NOT proven canonical by this check.`
+
+— so the number moves as constants are retired into Word, and a future reader cannot mistake green for something stronger. The PR description should carry the same asterisk: *"Word is canonical for 1,353 of 1,376 leaves; 23 remain in script constants pending Word sections."*
+
+### 8.3 The fast path — it already exists, and costs 0.23 seconds
+
+**This turned out to be a non-problem, and the measurements say so plainly.**
+
+| Step | Time (measured) |
+|---|---|
+| `node scripts/build_content_library.js` | **0.23s** |
+| Render one v3 page + measure height (incl. Chromium launch) | **0.84s** |
+| Full `verify:render` (2 fixtures × 3 reports) | 8.77s |
+
+Editing JSON still requires a render to see whether a page fits — **0.84s**. Editing Word requires the same render plus the rebuild — **1.07s**. **The entire penalty for doing it the correct way is 0.23 seconds**, and it is dominated by Chromium startup either way.
+
+So the friction was never computational. It was that no single command existed, so the Word path *felt* like extra steps at exactly the moment (a page spilling, mid-iteration) when extra steps are least welcome.
+
+**Recommendation — one npm script, ~5 lines:**
+
+```
+npm run content:check     # rebuild from docx, render the page, print measured height
+```
+
+That makes the correct path a single command, and it is the same command whether you edited Word or anything else. A `--watch` variant on the docx mtime (~15 lines with `fs.watch`) would make the Word path *faster* than editing JSON ever was, since there is no command to run at all — save in Word, see the new height.
+
+I would ship the plain command with this PR and leave watch mode until PR 3 actually demands it. **No knowing acceptance of friction is required — there is essentially none to accept.**
+
+### 8.4 The bold record — deliberately mixed, and recorded as such
+
+Agreed on the judgement. The patch will record, in the PR description and in a comment where the collapse happens:
+
+- **8 paragraphs keep their bold lead-in** — the new text still begins with the bolded phrase verbatim, so run 1 is patched and run 0 is untouched.
+- **20 paragraphs are collapsed to a single unbolded run** — the edit rewrote the lead-in, and for 18 of them the em-dash construction the bold was marking no longer exists in the prose. Preserving bold across a rewritten sentence would assert a structure that is no longer there.
+
+The resulting docx state — 8 bold, 20 not — is **deliberate, not an inconsistency to be tidied**. It is exactly the input Mo's pending coordinated bold lead-in pass needs: the 20 are the ones whose lead-in structure was rewritten and therefore need a fresh formatting decision, and the 8 are the ones where the original decision still holds. The list of all 28 with their disposition will be included in the PR description so the pass has it.
+
+---
+
 ## Appendix — method and reproduction
 
 - **Split, provenance, structural comparison:** built the docx to a scratch copy, restored the committed file immediately (`git status` verified clean at every step). Leaf-flattening compares scalar values at full dotted paths including array indices.
