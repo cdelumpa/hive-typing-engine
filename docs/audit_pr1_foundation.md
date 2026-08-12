@@ -16,7 +16,9 @@
 2. **Dev and production already render with different Chromium versions.** Production uses Puppeteer's bundled **147.0.7727.57**; local dev uses system Chrome **151.0.7922.137**. The §3.3 risk is not hypothetical — it is live today, and every local measurement is being taken on the wrong engine.
 3. **CSS consolidation is far smaller, and differently shaped, than the plan assumes.** Of 285 unique selectors, only **9** are shared identically and **15** conflict semantically; **261 (92%) are single-page component CSS**. The work is *reconciling 15 drifted selectors*, not extracting 478 rules. And the drift is load-bearing: `.lead` carries five different `margin-bottom` values tuned for single-sheet fit.
 4. **`scripts/build_content_library.js` is a loaded gun.** The committed `content_library.json` contains a hand-added key (`static.wings_using`) that the build script does not produce. Running the script today silently regresses the live Wings & Lines page. This must be defused in PR 1 because PR 1 touches Wings content.
-5. **The 18-diagram contact sheet contains a real, unreported bug.** WINGS · TYPE 1's wing label collides with the home node and the home label. Spec §3.5 claims "54 labels, zero clipped, minimum label-to-label gap 27.7px." That claim is false. It does not block PR 1 (Type 9 is clean) but it will surface at PR 3.
+5. **The 18-diagram contact sheet contains a real, unreported bug.** WINGS · TYPE 1's wing label collides with the home node and the home label. Spec §3.5 claims "54 labels, zero clipped, minimum label-to-label gap 27.7px." That claim is false. **Fixed in PR 1** via a general placement rule, with all 18 diagrams regenerated and re-verified (§7.3).
+
+> **§7 (Round 2)** answers the four review items and **supersedes two recommendations in this document**: the content path (§4.2 → §7.1) and the Type 1 fix placement (§3.3 → §7.3). It also corrects a gate that cannot be implemented as written: Chromium stamps wall-clock timestamps into every PDF, so **coach PDF byte-comparison is impossible** — the PDF gate must be structural (§7.0).
 
 ---
 
@@ -76,7 +78,9 @@ So today: **production renders on Chromium 147 (bundled); local dev renders on C
 
 **Does pinning risk the coach report?** Yes — and this is the one genuinely uncomfortable answer in this audit. Moving local rendering from Chrome 151 to bundled 147 changes the engine that produces the coach PDF locally. The coach report is *flow-allowed* (`scripts/render_coach.js` reports spill non-fatally; `.report-page` uses `min-height`), so it is far more tolerant of metric shifts than the client report — but "tolerant" is not "unaffected."
 
-**Mitigation, and it must happen in this order:** capture the coach baseline **before** any pinning change, then pin, then regenerate and diff. If the coach PDF shifts, that shift is *information* — it means production and local were already disagreeing and we have simply made it visible. It is not a regression introduced by PR 1, and it should not be "fixed" by reverting the pin.
+**Mitigation:** capture the coach baseline first, then pin, then regenerate and diff. If the coach output shifts, that shift is *information* — production and local were already disagreeing and we have simply made it visible. It is not a regression introduced by PR 1, and it should not be "fixed" by reverting the pin.
+
+> **Refined in §7.0.** The baseline must be captured from the **production** engine (bundled 147), *not* from local 151 — local output never shipped. Local converging on the 147 baseline is the success condition. §7.0 also splits the gate: coach **HTML** byte-identical (Chromium never touches HTML generation), coach **PDF** compared structurally.
 
 ---
 
@@ -214,7 +218,9 @@ All nine sit exactly 95.0 from centre. The angle set matches §3.6 exactly. **Th
 
 **This contradicts spec §3.5's "Verified across all 9 types on both page types — 54 labels, zero clipped, minimum label-to-label gap 27.7px."** That verification did not catch this.
 
-**Impact on PR 1: none** — Type 9 renders cleanly (home at top, wings 8 and 1 flanking left and right). **Impact on PR 3: real**, when all nine types render. The fix is a placement rule for the `dx ≈ 0` case (prefer the side away from the home node, or place above), and it needs to be decided before the geometry hardens. I have not changed anything.
+**Impact on PR 1: none for Type 9** — it renders cleanly (home at top, wings 8 and 1 flanking left and right).
+
+> **⚠️ Placement updated — see §7.3.** I originally recommended deferring the fix to PR 3. That was wrong for two reasons: PR 3 may not render Wings at all (§7.2), and diagram rendering needs **no authored content**, so all nine Wings diagrams can be generated and verified in PR 1 the moment the variant exists. **The fix and the 9-type verification both move into PR 1.**
 
 ---
 
@@ -238,9 +244,9 @@ The v3 page needs, **per wing**: an overview paragraph, **exactly 5 bullets**, a
 |---|---|
 | **Word round-trip** (author in docx → re-run `build_content_library.js`) | The docx **does exist** and is tracked (`docs/step7-incoming/InsightOut_Static_Content_Library_v1_060526.docx`), and the script runs green today. But it requires design to author new labelled sections **and** the parser to learn them. **Correct long-term; too slow to gate PR 1.** |
 | **DB override** (`content_overrides.js`) | ❌ **Ruled out.** `resolveLibObject` (:85-98) iterates `Object.keys(baseObj)` — it can only override fields that already exist, so new sibling fields are silently ignored. You *could* replace the whole `type_9.wings` object, but the mechanism is **DB-only**, and PR 1's acceptance gate is `node scripts/render_client.js`, which runs offline with no `DATABASE_URL`. **It cannot satisfy PR 1's own pass criterion.** |
-| **Additive hand-edit of `content_library.json`** | ✅ **Recommended.** Add new sibling fields inside `type_9.wings.wing_a`/`wing_b`, leaving `target_type` and `body` untouched. |
+| **Additive hand-edit of `content_library.json`** | ❌ **WITHDRAWN — see §7.1.** This was my original recommendation and it was wrong: it contradicts §4.3. Any later PR that compiles the library would wipe it, on a predictable schedule. |
 
-**Why the hand-edit is safe here:** `content_library.json` is **tracked**, and **nothing regenerates it** — no CI, no deploy hook, no npm script invokes the build script. The edit is purely additive, so `splitWingBest` and the existing P5 renderer keep reading `body` unchanged, which means the current 10-page client render and the coach render stay byte-identical — PR 1's highest-value check. There is also precedent: `static.wings_using` was added by hand in commit `36aab5c`.
+> **⚠️ Superseded.** The hand-edit recommendation above was self-contradictory — it proposed adding hand-maintained keys to a file whose regeneration path destroys hand-maintained keys. **§7.1 replaces it** with the script-constant path, which makes the build script non-destructive instead of documenting that it isn't.
 
 ### 4.3 🔴 The landmine — defuse it in PR 1
 
@@ -323,6 +329,178 @@ Six corrections. None changes PR 1's goal; three change its content.
 **Do not add:** the Type 1 label fix. It is a real bug but it belongs with PR 3, where all nine types render and it can be verified across the set. Logging it here is enough.
 
 **One open question for you:** pinning will change which engine renders the coach report locally (§1.3). I recommend capturing the coach baseline *before* the pin, and treating any resulting diff as newly-revealed information rather than a regression to revert. Confirm you want it sequenced that way, because it is the one place in PR 1 where "coach byte-identical" may legitimately not hold.
+
+---
+
+## 7. Round 2 — answers to the four open items
+
+Added 11 Aug 2026 after audit review. §7.1 and §7.3 supersede recommendations in §4.2 and §3.3.
+
+### 7.0 Coach baseline sequencing — confirmed, with one correction
+
+The HTML/PDF distinction is right and I'm adopting it: **Chromium never touches HTML generation** (`renderer.js` produces the string; Chromium only rasterizes it). So the coach **HTML** gate stays byte-identical, no exception, unaffected by the pin. Baseline for the coach **PDF** comes from the **production** engine (bundled, 147), never local 151. Local converging on the 147 baseline is the success condition; a diff against old-local-151 is expected and is the point.
+
+**Pin target confirmed:** `app/package-lock.json` resolves `puppeteer@24.42.0`, which pins Chromium **147.0.7727.57** via `PUPPETEER_REVISIONS`. That is production's current engine. Pinning to it means **production rendering does not move** — the change is entirely on the local/CI side. No upgrade.
+
+**What has to change so both paths use the same bundled Chromium.** Today the split is:
+
+| Path | Package | Binary |
+|---|---|---|
+| Production (`NODE_ENV=production`) | `puppeteer` | bundled 147 ✅ |
+| Local dev / `scripts/` | `puppeteer-core` + hard-coded `executablePath` | system Chrome 151 ❌ |
+
+`puppeteer-core` deliberately ships **no** browser and **no** download step — that is the entire difference between the two packages. Both are already dependencies at the same version. The change is therefore small and mechanical:
+
+1. In `launchBrowser` (`app/server.js:5044`), drop the `executablePath` branch and launch via `require('puppeteer')` on **both** paths, so the bundled binary is used everywhere. Keep an **opt-in** escape hatch (`PUPPETEER_EXECUTABLE_PATH`) for anyone who genuinely needs a system browser — env-gated, never the default.
+2. Same in `scripts/render_client.js:59` and `scripts/render_coach.js`, which mirror the hard-coded path.
+3. Ensure the bundled browser is actually installed: `npm ci` runs Puppeteer's postinstall download. Already present locally at `~/.cache/puppeteer/chrome/mac_arm-147.0.7727.57`. In CI, cache that directory (see §7.4).
+4. `app/package.json`: `"puppeteer": "^24.42.0"` → `"24.42.0"` exact, and use `npm ci` so the lockfile is authoritative.
+
+**🔴 One correction that changes the gate's design.** A real Puppeteer-generated coach PDF in this repo carries:
+
+```
+/Producer (Skia/PDF m148)
+/CreationDate (D:20260606141647+00'00')
+/ModDate     (D:20260606141647+00'00')
+```
+
+Chromium stamps wall-clock `CreationDate`/`ModDate` into every PDF. **Two renders of byte-identical HTML, seconds apart, produce different PDF bytes.** So "coach PDF byte-identical" is not implementable as written anywhere in the build plan. The workable gate is:
+
+- **Coach HTML — byte-identical. Hard fail.** (Deterministic, text, reviewable in a diff.)
+- **Coach PDF — page count + per-page measured heights.** `scripts/render_coach.js` already computes these. Hard fail on either changing.
+- *(Optional)* byte-compare after stripping `/CreationDate` and `/ModDate` if we ever want content-level byte confidence.
+
+Incidentally that PDF was produced by **Skia/PDF m148** — a third Chromium version, from June. Production's engine has moved before, unpinned. That is the argument for the pin in one line.
+
+### 7.1 Item 1 — the contradiction, and the path that actually defuses it
+
+You're right, and the criticism lands: I identified the script as destructive and then recommended feeding it more of exactly what it destroys. PR 3 compiles the library, so PR 1's wing content would be wiped on a predictable schedule. Withdrawn (§4.2 marked superseded).
+
+**Neither (a) nor (b) as posed. The repo already has a third pattern, and it is the right one: a versioned constant inside the build script.**
+
+`scripts/build_content_library.js:33-43` defines `INTERIM_WELCOME`, with this comment:
+
+> *INTERIM SOURCE — provisional welcome content pending canonical binary-docx reconciliation… Do not treat as permanent source of truth. When the canonical step7-incoming docx gains a Word-styled WELCOME PAGE section, replace this with a parseStatics() read and confirm regenerated output is identical.*
+
+That is precisely our situation, with a documented exit path already written down.
+
+**Why this beats both posed options:**
+
+| | Verdict |
+|---|---|
+| **(a) Extend the parser to read new Word labels** | The correct **destination**, but it cannot gate PR 1 — the docx has no `WING OVERVIEW` / `WING BULLETS` / `AS A RESOURCE` sections, so it needs a design authoring round-trip first. The *parser* is not the blocker (see below); the *document* is. |
+| **(b) Preserve/merge hand-added keys** | **Rejected.** It would bless two sources of truth permanently and make silent divergence a supported feature. The whole point of the Word pipeline is one editing surface. |
+| **(c) Script constant** ✅ | The script becomes **the sole producer of the JSON again**, so re-running it is idempotent and non-destructive *by construction* — which is what "defuse" has to mean. Content is version-controlled and shows up in PR diffs. Exit path to (a) is already prescribed. |
+
+**What PR 1 does:**
+1. Move the Type-9 v3 wing content into an `INTERIM_WINGS_V3` constant (transcription of already-approved Hive-authored copy from the tracked mockup — spec §7.1 lists wings narratives and resource bands as authored; **no new content is written**).
+2. Move `static.wings_using` into the same pattern, so the pre-existing landmine is defused rather than documented.
+3. Extend `validateType` to require the new wing fields.
+4. **Acceptance test for the defusal: run the build script twice and assert `content_library.json` is unchanged the second time, and that no currently-rendered key disappears.** That is the check that proves the gun is unloaded. It belongs in CI.
+
+**What the Word round-trip needs, for when we do (a).** Good news — the parser is already general. `tokenize()` (`:64`) tags any `ListParagraph` paragraph as a bullet, and `isLabel()` (`:77`) treats any ALL-CAPS line under 60 chars as a section label; `toBlocks()` (`:86`) then groups label + paragraphs + bullets automatically. So per type, design adds three Word sections per wing using existing styles:
+
+```
+TYPE 9 WING 8 OVERVIEW      → paragraph
+TYPE 9 WING 8 BULLETS       → 5 ListParagraph bullets
+TYPE 9 WING 8 AS A RESOURCE → paragraph
+```
+
+The parser change is then ~10 lines extending the existing `findByRe(blocks, /^TYPE \d WING/)` handler at `:123-130` to read the new blocks. **No new parsing machinery.** This does not need to happen in PR 1, and it does not change PR 1's content prerequisite — but it means (a) is cheap whenever design is ready.
+
+### 7.2 Item 2 — Wings for types 1–8: fold into PR 3
+
+Correct catch: p8 is in no PR's scope after PR 1, and would first surface at PR 7's full matrix.
+
+**Recommendation: fold p8 into PR 3**, which becomes *"per-type static pages: p6, p7, p8, p9"* — 4 pages × 9 types.
+
+**Why fold rather than a separate PR:**
+- **The content-authoring unit is a type, not a page.** Design will author "everything for Type 4" in one pass. Splitting p8 out forces a second context-switch back through all eight types.
+- **After PR 1 there is no new p8 code.** The page renderer, the 430×252 variant, and the fitting constraints all exist and are validated. Types 1–8 are content plus validation only.
+- **Wings will be the best-understood page in the report** — built first, fully verified, all nine diagrams already checked in PR 1 (§7.3). Adding the lowest-risk page to PR 3 does not add proportional risk.
+- A separate PR for "add content to a page that already works" is process overhead that isolates no meaningful technical risk.
+
+**What it costs — stated honestly:**
+
+| PR 3 | Before | After folding p8 |
+|---|---|---|
+| Pages × types | 3 × 9 = **27 renders** | 4 × 9 = **36 renders** |
+| Content prerequisite | ~200 units | **~296 units** |
+| Paired-column checks | best/edge, 2 line points | + 2 wing columns per type |
+
+PR 3 becomes decisively the largest content gate in the build. That is a scheduling fact, not a technical risk — the fitting gate is per-page and fails per-page, so a 4th page lengthens the iteration loop without deepening it.
+
+**Explicit fallback trigger:** if wing content for types 1–8 (~96 units) lands materially earlier than the p6/p7/p9 content (~200 units), split it into its own PR between 3 and 4 rather than letting finished content wait. The decision is reversible right up until PR 3 opens.
+
+### 7.3 Item 3 — fix the label rule in PR 1, and it provably cannot touch the coach
+
+Agreed on all three points, and your reasoning is stronger than mine: diagram rendering needs no authored content, so PR 1 can verify all nine Wings diagrams immediately.
+
+**✅ Confirmed: the rule change cannot perturb the coach 500×500 output — because no label-placement logic exists on that path at all.**
+
+The only label emitter in the existing SVG block is `_svgLabel` (`renderer.js:1057`):
+
+```js
+return `<text x="${x}" y="${y}" … fill="white" text-anchor="middle" dominant-baseline="central">${i}</text>`;
+```
+
+It renders **only the type number, centered inside the node**. No 500×500 variant emits any outside or archetype label — there is no DX offset, no side selection, and no home-above rule anywhere in the shared code. **Every bit of label-placement logic is new code belonging exclusively to the 430×252 variant.** The coach cannot regress from a change to a rule it does not have, and the coach HTML byte-diff proves it empirically regardless.
+
+**The general rule** (not a Type-1 special case). Today's implied behaviour is "home label above when at top; horizontal at DX=22 otherwise," which leaves the horizontal side undefined when `dx ≈ 0`. Generalize the existing exception from the home node to **any** labelled node:
+
+```
+if |dx| < ε   → place the label ABOVE the node, centered      (top-of-circle case)
+else          → place horizontally at DX = 22, on side sign(dx)
+```
+
+Geometry-derived, deterministic, no per-type branching. Only node 9 sits at `dx = 0` in this layout, so exactly one node per diagram can trigger it.
+
+Effects across the set:
+- **Type 1 — fixed.** The 9-wing label moves above instead of running right into the home node.
+- **Type 9 — unchanged.** Home at top already places above; verified against the mockup (`x=215, y=13`).
+- **Type 8 — changes, harmlessly.** Its 9-wing label moves from right-placement to above; home 8's label is anchored left at `x=131.9`, so no collision. Currently clean, still clean.
+
+**Consequence to plan for:** the tracked contact sheet no longer matches for the types whose placement changes, so **PR 1 must regenerate all 18 diagrams and re-verify**, replacing `docs/insightout_all18_diagrams_check.png`. That is the §3.5 instruction *"Generate all 18 diagrams and inspect them"* being executed properly rather than assumed.
+
+**Noted for a later PR, not this one:** spec §3.5's claim — *"Verified across all 9 types on both page types — 54 labels, zero clipped, minimum edge clearance 5px, minimum label-to-label gap 27.7px"* — is **falsified** by the Type 1 Wings collision. It needs the same dated post-lock correction treatment PR 0 applied to §4.1 and the appendix. I will carry it in the PR 1 build report so it is not lost.
+
+### 7.4 Item 4 — CI workflow scope
+
+`.github/workflows/report-verify.yml`, created in PR 1.
+
+**Triggers:** `pull_request` (any branch), plus `push` to `main`.
+**Runner:** `ubuntu-latest` — deliberately Linux, so CI exercises the *font-fallback* condition that macOS masks. Node pinned explicitly (no `engines` field exists today; pin to the current LTS and declare it).
+
+**Steps:**
+1. `actions/checkout`
+2. `actions/setup-node` with the pinned version
+3. **`sudo apt-get install -y fonts-liberation`** — mirrors the `nixpacks.toml` font install so CI and production resolve the same metrics
+4. Cache `~/.cache/puppeteer`, then **`npm ci`** in `app/` (lockfile authoritative → Chromium 147; postinstall fetches the bundled binary)
+5. **Font-resolution assertion** — fail if the rendered document resolves to anything other than Arial/Liberation Sans
+6. `node scripts/render_client.js` — single-sheet + page-count gate
+7. `node scripts/render_coach.js` — regenerate coach artifacts
+8. **Coach HTML diff** vs stored baseline
+9. **Coach PDF structural diff** — page count + per-page heights (not bytes; see §7.0)
+10. `npm test` (includes `report_pages_test.js`)
+11. **Content-library idempotence check** — run `build_content_library.js` twice, assert no diff and no key loss (§7.1)
+
+**Fail vs. warn:**
+
+| Hard fail (blocks merge) | Warn only |
+|---|---|
+| Client page spills past one sheet | Coach page spill (flow-allowed by design) |
+| Client/coach logical page count wrong | Cosmetic-only CSS diffs flagged for review |
+| **Coach HTML not byte-identical** | |
+| Coach PDF page count or page heights changed | |
+| Font resolves to a fallback | |
+| `npm test` failure | |
+| Content library not idempotent, or a key disappears | |
+
+**How the coach baseline is stored.** Commit the rendered coach **HTML** for both fixtures as text baselines — e.g. `tests/baselines/coach_sp4.html`, `coach_sx7.html` — and diff against them in CI.
+
+Rationale: HTML is deterministic and diffable, so a reviewer sees exactly what changed in the PR itself; and updating a baseline becomes an **explicit, visible act** in the diff rather than something that silently drifts. PDFs are not viable as stored baselines (§7.0 — embedded timestamps), which is why the PDF gate is structural. Baselines are generated from the **production** engine per §7.0 and refreshed only in a PR that intends to change coach output, with the diff reviewed.
+
+**Note:** step 11 will fail on day one against today's `main`, because the library is not currently idempotent (§4.3). That is the point — it is the regression test for the defusal, and it should go green within PR 1.
 
 ---
 
