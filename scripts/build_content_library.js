@@ -460,34 +460,28 @@ function validateSubtype(key, st) {
     errs.forEach(e => console.error(`  - ${e}`));
     process.exit(1);
   }
-  // ── DRIFT GUARD ────────────────────────────────────────────────────────────
-  // The committed content_library.json has diverged from this docx: copy was edited
-  // downstream (CMS/hand edits) and never round-tripped back to Word. At the time this
-  // guard was added, a rebuild would have silently REVERTED 130 leaf fields of live
-  // report copy — mostly subtype narratives and the primer — and dropped one key.
+  // Reconciliation (PR 1.5) made the docx canonical again, so this script is a plain
+  // deterministic producer once more: it builds and it writes. The build-time drift guard
+  // that lived here was scaffolding for exactly that operation — it blocked a 130-field
+  // revert, and "the guard stops objecting" was the signal the patch was complete.
   //
-  // Additions are always safe. Changing or removing a field that the live report already
-  // renders is not, so it now requires an explicit --accept-drift. This converts a silent
-  // regression into a loud, reviewable decision.
-  const drift = diffAgainstExisting(OUT, lib);
-  if (drift && !process.argv.includes('--accept-drift')) {
-    console.error(`\n✖ REFUSING TO WRITE — this build would change existing content.\n`);
-    console.error(`  ${drift.changed.length} field(s) would CHANGE, ${drift.removed.length} would be REMOVED,`
-      + ` ${drift.added.length} would be added.\n`);
-    for (const k of drift.removed.slice(0, 10)) console.error(`  REMOVED  ${k}`);
-    for (const k of drift.changed.slice(0, 10)) console.error(`  CHANGED  ${k}`);
-    const more = drift.changed.length + drift.removed.length - Math.min(10, drift.removed.length) - Math.min(10, drift.changed.length);
-    if (more > 0) console.error(`  … and ${more} more`);
-    console.error(`\n  The docx is the authoring surface, but it is currently STALE relative to the`);
-    console.error(`  committed library. Reconcile the two before rebuilding, or re-run with`);
-    console.error(`  --accept-drift if you have confirmed the docx is now canonical.\n`);
-    process.exit(1);
-  }
-  if (drift) {
-    console.log(`\n⚠ --accept-drift: overwriting ${drift.changed.length} changed and `
-      + `${drift.removed.length} removed field(s).`);
+  // It is not kept, for two reasons. After reconciliation a legitimate Word edit is
+  // indistinguishable to it from the corruption it existed to prevent, so --accept-drift
+  // would have become the normal authoring path — and a flag used routinely is not a guard.
+  // And it could not see the case that matters most: a docx edited but never rebuilt.
+  //
+  // The invariant is enforced instead by scripts/verify_content_library.js in CI, which
+  // asserts that the committed JSON equals a fresh build. That catches a direct JSON edit
+  // in the PR that makes it rather than at whoever's next rebuild, does not false-positive
+  // on legitimate docx or script changes, and does catch the never-rebuilt case.
+  const summary = diffAgainstExisting(OUT, lib);
+  if (summary) {
+    console.log(`\n  note: ${summary.changed.length} changed, ${summary.removed.length} removed, `
+      + `${summary.added.length} added vs the committed library.`);
+    console.log('  If you did not intend that, check whether app/content/content_library.json');
+    console.log('  was edited directly — the Word source is canonical.');
   }
 
-  fs.writeFileSync(OUT, JSON.stringify(lib, null, 2));
+  fs.writeFileSync(OUT, JSON.stringify(lib, null, 2) + '\n');
   console.log(`\nHARD GATE GREEN — wrote ${path.relative(ROOT, OUT)} (${(fs.statSync(OUT).size / 1024).toFixed(1)} KB)`);
 })().catch(e => { console.error('BUILD FAILED:', e.stack || e.message); process.exit(1); });
