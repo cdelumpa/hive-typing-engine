@@ -1093,7 +1093,7 @@ function _clientArc(from, to) {
  * fixes that case without special-casing any type, and leaves Type 9 (home at top,
  * already stacked above) byte-identical.
  */
-function _clientLabel(node, nodeR, { eyebrow, name, tone }) {
+function _clientLabel(node, nodeR, { eyebrow, name, tone }, homeNode) {
   const [x, y] = CLIENT_NODES[node];
   const dxUnit = (x - CLIENT_GEO.cx) / CLIENT_GEO.r;
   const EPS = 0.2;                       // |dx| below this means "top or bottom of circle"
@@ -1102,28 +1102,43 @@ function _clientLabel(node, nodeR, { eyebrow, name, tone }) {
   const EYE = `font-family="Arial" font-size="8.5" font-weight="bold" fill="${tone}" letter-spacing="0.9"`;
   const NAME = `font-family="Arial" font-size="11" font-weight="bold" fill="#1E2A35"`;
 
-  // Top/bottom of circle: no meaningful left/right side — stack the label outward.
+  // Top of the circle (|dx| ~ 0): there is no meaningful left/right side, so the
+  // horizontal rule below would pick one arbitrarily. Two sub-cases:
   //
-  // Offsets are derived from the node radius rather than fixed, because there are only
-  // 40px of headroom above the circle (cy = r + 40) and a two-line label does not fit a
-  // naive gap: the eyebrow ascends past y=0 and Chromium clips it. Anchoring the LAST
-  // line 3px off the node edge and stacking upward keeps both lines on canvas with the
-  // >= 5px edge clearance §3.5 requires. Verified by rendering all 18, not by arithmetic.
+  //  - Single-line label (the home node's eyebrow): stack it above the node, centred.
+  //    This is what the reference implementation does for Type 9 and it fits comfortably.
+  //
+  //  - Two-line label (a wing or resource point at the top, which happens for Types 1, 3,
+  //    6 and 8): it does NOT fit above. There are 27px between the node and the canvas
+  //    edge, and 5px clearance + eyebrow + name + gaps needs ~29px. Stacking it anyway is
+  //    what produced the clipped eyebrows measured at 4.47px. Instead place it
+  //    horizontally on the side AWAY from the home node, where there is ample room.
+  //    That also resolves the original Type 1 collision at its source: the label no longer
+  //    travels toward the home node at all.
   if (Math.abs(dxUnit) < EPS) {
     const above = (y - CLIENT_GEO.cy) < 0;
-    if (!above) {
-      const first = +(y + nodeR + 16).toFixed(1);
-      let out = `<text x="${x}" y="${first}" text-anchor="middle" ${EYE}>${esc9(eyebrow)}</text>`;
-      if (name) out += `<text x="${x}" y="${+(first + 13).toFixed(1)}" text-anchor="middle" ${NAME}>${esc9(name)}</text>`;
-      return out;
+    if (above && !name) {
+      const eyeY = +(y - nodeR - 12).toFixed(1);
+      return `<text x="${x}" y="${eyeY}" text-anchor="middle" ${EYE}>${esc9(eyebrow)}</text>`;
     }
-    // 12px stack gap (not the 13px used for horizontal labels): with only 27px of
-    // headroom above a resource node, 13px puts the eyebrow's cap-height at 4.9px from
-    // the canvas edge, just under the 5px minimum clearance §3.5 specifies.
-    const nameY = +(y - nodeR - 3).toFixed(1);          // sits just above the node
-    const eyeY = +(name ? nameY - 12 : y - nodeR - 12).toFixed(1);
-    let out = `<text x="${x}" y="${eyeY}" text-anchor="middle" ${EYE}>${esc9(eyebrow)}</text>`;
-    if (name) out += `<text x="${x}" y="${nameY}" text-anchor="middle" ${NAME}>${esc9(name)}</text>`;
+    if (!above && !name) {
+      const eyeY = +(y + nodeR + 16).toFixed(1);
+      return `<text x="${x}" y="${eyeY}" text-anchor="middle" ${EYE}>${esc9(eyebrow)}</text>`;
+    }
+    // Two lines. Stacking directly above is geometrically impossible here: a 13px node at
+    // cy=40 leaves 27px of headroom, and 5px clearance plus the two rendered text boxes
+    // needs ~27.4px. Measured attempts landed at 4.47px and failed the gate.
+    //
+    // So place horizontally, on the side away from home, and raise the pair ~6px relative
+    // to the node centre. The raise matters: node 9's neighbours sit only ~61px away
+    // horizontally, so a label at the node's own baseline runs into them. Lifting it puts
+    // both lines above the neighbour's top edge, clearing it vertically instead.
+    const homeX = CLIENT_NODES[homeNode] ? CLIENT_NODES[homeNode][0] : CLIENT_GEO.cx;
+    const putRight = homeX <= x;   // home on the left (or level) -> label goes right
+    const tx = +(x + (putRight ? CLIENT_GEO.dx : -CLIENT_GEO.dx)).toFixed(1);
+    const anchorAttr = putRight ? '' : ' text-anchor="end"';
+    let out = `<text x="${tx}" y="${+(y - 8).toFixed(1)}"${anchorAttr} ${EYE}>${esc9(eyebrow)}</text>`;
+    out += `<text x="${tx}" y="${+(y + 5).toFixed(1)}"${anchorAttr} ${NAME}>${esc9(name)}</text>`;
     return out;
   }
 
@@ -1320,7 +1335,7 @@ function buildEnneagramSVG({ type, variant }) {
       const [x, y] = N[i];
       nodes += `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="1.3"/>`
              + `<text x="${x}" y="${(y + fs * 0.35).toFixed(1)}" text-anchor="middle" font-family="Arial" font-size="${fs}" font-weight="bold" fill="${txt}">${i}</text>`;
-      if (labelled[i]) labels += _clientLabel(i, r, labelled[i]);
+      if (labelled[i]) labels += _clientLabel(i, r, labelled[i], home);
     }
 
     return `<svg viewBox="0 0 ${C.vw} ${C.vh}" xmlns="http://www.w3.org/2000/svg">`

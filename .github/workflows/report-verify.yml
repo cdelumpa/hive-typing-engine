@@ -58,6 +58,12 @@ jobs:
         run: npm run verify:render
         working-directory: app
 
+      # HARD FAIL: all 18 diagrams — no clipping, no label-label or label-node overlap,
+      # and >= 5px edge clearance measured from real getBBox() boxes. Content changes
+      # (a longer archetype name) cannot quietly break the geometry.
+      - name: Diagram geometry gate
+        run: node scripts/verify_diagrams.js
+
       # HARD FAIL: coach HTML byte-identical + normalized coach PDF hash unchanged.
       # The PDF hash catches rendering regressions that leave markup and page heights
       # intact — colour above all, which is the bug class section 3.2 exists for.

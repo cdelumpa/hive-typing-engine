@@ -265,10 +265,22 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       // (overview/bullets/resource/intro_v3) added to the content library alongside the
       // existing target_type/body, which splitWingBest() still consumes for v2.
       v3_wings: (() => {
-        // Column order follows the content library's wing_a/wing_b order, which for Type 9
-        // reproduces the reference implementation (8 Wing left, 1 Wing right) — the columns
-        // track the diagram's left-to-right placement rather than numeric order. Confirm the
-        // rule against design when types 1-8 land; only Type 9 is authored today.
+        // COLUMN ORDER — deliberate decision, do not "fix" this.
+        //
+        // Columns follow the content library's wing_a/wing_b order. For Type 9 that happens
+        // to match the diagram left-to-right (8 Wing left, 1 Wing right), which is why the
+        // question never came up while Type 9 was the only authored type.
+        //
+        // It does NOT generalise, and that was checked against the section 3.5 node angles
+        // rather than left for later: under library ordering, Types 4 and 5 are genuinely
+        // crossed relative to the diagram, and Types 2, 3, 6 and 7 have both wings on the
+        // same side of the wheel, so for those four "column position matches diagram
+        // position" has no meaning at all. Type 9 is the only type where the two agree.
+        //
+        // Library order is kept anyway: it is one consistent rule that holds for all nine
+        // types, whereas positional ordering is undefined for the four same-side types.
+        // Both the columns and the diagram carry explicit labels ("8 WING · TYPE 8", "The
+        // Protector"), so no reader depends on spatial correspondence between them.
         const mk = (slot) => {
           const w = t.wings[slot], n = w.target_type;
           return { number: n, name: TYPE_NAMES[n], overview: w.overview || '', bullets: w.bullets || [], resource: w.resource || '' };
