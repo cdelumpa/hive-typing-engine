@@ -26,11 +26,8 @@ const client = { first_name: 'Test', last_name: 'Client', organization: 'Acme Co
 const coach = { full_name: 'Cai Delumpa', type: 5, instinct: 'SP' };
 
 async function launch() {
-  const puppeteerCore = require(path.join(ROOT, 'app/node_modules/puppeteer-core'));
-  return puppeteerCore.launch({
-    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
+  return browserLaunch.launchBrowser();
 }
 
 async function measureLayout(page) {

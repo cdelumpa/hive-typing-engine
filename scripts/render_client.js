@@ -53,13 +53,9 @@ const REPORTS = {
   },
 };
 
-async function launch() {
-  const puppeteerCore = require(path.join(ROOT, 'app/node_modules/puppeteer-core'));
-  return puppeteerCore.launch({
-    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
-}
+// Pinned bundled Chromium via the shared launcher — same engine as production and CI.
+const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
+async function launch() { return browserLaunch.launchBrowser(); }
 
 // Measure each page container's rendered height + physical-sheet count under flowing layout.
 async function measureLayout(page, selector) {
