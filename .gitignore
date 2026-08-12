@@ -18,3 +18,9 @@ scripts/.question_bank_data.json
 
 # Design mockups — reference only, not part of the codebase.
 docs/Coach Portal Screens/
+
+# Founder headshot originals. Baked into app/founder_photos.js by
+# scripts/build_founder_photos.js; the Mo source alone is 18.31 MB and the
+# generated 168px data URIs are what the report actually uses.
+docs/hive_cai_headshot-round_kit_091125.png
+docs/mo_headshot_square_07162-4.jpeg
