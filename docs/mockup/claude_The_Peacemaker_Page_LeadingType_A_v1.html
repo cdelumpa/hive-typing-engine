@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>InsightOut · Exploring Your Leading Type · Type 9</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body { font-family: Arial, sans-serif; background: #f0f0f0; }
+
+.page {
+  width: 816px;
+  min-height: 1056px;
+  background: #ffffff;
+  margin: 0 auto;
+  padding: 40px 53px;
+  display: flex;
+  flex-direction: column;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ── Page Header ── */
+.page-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.header-left {
+  font-size: 10px; font-weight: bold; color: #00B2D9;
+  text-transform: uppercase; letter-spacing: 0.12em;
+}
+.header-right { font-size: 10px; color: #6B7785; }
+.header-client { color: #F68625; font-weight: bold; }
+.header-rule { height: 1px; background: #C8D0D9; margin-bottom: 22px; }
+
+/* ═══ BAND 1 · PREAMBLE + SYMBOL ═══ */
+.intro { display: flex; align-items: center; gap: 28px; margin-bottom: 22px; }
+.intro-body { flex: 1; }
+
+.eyebrow {
+  font-size: 10.5px; font-weight: bold; color: #00B2D9;
+  text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px;
+}
+h1 { font-size: 24px; color: #1E2A35; font-weight: bold; margin-bottom: 14px; }
+
+.intro-desc { font-size: 14px; color: #4A5568; line-height: 1.55; }
+
+.intro-symbol { flex: 0 0 168px; }
+.intro-symbol svg { display: block; width: 168px; height: 168px; }
+
+/* ═══ BAND 2 · CORE MOTIVATION CLUSTER ═══ */
+.cm-block { border: 1px solid #E8ECF0; margin-bottom: 22px; }
+
+.cm-head {
+  background: #D9E4E9;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cm-numeral {
+  flex: 0 0 auto;
+  width: 42px; height: 42px; border-radius: 50%;
+  background: #FFFFFF; border: 2px solid #00B2D9;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: bold; color: #1E2A35;
+}
+
+.cm-title { flex: 0 0 152px; font-size: 16px; font-weight: bold; color: #1E2A35; line-height: 1.25; }
+
+.cm-narrative {
+  flex: 1;
+  font-size: 13.5px; color: #1E2A35; line-height: 1.5;
+  padding-left: 18px; border-left: 1px solid #A8BFCA;
+}
+
+.cm-cols { display: flex; }
+.cm-col { flex: 1; padding: 15px 20px; }
+.cm-col + .cm-col { border-left: 1px solid #E8ECF0; }
+.cm-col-lbl {
+  font-size: 9px; font-weight: bold; color: #6B7785;
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 7px;
+}
+.cm-col-txt { font-size: 13px; color: #1E2A35; line-height: 1.5; }
+
+/* ═══ BAND 3 · IN YOUR WORDS ═══ */
+.cm-words {
+  background: #F5F5EE;
+  border-top: 1px solid #E8ECF0;
+  padding: 13px 20px;
+}
+.cm-words-label {
+  font-size: 9px; font-weight: bold; color: #6B7785;
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 9px;
+}
+.cm-words-quote { font-size: 12.5px; color: #1E2A35; line-height: 1.55; font-style: italic; }
+
+/* ═══ BAND 3 · AT A GLANCE ═══ */
+.glance { border: 1px solid #E8ECF0; margin-bottom: 20px; }
+.glance-head {
+  background: #D9E4E9; padding: 8px 20px;
+  font-size: 9px; font-weight: bold; color: #4A5568;
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+.glance-cols { display: flex; }
+.glance-col { flex: 1; padding: 12px 20px; }
+.glance-col + .glance-col { border-left: 1px solid #E8ECF0; }
+.glance-row { display: flex; align-items: baseline; margin-bottom: 10px; }
+.glance-row:last-child { margin-bottom: 0; }
+.glance-label {
+  flex: 0 0 92px;
+  font-size: 9px; font-weight: bold; color: #6B7785;
+  text-transform: uppercase; letter-spacing: 0.08em; line-height: 1.4;
+}
+.glance-value { flex: 1; font-size: 12.5px; color: #1E2A35; line-height: 1.45; }
+
+/* ═══ BAND 4 · TYPICAL PATTERNS ═══ */
+h2 { font-size: 16px; color: #1E2A35; font-weight: bold; margin-bottom: 10px; }
+
+.patterns { display: flex; gap: 16px; }
+.pat-card { flex: 1; border: 1px solid #E8ECF0; display: flex; flex-direction: column; }
+
+.pat-head {
+  background: #F7FBFC;
+  border-bottom: 1px solid #E8ECF0;
+  padding: 9px 14px;
+  display: flex; align-items: center; gap: 9px;
+}
+.pat-num {
+  flex: 0 0 auto;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #D9E4E9;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: bold; color: #1E2A35;
+}
+.pat-lbl {
+  font-size: 10px; font-weight: bold; color: #1E2A35;
+  text-transform: uppercase; letter-spacing: 0.1em;
+}
+.pat-body { padding: 14px 14px; font-size: 12.5px; color: #1E2A35; line-height: 1.55; }
+
+/* ── Footer ── */
+.page-footer {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid #C8D0D9;
+  display: flex; justify-content: space-between;
+  font-size: 8px; color: #C8D0D9;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-header">
+    <span class="header-left">InsightOut Enneagram Report</span>
+    <span class="header-right"><span class="header-client">Anders Wennerstrom</span> · Type 9 — The Peacemaker</span>
+  </div>
+  <div class="header-rule"></div>
+
+  <!-- ═══ BAND 1 · PREAMBLE + SYMBOL ═══ -->
+  <div class="intro">
+    <div class="intro-body">
+      <div class="eyebrow">Exploring Your Type Hypothesis</div>
+      <h1>Type 9 · The Peacemaker</h1>
+      <div class="intro-desc">
+        Based on your responses to the questionnaire, we're presenting you with Type 9 - The Peacemaker
+        as the strongest hypothesis of your home base Enneagram type. We encourage you to hold this as a
+        hypothesis until you've read through this report and/or have discussed it with your coach.
+        Remember, you are the ultimate authority on your Enneagram type.
+      </div>
+    </div>
+
+    <div class="intro-symbol">
+      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="100" cy="100" r="80" fill="none" stroke="#C8D0D9" stroke-width="1.5"/>
+        <polygon points="100,20 169.3,140 30.7,140" fill="none" stroke="#D9E4E9" stroke-width="1.5"/>
+        <polyline points="151.4,38.7 127.4,175.2 178.8,86.1 48.6,38.7 72.6,175.2 21.2,86.1 151.4,38.7"
+                  fill="none" stroke="#D9E4E9" stroke-width="1.5"/>
+
+        <circle cx="151.4" cy="38.7" r="12.5" fill="#FFFFFF" stroke="#C8D0D9" stroke-width="1.5"/>
+        <text x="151.4" y="43" text-anchor="middle" font-family="Arial" font-size="12" fill="#4A5568">1</text>
+        <circle cx="178.8" cy="86.1" r="12.5" fill="#FFFFFF" stroke="#C8D0D9" stroke-width="1.5"/>
+        <text x="178.8" y="90.4" text-anchor="middle" font-family="Arial" font-size="12" fill="#4A5568">2</text>
+        <circle cx="169.3" cy="140" r="12.5" fill="#FFFFFF" stroke="#C8D0D9" stroke-width="1.5"/>
+        <text x="169.3" y="144.3" text-anchor="middle" font-family="Arial" font-size="12" fill="#4A5568">3</text>
+        <circle cx="127.4" cy="175.2" r="12.5" fill="#FFFFFF" stroke="#C8D0D9" stroke-width="1.5"/>
+        <text x="127.4" y="179.5" text-anchor="middle" font-family="Arial" font-size="12" fill="#4A5568">4</text>
+        <circle cx="72.6" cy="175.2" r="12.5" fill="#FFFFFF" stroke="#C8D0D9" stroke-width="1.5"/>
+        <text x="72.6" y="179.5" text-anchor="middle" font-family="Arial" font-size="12" fill="#4A5568">5</text>
+        <circle cx="30.7" cy="140" r="12.5" fill="#FFFFFF" stroke="#C8D0D9" stroke-width="1.5"/>
+        <text x="30.7" y="144.3" text-anchor="middle" font-family="Arial" font-size="12" fill="#4A5568">6</text>
+        <circle cx="21.2" cy="86.1" r="12.5" fill="#FFFFFF" stroke="#C8D0D9" stroke-width="1.5"/>
+        <text x="21.2" y="90.4" text-anchor="middle" font-family="Arial" font-size="12" fill="#4A5568">7</text>
+        <circle cx="48.6" cy="38.7" r="12.5" fill="#FFFFFF" stroke="#C8D0D9" stroke-width="1.5"/>
+        <text x="48.6" y="43" text-anchor="middle" font-family="Arial" font-size="12" fill="#4A5568">8</text>
+
+        <circle cx="100" cy="20" r="16" fill="#D9E4E9" stroke="#00B2D9" stroke-width="2.5"/>
+        <text x="100" y="26" text-anchor="middle" font-family="Arial" font-size="15" font-weight="bold" fill="#1E2A35">9</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ═══ BAND 2 · CORE MOTIVATION CLUSTER ═══ -->
+  <div class="cm-block">
+    <div class="cm-head">
+      <div class="cm-numeral">9</div>
+      <div class="cm-title">Core Motivation</div>
+      <div class="cm-narrative">
+        To maintain inner and outer peace, stay connected to others, and avoid the conflict and
+        discomfort that come with asserting your own priorities.
+      </div>
+    </div>
+
+    <div class="cm-cols">
+      <div class="cm-col">
+        <div class="cm-col-lbl">Worldview</div>
+        <div class="cm-col-txt">
+          The world has an underlying unity that conflict threatens. Your role is to maintain harmony
+          and find common ground.
+        </div>
+      </div>
+      <div class="cm-col">
+        <div class="cm-col-lbl">Core Belief</div>
+        <div class="cm-col-txt">
+          Keeping the peace keeps you connected. Asserting yourself risks the harmony you depend on.
+        </div>
+      </div>
+    </div>
+
+    <div class="cm-words">
+      <div class="cm-words-label">In Your Own Words</div>
+      <div class="cm-words-quote">
+        "I project a calm presence and this helps others regulate and calm themselves as well. It can be a
+        powerful antidote to fear, anxiety, and other emotions that disrupt connection… I overthink things
+        at times, perhaps often. This slows me down and leads to indecision."
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ BAND 3 · AT A GLANCE ═══ -->
+  <div class="glance">
+    <div class="glance-head">The Peacemaker at a Glance</div>
+    <div class="glance-cols">
+      <div class="glance-col">
+        <div class="glance-row">
+          <div class="glance-label">What Nines Want</div>
+          <div class="glance-value">To have inner and outer peace, and to experience a sense of belonging</div>
+        </div>
+        <div class="glance-row">
+          <div class="glance-label">Where Nines Turn Their Attention</div>
+          <div class="glance-value">The environment around them, potential conflict, and other people's agendas and claims on them</div>
+        </div>
+      </div>
+      <div class="glance-col">
+        <div class="glance-row">
+          <div class="glance-label">What Nines Tend to Avoid</div>
+          <div class="glance-value">Conflict, discomfort, and feeling disregarded or disconnected</div>
+        </div>
+        <div class="glance-row">
+          <div class="glance-label">Driving Emotion</div>
+          <div class="glance-value">Anger. Though present, anger goes unacknowledged in order to preserve inner and outer peace.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ BAND 4 · TYPICAL PATTERNS ═══ -->
+  <h2>Typical Patterns of the Type 9 Peacemaker</h2>
+
+  <div class="patterns">
+    <div class="pat-card">
+      <div class="pat-head"><span class="pat-num">1</span><span class="pat-lbl">Thinking</span></div>
+      <div class="pat-body">
+        As a Peacemaker, your attention goes outward to everyone else's positions, agendas, and comfort,
+        often more readily than to your own. Locating your own stance is the harder task.
+      </div>
+    </div>
+
+    <div class="pat-card">
+      <div class="pat-head"><span class="pat-num">2</span><span class="pat-lbl">Feeling</span></div>
+      <div class="pat-body">
+        As a Peacemaker, you carry a steady, even temperament, but that calm can sit on top of feelings
+        smoothed over rather than fully felt. Anger, in particular, goes quiet first.
+      </div>
+    </div>
+
+    <div class="pat-card">
+      <div class="pat-head"><span class="pat-num">3</span><span class="pat-lbl">Behaving</span></div>
+      <div class="pat-body">
+        As a Peacemaker, your behavior organizes around not making waves: going along, smoothing things
+        over, keeping everyone comfortable. Your steadiness is a gift, and sometimes a hiding place.
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>© Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span>Page 4</span>
+    <span>Client confidential — for use by report owner only.</span>
+  </div>
+
+</div>
+</body>
+</html>
