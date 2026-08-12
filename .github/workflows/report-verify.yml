@@ -1,0 +1,71 @@
+# Report rendering gate for the client report v3 rebuild.
+#
+# The repo had no CI. The coach report is rendered from modules the client rebuild edits
+# (renderer.js, report_prep.js, buildEnneagramSVG, partAStyles) and nothing in the test
+# suite asserts on its output, so "did this client change alter the coach report?" was
+# answerable only by remembering to check. This workflow answers it on every PR.
+#
+# The runner is deliberately Linux, not macOS. On macOS, Arial is present AND is the
+# default sans-serif, so a missing-font bug is invisible there. Production runs Linux,
+# where a stock image has neither Arial nor Helvetica and Chromium substitutes a
+# metrically different face — design spec v3.0 section 3.3 calls this the most likely
+# cause of a page silently becoming two sheets. CI installs the same Liberation Sans that
+# nixpacks.toml installs, so runner, container and production agree.
+
+name: report-verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # Metric-compatible with Arial: identical advance widths, so line breaks land in the
+      # same places the report was measured against.
+      - name: Install Liberation Sans
+        run: sudo apt-get update && sudo apt-get install -y fonts-liberation
+
+      # Chromium is pinned by the lockfile (puppeteer 24.42.0 -> Chromium 147.0.7727.57).
+      - name: Cache Puppeteer browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('app/package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: app
+
+      # HARD FAIL: unit + integration tests, including the page-structure inventory.
+      - name: Unit and integration tests
+        run: npm test
+        working-directory: app
+
+      # HARD FAIL: client single-sheet contract, page counts, and the font-resolution
+      # assertion (fires before any measurement is trusted).
+      - name: Render check — single sheet, page counts, font resolution
+        run: npm run verify:render
+        working-directory: app
+
+      # HARD FAIL: coach HTML byte-identical + normalized coach PDF hash unchanged.
+      # The PDF hash catches rendering regressions that leave markup and page heights
+      # intact — colour above all, which is the bug class section 3.2 exists for.
+      - name: Coach report regression gate
+        run: node scripts/verify_coach_baseline.js
+
+      # HARD FAIL: the content library build must be reproducible and must not silently
+      # revert live copy. The drift guard refuses to write when existing fields would
+      # change; this asserts the guard holds and the build is byte-stable.
+      - name: Content library reproducibility
+        run: node scripts/verify_content_library.js
