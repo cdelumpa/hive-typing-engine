@@ -20,6 +20,7 @@
 
 const fs   = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const ROOT = path.resolve(__dirname, '..');
 const JSZip = require(path.join(ROOT, 'app/node_modules/jszip'));
 
@@ -40,6 +41,67 @@ const INTERIM_WELCOME = {
     "We hope it lands!"
   ],
   callout: "You are the final authority on your own type. If something in here resonates deeply, wonderful — that’s the recognition we’re going for. If something doesn’t quite fit, that’s useful information too. Hold all of it lightly, and stay curious."
+};
+
+// INTERIM SOURCE — "Using Your Wings and Lines" bullets.
+// Migrated to the CMS by hand in commit 36aab5c (static.wings_using) WITHOUT a matching
+// parser change, so this script did not reproduce it. Re-running the build therefore
+// silently dropped the key and regressed the live Wings & Lines page to an empty list
+// (renderer.js guards with `|| ''`, so it failed silently rather than crashing).
+// Restoring it here makes this script the sole producer of content_library.json again,
+// which is what makes a rebuild idempotent and safe. Same contract as INTERIM_WELCOME:
+// when the canonical docx gains a Word-styled USING YOUR WINGS AND LINES section, replace
+// this with a parseStatics() read and confirm regenerated output is identical.
+const INTERIM_WINGS_USING = [
+  'Notice which wing is more active this week. You don’t need to pick one permanently — just observe where the texture is coming from right now.',
+  'Use your stress point as an early warning system. When you notice yourself moving into that pattern, something important has been pushed aside.',
+  'Your security point is a resource, not just a destination. You can consciously move toward those qualities before you need them.',
+  'Wings and lines aren’t fixed. They’re dynamic — the texture of your type shifts with context, stress, and growth.',
+].join('\n');
+
+// INTERIM SOURCE — client report v3 "Your Wings" page content.
+// Hive-authored copy (design spec v3.0 section 7.1 lists wings narratives and resource
+// bands as authored and approved), transcribed verbatim from the tracked reference
+// implementation docs/mockup/claude_The_Peacemaker_Page_Wings_v1.html. Nothing here is
+// newly written.
+//
+// The v3 page needs three fields per wing that the current docx schema has no sections
+// for — an overview, exactly five bullets, and an "As a Resource" band — so it cannot be
+// parsed out of the canonical docx yet. It lives here rather than as a hand-edit of the
+// built JSON so that this script remains the only writer of that file.
+//
+// Type 9 only. Types 1-8 land with their page content in a later PR. When the docx gains
+// TYPE {n} WING {t} OVERVIEW / BULLETS / AS A RESOURCE sections, replace this with a
+// parser read (the tokenizer already handles ALL-CAPS labels and ListParagraph bullets,
+// so that change is small) and confirm regenerated output is identical.
+const INTERIM_WINGS_V3 = {
+  9: {
+    intro: 'Wings are the two types immediately adjacent to your home base type. Each wing "flavors" how your type shows up, and most people naturally lean more towards one. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type.',
+    wings: {
+      8: {
+        overview: 'A Nine with a strong Eight wing carries more edge, more appetite, and more willingness to push back when pushed. The Eight wing brings access to anger as a useful signal rather than something to manage away.',
+        bullets: [
+          'You carry real presence, and you will protect others more readily than yourself.',
+          'You can be direct, and you will confront something that matters to you.',
+          'Once you know where you stand, you act on it.',
+          'Others may find you more grounded and forceful than your easygoing manner suggests.',
+          'Left unexamined, irritation can arrive suddenly and then vanish back into accommodation.',
+        ],
+        resource: "When you need to hold a position, take up space, or act decisively, reach for the Eight wing. It turns the Peacemaker's steadiness into something with backbone.",
+      },
+      1: {
+        overview: 'A Nine with a stronger One wing carries more structure, more attention to doing things properly, and more internal discipline. The One wing brings a sense that things should be a certain way.',
+        bullets: [
+          'You follow through on things, where Nine energy on its own might drift.',
+          'You hold standards and want things done right.',
+          'You bring care and craft to what you take on.',
+          'Others may find you more orderly and idealistic than they expect of a Nine.',
+          'Left unchecked, quiet perfectionism can turn self-forgetting into self-judgment.',
+        ],
+        resource: "When you need focus, standards, or the discipline to finish something important, reach for the One wing. It channels the Peacemaker's acceptance into something more purposeful.",
+      },
+    },
+  },
 };
 
 // Engine source of truth (mirrors renderer TYPE_NAMES + design A6; Phase 4 centralizes into type_meta.js).
@@ -127,7 +189,12 @@ function assembleType(n, blocks) {
     const b = wingBlocks[i];
     const tt = b && b.label.match(/^TYPE (\d) WING/);
     t.wings[slot] = { target_type: tt ? +tt[1] : null, body: normParas(b).join('\n\n') };
+    // v3 client report additions (INTERIM, see top). Purely additive: target_type/body are
+    // untouched, so splitWingBest() and the existing P5 renderer are unaffected.
+    const v3 = INTERIM_WINGS_V3[n] && INTERIM_WINGS_V3[n].wings[t.wings[slot].target_type];
+    if (v3) Object.assign(t.wings[slot], { overview: v3.overview, bullets: v3.bullets, resource: v3.resource });
   });
+  if (INTERIM_WINGS_V3[n]) t.wings.intro_v3 = INTERIM_WINGS_V3[n].intro;
 
   // lines (order → stress, security; target parsed; resource_card from "Resource card:")
   const lineBlocks = findByRe(blocks, /^MOVING TOWARD TYPE/);
@@ -233,9 +300,36 @@ function parseStatics(toks) {
     primer,
     wings_primer: text('WINGS PRIMER'),
     lines_primer: text('LINES PRIMER'),
+    wings_using: INTERIM_WINGS_USING,   // INTERIM (see top): restores a key a hand-edit added
     instinct_primer: text('INSTINCT PRIMER'),
     instinct_definitions: pipeRows('INSTINCT DEFINITIONS', ['code', 'name', 'body']),
   };
+}
+
+// ── Drift detection ───────────────────────────────────────────────────────────
+// Flattens both trees to leaf paths and reports what a write would do to content that
+// already exists. Additions are safe; changes and removals are what we guard against.
+// _meta is excluded — it describes the build, not the content.
+function flattenLeaves(o, prefix = '', out = {}) {
+  if (o && typeof o === 'object' && !Array.isArray(o)) {
+    for (const [k, v] of Object.entries(o)) flattenLeaves(v, prefix ? `${prefix}.${k}` : k, out);
+  } else if (Array.isArray(o)) {
+    o.forEach((v, i) => flattenLeaves(v, `${prefix}[${i}]`, out));
+  } else {
+    out[prefix] = o;
+  }
+  return out;
+}
+function diffAgainstExisting(outPath, nextLib) {
+  if (!fs.existsSync(outPath)) return null;
+  let prev;
+  try { prev = JSON.parse(fs.readFileSync(outPath, 'utf8')); } catch { return null; }
+  const skip = (k) => k.startsWith('_meta');
+  const a = flattenLeaves(prev), b = flattenLeaves(nextLib);
+  const removed = Object.keys(a).filter(k => !skip(k) && !(k in b));
+  const changed = Object.keys(a).filter(k => !skip(k) && k in b && a[k] !== b[k]);
+  const added   = Object.keys(b).filter(k => !skip(k) && !(k in a));
+  return (removed.length || changed.length) ? { removed, changed, added } : null;
 }
 
 // ── Validation (hard gate for type/subtype AND the static globals) ────────────
@@ -253,6 +347,18 @@ function validateType(n, t) {
   const wt = [t.wings.wing_a.target_type, t.wings.wing_b.target_type].sort();
   need(JSON.stringify(wt) === JSON.stringify([...TYPE_META[n].wings].sort()), `${P}.wings targets ${wt} != engine ${TYPE_META[n].wings}`);
   need(t.wings.wing_a.body && t.wings.wing_b.body, `${P}.wings body empty`);
+  // v3 "Your Wings" page fields. Gated per type: enforced only where INTERIM_WINGS_V3
+  // supplies content, so types not yet authored fail loudly at their own PR, not this one.
+  if (INTERIM_WINGS_V3[n]) {
+    need(t.wings.intro_v3, `${P}.wings.intro_v3 empty (v3 page intro)`);
+    for (const slot of ['wing_a', 'wing_b']) {
+      const w = t.wings[slot];
+      need(w.overview, `${P}.wings.${slot}.overview empty (v3)`);
+      need(Array.isArray(w.bullets) && w.bullets.length === 5 && w.bullets.every(Boolean),
+        `${P}.wings.${slot}.bullets must be exactly 5 non-empty (v3), got ${w.bullets ? w.bullets.length : 'none'}`);
+      need(w.resource, `${P}.wings.${slot}.resource empty (v3 "As a Resource" band)`);
+    }
+  }
   need(t.lines.stress.target_type === TYPE_META[n].stress, `${P}.lines.stress target ${t.lines.stress.target_type} != engine ${TYPE_META[n].stress}`);
   need(t.lines.security.target_type === TYPE_META[n].security, `${P}.lines.security target ${t.lines.security.target_type} != engine ${TYPE_META[n].security}`);
   for (const s of ['stress', 'security']) { need(t.lines[s].narrative, `${P}.lines.${s}.narrative empty`); need(t.lines[s].resource_card, `${P}.lines.${s}.resource_card empty`); }
@@ -283,7 +389,12 @@ function validateSubtype(key, st) {
 
   // Split into type regions by H1; within each, the H2 begins the subtype region.
   const h1idx = toks.map((t, i) => ({ t, i })).filter(x => x.t.style === 'Heading1');
-  const lib = { _meta: { source: path.basename(DOCX), built_at: new Date().toISOString(), version: 'v1_060526' }, static: {
+  // _meta identifies the SOURCE, not the moment of the build. A wall-clock `built_at`
+  // made the output differ on every run, so the artifact churned on every rebuild and a
+  // byte-level idempotence check was impossible. A digest of the docx is deterministic on
+  // any machine and answers the more useful question: which source produced this file.
+  const sourceSha = crypto.createHash('sha256').update(fs.readFileSync(DOCX)).digest('hex');
+  const lib = { _meta: { source: path.basename(DOCX), source_sha256: sourceSha, version: 'v1_060526' }, static: {
     primer: null, welcome: null, instinct_primer: null, instinct_definitions: null, wings_primer: null, lines_primer: null,
   } };
   const seenTypes = [];
@@ -327,7 +438,7 @@ function validateSubtype(key, st) {
 
   // static.* coverage — now sourced from the docx GLOBAL STATIC CONTENT section (hard gate)
   const S = lib.static || {};
-  for (const k of ['wings_primer', 'lines_primer', 'instinct_primer']) need(S[k], `static.${k} empty`);
+  for (const k of ['wings_primer', 'lines_primer', 'wings_using', 'instinct_primer']) need(S[k], `static.${k} empty`);
   need(S.welcome && S.welcome.subhead && Array.isArray(S.welcome.letters) && S.welcome.letters.length === 5 && S.welcome.letters.every(Boolean) && S.welcome.callout,
     'static.welcome shape invalid (want { subhead, letters[5], callout })');
   need(S.primer && S.primer.intro, 'static.primer.intro empty');
@@ -340,7 +451,7 @@ function validateSubtype(key, st) {
   console.log('=== Content library build ===');
   console.log(`Types parsed:    ${seenTypes.sort((a, b) => a - b).join(', ')} (${seenTypes.length}/9)`);
   console.log(`Subtypes parsed: ${subCount}/27`);
-  const staticKeys = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'instinct_primer', 'instinct_definitions'];
+  const staticKeys = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'wings_using', 'instinct_primer', 'instinct_definitions'];
   const pending = staticKeys.filter(k => lib.static[k] == null);
   console.log(`Static globals:  ${staticKeys.length - pending.length}/${staticKeys.length} populated` + (pending.length ? ` — PENDING: ${pending.join(', ')}` : ' (zero PENDING)'));
 
@@ -349,6 +460,34 @@ function validateSubtype(key, st) {
     errs.forEach(e => console.error(`  - ${e}`));
     process.exit(1);
   }
+  // ── DRIFT GUARD ────────────────────────────────────────────────────────────
+  // The committed content_library.json has diverged from this docx: copy was edited
+  // downstream (CMS/hand edits) and never round-tripped back to Word. At the time this
+  // guard was added, a rebuild would have silently REVERTED 130 leaf fields of live
+  // report copy — mostly subtype narratives and the primer — and dropped one key.
+  //
+  // Additions are always safe. Changing or removing a field that the live report already
+  // renders is not, so it now requires an explicit --accept-drift. This converts a silent
+  // regression into a loud, reviewable decision.
+  const drift = diffAgainstExisting(OUT, lib);
+  if (drift && !process.argv.includes('--accept-drift')) {
+    console.error(`\n✖ REFUSING TO WRITE — this build would change existing content.\n`);
+    console.error(`  ${drift.changed.length} field(s) would CHANGE, ${drift.removed.length} would be REMOVED,`
+      + ` ${drift.added.length} would be added.\n`);
+    for (const k of drift.removed.slice(0, 10)) console.error(`  REMOVED  ${k}`);
+    for (const k of drift.changed.slice(0, 10)) console.error(`  CHANGED  ${k}`);
+    const more = drift.changed.length + drift.removed.length - Math.min(10, drift.removed.length) - Math.min(10, drift.changed.length);
+    if (more > 0) console.error(`  … and ${more} more`);
+    console.error(`\n  The docx is the authoring surface, but it is currently STALE relative to the`);
+    console.error(`  committed library. Reconcile the two before rebuilding, or re-run with`);
+    console.error(`  --accept-drift if you have confirmed the docx is now canonical.\n`);
+    process.exit(1);
+  }
+  if (drift) {
+    console.log(`\n⚠ --accept-drift: overwriting ${drift.changed.length} changed and `
+      + `${drift.removed.length} removed field(s).`);
+  }
+
   fs.writeFileSync(OUT, JSON.stringify(lib, null, 2));
   console.log(`\nHARD GATE GREEN — wrote ${path.relative(ROOT, OUT)} (${(fs.statSync(OUT).size / 1024).toFixed(1)} KB)`);
 })().catch(e => { console.error('BUILD FAILED:', e.stack || e.message); process.exit(1); });

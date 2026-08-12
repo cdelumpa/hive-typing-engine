@@ -425,12 +425,31 @@
     "wings": {
       "wing_a": {
         "target_type": 8,
-        "body": "The Eight wing brings strength, directness, and access to anger into the Nine. Where the core Nine smooths and accommodates, the Eight wing adds backbone — more willingness to assert, to take up space, and to act on a position once it's found. Nines with an Eight wing can be more forceful and grounded than the easygoing image suggests.\n\nAt their best: peaceful and powerful — calm presence with the capacity to stand firm."
+        "body": "The Eight wing brings strength, directness, and access to anger into the Nine. Where the core Nine smooths and accommodates, the Eight wing adds backbone — more willingness to assert, to take up space, and to act on a position once it's found. Nines with an Eight wing can be more forceful and grounded than the easygoing image suggests.\n\nAt their best: peaceful and powerful — calm presence with the capacity to stand firm.",
+        "overview": "A Nine with a strong Eight wing carries more edge, more appetite, and more willingness to push back when pushed. The Eight wing brings access to anger as a useful signal rather than something to manage away.",
+        "bullets": [
+          "You carry real presence, and you will protect others more readily than yourself.",
+          "You can be direct, and you will confront something that matters to you.",
+          "Once you know where you stand, you act on it.",
+          "Others may find you more grounded and forceful than your easygoing manner suggests.",
+          "Left unexamined, irritation can arrive suddenly and then vanish back into accommodation."
+        ],
+        "resource": "When you need to hold a position, take up space, or act decisively, reach for the Eight wing. It turns the Peacemaker's steadiness into something with backbone."
       },
       "wing_b": {
         "target_type": 1,
-        "body": "The One wing brings structure, principle, and an eye for what's right into the Nine. Where the core Nine merges and adapts, the One wing adds discernment and standards — a quieter sense of how things should be done. Nines with a One wing tend to be more orderly, idealistic, and reform-minded.\n\nAt their best: principled and accepting — steady values held without rigidity."
-      }
+        "body": "The One wing brings structure, principle, and an eye for what's right into the Nine. Where the core Nine merges and adapts, the One wing adds discernment and standards — a quieter sense of how things should be done. Nines with a One wing tend to be more orderly, idealistic, and reform-minded.\n\nAt their best: principled and accepting — steady values held without rigidity.",
+        "overview": "A Nine with a stronger One wing carries more structure, more attention to doing things properly, and more internal discipline. The One wing brings a sense that things should be a certain way.",
+        "bullets": [
+          "You follow through on things, where Nine energy on its own might drift.",
+          "You hold standards and want things done right.",
+          "You bring care and craft to what you take on.",
+          "Others may find you more orderly and idealistic than they expect of a Nine.",
+          "Left unchecked, quiet perfectionism can turn self-forgetting into self-judgment."
+        ],
+        "resource": "When you need focus, standards, or the discipline to finish something important, reach for the One wing. It channels the Peacemaker's acceptance into something more purposeful."
+      },
+      "intro_v3": "Wings are the two types immediately adjacent to your home base type. Each wing \"flavors\" how your type shows up, and most people naturally lean more towards one. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type."
     },
     "lines": {
       "stress": {

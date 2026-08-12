@@ -1,0 +1,32 @@
+# Railway / Nixpacks build configuration.
+#
+# WHY THIS FILE EXISTS (PR 1, client report v3)
+# ---------------------------------------------
+# Until now this repo had no committed build configuration at all — no Dockerfile,
+# no nixpacks.toml, no Procfile, no engines field. Railway auto-detected the Node app
+# and built it with a default image. That was fine until the report acquired a
+# single-sheet contract.
+#
+# Every measurement in design spec v3.0 section 3 — line counts, last-line fill, and the
+# hard "every page renders to exactly one US Letter sheet" rule — assumes Arial metrics.
+# A stock Linux image has neither Arial nor Helvetica, so Chromium silently substitutes
+# (usually DejaVu Sans), every line break moves, and a page quietly becomes two sheets.
+# Spec section 3.3 names this "the most likely cause of a page silently becoming two
+# sheets in production".
+#
+# Liberation Sans is metric-compatible with Arial: identical advance widths, so line
+# breaks land in identical places. Installing it makes the container reproduce the
+# metrics the report was designed and measured against.
+#
+# The matching guard is app/browser_launch.js assertReportFont(), which fails loudly if
+# Chromium resolved anything else. CI installs the same font (fonts-liberation) so the
+# runner, the container and production all agree.
+
+[phases.setup]
+nixPkgs = ["nodejs", "liberation_ttf"]
+
+[phases.install]
+cmds = ["cd app && npm ci"]
+
+[start]
+cmd = "cd app && npm start"

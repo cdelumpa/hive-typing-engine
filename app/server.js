@@ -37,6 +37,7 @@ const { buildBetaData, BETA_QUESTION_TEXT } = require('./generate_report');
 const reportPrep = require('./report_prep');          // buildClientModel — for /admin/content preview
 const { TYPE_NAMES: CMS_TYPE_NAMES, INSTINCT_NAME: EM_INSTINCT_NAME } = require('./type_meta');  // canonical type/instinct names (distinct from the dashboard's local TYPE_NAMES)
 const db = require('./db');
+const browserLaunch = require('./browser_launch');    // single Chromium launch path (pinned bundled build) + font assertion
 const auth = require('./auth');
 const experimentalAnalysis = require('./experimental_analysis');  // EM prompt builder + engine (PR4/PR5)
 const apiErrors = require('./api_errors');            // PR20: Anthropic error classification + backoff
@@ -5041,23 +5042,12 @@ const OUTPUT_FORMAT = `CRITICAL: Return your complete analysis as a single JSON 
 
 // =================== PUPPETEER LAUNCH ===================
 
+// One rendering engine everywhere — production, local dev and CI all launch the pinned
+// bundled Chromium via app/browser_launch.js. Previously production used bundled Chromium
+// while local used a hard-coded system Chrome path, so the two disagreed by four major
+// versions on the same HTML. See app/browser_launch.js for the full rationale.
 async function launchBrowser() {
-  if (process.env.NODE_ENV === 'production') {
-    // Railway — use full puppeteer with bundled Chromium
-    const puppeteerFull = require('puppeteer');
-    return await puppeteerFull.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
-  } else {
-    // Local Mac — use puppeteer-core with system Chrome
-    const puppeteerCore = require('puppeteer-core');
-    return await puppeteerCore.launch({
-      executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-  }
+  return browserLaunch.launchBrowser();
 }
 
 // =================== PDF GENERATION ===================

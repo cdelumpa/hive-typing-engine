@@ -14,6 +14,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { clientReportV3Styles } = require('./client_report_v3_styles');  // v3 shared sheet (client-only; coach never loads it)
 const { HEADSHOT_CAI, HEADSHOT_MO } = require('./report_assets');
 
 
@@ -1045,6 +1046,112 @@ const SVG_TRIANGLE = [[9, 6], [6, 3], [3, 9]];
 const SVG_FLOW = new Set([...SVG_HEXAD, ...SVG_TRIANGLE].map(([a, b]) => `${a}-${b}`));
 const _flowDir = (x, y) => (SVG_FLOW.has(`${x}-${y}`) ? [x, y] : [y, x]);
 
+// ── CLIENT REPORT v3 diagram geometry (430 × 252) ────────────────────────────
+// Deliberately separate from SVG_NODES above. Do NOT merge the two tables: every
+// 500×500 variant iterates Object.keys(SVG_NODES), so a key added there appears on the
+// coach wheel. Values are ported verbatim from the measured reference implementation,
+// not derived (design spec v3.0 §3.5).
+const CLIENT_GEO = { vw: 430, vh: 252, cx: 215, cy: 135, r: 95, rHome: 15, rResource: 13, rInactive: 11, dx: 22 };
+const CLIENT_ANGLES = { 9: -90, 1: -50, 2: -10, 3: 30, 4: 70, 5: 110, 6: 150, 7: 190, 8: 230 };
+const CLIENT_NODES = Object.fromEntries(Object.entries(CLIENT_ANGLES).map(([k, deg]) => {
+  const rad = deg * Math.PI / 180;
+  return [k, [+(CLIENT_GEO.cx + CLIENT_GEO.r * Math.cos(rad)).toFixed(1),
+              +(CLIENT_GEO.cy + CLIENT_GEO.r * Math.sin(rad)).toFixed(1)]];
+}));
+const CLIENT_TRIANGLE = [9, 6, 3, 9];
+const CLIENT_HEXAGON = [1, 4, 2, 8, 5, 7, 1];
+
+function _clientTrim(p1, p2, t = 20) {
+  const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+  const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+  return [[+(p1[0] + ux * t).toFixed(1), +(p1[1] + uy * t).toFixed(1)],
+          [+(p2[0] - ux * t).toFixed(1), +(p2[1] - uy * t).toFixed(1)]];
+}
+function _clientMarker(id, fill) {
+  return `<marker id="${id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="${fill}"/></marker>`;
+}
+// Arc along the circle between two adjacent nodes (wings page), rather than a chord.
+function _clientArc(from, to) {
+  const a = CLIENT_NODES[from], b = CLIENT_NODES[to];
+  const d1 = (CLIENT_ANGLES[from] % 360 + 360) % 360, d2 = (CLIENT_ANGLES[to] % 360 + 360) % 360;
+  const sweep = ((d2 - d1 + 360) % 360) < 180 ? 1 : 0;
+  return `<path d="M ${a[0]},${a[1]} A ${CLIENT_GEO.r},${CLIENT_GEO.r} 0 0,${sweep} ${b[0]},${b[1]}" fill="none" stroke="#00B2D9" stroke-width="3.6" stroke-linecap="round"/>`;
+}
+
+/**
+ * Label placement for the v3 client diagrams.
+ *
+ * The rule is general, not per-type: place the label horizontally on the side the node
+ * sits relative to centre, EXCEPT when the node is at the top or bottom of the circle
+ * (|dx| below a threshold), where there is no meaningful side — there the label stacks
+ * above the node, centred.
+ *
+ * That exception previously applied only to the home node, so a non-home node at the top
+ * fell through to horizontal placement and defaulted right. For Type 1 — the only type
+ * whose home node sits immediately clockwise of the top — the 9-wing label then ran
+ * straight through the home node and collided with its label. Generalising the exception
+ * fixes that case without special-casing any type, and leaves Type 9 (home at top,
+ * already stacked above) byte-identical.
+ */
+function _clientLabel(node, nodeR, { eyebrow, name, tone }, homeNode) {
+  const [x, y] = CLIENT_NODES[node];
+  const dxUnit = (x - CLIENT_GEO.cx) / CLIENT_GEO.r;
+  const EPS = 0.2;                       // |dx| below this means "top or bottom of circle"
+  const esc9 = (s) => esc(String(s));
+
+  const EYE = `font-family="Arial" font-size="8.5" font-weight="bold" fill="${tone}" letter-spacing="0.9"`;
+  const NAME = `font-family="Arial" font-size="11" font-weight="bold" fill="#1E2A35"`;
+
+  // Top of the circle (|dx| ~ 0): there is no meaningful left/right side, so the
+  // horizontal rule below would pick one arbitrarily. Two sub-cases:
+  //
+  //  - Single-line label (the home node's eyebrow): stack it above the node, centred.
+  //    This is what the reference implementation does for Type 9 and it fits comfortably.
+  //
+  //  - Two-line label (a wing or resource point at the top, which happens for Types 1, 3,
+  //    6 and 8): it does NOT fit above. There are 27px between the node and the canvas
+  //    edge, and 5px clearance + eyebrow + name + gaps needs ~29px. Stacking it anyway is
+  //    what produced the clipped eyebrows measured at 4.47px. Instead place it
+  //    horizontally on the side AWAY from the home node, where there is ample room.
+  //    That also resolves the original Type 1 collision at its source: the label no longer
+  //    travels toward the home node at all.
+  if (Math.abs(dxUnit) < EPS) {
+    const above = (y - CLIENT_GEO.cy) < 0;
+    if (above && !name) {
+      const eyeY = +(y - nodeR - 12).toFixed(1);
+      return `<text x="${x}" y="${eyeY}" text-anchor="middle" ${EYE}>${esc9(eyebrow)}</text>`;
+    }
+    if (!above && !name) {
+      const eyeY = +(y + nodeR + 16).toFixed(1);
+      return `<text x="${x}" y="${eyeY}" text-anchor="middle" ${EYE}>${esc9(eyebrow)}</text>`;
+    }
+    // Two lines. Stacking directly above is geometrically impossible here: a 13px node at
+    // cy=40 leaves 27px of headroom, and 5px clearance plus the two rendered text boxes
+    // needs ~27.4px. Measured attempts landed at 4.47px and failed the gate.
+    //
+    // So place horizontally, on the side away from home, and raise the pair ~6px relative
+    // to the node centre. The raise matters: node 9's neighbours sit only ~61px away
+    // horizontally, so a label at the node's own baseline runs into them. Lifting it puts
+    // both lines above the neighbour's top edge, clearing it vertically instead.
+    const homeX = CLIENT_NODES[homeNode] ? CLIENT_NODES[homeNode][0] : CLIENT_GEO.cx;
+    const putRight = homeX <= x;   // home on the left (or level) -> label goes right
+    const tx = +(x + (putRight ? CLIENT_GEO.dx : -CLIENT_GEO.dx)).toFixed(1);
+    const anchorAttr = putRight ? '' : ' text-anchor="end"';
+    let out = `<text x="${tx}" y="${+(y - 8).toFixed(1)}"${anchorAttr} ${EYE}>${esc9(eyebrow)}</text>`;
+    out += `<text x="${tx}" y="${+(y + 5).toFixed(1)}"${anchorAttr} ${NAME}>${esc9(name)}</text>`;
+    return out;
+  }
+
+  // Otherwise horizontal, offset DX from the node edge, on the side away from centre.
+  const right = dxUnit > 0;
+  const tx = +(x + (right ? nodeR + CLIENT_GEO.dx - nodeR : -(nodeR + CLIENT_GEO.dx - nodeR))).toFixed(1);
+  const anchorAttr = right ? '' : ' text-anchor="end"';
+  const eyeY = name ? +(y - 2).toFixed(1) : +(y + 3).toFixed(1);
+  let out = `<text x="${tx}" y="${eyeY}"${anchorAttr} ${EYE}>${esc9(eyebrow)}</text>`;
+  if (name) out += `<text x="${tx}" y="${+(y + 11).toFixed(1)}"${anchorAttr} ${NAME}>${esc9(name)}</text>`;
+  return out;
+}
+
 function _trim(p1, p2, t) {
   const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
   const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
@@ -1172,6 +1279,67 @@ function buildEnneagramSVG({ type, variant }) {
     }
     return open + `<circle cx="250" cy="250" r="210" fill="none" stroke="#C8C8C8" stroke-width="8"/>`
       + wingConn + stressLine + secLine + nodes + `</svg>`;
+  }
+
+  // ── CLIENT REPORT v3 — 'client-wings' / 'client-lines' (430 × 252) ──────────
+  // A second, independent geometry for the v3 client report. It deliberately does NOT
+  // reuse `open`, SVG_NODES, _svgNode or _svgLabel: those are bound to the 500×500 space
+  // that the coach report renders from, and every 500×500 branch above iterates
+  // Object.keys(SVG_NODES), so adding a key there would silently add a node to the coach
+  // wheel. Everything below is additive; nothing above this line is touched.
+  //
+  // Geometry is ported verbatim from the measured reference implementation
+  // (docs/mockup/claude_The_Peacemaker_Page_Wings_v1.html) per design spec v3.0 §3.5,
+  // which is explicit that label positions must not be re-derived from a formula without
+  // rendering — three separate bugs were found that way during design.
+  if (variant === 'client-wings' || variant === 'client-lines') {
+    const N = CLIENT_NODES, C = CLIENT_GEO;
+    const ring = `<circle cx="${C.cx}" cy="${C.cy}" r="${C.r}" fill="none" stroke="#C8D0D9" stroke-width="1.3"/>`;
+    const tri = `<polyline points="${CLIENT_TRIANGLE.map(i => `${N[i][0]},${N[i][1]}`).join(' ')}" fill="none" stroke="#E4E9ED" stroke-width="1.2"/>`;
+    const hex = `<polyline points="${CLIENT_HEXAGON.map(i => `${N[i][0]},${N[i][1]}`).join(' ')}" fill="none" stroke="#E4E9ED" stroke-width="1.2"/>`;
+
+    let art = '', labels = '', defs = '';
+    const labelled = {};   // node -> { eyebrow, name, tone }
+
+    if (variant === 'client-wings') {
+      // Cyan arcs from home to each wing, drawn along the circle rather than across it.
+      art = wings.map(w => _clientArc(home, w)).join('');
+      labelled[home] = { eyebrow: 'YOUR HOME BASE', name: null, tone: '#00B2D9' };
+      wings.forEach(w => { labelled[w] = { eyebrow: `${w} WING`, name: TYPE_NAMES[w], tone: '#6B7785' }; });
+    } else {
+      // Stress: home → stress, WITH the arrow. Security: security → home, WITH the arrow,
+      // so the client reaches their security point by moving AGAINST it (spec §3.6).
+      defs = `<defs>${_clientMarker('aS', '#D38481')}${_clientMarker('aG', '#4F845C')}</defs>`;
+      const [s1, s2] = _clientTrim(N[home], N[stress]);
+      const [g1, g2] = _clientTrim(N[security], N[home]);
+      art = `<line x1="${s1[0]}" y1="${s1[1]}" x2="${s2[0]}" y2="${s2[1]}" stroke="#D38481" stroke-width="2.2" stroke-dasharray="5,3.5" marker-end="url(#aS)"/>`
+          + `<line x1="${g1[0]}" y1="${g1[1]}" x2="${g2[0]}" y2="${g2[1]}" stroke="#4F845C" stroke-width="2.2" marker-end="url(#aG)"/>`;
+      labelled[home] = { eyebrow: 'YOUR HOME BASE', name: null, tone: '#00B2D9' };
+      labelled[stress] = { eyebrow: 'STRESS POINT', name: TYPE_NAMES[stress], tone: '#A32D2D' };
+      labelled[security] = { eyebrow: 'SECURITY POINT', name: TYPE_NAMES[security], tone: '#2D7A2D' };
+    }
+
+    let nodes = '';
+    for (const k of Object.keys(N)) {
+      const i = +k;
+      let r = C.rInactive, fill = '#FFFFFF', stroke = '#C8D0D9', txt = '#8A96A3', fs = 9.5;
+      if (i === home) { r = C.rHome; fill = '#00B2D9'; stroke = '#00B2D9'; txt = '#FFFFFF'; fs = 12.5; }
+      else if (variant === 'client-wings' && wings.includes(i)) {
+        r = C.rResource; stroke = '#00B2D9'; txt = '#1E2A35'; fs = 11;
+        fill = i === wings[0] ? '#D9E4E9' : '#E8E4DF';
+      } else if (variant === 'client-lines' && i === stress) {
+        r = C.rResource; fill = '#D38481'; stroke = '#D38481'; txt = '#FFFFFF'; fs = 11;
+      } else if (variant === 'client-lines' && i === security) {
+        r = C.rResource; fill = '#4F845C'; stroke = '#4F845C'; txt = '#FFFFFF'; fs = 11;
+      }
+      const [x, y] = N[i];
+      nodes += `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="1.3"/>`
+             + `<text x="${x}" y="${(y + fs * 0.35).toFixed(1)}" text-anchor="middle" font-family="Arial" font-size="${fs}" font-weight="bold" fill="${txt}">${i}</text>`;
+      if (labelled[i]) labels += _clientLabel(i, r, labelled[i], home);
+    }
+
+    return `<svg viewBox="0 0 ${C.vw} ${C.vh}" xmlns="http://www.w3.org/2000/svg">`
+      + defs + ring + tri + hex + art + nodes + labels + `</svg>`;
   }
 
   throw new Error(`buildEnneagramSVG: unknown variant "${variant}"`);
@@ -2503,7 +2671,124 @@ ${_clP8Application(model)}
 </body></html>`;
 }
 
+/**
+ * Page-scoped component CSS for the v3 client report.
+ *
+ * Separate from clientReportV3Styles() by design. That sheet carries what is genuinely
+ * shared across pages (chrome, typography invariants, tokens); this carries the per-page
+ * components, which measurement showed are 261 of the 285 selectors in the reference
+ * implementation — the report is mostly page-specific layout, not a large shared system.
+ *
+ * Grows one page at a time as pages land. PR 1 carries Wings.
+ */
+function clientReportV3PageStyles() {
+  return `<style>
+/* ── p8 Your Wings ────────────────────────────────────────────────────────── */
+.v3-page .v3-intro{ display:flex; align-items:center; gap:26px; margin-bottom:26px; }
+.v3-page .v3-intro-body{ flex:1; }
+
+.v3-page .v3-wings{ display:flex; gap:18px; margin-bottom:0; }
+.v3-page .v3-wing{ flex:1; border:1px solid var(--v3-border); display:flex; flex-direction:column; }
+.v3-page .v3-wing-head{ padding:14px 18px; }
+.v3-page .v3-wing-head.is-wing-a{ background:var(--v3-leading-bg); }
+.v3-page .v3-wing-head.is-wing-b{ background:var(--v3-wing-alt-bg); }
+.v3-page .v3-wing-lbl{ font-size:9px; font-weight:bold; color:var(--v3-soft-navy); text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px; }
+.v3-page .v3-wing-name{ font-size:15px; font-weight:bold; color:var(--v3-navy); }
+.v3-page .v3-wing-body{ padding:20px 18px; flex:1; }
+.v3-page .v3-wing-over{ font-size:12.5px; color:var(--v3-navy); line-height:1.55; padding-bottom:15px; margin-bottom:15px; border-bottom:1px solid var(--v3-border); }
+.v3-page .v3-wing-item{ display:flex; margin-bottom:15px; }
+.v3-page .v3-wing-item:last-child{ margin-bottom:0; }
+.v3-page .v3-wing-dot{ flex:0 0 auto; width:5px; height:5px; border-radius:50%; background:var(--v3-cyan); margin:7px 10px 0 0; }
+.v3-page .v3-wing-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.5; }
+
+.v3-page .v3-resource{ background:var(--v3-green-fill); border-top:1px solid var(--v3-border); padding:18px; }
+.v3-page .v3-res-lbl{ font-size:9px; font-weight:bold; color:var(--v3-green-label); text-transform:uppercase; letter-spacing:.1em; margin-bottom:5px; }
+.v3-page .v3-res-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.45; }
+</style>`;
+}
+
+// ============================================================================
+// CLIENT REPORT v3 (PR 1). Built alongside the live 10-page report, NOT wired into
+// production: generateReportPDFs still calls buildClientReportHTML. The switch happens
+// at cutover (PR 7), so nothing a client or coach receives changes while this is built
+// page by page.
+// ============================================================================
+
+/** Page-order table. Footer numbers and the Contents page both derive from this, so they
+ *  cannot drift — the mockup's hard-coded footers number Welcome=1..Thoughts=10 against a
+ *  12-sheet document, which is the bug this replaces (spec section 8 question 7).
+ *  Populated page by page; PR 1 carries Wings only. */
+const V3_PAGE_ORDER = [
+  { key: 'wings', title: 'Your Wings', eyebrow: 'Navigating the Enneagram System', sheet: 8, footer: 6 },
+];
+
+function _v3Header(m) {
+  return `<div class="page-header">
+    <span class="header-left">InsightOut Enneagram Report</span>
+    <span class="header-right"><span class="header-client">${esc(m.client.full_name)}</span> &middot; Type ${m.hero.number} &mdash; ${esc(m.hero.name)}</span>
+  </div>`;
+}
+
+function _v3Footer(page) {
+  return `<div class="page-footer">
+    <span>&copy; Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span>Page ${page.footer}</span>
+    <span>Client confidential &mdash; for use by report owner only.</span>
+  </div>`;
+}
+
+/** p8 "Your Wings" — per-type static content plus the 430x252 wings diagram. */
+function _clv3Wings(m) {
+  const page = V3_PAGE_ORDER.find(p => p.key === 'wings');
+  const w = m.pages.v3_wings;
+  const col = (wing, headClass) => `
+    <div class="v3-wing">
+      <div class="v3-wing-head ${headClass}">
+        <div class="v3-wing-lbl">${wing.number} Wing &middot; Type ${wing.number}</div>
+        <div class="v3-wing-name">${esc(wing.name)}</div>
+      </div>
+      <div class="v3-wing-body">
+        <div class="v3-wing-over">${esc(wing.overview)}</div>
+        ${wing.bullets.map(b => `<div class="v3-wing-item"><div class="v3-wing-dot"></div><div class="v3-wing-txt">${esc(b)}</div></div>`).join('\n        ')}
+      </div>
+      <div class="v3-resource">
+        <div class="v3-res-lbl">As a Resource</div>
+        <div class="v3-res-txt">${esc(wing.resource)}</div>
+      </div>
+    </div>`;
+
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule is-loose"></div>
+
+  <div class="eyebrow">${esc(page.eyebrow)}</div>
+  <h1>${esc(page.title)}</h1>
+  <div class="v3-intro">
+    <div class="v3-intro-body"><div class="lead is-x-tight">${esc(w.intro)}</div></div>
+    <div class="v3-dia">${buildEnneagramSVG({ type: m.hero.number, variant: 'client-wings' })}</div>
+  </div>
+
+  <div class="v3-wings">${col(w.wing_a, 'is-wing-a')}${col(w.wing_b, 'is-wing-b')}
+  </div>
+
+  ${_v3Footer(page)}
+</div>`;
+}
+
+/** v3 document root. Not called by production until cutover. */
+function buildClientReportHTML_v3(model) {
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>InsightOut &middot; Your Enneagram Report &middot; Type ${model.hero.number}</title>
+${partAStyles()}
+${clientReportV3Styles()}
+${clientReportV3PageStyles()}
+</head><body>
+${_clv3Wings(model)}
+</body></html>`;
+}
+
 module.exports = {
+  buildClientReportHTML_v3, V3_PAGE_ORDER,
   buildClientHTML, buildCoachHTML, buildBetaHTML, betaReportBodyHtml, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
   buildCoachReportHTML, buildCoachPdfOptions, COACH_CLARIFICATION_QUESTIONS,

@@ -29,6 +29,9 @@ if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
 
 const client = { first_name: 'Test', last_name: 'Client', organization: 'Acme Co', date: 'June 2026' };
 const coach = { full_name: 'Cai Delumpa', type: 5, instinct: 'SP' };
+// The v3 reference implementation is built for this client; the masthead is compared
+// against it, so the name must match.
+const V3_CLIENT = { first_name: 'Anders', last_name: 'Wennerstrom', organization: 'Hive', date: 'August 2026' };
 
 // Per report kind: how to build it, which page containers to measure, how many to
 // expect, and whether page spill past one sheet is a failure (client only).
@@ -44,6 +47,17 @@ const REPORTS = {
     labels: ['Title', 'TOC', 'P1 Welcome', 'P2 Primer', 'P3 Hypotheses', 'P4 Patterns',
       'P5 Wings/Lines', 'P6 Instinct', 'P7 Strengths', 'P8 Application'],
   },
+  // CLIENT REPORT v3 (PR 1). Renders alongside the live 10-page config above, which stays
+  // green until cutover. Grows one page at a time; PR 1 carries Wings only.
+  client_v3: {
+    build: async (apiResult) => R.buildClientReportHTML_v3(
+      await prep.buildClientModel({ apiResult, client: V3_CLIENT, coach })),
+    selector: '.v3-page',
+    expected: 1,
+    enforceSheet: true,
+    labels: ['P8 Wings'],
+    fixtures: ['anders_sx9'],   // Type 9 / SX9 — the only type with v3 content so far
+  },
   coach: {
     build: async (apiResult) => R.buildCoachReportHTML(await prep.buildCoachModel({ apiResult, client, coach })),
     selector: '.report-page',
@@ -53,13 +67,10 @@ const REPORTS = {
   },
 };
 
-async function launch() {
-  const puppeteerCore = require(path.join(ROOT, 'app/node_modules/puppeteer-core'));
-  return puppeteerCore.launch({
-    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
-}
+// Pinned bundled Chromium via the shared launcher — same engine as production and CI.
+const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
+async function launch() { return browserLaunch.launchBrowser(); }
+let fontReported = false;
 
 // Measure each page container's rendered height + physical-sheet count under flowing layout.
 async function measureLayout(page, selector) {
@@ -78,9 +89,10 @@ async function measureLayout(page, selector) {
   let failed = false;
   const fail = (msg) => { failed = true; console.log(`  *** FAIL — ${msg}`); };
   try {
-    for (const fx of ['sp4', 'sx7']) {
+    for (const [kind, cfg] of Object.entries(REPORTS)) {
+     for (const fx of (cfg.fixtures || ['sp4', 'sx7'])) {
       const apiResult = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
-      for (const [kind, cfg] of Object.entries(REPORTS)) {
+      {
         console.log(`\n=== ${fx} · ${kind} ===`);
         let html;
         try {
@@ -95,6 +107,13 @@ async function measureLayout(page, selector) {
         await page.setViewport({ width: 816, height: PAGE_PX, deviceScaleFactor: 1 });
         await page.setContent(html, { waitUntil: 'networkidle0' });
         await page.emulateMediaType('print');
+        // Fail loudly if Chromium substituted a font: every single-sheet measurement below
+        // assumes Arial metrics, and a substitution is otherwise invisible until a page
+        // silently becomes two sheets.
+        try {
+          const w = await browserLaunch.assertReportFont(page);
+          if (!fontReported) { console.log(`  font probe: ${w.toFixed(2)}px (Arial metrics OK)`); fontReported = true; }
+        } catch (e) { fail(e.message); }
         const pages = await measureLayout(page, cfg.selector);
         let sheets = 0;
         for (const p of pages) {
@@ -112,6 +131,7 @@ async function measureLayout(page, selector) {
         await page.close();
         console.log(`  logical pages: ${pages.length} · estimated physical sheets: ${sheets} · wrote .phase6_out/${kind}_${fx}.pdf`);
       }
+     }
     }
   } finally { await browser.close(); }
   if (failed) { console.log('\nRENDER CHECK: FAILURES ABOVE.'); process.exit(1); }

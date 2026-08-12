@@ -23,8 +23,8 @@
     "multer": "^2.2.0",
     "node-cron": "^4.6.0",
     "pg": "^8.20.0",
-    "puppeteer": "^24.42.0",
-    "puppeteer-core": "^24.42.0",
+    "puppeteer": "24.42.0",
+    "puppeteer-core": "24.42.0",
     "sharp": "^0.35.3",
     "undici": "^6.27.0"
   }

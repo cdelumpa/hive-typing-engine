@@ -1,0 +1,36 @@
+{
+  "_comment": "Synthetic Call #2 result for client report v3 layout verification. Type 9 / SX9, matching the reference implementation's client (Anders Wennerstrom). Contains NO authored report content: every AI-authored zone the client model can read (client_facing.*, client_words.*, coach_report.*) is optional and left empty, because the v3 Wings page is entirely library-driven. Only confirmed_type, alternate_candidate and dominant_instinct_hypothesis are strictly required by buildClientModel; the score vectors are included for the Quick Reference page in a later PR. Instinct values are the coach report's SX9 figures (SP 66 / SO 64 / SX 84) per design spec v3.0 section 4.3, which requires anything sourced from the mockup to be verified against the coach report.",
+  "hypothesis": {
+    "confirmed_type": 9,
+    "confirmed_type_name": "Type 9 — The Peacemaker",
+    "leading_candidate": 9,
+    "alternate_candidate": 5,
+    "third_candidate": 1,
+    "confidence_level": "HIGH",
+    "dominant_instinct_hypothesis": "SX",
+    "confirmed_instinct": "SX",
+    "stage4_outcome": "CONFIRMED",
+    "hypothesis_validated": true,
+    "ranking_override": false,
+    "redirect_from_type": null,
+    "gap": 8,
+    "call1_ranking": [
+      { "type": 9, "score": 91 },
+      { "type": 5, "score": 83 },
+      { "type": 1, "score": 74 },
+      { "type": 8, "score": 52 },
+      { "type": 3, "score": 47 },
+      { "type": 2, "score": 44 },
+      { "type": 7, "score": 38 },
+      { "type": 4, "score": 35 },
+      { "type": 6, "score": 31 }
+    ],
+    "type_score_profile": {
+      "1": 74, "2": 44, "3": 47, "4": 35, "5": 83, "6": 31, "7": 38, "8": 52, "9": 91
+    },
+    "instinct_score_profile": { "SP": 66, "SO": 64, "SX": 84 }
+  },
+  "client_facing": {},
+  "client_words": {},
+  "coach_report": {}
+}

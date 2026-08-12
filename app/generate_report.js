@@ -572,20 +572,11 @@ function buildBetaData(row) {
 // actively used by the /admin/beta-review tester modal and synthesis. Flagged for a
 // future cleanup pass that strips the PDF machinery.
 
+// Pinned bundled Chromium via the shared launcher — one engine everywhere, including
+// this legacy beta path. Previously this branched to a hard-coded system Chrome off
+// production, which is the dev/prod split PR 1 exists to remove.
 async function launchBrowser() {
-  if (process.env.NODE_ENV === 'production') {
-    const puppeteerFull = require(path.join(APP_MODULES, 'puppeteer'));
-    return await puppeteerFull.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-    });
-  }
-  const puppeteerCore = require(path.join(APP_MODULES, 'puppeteer-core'));
-  return await puppeteerCore.launch({
-    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  return require('./browser_launch').launchBrowser();
 }
 
 async function htmlToPdf(html, outPath, pdfOptions) {
