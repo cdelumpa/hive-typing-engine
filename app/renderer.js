@@ -2799,8 +2799,13 @@ function clientReportV3PageStyles() {
 .v3-page .v3-wl-hello{ font-size:28px; font-weight:bold; color:var(--v3-navy); margin-bottom:22px; }
 .v3-page .v3-wl-hello span{ color:var(--v3-orange); }
 .v3-page .v3-wl-kick{ font-size:15.5px; font-weight:bold; color:var(--v3-navy); margin-bottom:26px; }
-.v3-page .v3-wl-para{ font-size:14px; color:var(--v3-soft-navy); line-height:1.75; margin-bottom:26px; }
-.v3-page .v3-wl-signoff{ font-size:14px; color:var(--v3-soft-navy); line-height:1.75; margin-bottom:0; }
+/* 15px, not the v2 mockup's 14px. Two Hive artifacts disagree and the more specific one
+   wins: the locked v1.7 The_Peacemaker_Page_Welcome.html records a deliberate letter-body
+   exception (.subhead and .letter-para at 15px against .callout-text at 14px), because this
+   page is a letter rather than report body. That reasoning still holds in v3. Seventh
+   deliberate departure from the v2 mockups — see the audit doc's departures list. */
+.v3-page .v3-wl-para{ font-size:15px; color:var(--v3-soft-navy); line-height:1.75; margin-bottom:26px; }
+.v3-page .v3-wl-signoff{ font-size:15px; color:var(--v3-soft-navy); line-height:1.75; margin-bottom:0; }
 /* The pair reads as a pair, not as two items distributed across the column. The block was
    already flex-start (justify-content:normal), so the spread came from the CARD WIDTH, not
    justification: cards were fixed at 214px against measured content widths of 121.2px and
@@ -2923,17 +2928,62 @@ function _v3Tokens(m, s) {
 const _v3Title = (m, key) => _v3Tokens(m, v3Page(key).title);
 
 /**
- * Keep URLs on one line.
+ * Stop URLs and hyphenated compounds being split across a line break.
  *
- * Chromium breaks a line at an existing hyphen, and the Welcome letter's
- * www.hiveleadership.com/the-enneagram wrapped as "…/the-" / "enneagram." — a URL split
- * across two lines in a client-facing PDF. A non-breaking hyphen is the wrong fix for a
- * URL specifically: it would put U+2011 inside the address, so anyone copying it out of
- * the PDF would copy something that does not resolve. Wrapping in nowrap keeps the text
- * copy-exact. Applied AFTER escaping, so the inserted markup is the only markup.
+ * Chromium breaks a line at a hyphen that already exists in the string. `hyphens: manual` —
+ * which is computed on every page — governs AUTOMATIC hyphenation only and does nothing
+ * here, so measuring is the only way to see this: on the reference set three compounds split
+ * ("self-forgetting", "present-moment", "pressure-test") and, once the approved Welcome copy
+ * landed, so did www.hiveleadership.com/the-enneagram, as "…/the-" / "enneagram.".
+ *
+ * WHY A NOWRAP SPAN AND NOT U+2011.
+ * A non-breaking hyphen fixes the break but changes the text: anyone copying
+ * "self‑forgetting" out of the PDF gets a non-ASCII character that will not match a search
+ * for "self-forgetting", and a copied URL containing U+2011 does not resolve at all. It also
+ * has to be applied by hand to every future string, which is consistency by memory — the
+ * same word ended up spelled two ways across five leaves before this replaced it. The span
+ * leaves the text byte-identical to the approved copy and applies to all content
+ * automatically, including the ~500 zones still to be authored in PR 3, 4 and 6.
+ *
+ * THE GUARD. A nowrap span wider than its column would overflow instead of breaking, so
+ * compounds are only protected up to V3_NOBREAK_MAX characters, and never when they contain
+ * a run of 4+ capitals (an acronym chain is the one realistic way to be both short and very
+ * wide). Measured against the content library: 120 distinct hyphenated compounds, the longest
+ * 23 chars ("achievement-orientation"), zero with a caps run — so the guard covers all of
+ * them today with one character of headroom. Measured against the layout: the narrowest text
+ * column in the built pages is .v3-wi-tc-d at 201px, and the widest realistic compound is
+ * 152px there, comfortably inside.
+ *
+ * AT THE BOUNDARY: a compound past the limit is left alone and behaves exactly as it does
+ * today — it may break at its hyphen, and if it does the render gate fails the build. That is
+ * deliberate: never silently overflow, never silently split, and a copy change that crosses
+ * the limit stops for a human rather than shipping. URLs are protected regardless of length,
+ * because a split URL is worse than an overflowing one.
+ *
+ * Applied AFTER escaping, so the inserted markup is the only markup in the string.
  */
-const _v3NoBreakUrls = (escaped) =>
-  String(escaped).replace(/((?:https?:\/\/|www\.)[^\s<]+[^\s<.,;:!?)])/g, '<span class="v3-nb">$1</span>');
+const V3_NOBREAK_MAX = 24;
+const V3_URL_RE = /(?:https?:\/\/|www\.)[^\s<]+[^\s<.,;:!?)]/g;
+const V3_COMPOUND_RE = /[A-Za-z]+(?:-[A-Za-z]+)+/g;
+const _v3nb = (s) => `<span class="v3-nb">${s}</span>`;
+
+function _v3NoBreak(escaped) {
+  const src = String(escaped);
+  let out = '', last = 0;
+  // URLs are matched first and their spans emitted whole, so the compound pass below never
+  // sees the inside of a URL (which is full of hyphens) and cannot nest a span in one.
+  for (const m of src.matchAll(V3_URL_RE)) {
+    out += _v3Compounds(src.slice(last, m.index)) + _v3nb(m[0]);
+    last = m.index + m[0].length;
+  }
+  return out + _v3Compounds(src.slice(last));
+}
+
+const _v3Compounds = (s) => s.replace(V3_COMPOUND_RE, (c) =>
+  (c.length <= V3_NOBREAK_MAX && !/[A-Z]{4,}/.test(c)) ? _v3nb(c) : c);
+
+/** Escape + protect. Use for any v3 prose so the protection is automatic, not remembered. */
+const _v3t = (s) => _v3NoBreak(esc(s));
 
 /**
  * Shared page header.
@@ -3013,8 +3063,8 @@ function _clv3Contents(m) {
     return `  <div class="v3-toc-row">
     <div class="v3-toc-num">${String(i + 1).padStart(2, '0')}</div>
     <div class="v3-toc-main">
-      <div class="v3-toc-title">${esc(_v3Tokens(m, target.title))}</div>
-      <div class="v3-toc-desc">${esc(_v3Tokens(m, e.desc))}</div>
+      <div class="v3-toc-title">${_v3t(_v3Tokens(m, target.title))}</div>
+      <div class="v3-toc-desc">${_v3t(_v3Tokens(m, e.desc))}</div>
     </div>
     <div class="v3-toc-pg">${target.footer}</div>
   </div>`;
@@ -3059,10 +3109,10 @@ function _clv3Welcome(m) {
 
   <div class="eyebrow">${esc(page.eyebrow)}</div>
   <div class="v3-wl-hello">Welcome, <span>${esc(w.greeting_name)}!</span></div>
-  <div class="v3-wl-kick">${esc(w.subhead)}</div>
+  <div class="v3-wl-kick">${_v3t(w.subhead)}</div>
 
-  ${w.letters.map(p => `<div class="v3-wl-para">${_v3NoBreakUrls(esc(p))}</div>`).join('\n  ')}
-  <div class="v3-wl-signoff">${esc(w.signoff)}</div>
+  ${w.letters.map(p => `<div class="v3-wl-para">${_v3t(p)}</div>`).join('\n  ')}
+  <div class="v3-wl-signoff">${_v3t(w.signoff)}</div>
 
   <div class="v3-wl-sign">${card(CAI_PHOTO_DATA_URI, 'Cai Delumpa', 'Co-Founder, Hive, Inc.', 'Type 7 · The Enthusiast')}${card(MO_PHOTO_DATA_URI, 'Monique Breault', 'Co-Founder, Hive, Inc.', 'Type 9 · The Peacemaker')}
   </div>
@@ -3079,8 +3129,8 @@ function _clv3WhatIs(m) {
   const cards = w.nine_types.map(t => `    <div class="v3-wi-tc">
       <div class="v3-wi-tc-n">TYPE ${t.number}</div>
       <div class="v3-wi-tc-t">${esc(t.name)}</div>
-      <div class="v3-wi-tc-d">${esc(t.description)}</div>
-      <div class="v3-wi-tc-g">Gifts: ${esc(t.gifts)}</div>
+      <div class="v3-wi-tc-d">${_v3t(t.description)}</div>
+      <div class="v3-wi-tc-g">Gifts: ${_v3t(t.gifts)}</div>
     </div>`).join('\n');
 
   return `<div class="v3-page">
@@ -3090,19 +3140,19 @@ function _clv3WhatIs(m) {
   <h1>${esc(page.title)}</h1>
   <div class="v3-wi-top">
     <div class="v3-wi-body">
-      ${paras.map(p => `<div class="v3-wi-tp">${esc(p)}</div>`).join('\n      ')}
+      ${paras.map(p => `<div class="v3-wi-tp">${_v3t(p)}</div>`).join('\n      ')}
     </div>
     <div class="v3-wi-sym">${buildEnneagramSVG({ variant: 'client-whatis' })}</div>
   </div>
 
   <div class="v3-wi-scan">${esc(w.scan_heading)}</div>
-  <div class="v3-wi-scanp">${esc(w.scan_line)}</div>
+  <div class="v3-wi-scanp">${_v3t(w.scan_line)}</div>
 
   <div class="v3-wi-grid">
 ${cards}
   </div>
 
-  <div class="v3-wi-close">${esc(w.close)}</div>
+  <div class="v3-wi-close">${_v3t(w.close)}</div>
 
   ${_v3Footer(page)}
 </div>`;
@@ -3118,9 +3168,9 @@ function _clv3Thoughts(m) {
 
   <div class="eyebrow">${esc(page.eyebrow)}</div>
   <h1>${esc(page.title)}</h1>
-  <div class="v3-th-intro">${esc(t.intro)}</div>
+  <div class="v3-th-intro">${_v3t(t.intro)}</div>
 
-  ${t.prompts.map(p => `<div class="v3-th-qbox"><div class="v3-th-qtext">${esc(p)}</div><div class="v3-th-qspace"></div></div>`).join('\n  ')}
+  ${t.prompts.map(p => `<div class="v3-th-qbox"><div class="v3-th-qtext">${_v3t(p)}</div><div class="v3-th-qspace"></div></div>`).join('\n  ')}
 
   ${_v3Footer(page)}
 </div>`;
@@ -3137,12 +3187,12 @@ function _clv3Wings(m) {
         <div class="v3-wing-name">${esc(wing.name)}</div>
       </div>
       <div class="v3-wing-body">
-        <div class="v3-wing-over">${esc(wing.overview)}</div>
-        ${wing.bullets.map(b => `<div class="v3-wing-item"><div class="v3-wing-dot"></div><div class="v3-wing-txt">${esc(b)}</div></div>`).join('\n        ')}
+        <div class="v3-wing-over">${_v3t(wing.overview)}</div>
+        ${wing.bullets.map(b => `<div class="v3-wing-item"><div class="v3-wing-dot"></div><div class="v3-wing-txt">${_v3t(b)}</div></div>`).join('\n        ')}
       </div>
       <div class="v3-resource">
         <div class="v3-res-lbl">As a Resource</div>
-        <div class="v3-res-txt">${esc(wing.resource)}</div>
+        <div class="v3-res-txt">${_v3t(wing.resource)}</div>
       </div>
     </div>`;
 
@@ -3153,7 +3203,7 @@ function _clv3Wings(m) {
   <div class="eyebrow">${esc(page.eyebrow)}</div>
   <h1>${esc(page.title)}</h1>
   <div class="v3-intro">
-    <div class="v3-intro-body"><div class="lead is-x-tight">${esc(w.intro)}</div></div>
+    <div class="v3-intro-body"><div class="lead is-x-tight">${_v3t(w.intro)}</div></div>
     <div class="v3-dia">${buildEnneagramSVG({ type: m.hero.number, variant: 'client-wings' })}</div>
   </div>
 

@@ -201,53 +201,72 @@ split (`self-forgetting`, `present-moment`, `pressure-test`) plus one false posi
 **The gate is the measurement**: `scripts/render_client.js` now walks rendered line boxes and
 fails on any break at a hyphen not preceded by whitespace.
 
-### 5.1 Where the U+2011 substitution lives — and why it should not stay there
+### 5.1 The fix is a renderer transform, not a source-character edit
 
-**It is hand-edited into source constants, not a renderer transform.** Both substitutions sit
-in `INTERIM_*` constants in `scripts/build_content_library.js`:
+The first implementation substituted U+2011 (non-breaking hyphen) into two source strings.
+That worked, and it was wrong in three ways that only became visible once written down:
 
-* `INTERIM_THOUGHTS.intro` — `pressure‑test`
-* `INTERIM_WINGS_V3` (`type_9.wings.wing_b.bullets[4]`) — `self‑forgetting`
+* **It changed approved copy.** `type_9.wings.wing_b.bullets[4]` is content under review with
+  Mo; the built string differed from the reviewed string by one character.
+* **It is not copy-exact.** A client copying `self‑forgetting` out of the PDF gets a
+  non-ASCII character that will not match a search for `self-forgetting` — the same objection
+  that ruled U+2011 out for URLs, applied inconsistently to prose.
+* **It was consistent by memory.** Two strings out of ~1400 leaves carried it, and the same
+  compound ended up spelled two ways across five leaves. Every future splitting compound in
+  the ~500 zones still to be authored would need the same manual edit.
 
-Those constants **are** the canonical source for those two leaves, so there is no
-JSON-versus-docx drift of the PR 1.5 kind: neither leaf is parsed from Word, and
-`verify_content_library.js` passes precisely because the build reproduces them. **Measured**:
-the canonical docx contains **zero** U+2011 characters.
+**Both source edits are reverted to U+002D and the fix moved into the renderer.**
+`_v3NoBreak()` wraps URLs and short hyphenated compounds in a `white-space:nowrap` span,
+after escaping, and `_v3t()` (escape + protect) is used for v3 prose so the protection is
+automatic rather than remembered.
 
-But it is consistent **by memory, not by construction**, and it has already produced a
-divergence worth naming. **Measured** — five leaves in the library contain the compound, and
-only one is spelled with U+2011:
+**The guard.** A nowrap span wider than its column would overflow instead of breaking, so
+compounds are protected only up to **24 characters** and never when they contain a run of 4+
+capitals — an acronym chain being the one realistic way to be both short and very wide.
+**Measured** against the content library: 120 distinct hyphenated compounds, longest 23 chars
+(`achievement-orientation`), **zero** with a caps run — so the guard covers every compound in
+the library today with one character of headroom. **Measured** against the layout: the
+narrowest text column in the built pages is `.v3-wi-tc-d` at **201px**, and the widest
+realistic compound renders **152px** there.
 
-| Leaf | Source | Character |
-|---|---|---|
-| `type_9.wings.wing_b.bullets[4]` | INTERIM | **U+2011** |
-| `type_9.patterns.feeling.bullets[3]` | Word | U+002D |
-| `type_9.challenges[0].title` | Word | U+002D |
-| `type_9.comparison.challenges` | Word | U+002D |
-| `subtype_sx9.narrative` | Word | U+002D |
+**At the boundary**, a compound past the limit is left alone and behaves exactly as it does
+today: it may break at its hyphen, and if it does the render gate fails the build. Never
+silently overflow, never silently split — a copy change that crosses the limit stops for a
+human. URLs are protected regardless of length, because a split URL is worse than a wide one.
 
-The same word is now spelled two ways inside one content library. Across PR 3, 4 and 6 —
-roughly 500 more zones — every future splitting compound needs the same manual edit, applied
-by whoever remembers this document exists. The render gate catches the *symptom* (a word
-split across lines) but not the *remedy*, and it only fires when that particular line happens
-to break at that particular point.
+**Precondition checked before starting** (as instructed): of the five leaves carrying the
+compound, four are Word-sourced and live on sheets 7 and 10, which do not exist yet.
+**Measured** — none of the four appears in the built HTML, so the transform touches only
+pages PR 2 built.
 
-**Two consequences to flag rather than let be discovered:**
+**Verification after the revert** (all measured):
 
-1. **The Wings review copy and the built copy differ by one character.**
-   `type_9.wings.wing_b.bullets[4]` is approved content currently in front of Mo for the
-   Wings review. The approved string has a plain hyphen; the build has U+2011.
-2. **U+2011 is not copy-exact.** A client copying `self‑forgetting` out of the PDF gets a
-   non-ASCII character that will not match a search for `self-forgetting`. That is the same
-   objection that ruled U+2011 out for URLs (§5).
+| Check | Result |
+|---|---|
+| All five compound leaves use U+002D | **yes**, 5/5 |
+| docx and `INTERIM_*` agree in character content | **yes** — both contain zero U+2011 |
+| Built Wings string vs the copy in front of Mo | **byte-identical** |
+| Rendered pages split a word at a hyphen | **no** |
 
-**Recommendation, for PR 3 rather than here:** replace the source edits with a renderer-side
-transform — the same shape as `_v3NoBreakUrls`, wrapping hyphenated compounds in a
-`white-space:nowrap` span. That would make source strings byte-identical to approved copy
-(removing both consequences above), apply automatically to all future content, and keep the
-extracted text exact. It needs one guard: a compound long enough to exceed its column must
-still be allowed to break, so the wrap should be conditional on length. Not done in PR 2
-because it changes hyphenation behaviour across pages this PR does not own.
+### 5.2 The Wings pixel delta did not return to the `main` position — correctly
+
+The brief expected the revert to restore `main`'s line-break position. **Measured**, it did
+not: branch-vs-`main` is **0.1613%** (1,390px), essentially unchanged from the 0.1615%
+measured under U+2011, still confined to rows y=782–789.
+
+The reason is that the expectation assumed `main` was correct. It is not. **Measured**, by
+running the hyphen detector against both builds:
+
+```
+main @ 808174f  Wings: 1 split  — "ectionism can turn self-" / "forgetting into"
+this branch     Wings: no split
+```
+
+`main` carries the defect. Returning to its line-break position would mean reintroducing a
+word split across two lines in a client PDF. What the revert changed is the **mechanism**
+(source character → renderer span) and the **source string** (now byte-identical to the
+approved copy); the rendered output is intentionally still different from `main`, because
+`main` is what is being fixed.
 
 ---
 
@@ -621,12 +640,18 @@ Anything not on this list is a defect.
    real order is Welcome → What Is → Quick Reference).
 7. **Your Thoughts intro and prompts 3–5** — approved copy; prompt 3's positional
    "the previous page" reference deliberately removed.
-8. **`self-forgetting` → `self‑forgetting`** (U+2011) in the type-9 wing bullet, and
-   `pressure‑test` in the p12 intro (§5).
+8. **Hyphenated compounds and URLs wrapped in a nowrap span** (§5.1). No source string is
+   altered — this replaced an earlier U+2011 substitution precisely so the copy stays
+   byte-identical to what was approved.
 
 9. **Founder photos in, signature scrawl out** (§10.0.1–2) — the mockups draw an empty
    placeholder circle and a hand-drawn SVG squiggle; the build carries real 110px headshots
    and no signature.
+10. **Welcome body at 15px**, not the v2 mockup's 14px. Two Hive artifacts disagree and the
+    more specific one wins: the locked v1.7 `The_Peacemaker_Page_Welcome.html` records a
+    deliberate letter-body exception — `.subhead` and `.letter-para` at 15px against
+    `.callout-text` at 14px — because this page is a letter rather than report body, and that
+    reasoning still holds in v3. **Measured**: 845.25px stack, **130.75px headroom**.
 
 **Explicitly NOT a departure:** the nine orange type names on What Is. Ratified 12 Aug as
 correct-as-shipped; spec §5.3 is the thing that is now wrong, and that correction is logged

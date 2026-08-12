@@ -101,7 +101,7 @@ const INTERIM_CONTENTS = [
 // coach" — Welcome states a reader may have arrived "through a coach, a friend, or sheer
 // coincidence", so not every reader has one.
 const INTERIM_THOUGHTS = {
-  intro: "Whatever landed as recognition is good data. So is whatever made you want to argue with a paragraph or two. This report is a hypothesis, not a verdict, and the only way to test it is against your own experience. The questions below are a place to start. An InsightOut coach can help you pressure‑test any of it.",
+  intro: "Whatever landed as recognition is good data. So is whatever made you want to argue with a paragraph or two. This report is a hypothesis, not a verdict, and the only way to test it is against your own experience. The questions below are a place to start. An InsightOut coach can help you pressure-test any of it.",
   prompts: [
     "What's one thing you want to remember from this report?",
     "What's one thing you're still curious about and want to learn more about?",
@@ -164,13 +164,12 @@ const INTERIM_WINGS_V3 = {
           'You hold standards and want things done right.',
           'You bring care and craft to what you take on.',
           'Others may find you more orderly and idealistic than they expect of a Nine.',
-          // U+2011 non-breaking hyphen in "self‑forgetting" (brief v2.0 §12.6). Measured:
-          // Chromium broke this line at the hyphen, rendering "self-" / "forgetting" across
-          // two lines. hyphens:manual does not govern breaks at hyphens that already exist
-          // in the string, so the fix is the character, not a CSS property. U+2011 has the
-          // same advance width as U+002D in Arial and Liberation Sans (measured 4.67px at
-          // 14px), so nothing reflows.
-          'Left unchecked, quiet perfectionism can turn self‑forgetting into self-judgment.',
+          // Plain U+002D, byte-identical to the approved copy. Chromium breaks this line at
+          // the hyphen; that is fixed in the RENDERER (_v3NoBreak wraps the compound in a
+          // nowrap span) rather than by substituting U+2011 here. A non-breaking hyphen in
+          // the source would leave the built string one character adrift from the copy under
+          // review, and would not survive a client copying the text out of the PDF.
+          'Left unchecked, quiet perfectionism can turn self-forgetting into self-judgment.',
         ],
         resource: "When you need focus, standards, or the discipline to finish something important, reach for the One wing. It channels the Peacemaker's acceptance into something more purposeful.",
       },
