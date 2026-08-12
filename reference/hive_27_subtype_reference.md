@@ -148,7 +148,7 @@
 
 ---
 
-## TYPE 6 — The Loyal Skeptic
+## TYPE 6 — The Questioner
 
 ### SP 6 — The Family Loyalist (Warmth)
 

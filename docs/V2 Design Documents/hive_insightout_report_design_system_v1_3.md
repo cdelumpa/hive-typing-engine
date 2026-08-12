@@ -142,7 +142,12 @@ All node positions are derived mathematically from a single center (250, 250) an
 
 All line endpoints are trimmed 30px from each node center along the line's unit vector, so arrows and gaps land consistently at every node.
 
-Hexad sequence: 1→4→2→8→5→7→1. Triangle sequence: 3→6→9→3.
+Hexad sequence: 1→4→2→8→5→7→1. Triangle sequence: 9→6→3→9.
+
+Canonical flow direction (per client report design spec v3.0 §3.6, derived from `type_library.json`
+`stress_point` data): home → stress point goes **with** the arrow; security point → home goes **with**
+the arrow, so the client reaches their security point by moving **against** it. This holds for all nine
+types without exception.
 
 ### Per-type lookup table
 
@@ -196,7 +201,7 @@ Used on: Client report Page 3 (Type Hypotheses), Coach report Page 1.
 | Center triad shading | See table above |
 | All hexad + triangle lines (inactive) | `stroke="#C8C8C8"`, `stroke-width="1.5"`, no arrowheads |
 | Stress line (home → stress point) | `stroke="#D38481"`, `stroke-width="2.5"`, `stroke-dasharray="6,4"`, arrowhead |
-| Security line (home → security point) | `stroke="#4F845C"`, `stroke-width="2.5"`, solid, arrowhead |
+| Security line (security point → home) | `stroke="#4F845C"`, `stroke-width="2.5"`, solid, arrowhead |
 | Home base node | `r=26`, fill `#00B2D9` |
 | Stress point node | `r=22`, fill `#D38481` |
 | Security point node | `r=22`, fill `#4F845C` |
