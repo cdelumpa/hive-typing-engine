@@ -8,19 +8,56 @@
  * coach output (no test covers SVG markup at all), so without this a client-side change
  * could silently alter what coaches receive and nothing would notice.
  *
- * Two gates, both hard failures:
+ * Two gates, with DIFFERENT reach — this split is the fix landed 12 Aug 2026:
  *   1. Coach HTML byte-identical. Chromium never touches HTML generation, so this is
- *      deterministic and must hold with no exception, including across a Chromium pin.
+ *      deterministic and platform-independent. Runs EVERYWHERE, no exceptions.
  *   2. Normalized coach PDF hash identical — catches rendering regressions that leave the
- *      markup intact and the page heights unchanged, colour above all (see
- *      tests/lib/pdf_normalize.js for why raw byte comparison is impossible).
+ *      markup intact and the page heights unchanged, colour above all. Runs ONLY where the
+ *      font environment matches production (Linux). SKIPPED elsewhere, loudly.
+ *
+ * WHY THE PDF HALF IS PLATFORM-GATED
+ * ----------------------------------
+ * This gate had never passed in CI. Every run since it was created was red, on every branch
+ * including main, and five PRs merged underneath it while their reports cited "coach
+ * byte-identical, both fixtures" as evidence. That claim was true — and local, single-machine
+ * and macOS-only. The automated signal said the opposite the whole time.
+ *
+ * The cause is not a bug in the renderer. macOS has genuine Arial; Linux has Liberation Sans.
+ * They are metric-compatible, so line breaks, page heights and the emitted HTML are all
+ * identical — which is exactly why the HTML half passes on both. But the PDFs cannot match:
+ *
+ *   - Text is written as GLYPH IDS, not characters: the content streams contain `<002C> Tj`,
+ *     and glyph IDs are internal to a font. Two metric-compatible fonts assign different IDs
+ *     to the same character, so THE CONTENT STREAM BYTES THEMSELVES DIFFER.
+ *   - Measured on the coach PDF: font programs are 71.5% of the file (260,602 of 364,668
+ *     bytes), plus 40 /FontDescriptor dicts carrying platform-specific metrics, 20 CIDFont /W
+ *     arrays keyed by glyph ID, and 40 /BaseFont names.
+ *
+ * So normalization cannot fix this. To make the hash platform-stable you would have to strip
+ * every font object AND decode the glyph IDs in every content stream back to text through the
+ * ToUnicode CMap — i.e. write a PDF text extractor and hash a reconstruction of the document
+ * rather than the document. What survived would no longer be the artifact clients receive.
+ *
+ * The alternative is PR 1's precedent: pin the environment rather than teach the comparison
+ * to ignore differences. PR 1 did not normalize away the Chromium version split, it pinned
+ * the version. The same logic here says compare PDFs only where the fonts match production.
+ * Baselines are therefore recorded on Linux and asserted on Linux.
+ *
+ * WHAT THIS GATE CAN AND CANNOT SEE AFTERWARDS
+ *   CAN, everywhere        — any change to generated markup or content (the HTML half).
+ *   CAN, in CI only        — colour, layout and rendering regressions (the PDF half), in the
+ *                            environment that matches production.
+ *   CANNOT, on a developer machine — PDF-level regressions before push. That feedback moves
+ *                            from a ~15s local run to a ~2min CI run. Accepted: a signal that
+ *                            is available instantly and wrong is worth less than one that
+ *                            arrives on push and is right.
  *
  * Baselines live in tests/baselines/ as committed text, so a legitimate change to coach
  * output shows up as a reviewable diff in the PR that causes it rather than drifting
  * silently. Refresh them with --update, and only in a PR that intends the change.
  *
  *   node scripts/verify_coach_baseline.js            # verify (CI)
- *   node scripts/verify_coach_baseline.js --update   # re-record
+ *   node scripts/verify_coach_baseline.js --update   # re-record (PDF half: Linux only)
  */
 
 const fs = require('fs');
@@ -37,6 +74,19 @@ const CLIENT = { first_name: 'Test', last_name: 'Client', organization: 'Acme Co
 const COACH = { full_name: 'Cai Delumpa', type: 5, instinct: 'SP' };
 
 const update = process.argv.includes('--update');
+
+// The PDF half is only meaningful where the embedded fonts match production. Production and
+// CI are Linux + Liberation Sans; a developer machine is typically macOS + genuine Arial.
+// Comparing across those is not a weaker check, it is a check of a different document.
+const PDF_COMPARABLE = process.platform === 'linux';
+const PDF_SKIP_REASON = `platform is ${process.platform}, not linux — the embedded fonts differ from production`;
+
+/** Font families embedded in a PDF. The diagnostic that would have caught this months ago. */
+function embeddedFonts(buf) {
+  const s = Buffer.isBuffer(buf) ? buf.toString('latin1') : Buffer.from(buf).toString('latin1');
+  return [...new Set([...s.matchAll(/\/BaseFont\s*\/([A-Za-z0-9+\-]+)/g)]
+    .map(m => m[1].replace(/^[A-Z]{6}\+/, '')))].sort();
+}
 let failed = false;
 const fail = (m) => { failed = true; console.log(`  *** FAIL — ${m}`); };
 
@@ -64,8 +114,15 @@ const fail = (m) => { failed = true; console.log(`  *** FAIL — ${m}`); };
 
       if (update) {
         fs.writeFileSync(htmlPath, html);
-        fs.writeFileSync(hashPath, ph + '\n');
-        console.log(`  ${fx}: recorded (html ${htmlHash(html).slice(0, 12)}… · pdf ${ph.slice(0, 12)}…)`);
+        if (PDF_COMPARABLE) {
+          fs.writeFileSync(hashPath, ph + '\n');
+          console.log(`  ${fx}: recorded (html ${htmlHash(html).slice(0, 12)}… · pdf ${ph.slice(0, 12)}…)`);
+        } else {
+          // Recording a macOS hash is what created the permanently-red gate. Refuse, rather
+          // than write a baseline that can never be satisfied where it is asserted.
+          console.log(`  ${fx}: recorded HTML only — PDF baseline NOT written (${PDF_SKIP_REASON}).`);
+          console.log(`  ${fx}: to record it, run this on Linux (CI) and commit the printed hash.`);
+        }
         continue;
       }
 
@@ -80,10 +137,21 @@ const fail = (m) => { failed = true; console.log(`  *** FAIL — ${m}`); };
       } else {
         console.log(`  ${fx}: HTML byte-identical ✓`);
       }
+      console.log(`  ${fx}: embedded fonts — ${embeddedFonts(pdf).join(', ')}`);
+
+      if (!PDF_COMPARABLE) {
+        console.log(`  ${fx}: normalized PDF hash SKIPPED (${PDF_SKIP_REASON})`);
+        console.log(`  ${fx}: this run's hash ${ph} (informational — not compared)`);
+        continue;
+      }
       const wantPdf = fs.readFileSync(hashPath, 'utf8').trim();
       if (ph !== wantPdf) {
-        fail(`${fx}: coach PDF changed (baseline ${wantPdf.slice(0, 12)}… , got ${ph.slice(0, 12)}…). `
-          + 'Rendering differs even though markup may not — check colour, fonts and Chromium version.');
+        // Full hashes, not truncated: a truncated hash cannot be pasted into a baseline file,
+        // which is what made re-recording from a CI log impossible before.
+        fail(`${fx}: coach PDF changed\n`
+          + `        baseline ${wantPdf}\n`
+          + `        current  ${ph}\n`
+          + '        Rendering differs even though markup may not — check colour and Chromium version.');
       } else {
         console.log(`  ${fx}: normalized PDF hash identical ✓`);
       }
@@ -93,5 +161,6 @@ const fail = (m) => { failed = true; console.log(`  *** FAIL — ${m}`); };
   }
 
   if (failed) { console.log('\nCOACH BASELINE: FAILURES ABOVE.'); process.exit(1); }
-  console.log(update ? '\nCOACH BASELINE: recorded.' : '\nCOACH BASELINE: ALL PASSED.');
+  const scope = PDF_COMPARABLE ? 'HTML + normalized PDF' : 'HTML only (PDF half skipped off-Linux)';
+  console.log(update ? `\nCOACH BASELINE: recorded — ${scope}.` : `\nCOACH BASELINE: ALL PASSED — ${scope}.`);
 })().catch(e => { console.error('COACH BASELINE FAILED:', e.stack || e.message); process.exit(1); });
