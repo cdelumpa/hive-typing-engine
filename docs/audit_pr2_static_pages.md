@@ -329,17 +329,19 @@ docs-correction PR.
 |---|---|---|---|---|
 | 1 | Cover | *(absolutely positioned)* | n/a | 1 |
 | 2 | Contents | 862.13px | 113.87px | 1 |
-| 3 | Welcome | 820.50px | **155.50px** | 1 |
+| 3 | Welcome | 796.50px | **179.50px** | 1 |
 | 4 | What Is | 943.42px | **32.58px** | 1 |
 | 8 | Wings | 918.75px | 57.25px | 1 |
 | 12 | Your Thoughts | 900.61px | **75.39px** | 1 |
 
 Two of the brief's predictions were wrong in the safe direction:
 
-* **Welcome was expected to be tight.** It is not: 155.50px headroom at the mockup's 14px
-  body. **Measured** at 15px it is 132.75px and at 16px 110.00px — it fits at all three, so
-  the founder photos held in reserve as a release valve were never needed. The approved copy
-  is **179 words** measured, not the ~215 estimated.
+* **Welcome was expected to be tight.** It is not: **179.50px** headroom with the founder
+  photos in place, at the mockup's 14px body (155.50px before the photo/scrawl swap).
+  **Measured** on the pre-photo layout, 15px gave 132.75px and 16px gave 110.00px — it fits
+  at all three. The photos were held in reserve as a release valve for a fit problem that
+  never materialised, and adding them made the page *roomier*. The approved copy is
+  **179 words** measured, not the ~215 estimated.
 
   On body size: the build ships the v2 mockup's **14px**, since v2 is the gold standard and
   font size was not a carve-out. For the record, the artifact the 15px exception was
@@ -381,16 +383,53 @@ base64-embedded 240×240 PNGs in a `.sig-photo` block sized **92px, not 84px**. 
 share Cai's photo (`sha256 a7964b4e…`) but carry **different** photos for Mo
 (`17b07604…` vs `c3c7c5a4…`), with no marker of which is current.
 
-So the assets are neither embedded nor linked in the named source — they are **absent**, a
-third case the instruction did not cover. Sourcing them from a superseded June draft at the
-wrong size, choosing between two competing versions of a real person's photograph, is exactly
-what "Cai will upload the assets rather than have you source them from anywhere else" rules
-out. **The photo change is not implemented and the placeholder is unchanged**, pending upload.
+So the assets were neither embedded nor linked in the named source — they were **absent**, a
+third case the instruction did not cover.
 
-The 70px placeholder from `Welcome_v2.html` (the gold standard) was kept rather than resized
-to v1.7's 84px, because resizing a placeholder toward a photo spec without the photo is a
-design change with no asset behind it. **Measured**: Welcome sits at 155.50px headroom, so
-either size drops in without a fit problem.
+**Resolved 12 Aug: Cai supplied both headshots**, and they are now in the build.
+
+### 10.0.1 The alpha trap, and why the photos are re-encoded
+
+**Measured** (`sharp` metadata on the supplied files):
+
+| Source | Format | Size | Dimensions | Alpha |
+|---|---|---|---|---|
+| `docs/hive_cai_headshot-round_kit_091125.png` | PNG | 0.20 MB | 300×299 | **yes — 23.0% fully transparent, 0.6% semi-transparent** |
+| `docs/mo_headshot_square_07162-4.jpeg` | JPEG | 18.31 MB | 2623×2623 | no |
+
+The Cai headshot is a **round crop**: its corners are transparent and its circle edge is
+antialiased. Chromium emits an `/SMask` soft mask for any alpha imagery, spec §3.2 forbids
+soft masks document-wide, and `verify_transparency.js` fails the build on a single one — so
+embedding it as supplied would have broken the gate added in this same PR. It is the same
+mechanism as the cover-page pink bug.
+
+`scripts/build_founder_photos.js` therefore normalizes both: square-crop to 168px (84px
+rendered at 2× for print), **flatten onto opaque white, remove the alpha channel**, strip
+ICC/EXIF, re-encode as JPEG. The circular crop moves to CSS (`border-radius:50%` +
+`overflow:hidden` on `.v3-wl-av`), which is how the placeholder already worked. Visually
+identical, zero soft masks. Flattening is lossless in effect because the page behind the
+photo is white.
+
+Both `flatten()` and `removeAlpha()` are needed: flatten alone leaves a 4-channel image whose
+alpha is uniformly 255, and Chromium still emits a mask for it.
+
+**Measured, after**: 9.9 KB (Cai) and 9.0 KB (Mo) as embedded data URIs; client PDF scan
+still 0 groups / 0 masks / 0 alpha < 1.
+
+The 18.31 MB source is 31× more resolution than an 84px circle can use, so the originals are
+**gitignored** rather than committed; their sha256 digests are recorded in the generated
+module so the inputs stay identifiable.
+
+### 10.0.2 Signature scrawl removed
+
+The hand-drawn SVG squiggle in the reference implementations was a placeholder for a real
+signature asset. Design dropped the signature entirely rather than source one, so the card is
+now photo → name → role → type.
+
+**Measured**: Welcome content stack fell from 820.50px to **796.50px** — headroom rose from
+155.50px to **179.50px**. The photos grew the avatar 70px → 84px (+14px) but removing the
+26px scrawl and its 8px margin (−34px) more than paid for it. The page got roomier, not
+tighter.
 
 ### 10.1 Orange on framework content (spec §5.3)
 
@@ -468,6 +507,10 @@ Anything not on this list is a defect.
    "the previous page" reference deliberately removed.
 8. **`self-forgetting` → `self‑forgetting`** (U+2011) in the type-9 wing bullet, and
    `pressure‑test` in the p12 intro (§5).
+
+9. **Founder photos in, signature scrawl out** (§10.0.1–2) — the mockups draw an empty
+   placeholder circle and a hand-drawn SVG squiggle; the build carries real 84px headshots
+   and no signature.
 
 **Explicitly NOT a departure:** the nine orange type names on What Is. Ratified 12 Aug as
 correct-as-shipped; spec §5.3 is the thing that is now wrong, and that correction is logged

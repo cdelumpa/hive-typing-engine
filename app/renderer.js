@@ -15,6 +15,7 @@
 const path = require('path');
 const fs = require('fs');
 const { clientReportV3Styles } = require('./client_report_v3_styles');  // v3 shared sheet (client-only; coach never loads it)
+const { CAI_PHOTO_DATA_URI, MO_PHOTO_DATA_URI } = require('./founder_photos');  // generated; opaque, no alpha (spec 3.2)
 const { HEADSHOT_CAI, HEADSHOT_MO } = require('./report_assets');
 
 
@@ -2802,12 +2803,15 @@ function clientReportV3PageStyles() {
 .v3-page .v3-wl-signoff{ font-size:14px; color:var(--v3-soft-navy); line-height:1.75; margin-bottom:0; }
 .v3-page .v3-wl-sign{ display:flex; gap:60px; margin-top:44px; }
 .v3-page .v3-wl-card{ width:214px; }
-/* Placeholder avatar (spec §2: "Signature and avatar assets are placeholders"). Pure CSS
-   shapes, no image asset and no alpha. */
-.v3-page .v3-wl-av{ width:70px; height:70px; border-radius:50%; background:var(--v3-leading-bg); position:relative; margin-bottom:10px; overflow:hidden; }
-.v3-page .v3-wl-av::before{ content:""; position:absolute; left:50%; top:15px; width:24px; height:24px; border-radius:50%; background:var(--v3-accent-rule); transform:translateX(-50%); }
-.v3-page .v3-wl-av::after{ content:""; position:absolute; left:50%; top:46px; width:46px; height:36px; border-radius:23px 23px 0 0; background:var(--v3-accent-rule); transform:translateX(-50%); }
-.v3-page .v3-wl-scrawl{ height:26px; margin-bottom:8px; }
+/* Founder headshots. 84px per locked brief v1.7, embedded at 2x (168px) for print.
+   THE CIRCULAR CROP IS DONE HERE, IN CSS — not baked into the image. The supplied Cai
+   headshot is a round PNG whose corners are transparent (measured: 23.0% fully transparent,
+   0.6% semi-transparent at the antialiased edge), and Chromium emits an /SMask soft mask for
+   any alpha imagery. Spec §3.2 forbids soft masks document-wide and
+   scripts/verify_transparency.js fails the build on one. So the photos are flattened to
+   opaque JPEG in scripts/build_founder_photos.js and masked to a circle here instead. */
+.v3-page .v3-wl-av{ width:84px; height:84px; border-radius:50%; background:var(--v3-leading-bg); position:relative; margin-bottom:10px; overflow:hidden; }
+.v3-page .v3-wl-av img{ display:block; width:84px; height:84px; object-fit:cover; }
 .v3-page .v3-wl-nm{ font-size:13px; font-weight:bold; color:var(--v3-navy); }
 .v3-page .v3-wl-rl{ font-size:11.5px; color:var(--v3-grey); margin-top:2px; }
 .v3-page .v3-wl-ty{ font-size:11.5px; color:var(--v3-grey); font-style:italic; margin-top:1px; }
@@ -3033,9 +3037,12 @@ ${rows}
 function _clv3Welcome(m) {
   const page = v3Page('welcome');
   const w = m.pages.v3_welcome;
-  const card = (name, role, type, d) => `
+  // Photo, then printed credentials. No signature scrawl: the hand-drawn squiggle in the
+  // reference implementations was a placeholder for a real signature asset, and design has
+  // dropped the signature entirely rather than source one.
+  const card = (photo, name, role, type) => `
     <div class="v3-wl-card">
-      <div class="v3-wl-av"></div><svg class="v3-wl-scrawl" viewBox="0 0 150 26" xmlns="http://www.w3.org/2000/svg"><path d="${d}" fill="none" stroke="#1E2A35" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <div class="v3-wl-av"><img src="${photo}" alt=""></div>
       <div class="v3-wl-nm">${esc(name)}</div>
       <div class="v3-wl-rl">${esc(role)}</div>
       <div class="v3-wl-ty">${esc(type)}</div>
@@ -3052,9 +3059,7 @@ function _clv3Welcome(m) {
   ${w.letters.map(p => `<div class="v3-wl-para">${_v3NoBreakUrls(esc(p))}</div>`).join('\n  ')}
   <div class="v3-wl-signoff">${esc(w.signoff)}</div>
 
-  <div class="v3-wl-sign">${card('Cai Delumpa', 'Co-Founder, Hive, Inc.', 'Type 7 · The Enthusiast',
-      'M4 18 C10 6, 16 6, 18 14 C20 22, 26 20, 30 12 C34 4, 40 8, 44 16 C48 24, 55 18, 60 10 C66 2, 72 10, 78 18 C84 24, 92 16, 100 12 C110 8, 120 16, 134 13')}${card('Monique Breault', 'Co-Founder, Hive, Inc.', 'Type 9 · The Peacemaker',
-      'M4 20 C8 6, 14 4, 18 14 C22 24, 28 22, 32 10 C36 2, 42 4, 46 16 C50 24, 56 22, 60 12 C64 4, 70 6, 74 16 C78 24, 86 20, 94 14 C104 8, 116 16, 132 12')}
+  <div class="v3-wl-sign">${card(CAI_PHOTO_DATA_URI, 'Cai Delumpa', 'Co-Founder, Hive, Inc.', 'Type 7 · The Enthusiast')}${card(MO_PHOTO_DATA_URI, 'Monique Breault', 'Co-Founder, Hive, Inc.', 'Type 9 · The Peacemaker')}
   </div>
 
   ${_v3Footer(page)}
