@@ -70,8 +70,9 @@ jobs:
       - name: Coach report regression gate
         run: node scripts/verify_coach_baseline.js
 
-      # HARD FAIL: the content library build must be reproducible and must not silently
-      # revert live copy. The drift guard refuses to write when existing fields would
-      # change; this asserts the guard holds and the build is byte-stable.
+      # HARD FAIL: the content library invariant — the committed JSON must equal a build
+      # of the Word source. This is what keeps Word canonical: it fails in the PR that
+      # edits the JSON directly, and it catches a docx edited but never rebuilt, which the
+      # old build-time guard could not see.
       - name: Content library reproducibility
         run: node scripts/verify_content_library.js
