@@ -81,7 +81,11 @@ const INTERIM_CONTENTS = [
   { start: 'lines',     desc: 'Where you move under pressure and in flow, and how to draw on both.' },
   { start: 'instincts', desc: 'Your dominant instinct, the three instincts, and what it means to be a {subtype_label}.' },
   { start: 'car',       desc: 'Practical ways to build courage, agility, and resilience, starting today.' },
-  { start: 'thoughts',  desc: 'A closing note, questions to sit with, and what to expect in your debrief conversation.' },
+  // Entry 09 departs from TOC_v2.html, which promised "what to expect in your debrief
+  // conversation" — the approved p12 copy does not deliver that. Same class of defect as
+  // the entry 07 instinct-stack reference: a descriptor promising content the page no
+  // longer carries.
+  { start: 'thoughts',  desc: 'A closing note and questions to reflect and/or journal on.' },
 ];
 
 // INTERIM SOURCE — client report v3 "Your Thoughts" page (sheet 12). Approved copy; the

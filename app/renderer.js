@@ -2929,18 +2929,23 @@ const _v3NoBreakUrls = (escaped) =>
 /**
  * Shared page header.
  *
- * Carries the subtype on EVERY page (brief v2.0 §12.1). The v3 mockups split 5/6 on this —
- * Contents, Welcome, What Is, Development Ideas and Your Thoughts print "· SX9" while Quick
- * Reference, both Exploring pages, Wings, Lines and Instincts omit it. Including it
- * everywhere is the ratified resolution, and it deliberately re-baselines the Wings page
- * that PR 1 merged against a mockup without it. See docs/audit_pr2_static_pages.md.
+ * NO SUBTYPE, anywhere in the client report's chrome (brief v2.0 §12.1, reversed 12 Aug
+ * 2026). The v3 mockups split 5/6 on this — Contents, Welcome, What Is, Development Ideas
+ * and Your Thoughts print "· SX9" while Quick Reference, both Exploring pages, Wings, Lines
+ * and Instincts omit it. The ratified resolution is to omit it everywhere, so this departs
+ * from five mockups (and the Contents client strip departs from a sixth). All six are
+ * deliberate and listed in docs/audit_pr2_static_pages.md.
+ *
+ * The client's subtype therefore appears nowhere in the six built sheets. That is accepted,
+ * not an oversight: Quick Reference (sheet 5) is where the subtype is introduced properly.
+ * Do not reintroduce it into chrome here.
+ *
+ * display.instinct_code is deliberately left in the model, unused by PR 2 — sheet 5 needs it.
  */
 function _v3Header(m) {
-  const code = m.display && m.display.instinct_code
-    ? ` &middot; ${esc(m.display.instinct_code)}${m.hero.number}` : '';
   return `<div class="page-header">
     <span class="header-left">InsightOut Enneagram Report</span>
-    <span class="header-right"><span class="header-client">${esc(m.client.full_name)}</span> &middot; Type ${m.hero.number} &mdash; ${esc(m.hero.name)}${code}</span>
+    <span class="header-right"><span class="header-client">${esc(m.client.full_name)}</span> &middot; Type ${m.hero.number} &mdash; ${esc(m.hero.name)}</span>
   </div>`;
 }
 
@@ -2990,6 +2995,10 @@ function _clv3Cover(m) {
  */
 function _clv3Contents(m) {
   const page = v3Page('contents');
+  // The client strip carries no subtype, the same 12.1 reversal as the running header.
+  // TOC_v2.html prints "<code><N>" here; this is the sixth deliberate departure from the
+  // mockups. Kept as a JS comment rather than an HTML one so the note does not ship inside
+  // the client PDF.
   const rows = m.pages.v3_contents.map((e, i) => {
     const target = v3Page(e.start);
     return `  <div class="v3-toc-row">
@@ -3011,7 +3020,7 @@ function _clv3Contents(m) {
   <div class="v3-toc-prep">
     <div class="v3-toc-lbl">Prepared For</div>
     <div class="v3-toc-name">${esc(m.client.full_name)}</div>
-    <div class="v3-toc-sub">Type ${m.hero.number} &mdash; ${esc(m.hero.name)} &middot; ${esc(m.display.instinct_code)}${m.hero.number} &middot; ${esc(m.client.date)}</div>
+    <div class="v3-toc-sub">Type ${m.hero.number} &mdash; ${esc(m.hero.name)} &middot; ${esc(m.client.date)}</div>
   </div>
 
 ${rows}

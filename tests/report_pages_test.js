@@ -159,11 +159,17 @@ console.log('\ncountByClass token boundaries:');
     const plurals = Object.values(TYPE_NAMES).map(n => n.replace(/^The\s+/, '') + 's');
     assert(plurals.every(p => /^[A-Z][a-z]+s$/.test(p)), `v3: plural rule holds for all nine names (${plurals.join(', ')})`);
 
-    // Header subtype on every page (brief v2.0 section 12.1) — deliberate re-baseline of
-    // the Wings page PR 1 merged against a mockup that omitted it.
+    // NO subtype anywhere in chrome (brief v2.0 section 12.1, reversed 12 Aug 2026). Five
+    // mockups print "· SX9" in the header and TOC_v2 prints it in the client strip; the
+    // build deliberately departs from all six. Asserted so the next person to "restore
+    // fidelity to the mockup" trips a test instead of shipping it.
     const headers = (html.match(/<span class="header-right">[\s\S]*?<\/span>\s*<\/div>/g) || []);
     assert(headers.length === 5, `v3: ${headers.length} page headers (expected 5; the cover has none)`);
-    assert(headers.every(h => h.includes('SX9')), 'v3: every page header carries the subtype code');
+    const code = `${model.display.instinct_code}${model.hero.number}`;   // "SX9"
+    assert(headers.every(h => !h.includes(code)), `v3: no page header carries the subtype code (${code})`);
+    assert(!html.includes(code), `v3: the subtype code (${code}) appears nowhere in the six built sheets`);
+    // The derivation stays in the model even though PR 2 stops consuming it — sheet 5 needs it.
+    assert(model.display.instinct_code === 'SX', 'v3: display.instinct_code is still derived for sheet 5');
 
     // Spec section 3.2 is a source-level invariant too, not only a PDF one — this catches a
     // banned construct at `npm test` speed, before the PDF gate has to render anything.

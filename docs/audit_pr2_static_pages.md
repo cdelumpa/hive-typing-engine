@@ -117,7 +117,7 @@ confirmed the six-item enumeration taken from Notion card IO-54 was faithful.
 
 | § | Item | Resolution |
 |---|---|---|
-| 12.1 | Header subtype on every page | **Done.** Added to the shared `_v3Header`. Deliberate re-baseline of the Wings page — see §6 |
+| 12.1 | Header subtype on every page | **REVERSED 12 Aug.** The subtype appears in no chrome anywhere — see §6 |
 | 12.2 | Footer copyright form | **Long form**, all interior pages. See §4.1 |
 | 12.3 | TOC entry 07 descriptor | **Done.** Rebound to `display.subtype_label` — see §4.2 |
 | 12.4 | `[Nickname]` vs `[TypeName]` | **Done.** `display.nickname` + `display.nickname_plural` added |
@@ -203,21 +203,69 @@ fails on any break at a hyphen not preceded by whitespace.
 
 ---
 
-## 6. The Wings re-baseline (§12.1) — deliberate, not a regression
+## 6. §12.1 reversed — no subtype in chrome, and what that costs
 
-Adding the subtype to the shared header changes the page PR 1 already merged.
+Cai reversed §12.1 on 12 Aug: **the subtype appears in no chrome anywhere in the client
+report.** `_v3Header` is back to what PR 1 shipped, and the Contents client strip drops it
+too. `display.instinct_code` stays derived in the model but is unconsumed by PR 2 — sheet 5
+needs it.
 
-```
-BEFORE (main @ 808174f):
-  <span class="header-client">Anders Wennerstrom</span> · Type 9 — The Peacemaker
+Consequence, accepted: **the client's subtype now appears nowhere in the six built sheets.**
+Quick Reference (sheet 5) introduces it properly. It must not be reintroduced into chrome.
+`report_pages_test.js` asserts the code appears nowhere in the rendered HTML, so a future
+"restore fidelity to the mockup" trips a test instead of shipping.
 
-AFTER (this PR):
-  <span class="header-client">Anders Wennerstrom</span> · Type 9 — The Peacemaker · SX9
-```
+### 6.1 Six deliberate departures from the gold-standard mockups
 
-The Wings page no longer pixel-matches `claude_The_Peacemaker_Page_Wings_v1.html`, which
-omits the subtype. This is the ratified resolution of §12.1 and is recorded as a re-baseline.
-**Measured**: Wings content stack 918.75px, headroom 57.25px — unchanged by the header edit.
+Five mockups print `· SX9` in the running header and `TOC_v2` prints it in the client strip.
+The build departs from all six. **Aggregate** (`grep` over `docs/mockup/*.html`):
+
+| # | Mockup | Where | Mockup prints | Build prints |
+|---|---|---|---|---|
+| 1 | `TOC_v2.html` | header | `… The Peacemaker · SX9` | `… The Peacemaker` |
+| 2 | `TOC_v2.html` | `.prep-sub` client strip | `… The Peacemaker · SX9 · August 2026` | `… The Peacemaker · August 2026` |
+| 3 | `Welcome_v2.html` | header | `… · SX9` | omitted |
+| 4 | `WhatIs_v2.html` | header | `… · SX9` | omitted |
+| 5 | `CAR_v1.html` | header | `… · SX9` | omitted |
+| 6 | `Thoughts_v2.html` | header | `… · SX9` | omitted |
+
+Departures 5 is on a sheet PR 2 does not build; it is listed because the shared header will
+apply to it at PR 6. Without this list a pixel diff reads as six regressions.
+
+### 6.2 Wings does not pixel-match its mockup — and never did
+
+The brief expected the revert to restore a pixel match "exactly as it did on main @
+808174f". **Measured** (Chromium screenshot of the rendered page vs the mockup rendered at
+816×1056, per-pixel max-channel delta > 8):
+
+| Comparison | Differing pixels | Share | max Δ |
+|---|---|---|---|
+| **main @ 808174f** built Wings vs `Wings_v1.html` | 16,926 / 861,696 | **1.9643%** | 181 |
+| **this branch** built Wings vs `Wings_v1.html` | 18,318 / 861,696 | **2.1258%** | 225 |
+| **this branch vs main @ 808174f**, both built | 1,392 / 861,696 | **0.1615%** | 225 |
+
+**The premise is false on both halves: Wings did not match on `main`, and it does not match
+now.** PR 1's "verify against the contact sheet" was inspection, not a pixel diff.
+
+Two findings separate cleanly:
+
+* **The header revert is pixel-clean.** The branch-vs-main delta is confined to rows
+  **y = 782–789** — a single text line — and the header band (y ≈ 45) is byte-for-byte
+  identical. **Measured**: the differing rows fall inside the wing bullet *"Left unchecked,
+  quiet perfectionism can turn self‑forgetting into self-judgment."* (y0 757, y1 795). That
+  is the U+2011 hyphenation fix changing where the line breaks — deliberate, and the only
+  thing PR 2 changes on this page.
+* **A pre-existing ~1.96% delta against the mockup, from PR 1.** Concentrated in rows
+  y = 177–288, the intro + diagram band (`.v3-dia`, y0 148 → y1 370). Side-by-side crops at
+  100% are visually indistinguishable, so this is sub-pixel stroke and glyph offset between
+  the mockup's hand-authored SVG and `buildEnneagramSVG`'s port, not a geometry error — the
+  structural gate confirms nodes, angles and both flow sequences are correct. **Logged for
+  the docs/PR-1 follow-up; not fixed here**, because changing the diagram in PR 2 would put
+  an unrelated visual change inside a static-pages PR.
+
+The useful conclusion is about the gate, not the number: "pixel-reference diff" has been a
+reviewer eyeballing a render since PR 1. It is now measurable, and the honest baseline is
+1.96%, not zero.
 
 ---
 
@@ -292,6 +340,12 @@ Two of the brief's predictions were wrong in the safe direction:
   body. **Measured** at 15px it is 132.75px and at 16px 110.00px — it fits at all three, so
   the founder photos held in reserve as a release valve were never needed. The approved copy
   is **179 words** measured, not the ~215 estimated.
+
+  On body size: the build ships the v2 mockup's **14px**, since v2 is the gold standard and
+  font size was not a carve-out. For the record, the artifact the 15px exception was
+  recorded against — the locked v1.7 `The_Peacemaker_Page_Welcome.html` — **does use 15px**:
+  `.subhead { font-size: 15px }` and `.letter-para { font-size: 15px }`, against
+  `.callout-text` at 14px. **Measured**, 15px fits with 132.75px to spare. Cai's call.
 * **Your Thoughts gained headroom**, 32.76px → 75.39px, as predicted — prompt 3 dropped from
   two rendered lines to one.
 
@@ -302,6 +356,41 @@ it. That is the page to watch in any future content edit.
 ---
 
 ## 10. Open conflicts raised, not silently resolved
+
+### 10.0 Founder photos — the named source does not contain them
+
+Brief v1.7 is recorded as locking founder photos at 84px circles in the Welcome signature
+block, sourced from `The_Peacemaker_Page_Welcome.html`.
+
+**Measured.** The named file exists at
+`~/Library/Mobile Documents/.Trash/The_Peacemaker_Page_Welcome.html` (8,359 bytes, modified
+2026-07-24 09:14). It contains **zero `<img>` tags** and no external `src` of any kind. Its
+`.photo-circle` rule is:
+
+```css
+.photo-circle { width: 84px; height: 84px; border-radius: 50%;
+                background: #D9E4E9; flex-shrink: 0; overflow: hidden; margin-bottom: 12px; }
+```
+
+That is an **empty CSS placeholder**, structurally the same thing PR 2 already ships as
+`.v3-wl-av`. The 84px figure is the *circle* size; there is no photo asset behind it.
+
+Real headshots do exist, but only in superseded drafts: `~/Downloads/welcome_page.html` and
+`welcome_page_1.html` (both 2026-06-06, seven weeks before v1.7), each carrying two
+base64-embedded 240×240 PNGs in a `.sig-photo` block sized **92px, not 84px**. The two files
+share Cai's photo (`sha256 a7964b4e…`) but carry **different** photos for Mo
+(`17b07604…` vs `c3c7c5a4…`), with no marker of which is current.
+
+So the assets are neither embedded nor linked in the named source — they are **absent**, a
+third case the instruction did not cover. Sourcing them from a superseded June draft at the
+wrong size, choosing between two competing versions of a real person's photograph, is exactly
+what "Cai will upload the assets rather than have you source them from anywhere else" rules
+out. **The photo change is not implemented and the placeholder is unchanged**, pending upload.
+
+The 70px placeholder from `Welcome_v2.html` (the gold standard) was kept rather than resized
+to v1.7's 84px, because resizing a placeholder toward a photo spec without the photo is a
+design change with no asset behind it. **Measured**: Welcome sits at 155.50px headroom, so
+either size drops in without a fit problem.
 
 ### 10.1 Orange on framework content (spec §5.3)
 
@@ -353,21 +442,36 @@ The coach byte-identical result is the load-bearing one: it proves the two new
 
 ## 12. Deliberate departures from the mockups
 
-Exactly three. Any other departure is a defect.
+Anything not on this list is a defect.
+
+**Structural / CSS**
 
 1. **`.trow:last-of-type` → `:last-child`.** **Measured**: the ninth row's computed
    `border-bottom-width` in the mockup is `0px` and `last.matches('.trow:last-of-type')` is
    `false` — the last `div` in `.page` is `.page-footer`, so no row ever matches and the
    contents list renders with **no closing rule**. Fixed deliberately; a pixel diff against
    the mockup would otherwise lock the bug in as correct.
-2. **Wings header re-baseline** (§6).
-3. **TOC entry 07 descriptor** (§4.2) — the shipped string referenced the instinct stack that
-   D4 cut, and was ungrammatical.
+2. **Six subtype omissions** (§6.1) — five headers plus the Contents client strip.
+3. **URLs wrapped in a nowrap span** (§5), so the Welcome URL cannot split across lines.
 
-Plus two copy carve-outs approved before the build: Welcome paragraph 3 (the mockup described
-a page order v3.0 does not have — it promised "first a quick summary of your results, then a
-brief introduction", where the real order is Welcome → What Is → Quick Reference), and the
-Your Thoughts intro and prompts 3–5.
+**Copy**
+
+4. **TOC entry 07 descriptor** — the shipped string referenced the instinct stack D4 cut,
+   and was ungrammatical. Now bound to `display.subtype_label` (§4.2).
+5. **TOC entry 09 descriptor** — the mockup promised "what to expect in your debrief
+   conversation", which the approved p12 copy does not deliver. Replaced with *"A closing
+   note and questions to reflect and/or journal on."*
+6. **Welcome paragraph 3** — the mockup described a page order v3.0 does not have (it
+   promised "first a quick summary of your results, then a brief introduction", where the
+   real order is Welcome → What Is → Quick Reference).
+7. **Your Thoughts intro and prompts 3–5** — approved copy; prompt 3's positional
+   "the previous page" reference deliberately removed.
+8. **`self-forgetting` → `self‑forgetting`** (U+2011) in the type-9 wing bullet, and
+   `pressure‑test` in the p12 intro (§5).
+
+**Explicitly NOT a departure:** the nine orange type names on What Is. Ratified 12 Aug as
+correct-as-shipped; spec §5.3 is the thing that is now wrong, and that correction is logged
+against the docs PR (§10.1).
 
 ---
 
