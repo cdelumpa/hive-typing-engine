@@ -22,6 +22,8 @@ The four things that could have made this expensive are all absent:
 
 The one genuine judgement call is cosmetic and output-irrelevant: 28 paragraphs carry bold formatting that 20 of the edits disrupted (§4.4). Word formatting has **no effect on the build output** — the parser reads text only — so this cannot threaten the output-neutrality gate.
 
+**§8 (Round 2)** answers the guard-design and fast-path questions and **supersedes the guard recommendation** in §5.1/§6: the build-time refusal should be *retired*, not made smarter, because the CI invariant catches strictly more with no heuristic (§8.1). It also quantifies the asterisk on "Word is canonical" — **1,353 of 1,376 leaves** (§8.2) — and measures the supposed friction at **0.23 seconds** (§8.3).
+
 **The escape hatch does not need to be taken.** But there is a durability problem worth naming plainly, and it is not solved by this PR: nothing prevents the same drift recurring (§3.3).
 
 ---
@@ -176,7 +178,7 @@ Of the 28 fragmented paragraphs (measured):
 
 **Critically, this cannot threaten output-neutrality.** `tokenize()` extracts `<w:t>` text and discards all formatting, so **bold has zero effect on `content_library.json` and therefore zero effect on any rendered report.** It is a Word-side authoring affordance only.
 
-**Recommendation:** preserve bold on the 8 where it is free; collapse the other 20 to a single run. The bold in the docx is already mid-migration by Mo's own note — a coordinated bold lead-in pass across all 27 subtypes is a known pending task, and collapsing 20 runs does not destroy a finished state. Record it so the pending pass knows what it is re-applying. **Do not spend 18 human decisions on formatting that has no output effect and is scheduled to be redone.**
+**Recommendation (ratified; disposition recorded in §8.4):** preserve bold on the 8 where it is free; collapse the other 20 to a single run. The bold in the docx is already mid-migration by Mo's own note — a coordinated bold lead-in pass across all 27 subtypes is a known pending task, and collapsing 20 runs does not destroy a finished state. Record it so the pending pass knows what it is re-applying. **Do not spend 18 human decisions on formatting that has no output effect and is scheduled to be redone.**
 
 ---
 
@@ -240,7 +242,7 @@ Standard precaution: commit or stash before starting, so `git checkout` is a cle
 - **No new content in this PR.** Agreed, and the reasoning is exactly right: output-neutrality is the gate, and content changes output. Adding the nine types' Wings content here would make it impossible to tell a patch error from an intended change.
 - **The ~10-line parser extension travels with the content.** Agreed, for the same reason — but note the extension is *output-neutral in isolation* (new fields nobody reads yet). The stronger argument is coupling: the parser change is untestable without the Word sections it parses.
 
-**7.2 Add the recurrence guard to this PR (§3.3).** This is my one substantive disagreement with the scope as framed. Reconciling without asserting the invariant in CI means the same drift returns during PR 3, and PR 1.5 gets repeated. The check is ~10 lines on machinery that already exists, it is output-neutral, and it is the only part of this work that prevents a recurrence rather than cleaning one up.
+**7.2 Add the recurrence guard to this PR (§3.3).** This is my one substantive disagreement with the scope as framed. *(Conceded by review. See §8.1 — the enforcement should be the CI invariant alone, and the build-time refusal retired in the same PR rather than made smarter.)* Reconciling without asserting the invariant in CI means the same drift returns during PR 3, and PR 1.5 gets repeated. The check is ~10 lines on machinery that already exists, it is output-neutral, and it is the only part of this work that prevents a recurrence rather than cleaning one up.
 
 **7.3 The `INTERIM_*` constants are a second, quieter divergence.** `wings_using`, `static.welcome`, and the v3 wing fields are emitted from script constants, not Word. After reconciliation the docx will be canonical for 130 fields and *still not canonical* for those. That is fine and correct for now — but "Word is canonical again" will be true with an asterisk, and the asterisk should be written down rather than discovered later.
 
