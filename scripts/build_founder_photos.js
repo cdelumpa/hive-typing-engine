@@ -18,8 +18,8 @@
  *    already works. Visually identical, zero soft masks. Flattening is lossless here because
  *    the page behind the photo is white anyway.
  *
- * 2. SIZE. The supplied Mo headshot is 2623x2623 and 18.31 MB. The photo renders in an 84px
- *    circle, so the source is ~31x more resolution than the layout can use and would bloat
+ * 2. SIZE. The supplied Mo headshot is 2623x2623 and 18.31 MB. The photo renders in a 110px
+ *    circle, so the source is ~12x more resolution than the layout can use and would bloat
  *    every generated PDF.
  *
  * 3. REPRODUCIBILITY. Baking by hand would leave an unexplained blob in the tree. This
@@ -39,9 +39,15 @@ const crypto = require('crypto');
 const ROOT = path.resolve(__dirname, '..');
 const sharp = require(path.join(ROOT, 'app/node_modules/sharp'));
 
-// Rendered at 84px (locked brief v1.7). Embedded at 2x so the raster still holds up when the
-// PDF is printed or zoomed; 3x was measured at ~2.3x the bytes for no visible gain at 84px.
-const RENDER_PX = 84;
+// Rendered at 110px (brief v1.7 locked 84px; raised on Cai's direction 12 Aug). Embedded at
+// 2x so the raster still holds up when the PDF is printed or zoomed; 3x was measured at
+// ~2.3x the bytes for no visible gain.
+//
+// SOURCE CEILING: the supplied Cai headshot is 300x299, so a true 2x embed caps the rendered
+// circle at 150px. 110px needs 220px and is comfortably inside that. Anything above 150px
+// requires a new source file rather than an upscale — sharp would happily enlarge and the
+// result would be soft on print with nothing failing. Mo's 2623x2623 source is unconstrained.
+const RENDER_PX = 110;
 const SCALE = 2;
 const EDGE = RENDER_PX * SCALE;
 
@@ -68,7 +74,7 @@ const SOURCES = [
       // 4-channel image whose alpha is all-255, and Chromium still emits a mask for it.
       .flatten({ background: '#FFFFFF' })
       .removeAlpha()
-      // Strip ICC/EXIF: colour management metadata is not needed for an 84px circle and only
+      // Strip ICC/EXIF: colour management metadata is not needed for a 110px circle and only
       // adds bytes to every PDF.
       .jpeg({ quality: 86, chromaSubsampling: '4:4:4', mozjpeg: true })
       .toBuffer();

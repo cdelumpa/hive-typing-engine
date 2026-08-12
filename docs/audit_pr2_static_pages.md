@@ -201,6 +201,54 @@ split (`self-forgetting`, `present-moment`, `pressure-test`) plus one false posi
 **The gate is the measurement**: `scripts/render_client.js` now walks rendered line boxes and
 fails on any break at a hyphen not preceded by whitespace.
 
+### 5.1 Where the U+2011 substitution lives — and why it should not stay there
+
+**It is hand-edited into source constants, not a renderer transform.** Both substitutions sit
+in `INTERIM_*` constants in `scripts/build_content_library.js`:
+
+* `INTERIM_THOUGHTS.intro` — `pressure‑test`
+* `INTERIM_WINGS_V3` (`type_9.wings.wing_b.bullets[4]`) — `self‑forgetting`
+
+Those constants **are** the canonical source for those two leaves, so there is no
+JSON-versus-docx drift of the PR 1.5 kind: neither leaf is parsed from Word, and
+`verify_content_library.js` passes precisely because the build reproduces them. **Measured**:
+the canonical docx contains **zero** U+2011 characters.
+
+But it is consistent **by memory, not by construction**, and it has already produced a
+divergence worth naming. **Measured** — five leaves in the library contain the compound, and
+only one is spelled with U+2011:
+
+| Leaf | Source | Character |
+|---|---|---|
+| `type_9.wings.wing_b.bullets[4]` | INTERIM | **U+2011** |
+| `type_9.patterns.feeling.bullets[3]` | Word | U+002D |
+| `type_9.challenges[0].title` | Word | U+002D |
+| `type_9.comparison.challenges` | Word | U+002D |
+| `subtype_sx9.narrative` | Word | U+002D |
+
+The same word is now spelled two ways inside one content library. Across PR 3, 4 and 6 —
+roughly 500 more zones — every future splitting compound needs the same manual edit, applied
+by whoever remembers this document exists. The render gate catches the *symptom* (a word
+split across lines) but not the *remedy*, and it only fires when that particular line happens
+to break at that particular point.
+
+**Two consequences to flag rather than let be discovered:**
+
+1. **The Wings review copy and the built copy differ by one character.**
+   `type_9.wings.wing_b.bullets[4]` is approved content currently in front of Mo for the
+   Wings review. The approved string has a plain hyphen; the build has U+2011.
+2. **U+2011 is not copy-exact.** A client copying `self‑forgetting` out of the PDF gets a
+   non-ASCII character that will not match a search for `self-forgetting`. That is the same
+   objection that ruled U+2011 out for URLs (§5).
+
+**Recommendation, for PR 3 rather than here:** replace the source edits with a renderer-side
+transform — the same shape as `_v3NoBreakUrls`, wrapping hyphenated compounds in a
+`white-space:nowrap` span. That would make source strings byte-identical to approved copy
+(removing both consequences above), apply automatically to all future content, and keep the
+extracted text exact. It needs one guard: a compound long enough to exceed its column must
+still be allowed to break, so the wrap should be conditional on length. Not done in PR 2
+because it changes hyphenation behaviour across pages this PR does not own.
+
 ---
 
 ## 6. §12.1 reversed — no subtype in chrome, and what that costs
@@ -303,21 +351,57 @@ stops a verbatim copy at CI rather than in a client's viewer.
 
 ## 8. Long-name handling
 
-**Measured** (name length walked 10→60 chars, line count from `Range.getClientRects()`):
+### 8.1 The constraint is a width, not a character count
 
-| Surface | Font | Box | 1-line ceiling | Unbreakable token |
+Earlier drafts of this section quoted a single character ceiling and the number moved twice
+(33, 34, 35). All three were real measurements of *different name shapes*, which is the
+finding: **where the spaces fall changes the wrap point, so no single character count is
+correct.** The stable constraint is the box.
+
+**Measured** (`ceiling.js`, print media, Arial metrics asserted, sweeping three word shapes):
+
+| Surface | Font | Box width | Character ceiling | Unbreakable token |
 |---|---|---|---|---|
-| Cover `.v3-cv-name` | 20px bold | 362px | **33 chars** (wraps at 34) | **no overflow ≤60** after the fix |
-| Contents `.v3-toc-name` | 22px bold | 662px | **>60 chars** | no overflow ≤60 |
-| Page header `.header-client` | 10px bold | inline | **>60 chars**, never wraps | no overflow ≤60 |
+| Cover `.v3-cv-name` | 20px bold | **362px** | **32–36 chars**, by word shape | no overflow ≤60 after the fix |
+| Contents `.v3-toc-name` | 22px bold | 662px | >60 chars | no overflow ≤60 |
+| Page header `.header-client` | 10px bold | inline | >60 chars, never wraps | no overflow ≤60 |
+
+Cover ceiling by shape: **one long token 32 · two even words 34 · many short words 36.**
+
+Sanity check against reality — **measured**, all twelve of a set of real-world names fit one
+line, the widest being *Bartholomew Featherstonehaugh* (29 chars) at **317.8px**, still 44px
+inside the 362px box.
 
 The fix is `overflow-wrap:break-word` plus `overflow:hidden` on the cover shell — **not**
-conditional font sizing. The 34-char wrap is harmless (286.56px of vertical clearance), and a
-font reduction would not have solved the 33-char unbreakable token, which was the actual
-defect. Page heights stay 1056px across every name length tested.
+conditional font sizing. A wrap to two lines is harmless (286.56px of vertical clearance);
+the actual defect was an unbreakable token overrunning the panel horizontally, which a font
+reduction would not have fixed. Page heights stay 1056px at every name length tested.
 
-Spec §3.2's "~30 characters" is conservative by 4; the measured ceiling is 34. For the
-docs-correction PR.
+### 8.2 Correction owed to the docs PR — and where the claim actually lives
+
+The claim is **not in design spec v3.0 at all**; earlier drafts of this document cited
+"spec §3.2", which is the transparency section, and pointing the correction there would have
+reproduced the stale-citation pattern the docs PR exists to fix.
+
+**Measured** (`grep` across `docs/*.md` and both briefs on disk): the only source is
+**CD Brief v1.9, the Cover page section**, reading:
+
+> "Client name: dynamic — personalized. No max word count; name fits on one line at 20px bold
+> up to ~30 characters. Longer names may need font-size reduction to 17px."
+
+Two corrections for that section, not spec §3.2:
+
+1. **"~30 characters"** is a safe rule of thumb, low by 2–6 against the measured 32–36 band.
+   Better restated as the box: *fits one line at 20px bold within a 362px column, roughly
+   32–36 characters depending on the name.*
+2. **"reduction to 17px"** should be struck. It addresses a failure mode that no longer
+   exists — `overflow-wrap` handles the real defect, and a font reduction never addressed it.
+
+**Bonus finding from the same brief section**, corroborating §10.1: brief v1.9 lists orange
+as *"Cover logotype 'Out' half, cover client name. **EXCEPTION — Page 2 only: also used for
+type archetype names**"*. So the nine orange type names on What Is are **documented** in the
+brief as a deliberate exception. Spec §5.3, which names exactly four places and omits it, is
+the stale artifact — exactly as ratified on 12 Aug.
 
 ---
 
@@ -403,7 +487,7 @@ soft masks document-wide, and `verify_transparency.js` fails the build on a sing
 embedding it as supplied would have broken the gate added in this same PR. It is the same
 mechanism as the cover-page pink bug.
 
-`scripts/build_founder_photos.js` therefore normalizes both: square-crop to 168px (84px
+`scripts/build_founder_photos.js` therefore normalizes both: square-crop to 220px (110px
 rendered at 2× for print), **flatten onto opaque white, remove the alpha channel**, strip
 ICC/EXIF, re-encode as JPEG. The circular crop moves to CSS (`border-radius:50%` +
 `overflow:hidden` on `.v3-wl-av`), which is how the placeholder already worked. Visually
@@ -413,8 +497,15 @@ photo is white.
 Both `flatten()` and `removeAlpha()` are needed: flatten alone leaves a 4-channel image whose
 alpha is uniformly 255, and Chromium still emits a mask for it.
 
-**Measured, after**: 9.9 KB (Cai) and 9.0 KB (Mo) as embedded data URIs; client PDF scan
-still 0 groups / 0 masks / 0 alpha < 1.
+**Measured, after**: 14.6 KB (Cai) and 13.8 KB (Mo) as embedded data URIs; client PDF scan
+still 0 groups / 0 masks / 0 alpha < 1. The scan was re-run after the 110px re-encode
+specifically because a re-encode at a new size is where an alpha channel could creep back in.
+
+**Source ceiling, recorded because it binds:** the Cai headshot is 300×299, so a true 2×
+embed caps the rendered circle at **150px**. 110px needs 220px and is comfortably inside it.
+Anything above 150px needs a new source file rather than an upscale — `sharp` would enlarge
+without complaint and the result would be soft in print with no gate failing. Mo's 2623×2623
+source is unconstrained.
 
 The 18.31 MB source is 31× more resolution than an 84px circle can use, so the originals are
 **gitignored** rather than committed; their sha256 digests are recorded in the generated
@@ -426,10 +517,35 @@ The hand-drawn SVG squiggle in the reference implementations was a placeholder f
 signature asset. Design dropped the signature entirely rather than source one, so the card is
 now photo → name → role → type.
 
-**Measured**: Welcome content stack fell from 820.50px to **796.50px** — headroom rose from
-155.50px to **179.50px**. The photos grew the avatar 70px → 84px (+14px) but removing the
-26px scrawl and its 8px margin (−34px) more than paid for it. The page got roomier, not
-tighter.
+**Measured**, in two steps:
+
+| Stage | Stack | Headroom |
+|---|---|---|
+| Placeholder + scrawl (as first built) | 820.50px | 155.50px |
+| 84px photos, scrawl removed | 796.50px | 179.50px |
+| **110px photos, cards tightened** (shipped) | **822.50px** | **153.50px** |
+
+Removing the 26px scrawl and its 8px margin more than paid for the 70→84px avatar; raising
+to 110px then spent it back. Net against the original placeholder layout: **2px**. Welcome
+remains the second-roomiest page in the document.
+
+### 10.0.3 Signature block spacing
+
+Cai asked for the pair to read as a pair. **Measured before changing anything**: the block
+was already `display:flex` at `justify-content: normal` — i.e. left-aligned, not distributed.
+The spread came from the CARD WIDTH: cards were fixed at `214px` against measured content
+widths of **121.2px** and **132.1px**, so each card carried 82–93px of dead space and the two
+circles sat **190px** apart.
+
+The fix is therefore the card, not the justification: `width: max-content` sizes each card to
+its own longest line, which makes `gap` the only spacing lever, and the gap drops 60px → 36px.
+
+| | Before | After |
+|---|---|---|
+| Avatar | 84px | **110px** |
+| Card width | 214px fixed | **121.2 / 132.1px** (max-content) |
+| Gap | 60px | **36px** |
+| Circle-edge separation | 190px | **47.2px** |
 
 ### 10.1 Orange on framework content (spec §5.3)
 
@@ -509,7 +625,7 @@ Anything not on this list is a defect.
    `pressure‑test` in the p12 intro (§5).
 
 9. **Founder photos in, signature scrawl out** (§10.0.1–2) — the mockups draw an empty
-   placeholder circle and a hand-drawn SVG squiggle; the build carries real 84px headshots
+   placeholder circle and a hand-drawn SVG squiggle; the build carries real 110px headshots
    and no signature.
 
 **Explicitly NOT a departure:** the nine orange type names on What Is. Ratified 12 Aug as

@@ -2801,8 +2801,13 @@ function clientReportV3PageStyles() {
 .v3-page .v3-wl-kick{ font-size:15.5px; font-weight:bold; color:var(--v3-navy); margin-bottom:26px; }
 .v3-page .v3-wl-para{ font-size:14px; color:var(--v3-soft-navy); line-height:1.75; margin-bottom:26px; }
 .v3-page .v3-wl-signoff{ font-size:14px; color:var(--v3-soft-navy); line-height:1.75; margin-bottom:0; }
-.v3-page .v3-wl-sign{ display:flex; gap:60px; margin-top:44px; }
-.v3-page .v3-wl-card{ width:214px; }
+/* The pair reads as a pair, not as two items distributed across the column. The block was
+   already flex-start (justify-content:normal), so the spread came from the CARD WIDTH, not
+   justification: cards were fixed at 214px against measured content widths of 121.2px and
+   132.1px, leaving 190px between the two circles. width:max-content sizes each card to its
+   own longest line, and the gap becomes the only spacing lever. */
+.v3-page .v3-wl-sign{ display:flex; gap:36px; margin-top:44px; }
+.v3-page .v3-wl-card{ width:max-content; }
 /* Founder headshots. 84px per locked brief v1.7, embedded at 2x (168px) for print.
    THE CIRCULAR CROP IS DONE HERE, IN CSS — not baked into the image. The supplied Cai
    headshot is a round PNG whose corners are transparent (measured: 23.0% fully transparent,
@@ -2810,8 +2815,8 @@ function clientReportV3PageStyles() {
    any alpha imagery. Spec §3.2 forbids soft masks document-wide and
    scripts/verify_transparency.js fails the build on one. So the photos are flattened to
    opaque JPEG in scripts/build_founder_photos.js and masked to a circle here instead. */
-.v3-page .v3-wl-av{ width:84px; height:84px; border-radius:50%; background:var(--v3-leading-bg); position:relative; margin-bottom:10px; overflow:hidden; }
-.v3-page .v3-wl-av img{ display:block; width:84px; height:84px; object-fit:cover; }
+.v3-page .v3-wl-av{ width:110px; height:110px; border-radius:50%; background:var(--v3-leading-bg); position:relative; margin-bottom:10px; overflow:hidden; }
+.v3-page .v3-wl-av img{ display:block; width:110px; height:110px; object-fit:cover; }
 .v3-page .v3-wl-nm{ font-size:13px; font-weight:bold; color:var(--v3-navy); }
 .v3-page .v3-wl-rl{ font-size:11.5px; color:var(--v3-grey); margin-top:2px; }
 .v3-page .v3-wl-ty{ font-size:11.5px; color:var(--v3-grey); font-style:italic; margin-top:1px; }
