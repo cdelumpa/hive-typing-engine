@@ -20,15 +20,12 @@ if (!inputHtml || !outputPdf) {
 }
 
 (async () => {
-  const puppeteerCore = require(path.join(ROOT, 'app/node_modules/puppeteer-core'));
+  // Pinned bundled Chromium via the shared launcher — one engine everywhere.
+  const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
   const html = fs.readFileSync(path.resolve(inputHtml), 'utf8');
   const pdfOpts = buildPdfOptions({ firstName: 'SP4', lastName: 'Sample' });
 
-  const browser = await puppeteerCore.launch({
-    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  const browser = await browserLaunch.launchBrowser();
 
   try {
     const page = await browser.newPage();

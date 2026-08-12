@@ -173,12 +173,9 @@ function postAnalyze(systemPrompt, userMessage) {
   console.log(`Client HTML: ${clientHtml.length.toLocaleString()} chars`);
   console.log(`Coach HTML:  ${coachHtml.length.toLocaleString()} chars`);
 
-  const puppeteerCore = require(path.join(ROOT, 'app/node_modules/puppeteer-core'));
-  const browser = await puppeteerCore.launch({
-    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  // Pinned bundled Chromium via the shared launcher — one engine everywhere.
+  const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
+  const browser = await browserLaunch.launchBrowser();
 
   try {
     const pdfOpts = buildPdfOptions(intake);
