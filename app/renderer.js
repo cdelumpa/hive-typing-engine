@@ -14,6 +14,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { clientReportV3Styles } = require('./client_report_v3_styles');  // v3 shared sheet (client-only; coach never loads it)
 const { HEADSHOT_CAI, HEADSHOT_MO } = require('./report_assets');
 
 
@@ -2655,7 +2656,124 @@ ${_clP8Application(model)}
 </body></html>`;
 }
 
+/**
+ * Page-scoped component CSS for the v3 client report.
+ *
+ * Separate from clientReportV3Styles() by design. That sheet carries what is genuinely
+ * shared across pages (chrome, typography invariants, tokens); this carries the per-page
+ * components, which measurement showed are 261 of the 285 selectors in the reference
+ * implementation — the report is mostly page-specific layout, not a large shared system.
+ *
+ * Grows one page at a time as pages land. PR 1 carries Wings.
+ */
+function clientReportV3PageStyles() {
+  return `<style>
+/* ── p8 Your Wings ────────────────────────────────────────────────────────── */
+.v3-page .v3-intro{ display:flex; align-items:center; gap:26px; margin-bottom:26px; }
+.v3-page .v3-intro-body{ flex:1; }
+
+.v3-page .v3-wings{ display:flex; gap:18px; margin-bottom:0; }
+.v3-page .v3-wing{ flex:1; border:1px solid var(--v3-border); display:flex; flex-direction:column; }
+.v3-page .v3-wing-head{ padding:14px 18px; }
+.v3-page .v3-wing-head.is-wing-a{ background:var(--v3-leading-bg); }
+.v3-page .v3-wing-head.is-wing-b{ background:var(--v3-wing-alt-bg); }
+.v3-page .v3-wing-lbl{ font-size:9px; font-weight:bold; color:var(--v3-soft-navy); text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px; }
+.v3-page .v3-wing-name{ font-size:15px; font-weight:bold; color:var(--v3-navy); }
+.v3-page .v3-wing-body{ padding:20px 18px; flex:1; }
+.v3-page .v3-wing-over{ font-size:12.5px; color:var(--v3-navy); line-height:1.55; padding-bottom:15px; margin-bottom:15px; border-bottom:1px solid var(--v3-border); }
+.v3-page .v3-wing-item{ display:flex; margin-bottom:15px; }
+.v3-page .v3-wing-item:last-child{ margin-bottom:0; }
+.v3-page .v3-wing-dot{ flex:0 0 auto; width:5px; height:5px; border-radius:50%; background:var(--v3-cyan); margin:7px 10px 0 0; }
+.v3-page .v3-wing-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.5; }
+
+.v3-page .v3-resource{ background:var(--v3-green-fill); border-top:1px solid var(--v3-border); padding:18px; }
+.v3-page .v3-res-lbl{ font-size:9px; font-weight:bold; color:var(--v3-green-label); text-transform:uppercase; letter-spacing:.1em; margin-bottom:5px; }
+.v3-page .v3-res-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.45; }
+</style>`;
+}
+
+// ============================================================================
+// CLIENT REPORT v3 (PR 1). Built alongside the live 10-page report, NOT wired into
+// production: generateReportPDFs still calls buildClientReportHTML. The switch happens
+// at cutover (PR 7), so nothing a client or coach receives changes while this is built
+// page by page.
+// ============================================================================
+
+/** Page-order table. Footer numbers and the Contents page both derive from this, so they
+ *  cannot drift — the mockup's hard-coded footers number Welcome=1..Thoughts=10 against a
+ *  12-sheet document, which is the bug this replaces (spec section 8 question 7).
+ *  Populated page by page; PR 1 carries Wings only. */
+const V3_PAGE_ORDER = [
+  { key: 'wings', title: 'Your Wings', eyebrow: 'Navigating the Enneagram System', sheet: 8, footer: 6 },
+];
+
+function _v3Header(m) {
+  return `<div class="page-header">
+    <span class="header-left">InsightOut Enneagram Report</span>
+    <span class="header-right"><span class="header-client">${esc(m.client.full_name)}</span> &middot; Type ${m.hero.number} &mdash; ${esc(m.hero.name)}</span>
+  </div>`;
+}
+
+function _v3Footer(page) {
+  return `<div class="page-footer">
+    <span>&copy; Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span>Page ${page.footer}</span>
+    <span>Client confidential &mdash; for use by report owner only.</span>
+  </div>`;
+}
+
+/** p8 "Your Wings" — per-type static content plus the 430x252 wings diagram. */
+function _clv3Wings(m) {
+  const page = V3_PAGE_ORDER.find(p => p.key === 'wings');
+  const w = m.pages.v3_wings;
+  const col = (wing, headClass) => `
+    <div class="v3-wing">
+      <div class="v3-wing-head ${headClass}">
+        <div class="v3-wing-lbl">${wing.number} Wing &middot; Type ${wing.number}</div>
+        <div class="v3-wing-name">${esc(wing.name)}</div>
+      </div>
+      <div class="v3-wing-body">
+        <div class="v3-wing-over">${esc(wing.overview)}</div>
+        ${wing.bullets.map(b => `<div class="v3-wing-item"><div class="v3-wing-dot"></div><div class="v3-wing-txt">${esc(b)}</div></div>`).join('\n        ')}
+      </div>
+      <div class="v3-resource">
+        <div class="v3-res-lbl">As a Resource</div>
+        <div class="v3-res-txt">${esc(wing.resource)}</div>
+      </div>
+    </div>`;
+
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule is-loose"></div>
+
+  <div class="eyebrow">${esc(page.eyebrow)}</div>
+  <h1>${esc(page.title)}</h1>
+  <div class="v3-intro">
+    <div class="v3-intro-body"><div class="lead is-x-tight">${esc(w.intro)}</div></div>
+    <div class="v3-dia">${buildEnneagramSVG({ type: m.hero.number, variant: 'client-wings' })}</div>
+  </div>
+
+  <div class="v3-wings">${col(w.wing_a, 'is-wing-a')}${col(w.wing_b, 'is-wing-b')}
+  </div>
+
+  ${_v3Footer(page)}
+</div>`;
+}
+
+/** v3 document root. Not called by production until cutover. */
+function buildClientReportHTML_v3(model) {
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>InsightOut &middot; Your Enneagram Report &middot; Type ${model.hero.number}</title>
+${partAStyles()}
+${clientReportV3Styles()}
+${clientReportV3PageStyles()}
+</head><body>
+${_clv3Wings(model)}
+</body></html>`;
+}
+
 module.exports = {
+  buildClientReportHTML_v3, V3_PAGE_ORDER,
   buildClientHTML, buildCoachHTML, buildBetaHTML, betaReportBodyHtml, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
   buildCoachReportHTML, buildCoachPdfOptions, COACH_CLARIFICATION_QUESTIONS,

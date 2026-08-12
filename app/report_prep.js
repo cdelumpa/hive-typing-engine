@@ -260,6 +260,21 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       patterns: { thinking: t.patterns.thinking, feeling: t.patterns.feeling, behaving: t.patterns.behaving, inquiry_lines: t.inquiry_lines }, // P4
       wings_lines: { wings: t.wings, lines: t.lines, wings_primer: stat.wings_primer, lines_primer: stat.lines_primer, wings_using: stat.wings_using, // P5 (wings/lines unchanged; primers PENDING)
         wing_low: wingLow, wing_high: wingHigh, line_stress: lineStress, line_security: lineSecurity }, // P5 remap (template-shaped)
+      // CLIENT REPORT v3 — p8 "Your Wings". Additive: the v2 wings_lines model above is
+      // untouched, so the live 10-page report is unaffected. Reads the v3-only fields
+      // (overview/bullets/resource/intro_v3) added to the content library alongside the
+      // existing target_type/body, which splitWingBest() still consumes for v2.
+      v3_wings: (() => {
+        // Column order follows the content library's wing_a/wing_b order, which for Type 9
+        // reproduces the reference implementation (8 Wing left, 1 Wing right) — the columns
+        // track the diagram's left-to-right placement rather than numeric order. Confirm the
+        // rule against design when types 1-8 land; only Type 9 is authored today.
+        const mk = (slot) => {
+          const w = t.wings[slot], n = w.target_type;
+          return { number: n, name: TYPE_NAMES[n], overview: w.overview || '', bullets: w.bullets || [], resource: w.resource || '' };
+        };
+        return { intro: t.wings.intro_v3 || '', wing_a: mk('wing_a'), wing_b: mk('wing_b') };
+      })(),
       instinct_subtype: {                                                                       // P6
         subtype: { name: st.name, tagline: st.tagline, narrative: st.narrative, patterns: st.patterns },
         instinct_evidence: cf.instinct_evidence ?? null,
