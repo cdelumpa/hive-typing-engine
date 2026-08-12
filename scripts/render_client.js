@@ -53,9 +53,12 @@ const REPORTS = {
     build: async (apiResult) => R.buildClientReportHTML_v3(
       await prep.buildClientModel({ apiResult, client: V3_CLIENT, coach })),
     selector: '.v3-page',
-    expected: 1,
+    expected: 6,
     enforceSheet: true,
-    labels: ['P8 Wings'],
+    // Document order, not sheet order: PR 2 adds sheets 1-4 and 12 around the Wings page
+    // PR 1 built, and sheets 5-11 land in later PRs.
+    labels: ['P1 Cover', 'P2 Contents', 'P3 Welcome', 'P4 What Is', 'P8 Wings', 'P12 Thoughts'],
+    checkHyphens: true,
     fixtures: ['anders_sx9'],   // Type 9 / SX9 — the only type with v3 content so far
   },
   coach: {
@@ -71,6 +74,52 @@ const REPORTS = {
 const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
 async function launch() { return browserLaunch.launchBrowser(); }
 let fontReported = false;
+
+/**
+ * Find lines that break at a hyphen, splitting a word across two lines (brief v2.0 §12.6).
+ *
+ * The obvious check — look for U+00AD or automatic hyphenation — finds nothing and would
+ * pass forever: computed `hyphens` is `manual` on every page, so Chromium never inserts a
+ * hyphen. Every real occurrence is a break at a hyphen that is ALREADY in the string, which
+ * `hyphens` does not govern at all. Measured on the reference set, three compounds split
+ * this way ("self-forgetting", "present-moment", "pressure-test") and, once the Welcome
+ * letter landed, so did a URL — "www.hiveleadership.com/the-" / "enneagram." in a
+ * client-facing PDF.
+ *
+ * Fixes are U+2011 (non-breaking hyphen) in prose, and a nowrap span for URLs so the text
+ * stays copy-exact. A hyphen preceded by whitespace is a dash, not a compound, and breaking
+ * there is correct typography — those are excluded.
+ */
+async function findHyphenBreaks(page, selector) {
+  return page.evaluate((sel) => {
+    const out = [];
+    for (const root of document.querySelectorAll(sel)) {
+      const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let n;
+      while ((n = w.nextNode())) {
+        const t = n.nodeValue;
+        if (!t || !t.trim() || !n.parentElement || n.parentElement.closest('svg')) continue;
+        const r = document.createRange();
+        const lines = []; let cur = null;
+        for (let i = 0; i < t.length; i++) {
+          r.setStart(n, i); r.setEnd(n, i + 1);
+          const b = r.getBoundingClientRect();
+          if (!b.width && !b.height) continue;
+          const top = Math.round(b.top * 2) / 2;
+          if (!cur || cur.top !== top) { cur = { top, f: i, l: i }; lines.push(cur); } else cur.l = i;
+        }
+        for (let i = 0; i < lines.length - 1; i++) {
+          const seg = t.slice(lines[i].f, lines[i].l + 1).replace(/\s+$/, '');
+          if (/[-‐]$/.test(seg) && !/\s.$/.test(seg)) {
+            out.push({ cls: n.parentElement.className,
+              before: seg.slice(-30), after: t.slice(lines[i + 1].f, lines[i + 1].l + 1).trim().slice(0, 20) });
+          }
+        }
+      }
+    }
+    return out;
+  }, selector);
+}
 
 // Measure each page container's rendered height + physical-sheet count under flowing layout.
 async function measureLayout(page, selector) {
@@ -126,6 +175,14 @@ async function measureLayout(page, selector) {
         }
         if (pages.length !== cfg.expected) {
           fail(`${kind} page count ${pages.length}, expected ${cfg.expected}`);
+        }
+        if (cfg.checkHyphens) {
+          const hb = await findHyphenBreaks(page, cfg.selector);
+          for (const b of hb) {
+            fail(`${kind} word split across lines at an existing hyphen in .${b.cls}: ` +
+                 `"…${b.before}" / "${b.after}…" — use U+2011, or a nowrap span for a URL`);
+          }
+          if (!hb.length) console.log('  hyphenation: no word split across lines');
         }
         await page.pdf({ path: path.join(OUT, `${kind}_${fx}.pdf`), ...R.buildCoachPdfOptions() });
         await page.close();

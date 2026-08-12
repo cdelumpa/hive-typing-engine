@@ -53,6 +53,10 @@ const SCRIPT_SOURCED = [
   { path: 'type_9.wings', label: 'type_9 v3 wing fields (intro_v3/overview/bullets/resource)',
     retires: 'when Wings content lands in Word for all nine types (drafted, in review with Mo)',
     only: ['intro_v3', 'overview', 'bullets', 'resource'] },
+  { path: 'static.contents', label: 'static.contents (v3 Contents page, 9 entries)',
+    retires: 'when the docx gains a CONTENTS ENTRIES section (no current plan — raise with design)' },
+  { path: 'static.thoughts', label: 'static.thoughts (v3 Your Thoughts page)',
+    retires: 'when the docx gains a YOUR THOUGHTS section (no current plan — raise with design)' },
 ];
 
 let failed = false;

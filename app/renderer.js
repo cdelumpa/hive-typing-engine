@@ -1061,6 +1061,19 @@ const CLIENT_NODES = Object.fromEntries(Object.entries(CLIENT_ANGLES).map(([k, d
 const CLIENT_TRIANGLE = [9, 6, 3, 9];
 const CLIENT_HEXAGON = [1, 4, 2, 8, 5, 7, 1];
 
+// ── CLIENT REPORT v3 — full-wheel decorative geometries (PR 2) ────────────────
+// Cover (sheet 1) and "What Is the Enneagram?" (sheet 4). Values ported verbatim from the
+// measured reference implementations, not derived: Cover_v1.html r=158/node 23 in a 420
+// box rendered at 316px; WhatIs_v2.html r=112/node 16 in a 300 box rendered at 236px.
+// Node radii are UNIFORM on both — the cover's home type is differentiated by fill alone.
+const COVER_GEO  = { vw: 420, vh: 420, cx: 210, cy: 210, r: 158, rNode: 23, fs: 19, ring: 1.6, web: '#7FD3E8', web_w: 2 };
+const WHATIS_GEO = { vw: 300, vh: 300, cx: 150, cy: 150, r: 112, rNode: 16, fs: 13, ring: 1.4, web: '#9FD9EA', web_w: 1.5 };
+// Same clockwise-from-9-at-top angles as the 430x252 pair, so all four v3 figures agree.
+const _wheelNodes = (C) => Object.fromEntries(Object.entries(CLIENT_ANGLES).map(([k, deg]) => {
+  const rad = deg * Math.PI / 180;
+  return [k, [+(C.cx + C.r * Math.cos(rad)).toFixed(1), +(C.cy + C.r * Math.sin(rad)).toFixed(1)]];
+}));
+
 function _clientTrim(p1, p2, t = 20) {
   const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
   const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
@@ -1183,6 +1196,48 @@ function buildEnneagramSVG({ type, variant }) {
     const nodes = Object.keys(SVG_NODES).map(i => _svgNode(+i, 22, '#F7941D') + _svgLabel(+i, 20, true)).join('');
     return open + `<defs>${_arrowMarker(m, '#F7941D')}</defs>`
       + `<circle cx="250" cy="250" r="210" fill="none" stroke="#00B2D9" stroke-width="8"/>` + lines + nodes + `</svg>`;
+  }
+
+  // ── CLIENT REPORT v3 — 'client-cover' / 'client-whatis' (PR 2) ──────────────
+  // Two more independent geometries. Like the 430x252 pair above they deliberately do NOT
+  // share SVG_NODES: every 500x500 variant iterates Object.keys(SVG_NODES), so a key added
+  // there lands on the coach wheel (see the note above CLIENT_GEO).
+  //
+  // Both are decorative full-wheel figures carrying NUMERALS ONLY — no archetype labels, no
+  // eyebrows. That is why verify_diagrams.js does not cover them: it measures label boxes,
+  // and there are none. It also means a mirrored wheel or a dropped node would ship
+  // silently, which is exactly the defect design spec v3.0 §4.3 records in an earlier
+  // mockup — so the structural gate in verify_diagrams.js asserts node inventory, angles
+  // and the two flow sequences for these two instead.
+  if (variant === 'client-cover' || variant === 'client-whatis') {
+    // 'client-whatis' highlights nothing and needs no type; 'client-cover' must have one,
+    // or the cover would silently print nine identical grey nodes and lose the one client
+    // marker on the sheet.
+    if (variant === 'client-cover' && !SVG_TYPE_META[type]) {
+      throw new Error(`buildEnneagramSVG: type ${type} required for variant "client-cover"`);
+    }
+    const C = variant === 'client-cover' ? COVER_GEO : WHATIS_GEO;
+    const N = _wheelNodes(C);
+    const line = (pts, w) => `<polyline points="${pts.map(i => `${N[i][0]},${N[i][1]}`).join(' ')}" fill="none" stroke="${C.web}" stroke-width="${w}"/>`;
+    const ring = `<circle cx="${C.cx}" cy="${C.cy}" r="${C.r}" fill="none" stroke="#C8D0D9" stroke-width="${C.ring}"/>`;
+
+    let nodes = '';
+    for (const k of Object.keys(N)) {
+      const i = +k;
+      // The cover is the ONLY figure in the document with an ORANGE home node — it has no
+      // page header, so the node is the sole client marker on the sheet (spec §5.3). Every
+      // interior diagram uses cyan. Differentiation is BY FILL ONLY: all nine radii are
+      // equal, on both variants.
+      const isHome = variant === 'client-cover' && i === type;
+      const fill = isHome ? '#F68625' : '#FFFFFF';
+      const stroke = isHome ? '#F68625' : '#C8D0D9';
+      const txt = isHome ? '#FFFFFF' : '#4A5568';
+      const [x, y] = N[i];
+      nodes += `<circle cx="${x}" cy="${y}" r="${C.rNode}" fill="${fill}" stroke="${stroke}" stroke-width="${C.ring}"/>`
+             + `<text x="${x}" y="${(y + C.fs * 0.37).toFixed(1)}" text-anchor="middle" font-family="Arial" font-size="${C.fs}" font-weight="bold" fill="${txt}">${i}</text>`;
+    }
+    return `<svg viewBox="0 0 ${C.vw} ${C.vh}" xmlns="http://www.w3.org/2000/svg">`
+      + ring + line(CLIENT_TRIANGLE, C.web_w) + line(CLIENT_HEXAGON, C.web_w) + nodes + `</svg>`;
   }
 
   const meta = SVG_TYPE_META[type];
@@ -2683,6 +2738,115 @@ ${_clP8Application(model)}
  */
 function clientReportV3PageStyles() {
   return `<style>
+/* Every page-local class below is namespaced by page (cv/toc/wl/wi/th). The twelve
+   reference implementations are standalone documents and reuse bare names across pages
+   with DIFFERENT values — .prep is #D9E4E9 with a border and 15px 18px padding on the
+   cover but borderless with 20px 24px and a 34px bottom margin on Contents; .prep-name is
+   20px on one and 22px on the other; .intro means one thing on Wings and another on Your
+   Thoughts. Concatenated into one document those silently overwrite each other, which is
+   the collision class design spec v3.0 §3.4 exists for. Namespacing is not tidiness here,
+   it is the fix. */
+
+/* ── p1 Cover ─────────────────────────────────────────────────────────────── */
+/* The only page that abandons the shared flow shell: all four children are absolutely
+   positioned. height (not min-height) + overflow:hidden matches the reference and is also
+   what stops a very long client name from spilling artwork off the sheet — measured, the
+   name overflows its panel horizontally at 33 characters when it is one unbreakable token. */
+.v3-page.is-cover{ height:1056px; min-height:1056px; padding:0; position:relative; overflow:hidden; display:block; }
+/* Gradient stops terminate on OPAQUE #FFFFFF. Never 'transparent' and never rgba(): in CSS
+   'transparent' is rgba(0,0,0,0) and Chromium emits a transparency group with soft masks
+   for it, which is what rendered this page pink in one PDF viewer (spec §3.2). Verified by
+   scripts/verify_transparency.js, which fails the build on any group, mask or alpha < 1. */
+.v3-page .v3-cv-wash{ position:absolute; inset:0; background:
+  radial-gradient(circle 1150px at 68% 55%,
+    #C8D9D1 0%, #B9E0ED 6%, #CBE6F0 14%, #D5EAF2 22%, #E8F2F6 34%,
+    #EDF4F7 48%, #FCFEFE 68%, #FFFFFF 84%); }
+.v3-page .v3-cv-left{ position:absolute; left:64px; top:456px; width:400px; }
+.v3-page .v3-cv-wordmark{ font-size:85px; font-weight:bold; color:var(--v3-navy); letter-spacing:-0.025em; line-height:1; margin-bottom:24px; }
+.v3-page .v3-cv-wordmark span{ color:var(--v3-orange); }
+.v3-page .v3-cv-tagline{ font-size:31px; font-weight:bold; color:var(--v3-navy); line-height:1.2; margin-bottom:52px; }
+.v3-page .v3-cv-prep{ background:var(--v3-leading-bg); border:1px solid #CBD9DF; padding:15px 18px; }
+.v3-page .v3-cv-lbl{ font-size:9px; font-weight:bold; color:var(--v3-grey); letter-spacing:.11em; margin-bottom:5px; }
+/* overflow-wrap, not a conditional font size: the measured one-line ceiling is 34 chars and
+   the 35-char wrap is harmless (286px of vertical clearance), but a single unbreakable
+   33-char token overruns the panel. A font reduction fixes the harmless case and not the
+   real one. */
+.v3-page .v3-cv-name{ font-size:20px; font-weight:bold; color:var(--v3-orange); overflow-wrap:break-word; word-break:break-word; }
+.v3-page .v3-cv-meta{ font-size:11.5px; color:var(--v3-soft-navy); line-height:1.5; margin-top:5px; }
+.v3-page .v3-cv-sym{ position:absolute; right:46px; top:474px; width:316px; }
+.v3-page .v3-cv-sym svg{ display:block; width:316px; height:316px; }
+
+/* ── p2 Contents ──────────────────────────────────────────────────────────── */
+.v3-page .v3-toc-prep{ background:var(--v3-leading-bg); padding:20px 24px; margin-bottom:34px; }
+.v3-page .v3-toc-lbl{ font-size:9px; font-weight:bold; color:var(--v3-grey); text-transform:uppercase; letter-spacing:.11em; margin-bottom:7px; }
+.v3-page .v3-toc-name{ font-size:22px; font-weight:bold; color:var(--v3-orange); margin-bottom:6px; overflow-wrap:break-word; word-break:break-word; }
+.v3-page .v3-toc-sub{ font-size:12.5px; color:var(--v3-soft-navy); }
+.v3-page .v3-toc-row{ display:flex; align-items:flex-start; border-top:1px solid #D9E1E6; padding:15px 0 16px; }
+/* :last-child, NOT :last-of-type. The reference implementation says :last-of-type, which
+   never matches: the last <div> inside the page is .page-footer, so no row is ever the last
+   div of its type and the contents list renders with no closing rule at all. Measured
+   border-bottom-width on the ninth row in the mockup is 0px. Deliberate departure from the
+   mockup — a pixel diff against it would otherwise lock the bug in as correct. */
+.v3-page .v3-toc-row:last-child{ border-bottom:1px solid #D9E1E6; }
+.v3-page .v3-toc-num{ flex:0 0 52px; font-size:9.5px; font-weight:bold; color:var(--v3-cyan); letter-spacing:.06em; padding-top:3px; }
+.v3-page .v3-toc-main{ flex:1; padding-right:18px; }
+.v3-page .v3-toc-title{ font-size:15px; font-weight:bold; color:var(--v3-navy); margin-bottom:5px; }
+.v3-page .v3-toc-desc{ font-size:12.5px; color:var(--v3-grey); font-style:italic; line-height:1.45; }
+.v3-page .v3-toc-pg{ flex:0 0 24px; font-size:14px; font-weight:bold; color:var(--v3-navy); text-align:right; padding-top:1px; }
+
+/* ── p3 Welcome ───────────────────────────────────────────────────────────── */
+.v3-page .v3-wl-hello{ font-size:28px; font-weight:bold; color:var(--v3-navy); margin-bottom:22px; }
+.v3-page .v3-wl-hello span{ color:var(--v3-orange); }
+.v3-page .v3-wl-kick{ font-size:15.5px; font-weight:bold; color:var(--v3-navy); margin-bottom:26px; }
+.v3-page .v3-wl-para{ font-size:14px; color:var(--v3-soft-navy); line-height:1.75; margin-bottom:26px; }
+.v3-page .v3-wl-signoff{ font-size:14px; color:var(--v3-soft-navy); line-height:1.75; margin-bottom:0; }
+.v3-page .v3-wl-sign{ display:flex; gap:60px; margin-top:44px; }
+.v3-page .v3-wl-card{ width:214px; }
+/* Placeholder avatar (spec §2: "Signature and avatar assets are placeholders"). Pure CSS
+   shapes, no image asset and no alpha. */
+.v3-page .v3-wl-av{ width:70px; height:70px; border-radius:50%; background:var(--v3-leading-bg); position:relative; margin-bottom:10px; overflow:hidden; }
+.v3-page .v3-wl-av::before{ content:""; position:absolute; left:50%; top:15px; width:24px; height:24px; border-radius:50%; background:var(--v3-accent-rule); transform:translateX(-50%); }
+.v3-page .v3-wl-av::after{ content:""; position:absolute; left:50%; top:46px; width:46px; height:36px; border-radius:23px 23px 0 0; background:var(--v3-accent-rule); transform:translateX(-50%); }
+.v3-page .v3-wl-scrawl{ height:26px; margin-bottom:8px; }
+.v3-page .v3-wl-nm{ font-size:13px; font-weight:bold; color:var(--v3-navy); }
+.v3-page .v3-wl-rl{ font-size:11.5px; color:var(--v3-grey); margin-top:2px; }
+.v3-page .v3-wl-ty{ font-size:11.5px; color:var(--v3-grey); font-style:italic; margin-top:1px; }
+
+/* ── p4 What Is the Enneagram? ────────────────────────────────────────────── */
+.v3-page .v3-wi-top{ display:flex; gap:26px; align-items:center; margin-bottom:20px; }
+.v3-page .v3-wi-body{ flex:1; }
+.v3-page .v3-wi-sym{ flex:0 0 208px; overflow:visible; }
+/* 236px art in a 208px column with a -14px bleed on each side — verbatim from the
+   reference. The negative margin is load-bearing, not a leftover. */
+.v3-page .v3-wi-sym svg{ display:block; width:236px; height:236px; margin:-14px; }
+.v3-page .v3-wi-tp{ font-size:13.5px; color:var(--v3-soft-navy); line-height:1.6; margin-bottom:13px; }
+.v3-page .v3-wi-tp:last-child{ margin-bottom:0; }
+.v3-page .v3-wi-scan{ font-size:9px; font-weight:bold; color:var(--v3-cyan); text-transform:uppercase; letter-spacing:.11em; margin-bottom:5px; }
+.v3-page .v3-wi-scanp{ font-size:12px; color:var(--v3-grey); font-style:italic; line-height:1.45; margin-bottom:14px; }
+.v3-page .v3-wi-grid{ display:flex; flex-wrap:wrap; gap:10px; }
+.v3-page .v3-wi-tc{ width:229px; border:1px solid var(--v3-border); padding:10px 13px; }
+.v3-page .v3-wi-tc-n{ font-size:8.5px; font-weight:bold; color:var(--v3-cyan); letter-spacing:.1em; margin-bottom:2px; }
+/* NOTE: orange on framework content. Design spec §5.3 reserves --v3-orange for client
+   identity and lists exactly four places; nine type names on this page is a fifth. The v2
+   mockup is the ratified gold standard for copy AND design, so it is reproduced verbatim
+   here rather than silently corrected — but it is a live conflict with §5.3 and is raised
+   in docs/audit_pr2_static_pages.md for a decision. */
+.v3-page .v3-wi-tc-t{ font-size:13px; font-weight:bold; color:var(--v3-orange); margin-bottom:6px; }
+.v3-page .v3-wi-tc-d{ font-size:11.5px; color:var(--v3-soft-navy); line-height:1.45; margin-bottom:7px; }
+.v3-page .v3-wi-tc-g{ font-size:11px; color:var(--v3-grey); font-style:italic; line-height:1.4; }
+.v3-page .v3-wi-close{ font-size:12px; color:var(--v3-grey); font-style:italic; line-height:1.5; margin-top:16px; }
+
+/* ── p12 Your Thoughts ────────────────────────────────────────────────────── */
+.v3-page .v3-th-intro{ font-size:14px; color:var(--v3-soft-navy); line-height:1.7; margin-bottom:26px; }
+.v3-page .v3-th-qbox{ background:var(--v3-panel); border-left:3px solid var(--v3-cyan); padding:14px 18px 0 18px; margin-bottom:19px; }
+.v3-page .v3-th-qtext{ font-size:13px; font-weight:bold; color:var(--v3-navy); line-height:1.45; }
+/* Deliberately empty write-in space. Renders flat: editable AcroForm fields are OUT for v1
+   (build plan D1), so this is a ruled gap, not an input. */
+.v3-page .v3-th-qspace{ height:88px; }
+
+/* ── shared: keep URLs unbroken (see _v3NoBreakUrls) ──────────────────────── */
+.v3-page .v3-nb{ white-space:nowrap; }
+
 /* ── p8 Your Wings ────────────────────────────────────────────────────────── */
 .v3-page .v3-intro{ display:flex; align-items:center; gap:26px; margin-bottom:26px; }
 .v3-page .v3-intro-body{ flex:1; }
@@ -2719,27 +2883,233 @@ function clientReportV3PageStyles() {
  *  12-sheet document, which is the bug this replaces (spec section 8 question 7).
  *  Populated page by page; PR 1 carries Wings only. */
 const V3_PAGE_ORDER = [
-  { key: 'wings', title: 'Your Wings', eyebrow: 'Navigating the Enneagram System', sheet: 8, footer: 6 },
+  { key: 'cover',     sheet: 1,  footer: null, chrome: 'none',  title: 'Cover' },
+  { key: 'contents',  sheet: 2,  footer: null, chrome: 'blank', title: 'Contents',                          eyebrow: "What's In This Report" },
+  { key: 'welcome',   sheet: 3,  footer: 1,    title: 'Welcome',                                            eyebrow: 'A Note from Cai & Mo' },
+  { key: 'whatis',    sheet: 4,  footer: 2,    title: 'What Is the Enneagram?',                             eyebrow: null },
+  { key: 'quickref',  sheet: 5,  footer: 3,    title: 'Quick Reference',                                    eyebrow: 'Your Report at a Glance' },
+  { key: 'typeA',     sheet: 6,  footer: 4,    title: 'Exploring Your Type Hypothesis',                     eyebrow: null },
+  { key: 'typeB',     sheet: 7,  footer: 5,    title: 'Exploring Your Type Hypothesis (continued)' },
+  { key: 'wings',     sheet: 8,  footer: 6,    title: 'Your Wings',                                         eyebrow: 'Navigating the Enneagram System' },
+  { key: 'lines',     sheet: 9,  footer: 7,    title: 'Your Stress and Security Points',                    eyebrow: 'Navigating the Enneagram System' },
+  { key: 'instincts', sheet: 10, footer: 8,    title: 'Instincts & Subtypes',                               eyebrow: 'Navigating the Enneagram System' },
+  { key: 'car',       sheet: 11, footer: 9,    title: 'Development Ideas for {nickname_plural}',            eyebrow: 'Insight to Action' },
+  { key: 'thoughts',  sheet: 12, footer: 10,   title: 'Your Thoughts',                                      eyebrow: 'Questions to Explore' },
 ];
 
+const v3Page = (key) => {
+  const p = V3_PAGE_ORDER.find(x => x.key === key);
+  if (!p) throw new Error(`V3_PAGE_ORDER: unknown page key "${key}"`);
+  return p;
+};
+
+/** Interpolate the {token} placeholders carried by page titles and Contents descriptors. */
+function _v3Tokens(m, s) {
+  const d = m.display || {};
+  return String(s || '').replace(/\{(type_word|subtype_label|nickname|nickname_plural)\}/g,
+    (_, k) => d[k] != null ? d[k] : `{${k}}`);
+}
+
+/** Page title with tokens resolved (page 11 is "Development Ideas for Peacemakers"). */
+const _v3Title = (m, key) => _v3Tokens(m, v3Page(key).title);
+
+/**
+ * Keep URLs on one line.
+ *
+ * Chromium breaks a line at an existing hyphen, and the Welcome letter's
+ * www.hiveleadership.com/the-enneagram wrapped as "…/the-" / "enneagram." — a URL split
+ * across two lines in a client-facing PDF. A non-breaking hyphen is the wrong fix for a
+ * URL specifically: it would put U+2011 inside the address, so anyone copying it out of
+ * the PDF would copy something that does not resolve. Wrapping in nowrap keeps the text
+ * copy-exact. Applied AFTER escaping, so the inserted markup is the only markup.
+ */
+const _v3NoBreakUrls = (escaped) =>
+  String(escaped).replace(/((?:https?:\/\/|www\.)[^\s<]+[^\s<.,;:!?)])/g, '<span class="v3-nb">$1</span>');
+
+/**
+ * Shared page header.
+ *
+ * Carries the subtype on EVERY page (brief v2.0 §12.1). The v3 mockups split 5/6 on this —
+ * Contents, Welcome, What Is, Development Ideas and Your Thoughts print "· SX9" while Quick
+ * Reference, both Exploring pages, Wings, Lines and Instincts omit it. Including it
+ * everywhere is the ratified resolution, and it deliberately re-baselines the Wings page
+ * that PR 1 merged against a mockup without it. See docs/audit_pr2_static_pages.md.
+ */
 function _v3Header(m) {
+  const code = m.display && m.display.instinct_code
+    ? ` &middot; ${esc(m.display.instinct_code)}${m.hero.number}` : '';
   return `<div class="page-header">
     <span class="header-left">InsightOut Enneagram Report</span>
-    <span class="header-right"><span class="header-client">${esc(m.client.full_name)}</span> &middot; Type ${m.hero.number} &mdash; ${esc(m.hero.name)}</span>
+    <span class="header-right"><span class="header-client">${esc(m.client.full_name)}</span> &middot; Type ${m.hero.number} &mdash; ${esc(m.hero.name)}${code}</span>
   </div>`;
 }
 
+/**
+ * Shared page footer, three states — all three appear in the reference implementation:
+ *   chrome:'none'   cover — no footer element at all
+ *   chrome:'blank'  contents — the full bar, with an EMPTY number slot
+ *   default         every numbered sheet
+ * The number is never a literal: it is always page.footer, which is also what the Contents
+ * page reads, so the two cannot drift.
+ */
 function _v3Footer(page) {
+  if (page.chrome === 'none') return '';
+  const num = page.footer == null ? '' : `Page ${page.footer}`;
   return `<div class="page-footer">
     <span>&copy; Copyright 2026 Hive, Inc. All rights reserved.</span>
-    <span>Page ${page.footer}</span>
+    <span>${num}</span>
     <span>Client confidential &mdash; for use by report owner only.</span>
   </div>`;
 }
 
+/** p1 Cover — no header, no footer, four absolutely-positioned blocks over a gradient. */
+function _clv3Cover(m) {
+  const page = v3Page('cover');
+  return `<div class="v3-page is-cover">
+  <div class="v3-cv-wash"></div>
+  <div class="v3-cv-left">
+    <div class="v3-cv-wordmark">Insight<span>Out</span></div>
+    <div class="v3-cv-tagline">Enneagram Assessment</div>
+    <div class="v3-cv-prep">
+      <div class="v3-cv-lbl">PREPARED FOR</div>
+      <div class="v3-cv-name">${esc(m.client.full_name)}</div>
+      <div class="v3-cv-meta">Type ${m.hero.number} &mdash; ${esc(m.hero.name)} &middot; ${esc(m.client.date)}</div>
+    </div>
+  </div>
+  <div class="v3-cv-sym">${buildEnneagramSVG({ type: m.hero.number, variant: 'client-cover' })}</div>
+  ${_v3Footer(page)}
+</div>`;
+}
+
+/**
+ * p2 Contents — nine entries over ten numbered sheets.
+ *
+ * Every page number is resolved from V3_PAGE_ORDER via the entry's `start` key and is never
+ * a literal. Entry 04 spans sheets 6-7, so footer 5 correctly never appears in the column;
+ * a one-row-per-page table would print ten entries and the wrong numbers.
+ */
+function _clv3Contents(m) {
+  const page = v3Page('contents');
+  const rows = m.pages.v3_contents.map((e, i) => {
+    const target = v3Page(e.start);
+    return `  <div class="v3-toc-row">
+    <div class="v3-toc-num">${String(i + 1).padStart(2, '0')}</div>
+    <div class="v3-toc-main">
+      <div class="v3-toc-title">${esc(_v3Tokens(m, target.title))}</div>
+      <div class="v3-toc-desc">${esc(_v3Tokens(m, e.desc))}</div>
+    </div>
+    <div class="v3-toc-pg">${target.footer}</div>
+  </div>`;
+  }).join('\n');
+
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule is-loose"></div>
+
+  <div class="eyebrow is-x-loose">${esc(page.eyebrow)}</div>
+
+  <div class="v3-toc-prep">
+    <div class="v3-toc-lbl">Prepared For</div>
+    <div class="v3-toc-name">${esc(m.client.full_name)}</div>
+    <div class="v3-toc-sub">Type ${m.hero.number} &mdash; ${esc(m.hero.name)} &middot; ${esc(m.display.instinct_code)}${m.hero.number} &middot; ${esc(m.client.date)}</div>
+  </div>
+
+${rows}
+
+  ${_v3Footer(page)}
+</div>`;
+}
+
+/** p3 Welcome — the letter from Cai and Mo. Signature and avatar assets are placeholders. */
+function _clv3Welcome(m) {
+  const page = v3Page('welcome');
+  const w = m.pages.v3_welcome;
+  const card = (name, role, type, d) => `
+    <div class="v3-wl-card">
+      <div class="v3-wl-av"></div><svg class="v3-wl-scrawl" viewBox="0 0 150 26" xmlns="http://www.w3.org/2000/svg"><path d="${d}" fill="none" stroke="#1E2A35" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <div class="v3-wl-nm">${esc(name)}</div>
+      <div class="v3-wl-rl">${esc(role)}</div>
+      <div class="v3-wl-ty">${esc(type)}</div>
+    </div>`;
+
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule is-x-loose"></div>
+
+  <div class="eyebrow">${esc(page.eyebrow)}</div>
+  <div class="v3-wl-hello">Welcome, <span>${esc(w.greeting_name)}!</span></div>
+  <div class="v3-wl-kick">${esc(w.subhead)}</div>
+
+  ${w.letters.map(p => `<div class="v3-wl-para">${_v3NoBreakUrls(esc(p))}</div>`).join('\n  ')}
+  <div class="v3-wl-signoff">${esc(w.signoff)}</div>
+
+  <div class="v3-wl-sign">${card('Cai Delumpa', 'Co-Founder, Hive, Inc.', 'Type 7 · The Enthusiast',
+      'M4 18 C10 6, 16 6, 18 14 C20 22, 26 20, 30 12 C34 4, 40 8, 44 16 C48 24, 55 18, 60 10 C66 2, 72 10, 78 18 C84 24, 92 16, 100 12 C110 8, 120 16, 134 13')}${card('Monique Breault', 'Co-Founder, Hive, Inc.', 'Type 9 · The Peacemaker',
+      'M4 20 C8 6, 14 4, 18 14 C22 24, 28 22, 32 10 C36 2, 42 4, 46 16 C50 24, 56 22, 60 12 C64 4, 70 6, 74 16 C78 24, 86 20, 94 14 C104 8, 116 16, 132 12')}
+  </div>
+
+  ${_v3Footer(page)}
+</div>`;
+}
+
+/** p4 What Is the Enneagram? — identical for every client except the header. */
+function _clv3WhatIs(m) {
+  const page = v3Page('whatis');
+  const w = m.pages.v3_whatis;
+  const paras = String(w.intro).split(/\n{2,}/).filter(Boolean);
+  const cards = w.nine_types.map(t => `    <div class="v3-wi-tc">
+      <div class="v3-wi-tc-n">TYPE ${t.number}</div>
+      <div class="v3-wi-tc-t">${esc(t.name)}</div>
+      <div class="v3-wi-tc-d">${esc(t.description)}</div>
+      <div class="v3-wi-tc-g">Gifts: ${esc(t.gifts)}</div>
+    </div>`).join('\n');
+
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule is-default"></div>
+
+  <h1>${esc(page.title)}</h1>
+  <div class="v3-wi-top">
+    <div class="v3-wi-body">
+      ${paras.map(p => `<div class="v3-wi-tp">${esc(p)}</div>`).join('\n      ')}
+    </div>
+    <div class="v3-wi-sym">${buildEnneagramSVG({ variant: 'client-whatis' })}</div>
+  </div>
+
+  <div class="v3-wi-scan">${esc(w.scan_heading)}</div>
+  <div class="v3-wi-scanp">${esc(w.scan_line)}</div>
+
+  <div class="v3-wi-grid">
+${cards}
+  </div>
+
+  <div class="v3-wi-close">${esc(w.close)}</div>
+
+  ${_v3Footer(page)}
+</div>`;
+}
+
+/** p12 Your Thoughts — five reflection boxes. Renders flat; editable fields are out (D1). */
+function _clv3Thoughts(m) {
+  const page = v3Page('thoughts');
+  const t = m.pages.v3_thoughts;
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule is-default"></div>
+
+  <div class="eyebrow">${esc(page.eyebrow)}</div>
+  <h1>${esc(page.title)}</h1>
+  <div class="v3-th-intro">${esc(t.intro)}</div>
+
+  ${t.prompts.map(p => `<div class="v3-th-qbox"><div class="v3-th-qtext">${esc(p)}</div><div class="v3-th-qspace"></div></div>`).join('\n  ')}
+
+  ${_v3Footer(page)}
+</div>`;
+}
+
 /** p8 "Your Wings" — per-type static content plus the 430x252 wings diagram. */
 function _clv3Wings(m) {
-  const page = V3_PAGE_ORDER.find(p => p.key === 'wings');
+  const page = v3Page('wings');
   const w = m.pages.v3_wings;
   const col = (wing, headClass) => `
     <div class="v3-wing">
@@ -2783,12 +3153,18 @@ ${partAStyles()}
 ${clientReportV3Styles()}
 ${clientReportV3PageStyles()}
 </head><body>
+${_clv3Cover(model)}
+${_clv3Contents(model)}
+${_clv3Welcome(model)}
+${_clv3WhatIs(model)}
 ${_clv3Wings(model)}
+${_clv3Thoughts(model)}
 </body></html>`;
 }
 
 module.exports = {
   buildClientReportHTML_v3, V3_PAGE_ORDER,
+  COVER_GEO, WHATIS_GEO, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
   buildClientHTML, buildCoachHTML, buildBetaHTML, betaReportBodyHtml, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
   buildCoachReportHTML, buildCoachPdfOptions, COACH_CLARIFICATION_QUESTIONS,

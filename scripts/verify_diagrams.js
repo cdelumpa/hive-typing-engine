@@ -101,6 +101,67 @@ const rectsOverlap = (a, b) =>
   }
 
   console.log(`  18 diagrams measured · minimum edge clearance ${worstEdge.toFixed(2)}px (${worstAt})`);
+
+  // ── Structural gate for the two label-free v3 wheels (PR 2) ────────────────
+  // 'client-cover' (sheet 1) and 'client-whatis' (sheet 4) carry numerals only, so every
+  // check above — which measures label boxes — is vacuous for them. That is precisely the
+  // hazard: design spec v3.0 section 4.3 records an earlier mockup figure that was MIRRORED
+  // (counterclockwise) and MISSING NODE 2 entirely, which also made the interior lines
+  // wrong. Nothing about that is visible to a clearance test, and on a decorative wheel it
+  // is easy to miss by eye. Assert the structure instead: nine nodes, each numeral at the
+  // angle CLIENT_ANGLES specifies, and both flow sequences in the canonical direction.
+  console.log('\nStructural check — label-free v3 wheels:');
+  {
+    const { CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON, COVER_GEO, WHATIS_GEO } = R;
+    for (const [variant, GEO, type] of [['client-cover', COVER_GEO, 9], ['client-whatis', WHATIS_GEO, null]]) {
+      const svg = R.buildEnneagramSVG({ variant, type });
+
+      // Canonical node centres, from the same angle table the renderer uses.
+      const centre = {};
+      for (const [n, deg] of Object.entries(CLIENT_ANGLES)) {
+        const rad = deg * Math.PI / 180;
+        centre[n] = [GEO.cx + GEO.r * Math.cos(rad), GEO.cy + GEO.r * Math.sin(rad)];
+      }
+
+      // The numeral's y is the node centre shifted down by the baseline offset the renderer
+      // applies (fs * 0.37) — compare against that, not against the raw centre.
+      const numerals = [...svg.matchAll(/<text x="([\d.]+)" y="([\d.]+)"[^>]*>(\d)<\/text>/g)]
+        .map(m => ({ x: +m[1], y: +m[2], n: +m[3] }));
+      const seen = numerals.map(t => t.n).sort((a, b) => a - b);
+      if (seen.join(',') !== '1,2,3,4,5,6,7,8,9') {
+        fail(`${variant}: nodes present are [${seen.join(',')}], expected 1..9 (spec 4.3: an earlier figure was missing node 2)`);
+      }
+      for (const t of numerals) {
+        const [ex, ey] = centre[t.n];
+        const off = Math.hypot(t.x - ex, t.y - (ey + GEO.fs * 0.37));
+        if (off > 1) fail(`${variant}: numeral ${t.n} is ${off.toFixed(1)}px from its CLIENT_ANGLES position — wheel mirrored or rotated?`);
+      }
+
+      // Node circles: nine of them, one on each canonical centre. The ring is r = GEO.r.
+      const circles = [...svg.matchAll(/<circle cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)]
+        .map(m => ({ x: +m[1], y: +m[2], r: +m[3] })).filter(c => c.r !== GEO.r);
+      if (circles.length !== 9) fail(`${variant}: ${circles.length} node circles, expected 9`);
+      for (const [n, [ex, ey]] of Object.entries(centre)) {
+        if (!circles.some(c => Math.hypot(c.x - ex, c.y - ey) < 1)) fail(`${variant}: no node circle at position ${n}`);
+      }
+
+      // Both polylines must trace the canonical sequences (spec 3.6), in order.
+      const polys = [...svg.matchAll(/<polyline points="([^"]+)"/g)].map(m =>
+        m[1].trim().split(/\s+/).map(p => p.split(',').map(Number)));
+      const nodeAt = (pt) => {
+        const hit = Object.entries(centre).find(([, c]) => Math.hypot(c[0] - pt[0], c[1] - pt[1]) < 1);
+        return hit ? +hit[0] : '?';
+      };
+      const traced = polys.map(p => p.map(nodeAt).join('→'));
+      for (const [label, want] of [['triangle', CLIENT_TRIANGLE.join('→')], ['hexad', CLIENT_HEXAGON.join('→')]]) {
+        if (!traced.includes(want)) {
+          fail(`${variant}: ${label} sequence ${want} not found; traced ${JSON.stringify(traced)}`);
+        }
+      }
+      console.log(`  ${variant.padEnd(14)} 9/9 nodes · angles OK · ${traced.length} sequence(s): ${traced.join('  ')}`);
+    }
+  }
+
   if (failed) { console.log('\nDIAGRAM CHECK: FAILURES ABOVE.'); process.exit(1); }
   console.log('DIAGRAM CHECK: ALL PASSED.');
 })().catch(e => { console.error('DIAGRAM CHECK FAILED:', e.stack || e.message); process.exit(1); });

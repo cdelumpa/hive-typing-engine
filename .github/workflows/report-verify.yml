@@ -64,6 +64,15 @@ jobs:
       - name: Diagram geometry gate
         run: node scripts/verify_diagrams.js
 
+      # HARD FAIL: zero transparency groups / soft masks / alpha < 1 in the emitted client
+      # PDF. Design spec section 3.2 calls this invariant document-wide, but nothing had ever
+      # enforced it — the cover is the page that rendered PINK in one viewer because of it.
+      # The step runs its own positive control first: it renders a deliberately BAD page and
+      # requires the scanner to FIND the violation, so a detector that silently stops working
+      # fails loudly instead of passing everything.
+      - name: Transparency gate
+        run: node scripts/verify_transparency.js
+
       # HARD FAIL: coach HTML byte-identical + normalized coach PDF hash unchanged.
       # The PDF hash catches rendering regressions that leave markup and page heights
       # intact — colour above all, which is the bug class section 3.2 exists for.

@@ -50,6 +50,9 @@ function resolveTypeMeta(n) {
 }
 const subtypeKey = (instinct, n) => `subtype_${String(instinct).toLowerCase()}${n}`;
 const instinctName = (code) => INSTINCT_NAME[code] || code;
+// Archetype name minus its leading article — "The Peacemaker" -> "Peacemaker". Design spec
+// v3.0 §6; verified against all nine TYPE_NAMES by tests/report_pages_test.js.
+const nickname = (typeName) => String(typeName || '').replace(/^The\s+/, '');
 const nameNode = (n) => ({ number: n, name: TYPE_NAMES[n] });
 const centerFill = (n) => CENTER_FILL[TYPE_META[n].center];
 
@@ -238,6 +241,15 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       instinct_code: String(instinct).toUpperCase(),          // "SP" / "SO" / "SX"
       subtype_label: `${instinctName(instinct)} ${TYPE_WORD[heroN]}`, // e.g. "Social Eight"
       confirmed_type_name: meta.name,                         // "The Protector" (TYPE_NAMES authority)
+      // [Nickname] tokens (brief v2.0 §12.4). The archetype name minus its article, and its
+      // plural. Design spec v3.0 §6 defines the rule as strip "The", add "s"; it holds for
+      // all nine names. PR 2 needs the plural for the Contents entry "Development Ideas for
+      // Peacemakers"; PR 6 uses both for the page-11 title.
+      //
+      // NOT to be confused with hero.subtype_name, which despite the name holds the INSTINCT
+      // label alone ("One-to-One"). For a subtype string use display.subtype_label.
+      nickname: nickname(meta.name),                          // "The Peacemaker" -> "Peacemaker"
+      nickname_plural: `${nickname(meta.name)}s`,             // -> "Peacemakers"
     },
     alternate: nameNode(altN),
     confidence: { label: confidenceLabel(h.confidence_level), near_tie: nearTie(h.call1_ranking) },
@@ -248,6 +260,32 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       welcome: { greeting_name: client.first_name || '',
         subhead: stat.welcome.subhead, letters: stat.welcome.letters, callout: stat.welcome.callout },
       primer: stat.primer,                                                                      // static PENDING
+
+      // ── client report v3 (PR 2) ───────────────────────────────────────────────
+      // nine_types is stored in the Word source's own row order — [8,2,5,1,4,7,9,3,6] at
+      // time of writing — because the docx groups the table by centre, not by number. The
+      // v3 "What Is the Enneagram?" grid reads 1..9, and an unsorted grid renders nine
+      // plausible-looking cards in the wrong order, which is exactly the kind of defect
+      // that survives review. Sort here, once, rather than in the template.
+      v3_whatis: {
+        intro: stat.primer.intro,
+        scan_heading: stat.primer.scan_heading,
+        scan_line: stat.primer.scan_line,
+        nine_types: stat.primer.nine_types.slice().sort((a, b) => a.number - b.number),
+        close: stat.primer.footer,
+      },
+      v3_welcome: {
+        greeting_name: client.first_name || '',
+        subhead: stat.welcome.subhead,
+        letters: stat.welcome.letters,
+        signoff: stat.welcome.signoff,
+      },
+      // Contents rows carry `start` (the first sheet of the entry's span) and a descriptor
+      // that may contain {type_word} / {subtype_label} / {nickname_plural}. Titles and page
+      // numbers are NOT stored here — the renderer resolves both from V3_PAGE_ORDER so the
+      // Contents page and the footers cannot disagree.
+      v3_contents: stat.contents,
+      v3_thoughts: stat.thoughts,
       type_hypotheses: {                                                                        // P3
         pill: { number: heroN, name: meta.name, subtype_name: instinctName(instinct) },
         core_motivation: t.description.core_motivation,

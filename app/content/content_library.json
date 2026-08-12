@@ -1,24 +1,26 @@
 {
   "_meta": {
     "source": "InsightOut_Static_Content_Library_v1_060526.docx",
-    "source_sha256": "463c0683cdbb72bc79c6601aa0175bbf81ea0473535cfe8cbe425d2357db158b",
+    "source_sha256": "e7aec0aa726a1f019a40bb956860b914b4c085434d5693c212e85bdaf9eec551",
     "version": "v1_060526"
   },
   "static": {
     "welcome": {
       "subhead": "You just did something most people never do.",
       "letters": [
-        "You took the time to look inward. That’s not a small thing. Whether you’re here because a coach recommended this, a colleague forwarded it, or you simply got curious — we’re glad you showed up!",
-        "What you’re holding is a hypothesis about your personality — specifically, a map of what drives you, how you see the world, and why you do the things you do. It’s built from how you responded to the InsightOut Assessment, and it’s designed to be a starting point, not a final word.",
-        "This report is organized as a journey: first, a brief introduction to the Enneagram system itself, then a deep dive into the pattern your responses point to most strongly. Along the way we’ll also introduce a secondary hypothesis — another pattern worth exploring with a coach.",
-        "There’s no perfect outcome here. The goal isn’t to be “typed correctly” — it’s to see yourself a little more clearly, and to have a richer conversation with whoever helps you go deeper.",
-        "We hope it lands!"
+        "You took the time to look inward. That's not a small thing. However you were introduced to InsightOut (through a coach, a friend, or sheer coincidence), we're glad you're here.",
+        "This report is built from your answers to the InsightOut Enneagram Assessment. It introduces the basic Enneagram concepts, goes deep on your \"home base\" type, explores the dynamics that shape it, and offers development ideas for putting what you learn to work.",
+        "Hold all of it as a hypothesis to be tested in the real world. You are the final authority on your own type; what follows is a starting point. Our goal is to help you see yourself more clearly: what drives you, how you see the world, and why you do the things you do. That clarity is what lets you step out of your default patterns and bring more range to everyday life.",
+        "If you want to go further, connect with us or any InsightOut-certified coach, or visit www.hiveleadership.com/the-enneagram.",
+        "We're honored to be on this journey with you."
       ],
+      "signoff": "With gratitude and respect,",
       "callout": "You are the final authority on your own type. If something in here resonates deeply, wonderful — that’s the recognition we’re going for. If something doesn’t quite fit, that’s useful information too. Hold all of it lightly, and stay curious."
     },
     "primer": {
-      "intro": "The Enneagram is a dynamic system that describes nine distinct ways of being in the world — nine strategies, shaped early in life, for how to get love, belonging, and control. Each type is anchored by a core worldview and a deep, core motivation that drives how we think, feel, and behave in the world.\n\nUnderstanding our type is about seeing the pattern clearly enough that we have a choice about it. The Enneagram is…",
-      "scan_line": "As you read, notice which descriptions pull at you — even slightly. That’s the Enneagram beginning to work.",
+      "intro": "The Enneagram is a dynamic system that describes nine distinct ways of being in the world: nine strategies, shaped early in life, for how to get love, belonging, and control. Each type is anchored by a core worldview and a deep, core motivation that drives how we think, feel, and behave.\n\nUnderstanding our type is about seeing the pattern clearly enough that we have a choice about it. Below is an introduction to the nine types and their core motivation, along with the gifts each one offers.",
+      "scan_line": "As you read, notice which descriptions pull at you, even slightly. That is the Enneagram beginning to work.",
+      "scan_heading": "The Nine Enneagram Types — Scan Each One",
       "pillars": [
         {
           "title": "Dynamic",
@@ -45,7 +47,7 @@
           "number": 2,
           "center": "Heart",
           "name": "The Giver",
-          "description": "Sees a world where love is earned through service. Motivated to be needed and seen as caring. Attention goes to others’ needs and relationship dynamics.",
+          "description": "Sees a world where love is earned through service. Motivated to be needed and seen as caring. Attention goes to others' needs and relationship dynamics.",
           "gifts": "Warmth, attunement, deep care"
         },
         {
@@ -59,28 +61,28 @@
           "number": 1,
           "center": "Body",
           "name": "The Improver",
-          "description": "Sees a world that falls short of what it could be. Motivated to be good, principled, and beyond criticism. Attention goes to what’s wrong or is broken.",
+          "description": "Sees a world that falls short of what it could be. Motivated to be good, principled, and beyond criticism. Attention goes to what is wrong or broken.",
           "gifts": "Integrity, discernment, high standards"
         },
         {
           "number": 4,
           "center": "Heart",
           "name": "The Individualist",
-          "description": "Sees a world of infinite depth, with something always missing. Motivated to be authentic and deeply known. Attention goes to what’s absent or lacking.",
+          "description": "Sees a world of infinite depth, with something always missing. Motivated to be authentic and deeply known. Attention goes to what is absent or lacking.",
           "gifts": "Depth, originality, emotional honesty"
         },
         {
           "number": 7,
           "center": "Head",
           "name": "The Enthusiast",
-          "description": "Sees a world full of possibility, threatened by limitation and pain. Motivated to stay free and experience life fully. Attention goes to options and what’s next.",
+          "description": "Sees a world full of possibility, threatened by limitation and pain. Motivated to stay free and experience life fully. Attention goes to options and what is next.",
           "gifts": "Possibility, joy, generative energy"
         },
         {
           "number": 9,
           "center": "Body",
           "name": "The Peacemaker",
-          "description": "Sees a world with underlying unity that conflict threatens. Motivated to maintain harmony and avoid disconnection. Attention goes to others’ perspectives and seeking common ground.",
+          "description": "Sees a world with underlying unity that conflict threatens. Motivated to maintain harmony and avoid disconnection. Attention goes to others' perspectives and common ground.",
           "gifts": "Inclusion, steadiness, presence"
         },
         {
@@ -98,7 +100,7 @@
           "gifts": "Loyalty, foresight, fierce commitment"
         }
       ],
-      "footer": "Each of us has access to all nine Enneagram types and one of these is your home base. Keep reading to find out which type your responses pointed to most clearly."
+      "footer": "Each of us has access to all nine Enneagram types, and one of them is your home base. Keep reading to find out which type your responses pointed to most clearly."
     },
     "wings_primer": "Wings are the two types adjacent to your core type. They flavor how your core pattern shows up, not changing who you are but adding color and texture. Most people lean toward one wing; some experience both equally.",
     "lines_primer": "Each type has two resource points connected by lines on the diagram. Your stress point is the type your energy moves toward under pressure — often showing up as uncharacteristic behavior. Your security point is where you go when you feel safe and in flow. Awareness of these movements gives you choice about how to work with them.",
@@ -120,7 +122,55 @@
         "name": "One-to-One",
         "body": "Focused on deep, intense connection with specific people or experiences. SX energy goes toward chemistry, magnetism, and the quality of individual bonds — what makes a person or experience come alive."
       }
-    ]
+    ],
+    "contents": [
+      {
+        "start": "welcome",
+        "desc": "What this report is, how to use it, and what to bring to your debrief."
+      },
+      {
+        "start": "whatis",
+        "desc": "A brief introduction to the system: nine types, one dynamic map."
+      },
+      {
+        "start": "quickref",
+        "desc": "Your assessment results at a glance, and tips for your debrief conversation."
+      },
+      {
+        "start": "typeA",
+        "desc": "Your leading type, its core motivation, and how the pattern shows up in the real world."
+      },
+      {
+        "start": "wings",
+        "desc": "The two adjacent types that flavor your {type_word}, and what each one offers you."
+      },
+      {
+        "start": "lines",
+        "desc": "Where you move under pressure and in flow, and how to draw on both."
+      },
+      {
+        "start": "instincts",
+        "desc": "Your dominant instinct, the three instincts, and what it means to be a {subtype_label}."
+      },
+      {
+        "start": "car",
+        "desc": "Practical ways to build courage, agility, and resilience, starting today."
+      },
+      {
+        "start": "thoughts",
+        "desc": "A closing note, questions to sit with, and what to expect in your debrief conversation."
+      }
+    ],
+    "thoughts": {
+      "intro": "Whatever landed as recognition is good data. So is whatever made you want to argue with a paragraph or two. This report is a hypothesis, not a verdict, and the only way to test it is against your own experience. The questions below are a place to start. An InsightOut coach can help you pressure‑test any of it.",
+      "prompts": [
+        "What's one thing you want to remember from this report?",
+        "What's one thing you're still curious about and want to learn more about?",
+        "What's one insight from Development Ideas you'd like to work on?",
+        "What would working on that insight give you?",
+        "What else would you like to capture?"
+      ]
+    }
   },
   "type_8": {
     "number": 8,
@@ -445,7 +495,7 @@
           "You hold standards and want things done right.",
           "You bring care and craft to what you take on.",
           "Others may find you more orderly and idealistic than they expect of a Nine.",
-          "Left unchecked, quiet perfectionism can turn self-forgetting into self-judgment."
+          "Left unchecked, quiet perfectionism can turn self‑forgetting into self-judgment."
         ],
         "resource": "When you need focus, standards, or the discipline to finish something important, reach for the One wing. It channels the Peacemaker's acceptance into something more purposeful."
       },

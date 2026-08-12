@@ -31,16 +31,80 @@ const OUT  = path.join(ROOT, 'app/content/content_library.json');
 // reconciliation (tracked offline). Do not treat as permanent source of truth.
 // When the canonical step7-incoming docx gains a Word-styled WELCOME PAGE section,
 // replace this with a parseStatics() read and confirm regenerated output is identical.
+// PR 2 note: the letters below are the copy approved for the v3 twelve-page report. They
+// supersede BOTH the previous interim text and the v2 mockup. The mockup's third paragraph
+// described a page order v3.0 does not have — it promised "first a quick summary of your
+// results, then a brief introduction", where the real order is Welcome (sheet 3) → What Is
+// (sheet 4) → Quick Reference (sheet 5). Shipping it would have had page one misdescribe
+// the report. See docs/audit_pr2_static_pages.md.
+//
+// `callout` is retained but is now ORPHANED: the v3 Welcome page has no callout box, and
+// its substance ("You are the final authority on your own type") folded into letters[2].
+// Kept so the shape gate still holds and so removal is a deliberate later decision, not a
+// side effect of this PR.
 const INTERIM_WELCOME = {
   subhead: "You just did something most people never do.",
   letters: [
-    "You took the time to look inward. That’s not a small thing. Whether you’re here because a coach recommended this, a colleague forwarded it, or you simply got curious — we’re glad you showed up!",
-    "What you’re holding is a hypothesis about your personality — specifically, a map of what drives you, how you see the world, and why you do the things you do. It’s built from how you responded to the InsightOut Assessment, and it’s designed to be a starting point, not a final word.",
-    "This report is organized as a journey: first, a brief introduction to the Enneagram system itself, then a deep dive into the pattern your responses point to most strongly. Along the way we’ll also introduce a secondary hypothesis — another pattern worth exploring with a coach.",
-    "There’s no perfect outcome here. The goal isn’t to be “typed correctly” — it’s to see yourself a little more clearly, and to have a richer conversation with whoever helps you go deeper.",
-    "We hope it lands!"
+    "You took the time to look inward. That's not a small thing. However you were introduced to InsightOut (through a coach, a friend, or sheer coincidence), we're glad you're here.",
+    "This report is built from your answers to the InsightOut Enneagram Assessment. It introduces the basic Enneagram concepts, goes deep on your \"home base\" type, explores the dynamics that shape it, and offers development ideas for putting what you learn to work.",
+    "Hold all of it as a hypothesis to be tested in the real world. You are the final authority on your own type; what follows is a starting point. Our goal is to help you see yourself more clearly: what drives you, how you see the world, and why you do the things you do. That clarity is what lets you step out of your default patterns and bring more range to everyday life.",
+    "If you want to go further, connect with us or any InsightOut-certified coach, or visit www.hiveleadership.com/the-enneagram.",
+    "We're honored to be on this journey with you."
   ],
+  signoff: "With gratitude and respect,",
   callout: "You are the final authority on your own type. If something in here resonates deeply, wonderful — that’s the recognition we’re going for. If something doesn’t quite fit, that’s useful information too. Hold all of it lightly, and stay curious."
+};
+
+// INTERIM SOURCE — client report v3 Contents page (sheet 2). Nine entries, transcribed
+// verbatim from docs/mockup/claude_The_Peacemaker_Page_TOC_v2.html except entry 07 (see
+// below). Same contract as INTERIM_WELCOME: when the docx gains a CONTENTS ENTRIES section
+// this becomes a parseStatics() read and the regenerated output must be identical.
+//
+// `start` names the FIRST sheet of the entry's span, never a page number. Entry 04 spans
+// sheets 6-7 (footers 4-5) and is listed once, which is why nine entries cover ten numbered
+// sheets and footer 5 never appears in the page column. Page numbers are resolved from
+// V3_PAGE_ORDER at render time — never stored here.
+//
+// Three descriptors carry tokens: {type_word} ("Nine"), {subtype_label} ("One-to-One Nine")
+// and {nickname_plural} ("Peacemakers"). Entry 07's descriptor is the one deliberate
+// departure from the mockup: the shipped string read "your instincts priority", a reference
+// to the instinct stack that decision D4 cut from page 10, and it was ungrammatical. The
+// replacement binds to {subtype_label} rather than a [Subtype] [Nickname] pair because all
+// 27 labels begin Self-Preservation / Social / One-to-One and therefore all take "a", which
+// removes the a/an agreement problem instead of solving it with a conditional.
+const INTERIM_CONTENTS = [
+  { start: 'welcome',   desc: 'What this report is, how to use it, and what to bring to your debrief.' },
+  { start: 'whatis',    desc: 'A brief introduction to the system: nine types, one dynamic map.' },
+  { start: 'quickref',  desc: 'Your assessment results at a glance, and tips for your debrief conversation.' },
+  { start: 'typeA',     desc: 'Your leading type, its core motivation, and how the pattern shows up in the real world.' },
+  { start: 'wings',     desc: 'The two adjacent types that flavor your {type_word}, and what each one offers you.' },
+  { start: 'lines',     desc: 'Where you move under pressure and in flow, and how to draw on both.' },
+  { start: 'instincts', desc: 'Your dominant instinct, the three instincts, and what it means to be a {subtype_label}.' },
+  { start: 'car',       desc: 'Practical ways to build courage, agility, and resilience, starting today.' },
+  { start: 'thoughts',  desc: 'A closing note, questions to sit with, and what to expect in your debrief conversation.' },
+];
+
+// INTERIM SOURCE — client report v3 "Your Thoughts" page (sheet 12). Approved copy; the
+// intro and prompts 3-5 supersede the mockup.
+//
+// Prompt 3 previously read "Of the development ideas on the previous page (Courage,
+// Agility, and Resilience), what would create the most leverage…". The positional
+// cross-reference was true only while Development Ideas is sheet 11 and would have broken
+// silently inside a client-facing PDF on any reorder. It is deliberately gone; do not
+// reintroduce it. The rewrite also drops the prompt from two rendered lines to one.
+//
+// Coach reference rule across Welcome and this page: "an InsightOut coach", never "your
+// coach" — Welcome states a reader may have arrived "through a coach, a friend, or sheer
+// coincidence", so not every reader has one.
+const INTERIM_THOUGHTS = {
+  intro: "Whatever landed as recognition is good data. So is whatever made you want to argue with a paragraph or two. This report is a hypothesis, not a verdict, and the only way to test it is against your own experience. The questions below are a place to start. An InsightOut coach can help you pressure‑test any of it.",
+  prompts: [
+    "What's one thing you want to remember from this report?",
+    "What's one thing you're still curious about and want to learn more about?",
+    "What's one insight from Development Ideas you'd like to work on?",
+    "What would working on that insight give you?",
+    "What else would you like to capture?",
+  ],
 };
 
 // INTERIM SOURCE — "Using Your Wings and Lines" bullets.
@@ -96,7 +160,13 @@ const INTERIM_WINGS_V3 = {
           'You hold standards and want things done right.',
           'You bring care and craft to what you take on.',
           'Others may find you more orderly and idealistic than they expect of a Nine.',
-          'Left unchecked, quiet perfectionism can turn self-forgetting into self-judgment.',
+          // U+2011 non-breaking hyphen in "self‑forgetting" (brief v2.0 §12.6). Measured:
+          // Chromium broke this line at the hyphen, rendering "self-" / "forgetting" across
+          // two lines. hyphens:manual does not govern breaks at hyphens that already exist
+          // in the string, so the fix is the character, not a CSS property. U+2011 has the
+          // same advance width as U+002D in Arial and Liberation Sans (measured 4.67px at
+          // 14px), so nothing reflows.
+          'Left unchecked, quiet perfectionism can turn self‑forgetting into self-judgment.',
         ],
         resource: "When you need focus, standards, or the discipline to finish something important, reach for the One wing. It channels the Peacemaker's acceptance into something more purposeful.",
       },
@@ -290,6 +360,9 @@ function parseStatics(toks) {
   const primer = {
     intro: text('ENNEAGRAM PRIMER INTRO'),
     scan_line: linesOf('ENNEAGRAM PRIMER SCAN LINE')[0] || '',
+    scan_heading: linesOf('ENNEAGRAM PRIMER SCAN HEADING')[0] || '',
+    // ORPHANED at PR 2: the v3 "What Is the Enneagram?" page has no pillars band. Kept
+    // (and still gated at 3) so removal is a deliberate decision rather than a side effect.
     pillars: pipeRows('ENNEAGRAM PRIMER PILLARS', ['title', 'body']),
     nine_types: pipeRows('ENNEAGRAM PRIMER NINE TYPES', ['number', 'center', 'name', 'description', 'gifts'])
       .map(r => ({ ...r, number: +r.number })),
@@ -303,6 +376,8 @@ function parseStatics(toks) {
     wings_using: INTERIM_WINGS_USING,   // INTERIM (see top): restores a key a hand-edit added
     instinct_primer: text('INSTINCT PRIMER'),
     instinct_definitions: pipeRows('INSTINCT DEFINITIONS', ['code', 'name', 'body']),
+    contents: INTERIM_CONTENTS,         // INTERIM (see top): v3 Contents page, 9 entries
+    thoughts: INTERIM_THOUGHTS,         // INTERIM (see top): v3 Your Thoughts page
   };
 }
 
@@ -396,6 +471,7 @@ function validateSubtype(key, st) {
   const sourceSha = crypto.createHash('sha256').update(fs.readFileSync(DOCX)).digest('hex');
   const lib = { _meta: { source: path.basename(DOCX), source_sha256: sourceSha, version: 'v1_060526' }, static: {
     primer: null, welcome: null, instinct_primer: null, instinct_definitions: null, wings_primer: null, lines_primer: null,
+    contents: null, thoughts: null,
   } };
   const seenTypes = [];
 
@@ -439,19 +515,30 @@ function validateSubtype(key, st) {
   // static.* coverage — now sourced from the docx GLOBAL STATIC CONTENT section (hard gate)
   const S = lib.static || {};
   for (const k of ['wings_primer', 'lines_primer', 'wings_using', 'instinct_primer']) need(S[k], `static.${k} empty`);
-  need(S.welcome && S.welcome.subhead && Array.isArray(S.welcome.letters) && S.welcome.letters.length === 5 && S.welcome.letters.every(Boolean) && S.welcome.callout,
-    'static.welcome shape invalid (want { subhead, letters[5], callout })');
+  need(S.welcome && S.welcome.subhead && Array.isArray(S.welcome.letters) && S.welcome.letters.length === 5 && S.welcome.letters.every(Boolean) && S.welcome.signoff && S.welcome.callout,
+    'static.welcome shape invalid (want { subhead, letters[5], signoff, callout })');
   need(S.primer && S.primer.intro, 'static.primer.intro empty');
+  need(S.primer && S.primer.scan_heading, 'static.primer.scan_heading empty');
   need(S.primer && Array.isArray(S.primer.pillars) && S.primer.pillars.length === 3, `static.primer.pillars != 3 (${S.primer && S.primer.pillars && S.primer.pillars.length})`);
   need(S.primer && Array.isArray(S.primer.nine_types) && S.primer.nine_types.length === 9, `static.primer.nine_types != 9 (${S.primer && S.primer.nine_types && S.primer.nine_types.length})`);
   need(S.primer && S.primer.nine_types && S.primer.nine_types.every(t => t.number >= 1 && t.number <= 9 && t.name && t.description && t.gifts), 'static.primer.nine_types rows incomplete');
   need(Array.isArray(S.instinct_definitions) && S.instinct_definitions.length === 3, `static.instinct_definitions != 3 (${S.instinct_definitions && S.instinct_definitions.length})`);
 
+  // v3 Contents (sheet 2) — nine entries, each naming the first sheet of its span. The
+  // `start` keys are checked against V3_PAGE_ORDER by tests/report_pages_test.js; here we
+  // only assert shape, so a missing entry fails the build rather than rendering a short TOC.
+  need(Array.isArray(S.contents) && S.contents.length === 9, `static.contents != 9 (${S.contents && S.contents.length})`);
+  need(Array.isArray(S.contents) && S.contents.every(e => e.start && e.desc), 'static.contents rows incomplete (want { start, desc })');
+  // v3 Your Thoughts (sheet 12) — intro plus exactly five reflection prompts.
+  need(S.thoughts && S.thoughts.intro, 'static.thoughts.intro empty');
+  need(S.thoughts && Array.isArray(S.thoughts.prompts) && S.thoughts.prompts.length === 5 && S.thoughts.prompts.every(Boolean),
+    `static.thoughts.prompts != 5 (${S.thoughts && S.thoughts.prompts && S.thoughts.prompts.length})`);
+
   // Report
   console.log('=== Content library build ===');
   console.log(`Types parsed:    ${seenTypes.sort((a, b) => a - b).join(', ')} (${seenTypes.length}/9)`);
   console.log(`Subtypes parsed: ${subCount}/27`);
-  const staticKeys = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'wings_using', 'instinct_primer', 'instinct_definitions'];
+  const staticKeys = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'wings_using', 'instinct_primer', 'instinct_definitions', 'contents', 'thoughts'];
   const pending = staticKeys.filter(k => lib.static[k] == null);
   console.log(`Static globals:  ${staticKeys.length - pending.length}/${staticKeys.length} populated` + (pending.length ? ` — PENDING: ${pending.join(', ')}` : ' (zero PENDING)'));
 

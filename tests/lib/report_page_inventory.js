@@ -20,6 +20,11 @@
 const PAGE_INVENTORY = {
   coach:  { 'report-page': 3 },
   client: { cover: 3, page: 1, 'p3-page': 1, 'p4-page': 1, 'p5-page': 1, 'p6-page': 1, 'p7-page': 1, 'p8-page': 1 },
+  // Client report v3, built beside the live report and not wired into production until
+  // cutover. One container class for every page, so the count IS the page count. PR 1 built
+  // 1 (Wings); PR 2 takes it to 6 (cover, contents, welcome, what-is, wings, thoughts).
+  // Raise this as each page PR lands; it reaches 12 at cutover.
+  client_v3: { 'v3-page': 6 },
 };
 
 // Expected total page containers per kind, derived from PAGE_INVENTORY (coach 3, client 10).
