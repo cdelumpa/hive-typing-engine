@@ -123,8 +123,49 @@ This bit twice during design, both times invisible in code:
 
 ### 3.5 Enneagram diagram geometry
 
-All diagrams share one geometry. Verified across all 9 types on both page types — **54 labels, zero
-clipped, minimum edge clearance 5px, minimum label-to-label gap 27.7px**.
+All diagrams share one geometry. ~~Verified across all 9 types on both page types — **54 labels, zero
+clipped, minimum edge clearance 5px, minimum label-to-label gap 27.7px**.~~
+
+> **Post-lock correction — 12 Aug 2026.** The verification claim above is **false on four counts**,
+> all found by rendering during PR 1.
+>
+> - **Not zero clipped.** On **WINGS · TYPE 1** the 9-wing label ran through the home node and
+>   collided with the home label. The "place above" rule below applied only to the *home* label, so
+>   a non-home node at the top of the circle fell through to horizontal placement and defaulted to
+>   one side. Type 1 is the only type whose home node sits immediately clockwise of the top, which
+>   is why it was the only diagram affected — and why it survived review. Fixed with a general rule,
+>   not a Type-1 special case.
+> - **The 5px minimum was never met.** Real measured clearance was **4.47px**. The 5.88px figure
+>   reported earlier in PR 1 was arithmetic over font size, not a measurement — it appeared in an
+>   evidence table looking like one, and it was concealing a live failure.
+> - **A second defect surfaced only on render.** The first fix stacked two-line labels above the
+>   node; that pushed the eyebrow off-canvas and Chromium clipped it on four diagrams (WINGS 1,
+>   WINGS 8, LINES 3, LINES 6).
+> - **The 27.7px label-to-label minimum is not met either.** Measured minimum gap between distinct
+>   labels is **24.12px** (tightest pair: WINGS · TYPE 4, "3 WING / The Performer" against "YOUR
+>   HOME BASE"). Nothing overlaps, so this is a tighter layout than advertised rather than a defect.
+>   Note that TYPE 4's labels are placed entirely by the horizontal rule and are untouched by the
+>   placement change below, which suggests the 27.7px figure was not met by the original either.
+>
+> **Final placement rule.** Single-line labels at the top of the circle (the home eyebrow) stack
+> above the node, centred — unchanged, and Type 9 still renders identically to the reference
+> implementation. Two-line labels at the top (Types 1, 3, 6, 8) place **horizontally on the side
+> away from home**, raised ~6px so they clear the neighbouring nodes, which sit only ~61px away.
+>
+> Stacking two lines above is **geometrically impossible**, not merely tight: a 13px node at cy=40
+> leaves 27px of headroom, and 5px clearance plus two rendered text boxes needs ~27.4px. Note this
+> lands *closer* to this section as originally written than the intermediate rule did — the spec
+> only ever specified stacking for the **home** label.
+>
+> **Current verified state — all values measured, not derived:** minimum edge clearance **5.47px**
+> (against the 5px requirement), minimum label-to-label gap **24.12px**, **zero overlaps** of any
+> kind, across **18/18** diagrams. Measured via Chromium `getBBox()` in `scripts/verify_diagrams.js`,
+> which fails on any label that is clipped, within 5px of a canvas edge, overlapping another label,
+> or overlapping a node circle. Enforced in CI, so a longer archetype name in future content cannot
+> quietly break the geometry.
+>
+> The gate asserts **non-overlap**, not the 27.7px figure, since that figure was never met. If a
+> minimum separation is wanted as a design rule, set it from the measured 24.12px baseline.
 
 ```
 viewBox        430 × 252
@@ -144,6 +185,14 @@ rendered at    378 × 222 px, giving a 167px circle
 this way during design: wrong node positions per type, untested eyebrow strings (which are wider
 than the archetype names), and the home label never being tested at all. Each time the arithmetic
 said fine and the render disagreed. Generate all 18 diagrams and inspect them.
+
+**This is a required step, not an assumption** (added 12 Aug 2026). Three further defects in this
+area during PR 1 were invisible in code and visible only on render: the Type 1 collision, the
+clipped eyebrows from the first fix, and a clearance figure that was derived from font size rather
+than measured and so reported a passing 5.88px over a failing 4.47px. The instruction above had been
+treated as satisfied rather than performed. It is now automated — `scripts/verify_diagrams.js`
+renders all 18 and asserts the geometry in CI — but the automation replaces the arithmetic, not the
+looking: regenerate the contact sheet and inspect it whenever placement changes.
 
 ### 3.6 Canonical flow direction
 
@@ -354,7 +403,7 @@ Quick Reference requires.
 | `insightout_client_report_full_draft_080726.pdf` | 12-page rendered mockup |
 | `claude_The_Peacemaker_Page_*.html` | 12 reference implementations |
 | ~~`type_library_name_patch_080726.json`~~ → renamed `type_library_stress_security_primer_draft_080726.json` | **Corrected 11 Aug 2026:** corrects no names — do not apply. Unreviewed stress/security primer-prose draft (see §4.1 note and feasibility report §5.1) |
-| `insightout_all18_diagrams_check.png` | All 18 diagrams, contact sheet |
+| `insightout_all18_diagrams_check.png` | All 18 diagrams, contact sheet. **Regenerated 12 Aug 2026 from the production implementation** (`buildEnneagramSVG`), so it is now a regression baseline rather than an independent check of it — it no longer verifies the renderer, it records what the renderer produces. Regenerate and inspect whenever placement changes |
 
 **Rendering note:** every page in the mockup was rendered through headless Chromium via the same
 `Page.printToPDF` DevTools call Puppeteer uses. The mockup PDF *is* a Chromium print output, not an

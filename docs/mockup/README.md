@@ -37,7 +37,7 @@ feasibility report at `docs/feasibility_report_client_report_v3.md`.
 | `insightout_client_report_full_draft_080726.pdf` | The twelve-page rendered mockup |
 | `mockup/` | Twelve reference implementations, one HTML file per page |
 | `mockup_file_manifest.md` | Which file is which page, plus three superseded drafts to ignore |
-| `insightout_all18_diagrams_check.png` | All 18 Enneagram diagrams (9 types × 2 page types), verified |
+| `insightout_all18_diagrams_check.png` | All 18 Enneagram diagrams (9 types × 2 page types). **Regenerated 12 Aug 2026 from the production implementation**, replacing the design-tooling original — it is a regression baseline, not an independent verification oracle. The original's "verified" claim did not hold; see spec §3.5 post-lock correction |
 | `type_library_stress_security_primer_draft_080726.json` | **Do not apply.** Originally circulated as a "name patch", but its archetype names are already identical to `type_library.json` — it corrects nothing. Its only real delta is an unreviewed rewrite of the `static_primers` stress/security prose. Renamed 11 Aug 2026 so it is not mistaken for a safe patch; treat the prose as a draft to be reviewed on its own merits |
 
 ---
