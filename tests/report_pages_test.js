@@ -122,18 +122,25 @@ console.log('\ncountByClass token boundaries:');
     assert(order.slice(2).every(p => p.footer === p.sheet - 2), 'v3: every numbered sheet has footer === sheet - 2');
     assert(order[2].footer === 1, 'v3: the first numbered sheet (Welcome) carries footer 1');
 
+    // WHICH PAGES ARE BUILT comes from V3_PAGE_ORDER's `built` flags, not from a list
+    // restated here. The three assertions below used to carry that subset by hand — the key
+    // list, the footer count and the header count — so landing a page meant editing four
+    // literals across two files. The p9 spike edited one of them and this suite went red.
+    const builtPages = order.filter(p => p.built);
+    // Pages that emit chrome. _v3Footer returns '' for chrome:'none' (the cover), and the
+    // cover is likewise the only page with no header — so both counts are the same subset.
+    const withChrome = builtPages.filter(p => p.chrome !== 'none');
+
     // Rendered footers must equal V3_PAGE_ORDER.footer — the concrete anti-drift check.
     // The cover emits NO footer element and contents emits one with an EMPTY number slot,
-    // so the rendered sequence is deliberately ['', 1, 2, 6, 10] for the pages built so far.
+    // so the rendered sequence is deliberately ['', 1, 2, 6, 7, 10] for the pages built so far.
     const renderedFooters = [...html.matchAll(/<div class="page-footer">[\s\S]*?<span>(?:Page )?(\d*)<\/span>/g)].map(m => m[1]);
-    const built = ['contents', 'welcome', 'whatis', 'wings', 'thoughts'];
-    const wantFooters = built.map(k => { const p = order.find(x => x.key === k); return p.footer == null ? '' : String(p.footer); });
+    const wantFooters = withChrome.map(p => (p.footer == null ? '' : String(p.footer)));
     assert(renderedFooters.join(',') === wantFooters.join(','),
       `v3: rendered footers [${renderedFooters}] match V3_PAGE_ORDER [${wantFooters}]`);
-    // The cover must emit no footer element at all (chrome:'none'), so there are five
-    // footers across six pages.
-    assert((html.match(/<div class="page-footer">/g) || []).length === 5,
-      'v3: 5 footer elements across 6 pages (the cover has none)');
+    // The cover must emit no footer element at all (chrome:'none').
+    assert((html.match(/<div class="page-footer">/g) || []).length === withChrome.length,
+      `v3: ${withChrome.length} footer elements across ${builtPages.length} pages (the cover has none)`);
 
     // Contents page numbers must be COMPUTED from V3_PAGE_ORDER, never hardcoded. Nine
     // entries cover ten numbered sheets: entry 04 spans sheets 6-7, so footer 5 is
@@ -164,10 +171,11 @@ console.log('\ncountByClass token boundaries:');
     // build deliberately departs from all six. Asserted so the next person to "restore
     // fidelity to the mockup" trips a test instead of shipping it.
     const headers = (html.match(/<span class="header-right">[\s\S]*?<\/span>\s*<\/div>/g) || []);
-    assert(headers.length === 5, `v3: ${headers.length} page headers (expected 5; the cover has none)`);
+    assert(headers.length === withChrome.length,
+      `v3: ${headers.length} page headers (expected ${withChrome.length}; the cover has none)`);
     const code = `${model.display.instinct_code}${model.hero.number}`;   // "SX9"
     assert(headers.every(h => !h.includes(code)), `v3: no page header carries the subtype code (${code})`);
-    assert(!html.includes(code), `v3: the subtype code (${code}) appears nowhere in the six built sheets`);
+    assert(!html.includes(code), `v3: the subtype code (${code}) appears nowhere in the ${builtPages.length} built sheets`);
     // The derivation stays in the model even though PR 2 stops consuming it — sheet 5 needs it.
     assert(model.display.instinct_code === 'SX', 'v3: display.instinct_code is still derived for sheet 5');
 

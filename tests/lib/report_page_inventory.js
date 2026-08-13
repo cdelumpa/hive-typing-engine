@@ -22,9 +22,22 @@ const PAGE_INVENTORY = {
   client: { cover: 3, page: 1, 'p3-page': 1, 'p4-page': 1, 'p5-page': 1, 'p6-page': 1, 'p7-page': 1, 'p8-page': 1 },
   // Client report v3, built beside the live report and not wired into production until
   // cutover. One container class for every page, so the count IS the page count. PR 1 built
-  // 1 (Wings); PR 2 takes it to 6 (cover, contents, welcome, what-is, wings, thoughts).
-  // Raise this as each page PR lands; it reaches 12 at cutover.
-  client_v3: { 'v3-page': 6 },
+  // 1 (Wings); PR 2 took it to 6; PR 3-Lines takes it to 7 (cover, contents, welcome,
+  // what-is, wings, LINES, thoughts). Raise this as each page PR lands; it reaches 12 at
+  // cutover.
+  //
+  // ⚠️ THIS LITERAL IS DELIBERATELY NOT DERIVED FROM V3_PAGE_ORDER, and it is the only v3
+  // page count that is not. report_pages_test.js derives the built key list, the footer
+  // count and the header count from that constant's `built` flags, which is right — those
+  // three were restating it by hand and drifted. But if EVERY assertion derives from the
+  // same constant the renderer itself reads, a wrong V3_PAGE_ORDER passes silently and the
+  // suite becomes a tautology: mark a page `built` that the renderer never emits and all
+  // three derived checks agree with each other about the wrong number.
+  //
+  // This number is the tripwire. It is maintained by hand, by whoever lands the page, and
+  // it fails when the constant is wrong rather than when it is inconsistent with itself.
+  // Do not "tidy" it into a derivation.
+  client_v3: { 'v3-page': 7 },
 };
 
 // Expected total page containers per kind, derived from PAGE_INVENTORY (coach 3, client 10).
