@@ -225,24 +225,60 @@
     "wings": {
       "wing_a": {
         "target_type": 7,
-        "body": "The Seven wing brings enthusiasm, appetite, and forward-moving energy into the Eight. Where the core Eight is driven by power and justice, the Seven wing adds pleasure-seeking and optimism — an instinct toward possibility and momentum. Eights with a Seven wing tend to be entrepreneurial and bold, quick to initiate and hard to slow down.\n\nAt their best: powerful and life-loving — people who lead with energy and bring others along for the ride."
+        "body": "The Seven wing brings enthusiasm, appetite, and forward-moving energy into the Eight. Where the core Eight is driven by power and justice, the Seven wing adds pleasure-seeking and optimism — an instinct toward possibility and momentum. Eights with a Seven wing tend to be entrepreneurial and bold, quick to initiate and hard to slow down.\n\nAt their best: powerful and life-loving — people who lead with energy and bring others along for the ride.",
+        "overview": "An Eight with a strong Seven wing is more outgoing, more playful, and more entrepreneurial. The Seven wing brings optimism and a taste for life's pleasures into the Eight's intensity.",
+        "bullets": [
+          "You bring appetite to everything you take on.",
+          "You see opportunity where others see only the fight.",
+          "Your intensity comes with real charm.",
+          "Others may find you more playful and expansive than they expect of an Eight.",
+          "Left unchecked, two fast-moving types together can act well before thinking."
+        ],
+        "resource": "When the work needs lightness or a fresh angle, reach for the Seven wing. It turns the Protector's force into something people enjoy being near."
       },
       "wing_b": {
         "target_type": 9,
-        "body": "The Nine wing brings calm, groundedness, and steady presence into the Eight. Where the core Eight moves fast and takes up space, the Nine wing softens the edges — producing someone who is powerful without being constantly in motion. There's more patience, more comfort with stillness.\n\nAt their best: strong and steady — power that's felt without needing to announce itself."
-      }
+        "body": "The Nine wing brings calm, groundedness, and steady presence into the Eight. Where the core Eight moves fast and takes up space, the Nine wing softens the edges — producing someone who is powerful without being constantly in motion. There's more patience, more comfort with stillness.\n\nAt their best: strong and steady — power that's felt without needing to announce itself.",
+        "overview": "An Eight with a strong Nine wing is more grounded, more patient, and more measured. The Nine wing brings calm and a quality of steady presence into the Eight's energy.",
+        "bullets": [
+          "You hold your ground without needing to push.",
+          "Your power is felt before it is announced.",
+          "You stay calm when the pressure rises.",
+          "Others may find you steadier and more approachable than they expect of an Eight.",
+          "Left unexamined, comfort-seeking can talk you out of a needed confrontation."
+        ],
+        "resource": "When you need to lower the temperature in a room, reach for the Nine wing. It turns the Protector's strength into steady, unhurried presence."
+      },
+      "intro_v3": "Wings are the two types immediately adjacent to your home base type. Each wing \"flavors\" how your type shows up, and most people naturally lean more towards one wing. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type."
     },
     "lines": {
       "stress": {
         "target_type": 5,
-        "narrative": "Under significant pressure, Eights can shift toward Five energy — becoming more withdrawn, cerebral, and detached. The usual forward-moving force goes quiet; instead there's retreat into the mind and a preference for observation over action. When noticed early, it's a signal to slow down and tend to what's happening underneath.",
-        "resource_card": "Under pressure: withdrawal, detachment, retreat into the mind. Consciously accessed: strategic thinking, careful observation, the ability to step back before acting."
+        "narrative": "Under pressure, Eights shift toward Five energy — more withdrawn, cerebral, detached. The forward force goes quiet and retreats inward.",
+        "resource_card": "Draw on it when you need strategy, patience, and the ability to observe before acting.",
+        "bullets_v3": [
+          "The situation stops yielding to force, and pushing harder is no longer changing anything.",
+          "The forward motion goes quiet: you pull back, say less, and handle it alone in your head.",
+          "Contact goes first: the people who would help are the ones being held furthest away."
+        ]
       },
       "security": {
         "target_type": 2,
-        "narrative": "When Eights feel genuinely safe and resourced, they move toward Two energy — becoming warmer, more openly caring, and more willing to tend to others without the armor on. The strength is still there, but it expresses itself through generosity and attunement rather than force.",
-        "resource_card": "In flow: warmth, care, genuine attunement. Available now: letting strength express itself through generosity rather than force."
-      }
+        "narrative": "When Eights feel safe and resourced, they move toward Two energy — warmer, more openly caring, more willing to tend to others.",
+        "resource_card": "Draw on it when you need warmth, attunement, and strength that expresses itself as care.",
+        "bullets_v3": [
+          "The armor comes off: warmth shows without being asked for, and care arrives before force.",
+          "It becomes reachable when trust is genuinely present and nothing has to be defended.",
+          "Strength stops needing to announce itself, and protecting someone looks like tenderness."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice yourself going quiet, pulling back from the room, and working the whole problem alone.",
+        "The people who could actually help are the ones you have put furthest outside it, and they can tell.",
+        "Tell one person what is actually going on before you have fixed it, or decided that you have to."
+      ]
     },
     "strengths": [
       {
@@ -499,19 +535,36 @@
         ],
         "resource": "When you need focus, standards, or the discipline to finish something important, reach for the One wing. It channels the Peacemaker's acceptance into something more purposeful."
       },
-      "intro_v3": "Wings are the two types immediately adjacent to your home base type. Each wing \"flavors\" how your type shows up, and most people naturally lean more towards one. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type."
+      "intro_v3": "Wings are the two types immediately adjacent to your home base type. Each wing \"flavors\" how your type shows up, and most people naturally lean more towards one wing. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type."
     },
     "lines": {
       "stress": {
         "target_type": 6,
-        "narrative": "Under significant pressure, Nines can shift toward Six energy — becoming more anxious, doubting, and worst-case-focused. The easy calm gives way to worry and a search for what could go wrong. When noticed early, it's a signal that something important has been pushed down and needs attention.",
-        "resource_card": "Under pressure: anxiety, doubt, scanning for what could go wrong. Consciously accessed: useful vigilance, commitment, and loyalty to what matters."
+        "narrative": "Under pressure, Nines shift toward Six energy — more anxious, doubting, worst-case-focused. The easy calm gives way to worry.",
+        "resource_card": "Draw on it when you need vigilance, preparation, and the will to face what you would avoid.",
+        "bullets_v3": [
+          "Something that mattered got set aside to keep the peace, and it has not gone away.",
+          "The scanning starts: every outcome gets checked, and none of them feels safe enough.",
+          "The steadiness goes first: what usually holds you level is what starts to shake."
+        ]
       },
       "security": {
         "target_type": 3,
-        "narrative": "When Nines feel genuinely safe and supported, they move toward Three energy — becoming more focused, energized, and able to act on their own goals. The diffusion gives way to direction; priorities come into focus and get pursued.",
-        "resource_card": "In flow: focus, drive, and the ability to act on your own priorities. Available now: stepping into your own goals rather than deferring to others'."
-      }
+        "narrative": "When Nines feel safe and supported, they move toward Three energy — more focused and energized. Priorities come into view.",
+        "resource_card": "Draw on it when you need focus, drive, and the push to act on your own goals rather than defer.",
+        "bullets_v3": [
+          "The fog clears: you know what you want and you move on it without stalling.",
+          "It becomes reachable when your own agenda is allowed to matter as much as everyone else's.",
+          "Wanting something stops feeling like a risk to the peace, and starts moving you."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice yourself going along with something, agreeing easily, while the thing you actually think stays unsaid.",
+        "The peace you are keeping is costing you your own position, and the worry underneath it keeps growing.",
+        "Name the one thing you want here, out loud, before the moment closes and going along becomes the answer."
+      ]
     },
     "strengths": [
       {
@@ -744,24 +797,60 @@
     "wings": {
       "wing_a": {
         "target_type": 9,
-        "body": "The Nine wing brings calm, patience, and a wider perspective into the One. Where the core One sharpens and corrects, the Nine wing softens — adding tolerance, ease, and a capacity to let some things go. Ones with a Nine wing tend to be more relaxed, idealistic, and measured in how they express their standards.\n\nAt their best: principled and serene — high standards held with a light hand."
+        "body": "The Nine wing brings calm, patience, and a wider perspective into the One. Where the core One sharpens and corrects, the Nine wing softens — adding tolerance, ease, and a capacity to let some things go. Ones with a Nine wing tend to be more relaxed, idealistic, and measured in how they express their standards.\n\nAt their best: principled and serene — high standards held with a light hand.",
+        "overview": "A One with a stronger Nine wing tends to be softer, more easygoing, and more patient. The Nine wing brings acceptance and a willingness to let things be, which can cool the inner critic's heat.",
+        "bullets": [
+          "You can let a thing stay imperfect without feeling the pull to correct it.",
+          "You bring patience where there was urgency.",
+          "Your standards hold; the pressure eases.",
+          "Others may find you calmer and more approachable than they expect of a One.",
+          "Left unexamined, the drive to improve can quietly settle into passivity and drift."
+        ],
+        "resource": "When you need to soften, wait, or let something be good enough, reach for the Nine wing. It turns the Improver's precision into something more forgiving."
       },
       "wing_b": {
         "target_type": 2,
-        "body": "The Two wing brings warmth, relationship, and a people-focus into the One. Where the core One focuses on principles and correctness, the Two wing adds care and helpfulness — directing the improving energy toward people. Ones with a Two wing tend to be warmer, more involved, and more oriented toward helping others get it right.\n\nAt their best: principled and warm — high standards in service of people."
-      }
+        "body": "The Two wing brings warmth, relationship, and a people-focus into the One. Where the core One focuses on principles and correctness, the Two wing adds care and helpfulness — directing the improving energy toward people. Ones with a Two wing tend to be warmer, more involved, and more oriented toward helping others get it right.\n\nAt their best: principled and warm — high standards in service of people.",
+        "overview": "A One with a strong Two wing is warmer, more people-focused, and more openly caring. The Two wing brings attention to relationships and a real desire to help, softening the corrective edge.",
+        "bullets": [
+          "You lead with warmth, so correction lands as care.",
+          "You notice what people need, not only what's wrong.",
+          "You hold standards without losing warmth.",
+          "Others may find you warmer and more openly generous than they expect of a One.",
+          "Left unchecked, criticism can arrive dressed up as helpfulness and concern."
+        ],
+        "resource": "When you need to connect, encourage, or lead with care, reach for the Two wing. It turns the Improver's high standards into something people can receive."
+      },
+      "intro_v3": "Wings are the two types immediately adjacent to your home base type. Each wing \"flavors\" how your type shows up, and most people naturally lean more towards one wing. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type."
     },
     "lines": {
       "stress": {
         "target_type": 4,
-        "narrative": "Under significant pressure, Ones can shift toward Four energy — becoming more emotional, melancholic, and focused on what's missing. The composed surface cracks, and feelings that were held down come flooding up, often with a sense of being uniquely flawed or hard done by. When noticed early, it's a signal that the suppression has reached its limit.",
-        "resource_card": "Under pressure: melancholy, emotional flooding, focus on what's lacking. Consciously accessed: emotional depth, authenticity, and creative self-expression."
+        "narrative": "Under pressure, Ones shift toward Four energy — more emotional, melancholic, focused on what's missing. The composed surface cracks.",
+        "resource_card": "Draw on it when you need emotional depth, honesty, and the courage to feel what is actually there.",
+        "bullets_v3": [
+          "Your standards go unmet, your effort unnoticed, and something underneath now feels personal.",
+          "The self-correction turns inward and sours into a heavier, far more private sense of being unseen.",
+          "Proportion goes: the flaw grows larger, the whole picture shrinks, and the mood carries the day."
+        ]
       },
       "security": {
         "target_type": 7,
-        "narrative": "When Ones feel genuinely safe and resourced, they move toward Seven energy — becoming more spontaneous, playful, and open to possibility. The grip of the standard loosens; there's more room for pleasure, fun, and doing things imperfectly just because they're enjoyable.",
-        "resource_card": "In flow: spontaneity, playfulness, openness to pleasure. Available now: letting things be enjoyable and imperfect rather than correct."
-      }
+        "narrative": "When Ones feel safe and resourced, they move toward Seven energy — more spontaneous and playful. The standard stops running the day.",
+        "resource_card": "Draw on it when you need spontaneity, play, and permission for things to be imperfect.",
+        "bullets_v3": [
+          "The grip loosens: possibility returns, the day opens up, and good things feel allowed again.",
+          "It comes within reach when the work is good enough and you deliberately let yourself stop checking.",
+          "Rest stops needing to be earned, and pleasure stops arriving only after the list is finished."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the correcting turn inward, and the tone of it shifting from standards to something personal.",
+        "One flaw has filled the frame, and everything else that is true about the work has dropped out of view.",
+        "Say out loud what good enough actually looks like here, and then let the work be finished at that."
+      ]
     },
     "strengths": [
       {
@@ -995,24 +1084,60 @@
     "wings": {
       "wing_a": {
         "target_type": 1,
-        "body": "The One wing brings principle, structure, and standards into the Two. Where the core Two focuses on relationship and warmth, the One wing adds conscientiousness and a sense of what's right. Twos with a One wing tend to be more dutiful, serious, and self-controlled in how they help.\n\nAt their best: warm and principled — generous care guided by integrity."
+        "body": "The One wing brings principle, structure, and standards into the Two. Where the core Two focuses on relationship and warmth, the One wing adds conscientiousness and a sense of what's right. Twos with a One wing tend to be more dutiful, serious, and self-controlled in how they help.\n\nAt their best: warm and principled — generous care guided by integrity.",
+        "overview": "A Two with a strong One wing is more structured, principled, and attentive to doing things correctly. The One wing brings discipline and a sense of right conduct to the Two's generosity.",
+        "bullets": [
+          "You give with structure, not just with feeling.",
+          "You follow through on what you offer to do.",
+          "Your generosity carries a sense of right conduct.",
+          "Others may find you more principled and steady than they expect of a Two.",
+          "Left unchecked, warmth can cool into criticism when care isn't done properly."
+        ],
+        "resource": "When you need to hold a boundary or say the harder thing, reach for the One wing. It turns the Giver's warmth into something with a spine."
       },
       "wing_b": {
         "target_type": 3,
-        "body": "The Three wing brings ambition, image-awareness, and drive into the Two. Where the core Two helps quietly, the Three wing adds visibility and accomplishment — helping in ways that are seen and valued. Twos with a Three wing tend to be more outgoing, competent, and socially adept.\n\nAt their best: warm and effective — care that gets things done and brings people along."
-      }
+        "body": "The Three wing brings ambition, image-awareness, and drive into the Two. Where the core Two helps quietly, the Three wing adds visibility and accomplishment — helping in ways that are seen and valued. Twos with a Three wing tend to be more outgoing, competent, and socially adept.\n\nAt their best: warm and effective — care that gets things done and brings people along.",
+        "overview": "A Two with a strong Three wing is more outgoing, ambitious, and image-aware. The Three wing brings energy and charisma to the Two's warmth, making the care both visible and effective in the wider world.",
+        "bullets": [
+          "You turn care into visible, effective action.",
+          "You move easily between warmth and results.",
+          "People are drawn to you, and you use it well.",
+          "Others may find you more ambitious and polished than they expect of a Two.",
+          "Left unexamined, giving can become a performance calibrated to how it lands."
+        ],
+        "resource": "When you need reach, momentum, or visible results, reach for the Three wing. It turns the Giver's generosity into something that scales."
+      },
+      "intro_v3": "Wings are the two types immediately adjacent to your home base type. Each wing \"flavors\" how your type shows up, and most people naturally lean more towards one wing. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type."
     },
     "lines": {
       "stress": {
         "target_type": 8,
-        "narrative": "Under significant pressure, Twos can shift toward Eight energy — becoming more demanding, forceful, and confrontational. The warmth gives way to a harder edge, often when the giving has gone unreturned for too long. When noticed early, it's a signal that real needs have been suppressed past their limit.",
-        "resource_card": "Under pressure: demanding, forceful, confrontational. Consciously accessed: directness, healthy assertion, the ability to name your own needs."
+        "narrative": "Under pressure, Twos shift toward Eight — more forceful, blunt, and openly angry. The warmth hardens into demand.",
+        "resource_card": "Draw on it when you need directness, backbone, and the will to say what you actually want.",
+        "bullets_v3": [
+          "The giving has not been returned, and something owed is starting to feel unpaid.",
+          "You stop asking and start telling, and the edge in your voice surprises people.",
+          "The help you gave becomes a debt you are collecting, and that changes what it was."
+        ]
       },
       "security": {
         "target_type": 4,
-        "narrative": "When Twos feel genuinely safe and supported, they move toward Four energy — turning attention inward, getting in touch with their own feelings and needs, and expressing their authentic self rather than shaping it to others.",
-        "resource_card": "In flow: inwardness, authenticity, contact with your own feelings. Available now: tending to your own emotional life as fully as you tend to others'."
-      }
+        "narrative": "When Twos feel safe and supported, they move toward Four energy — more inward and honest about their own needs. The attention turns home.",
+        "resource_card": "Draw on it when you need depth, honesty, and real contact with what you actually feel.",
+        "bullets_v3": [
+          "You know what you are feeling before you know what anyone else needs from you.",
+          "It becomes reachable when being liked stops being the price of being yourself.",
+          "Your own wanting becomes something to follow rather than something to apologize for."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the giving turning into keeping score, and the warmth going hard at the edges of what you say.",
+        "The care you meant to give has turned into an account you are quietly keeping, and other people can feel it.",
+        "Ask for the thing you want directly, out loud, before the asking turns into a bill for services."
+      ]
     },
     "strengths": [
       {
@@ -1246,24 +1371,60 @@
     "wings": {
       "wing_a": {
         "target_type": 2,
-        "body": "The Two wing brings warmth, charm, and relational focus into the Three. Where the core Three drives toward results, the Two wing adds interpersonal warmth and a desire to be liked. Threes with a Two wing tend to be more people-oriented, charming, and emotionally engaging.\n\nAt their best: effective and warm — success that brings people along and lifts them up."
+        "body": "The Two wing brings warmth, charm, and relational focus into the Three. Where the core Three drives toward results, the Two wing adds interpersonal warmth and a desire to be liked. Threes with a Two wing tend to be more people-oriented, charming, and emotionally engaging.\n\nAt their best: effective and warm — success that brings people along and lifts them up.",
+        "overview": "A Three with a strong Two wing is warmer, more people-oriented, and more charming. The Two wing brings genuine care about others into the success drive, so achievement becomes something shared.",
+        "bullets": [
+          "You lead through connection, not only results.",
+          "You notice people while you drive toward the goal.",
+          "Your success tends to lift the people around you.",
+          "Others may find you warmer and more generous than they expect of a Three.",
+          "Left unchecked, you can end up chasing approval on two fronts at the same time."
+        ],
+        "resource": "When you need to bring people with you rather than past them, reach for the Two wing. It turns the Performer's drive into something others want to join."
       },
       "wing_b": {
         "target_type": 4,
-        "body": "The Four wing brings depth, sensitivity, and a desire for authenticity into the Three. Where the core Three polishes the image, the Four wing adds introspection and creative individuality. Threes with a Four wing tend to be more emotionally complex, artistic, and concerned with being genuine.\n\nAt their best: effective and authentic — accomplishment with real depth and originality."
-      }
+        "body": "The Four wing brings depth, sensitivity, and a desire for authenticity into the Three. Where the core Three polishes the image, the Four wing adds introspection and creative individuality. Threes with a Four wing tend to be more emotionally complex, artistic, and concerned with being genuine.\n\nAt their best: effective and authentic — accomplishment with real depth and originality.",
+        "overview": "A Three with a strong Four wing is more introspective, artistic, and attuned to personal expression. The Four wing brings emotional depth and a pull toward authenticity into the achievement drive.",
+        "bullets": [
+          "You want the work to mean something.",
+          "You bring real aesthetic judgment to what you make.",
+          "You notice quickly when the image and the substance underneath have parted ways.",
+          "Others may find you deeper and more self-questioning than they expect of a Three.",
+          "Left unexamined, that noticing can quietly curdle into private dissatisfaction."
+        ],
+        "resource": "When you need to know whether the work matters, reach for the Four wing. It turns the Performer's momentum into something with substance underneath."
+      },
+      "intro_v3": "Wings are the two types immediately adjacent to your home base type. Each wing \"flavors\" how your type shows up, and most people naturally lean more towards one wing. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type."
     },
     "lines": {
       "stress": {
         "target_type": 9,
-        "narrative": "Under significant pressure, Threes can shift toward Nine energy — becoming disengaged, diffuse, and unable to mobilize. The usual drive stalls out into procrastination, distraction, and a checked-out numbness. When noticed early, it's a signal that the engine has been running too hard for too long.",
-        "resource_card": "Under pressure: disengagement, procrastination, numbness. Consciously accessed: ease, presence, the ability to rest without performing."
+        "narrative": "Under pressure, Threes shift toward Nine — more disengaged, diffuse, unable to mobilize. The engine stalls out.",
+        "resource_card": "Draw on it when you need rest, presence, and the ability to stop without losing yourself.",
+        "bullets_v3": [
+          "The results stopped landing, and effort no longer converts into anything visible.",
+          "You go quiet and busy at once: motion without traction, tasks without the goal.",
+          "The drive that usually carries you is the exact thing that will not start now."
+        ]
       },
       "security": {
         "target_type": 6,
-        "narrative": "When Threes feel genuinely safe and supported, they move toward Six energy — becoming more loyal, collaborative, and committed to others rather than only to outcomes. The focus shifts from personal success to shared purpose and genuine connection with a team.",
-        "resource_card": "In flow: loyalty, collaboration, commitment to others. Available now: investing in shared purpose, not just personal achievement."
-      }
+        "narrative": "When Threes feel safe and supported, they move toward Six — more loyal and collaborative. Success stops being a solo project.",
+        "resource_card": "Draw on it when you need loyalty, trust, and a purpose you share with other people.",
+        "bullets_v3": [
+          "You work with people rather than past them, and the win stops being only yours.",
+          "It becomes reachable when you let someone see the effort and not just the result.",
+          "Belonging stops competing with achievement, and starts making it worth something."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the momentum going flat, and yourself filling the day with motion that goes nowhere.",
+        "The harder you push the less moves, and the person underneath the performance is out of reach.",
+        "Stop, and tell one person what is actually going on for you before you produce another result."
+      ]
     },
     "strengths": [
       {
@@ -1497,24 +1658,60 @@
     "wings": {
       "wing_a": {
         "target_type": 3,
-        "body": "The Three wing brings drive, ambition, and image-awareness into the Four. Where the core Four turns inward, the Three wing adds outward momentum and a desire to be seen and accomplished. Fours with a Three wing tend to be more productive, expressive in public, and oriented toward making their mark.\n\nAt their best: authentic and accomplished — depth that gets expressed and recognized."
+        "body": "The Three wing brings drive, ambition, and image-awareness into the Four. Where the core Four turns inward, the Three wing adds outward momentum and a desire to be seen and accomplished. Fours with a Three wing tend to be more productive, expressive in public, and oriented toward making their mark.\n\nAt their best: authentic and accomplished — depth that gets expressed and recognized.",
+        "overview": "A Four with a strong Three wing is more outgoing, more accomplished, and more engaged with the outside world. The Three wing brings drive and a capacity to turn inner intensity into visible work.",
+        "bullets": [
+          "You get your inner world out into the open.",
+          "You can finish things, not just feel them.",
+          "Your intensity translates into work people can see.",
+          "Others may find you more driven and productive than they expect of a Four.",
+          "Left unchecked, the pull to be seen starts competing with the pull to be real."
+        ],
+        "resource": "When you need to finish, ship, or be seen, reach for the Three wing. It turns the Individualist's depth into something that reaches other people."
       },
       "wing_b": {
         "target_type": 5,
-        "body": "The Five wing brings withdrawal, depth, and intellectual focus into the Four. Where the core Four feels intensely, the Five wing adds analysis and a need for solitude. Fours with a Five wing tend to be more private, cerebral, and unconventional, channeling feeling into ideas and creative work.\n\nAt their best: authentic and insightful — feeling deepened by understanding."
-      }
+        "body": "The Five wing brings withdrawal, depth, and intellectual focus into the Four. Where the core Four feels intensely, the Five wing adds analysis and a need for solitude. Fours with a Five wing tend to be more private, cerebral, and unconventional, channeling feeling into ideas and creative work.\n\nAt their best: authentic and insightful — feeling deepened by understanding.",
+        "overview": "A Four with a strong Five wing is more introspective, more private, and more intellectually focused. The Five wing brings analysis and a love of ideas to the Four's emotional depth.",
+        "bullets": [
+          "You think as carefully as you feel.",
+          "You go deep into what interests you and stay there.",
+          "Solitude restores you rather than draining you.",
+          "Others may find you more contained and private than they expect of a Four.",
+          "Left unexamined, longing plus withdrawal can settle into real loneliness."
+        ],
+        "resource": "When a mood has you in its grip, reach for the Five wing. It turns the Individualist's feeling into something you can examine rather than inhabit."
+      },
+      "intro_v3": "Wings are the two types immediately adjacent to your home base type. Each wing \"flavors\" how your type shows up, and most people naturally lean more towards one wing. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type."
     },
     "lines": {
       "stress": {
         "target_type": 2,
-        "narrative": "Under significant pressure, Fours can shift toward Two energy — becoming more focused on others, over-giving, and seeking connection by being needed. The inward focus turns outward, sometimes losing the self in attending to someone else. When noticed early, it's a signal that the longing has gone looking for relief in the wrong place.",
-        "resource_card": "Under pressure: over-giving, clinging, losing self in others. Consciously accessed: generosity, warmth, and genuine care for others' needs."
+        "narrative": "Under pressure, Fours shift toward Two energy — more focused on others, over-giving, seeking connection by being needed. The self recedes.",
+        "resource_card": "Draw on it when you need warmth, generosity, and real attention to what someone else needs.",
+        "bullets_v3": [
+          "The connection you want is not arriving, so you work harder to earn yourself a place in it.",
+          "Attention swings outward: you tend to their needs closely and stop naming any of your own.",
+          "What gets lost is you: the self you were protecting disappears into someone else's needs."
+        ]
       },
       "security": {
         "target_type": 1,
-        "narrative": "When Fours feel genuinely safe and supported, they move toward One energy — becoming more disciplined, structured, and able to act on their ideals rather than only feel them. Emotion gets channeled into focused, principled action and follow-through.",
-        "resource_card": "In flow: discipline, structure, principled action. Available now: turning feeling and vision into steady, grounded follow-through."
-      }
+        "narrative": "When Fours feel safe and supported, they move toward One energy — more disciplined and structured. Ideals turn into action.",
+        "resource_card": "Draw on it when you need discipline, structure, and the follow-through to finish what you start.",
+        "bullets_v3": [
+          "Feeling settles into structure: you work steadily and the day holds its shape without effort.",
+          "It becomes reachable when the feeling is allowed to pass and the next small task is begun.",
+          "The work stops waiting on the mood, and something gets finished while the feeling still moves."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice yourself tending closely to everyone else's needs, and going quiet about anything of your own.",
+        "You have gone missing from your own day, and nobody has noticed because you are being so useful.",
+        "Say one thing you actually want, out loud, before you have worked out whether it will be welcome."
+      ]
     },
     "strengths": [
       {
@@ -1748,24 +1945,60 @@
     "wings": {
       "wing_a": {
         "target_type": 4,
-        "body": "The Four wing brings emotional depth, creativity, and individuality into the Five. Where the core Five analyzes, the Four wing adds feeling and aesthetic sensibility. Fives with a Four wing tend to be more expressive, original, and drawn to meaning as well as knowledge.\n\nAt their best: insightful and expressive — understanding infused with feeling."
+        "body": "The Four wing brings emotional depth, creativity, and individuality into the Five. Where the core Five analyzes, the Four wing adds feeling and aesthetic sensibility. Fives with a Four wing tend to be more expressive, original, and drawn to meaning as well as knowledge.\n\nAt their best: insightful and expressive — understanding infused with feeling.",
+        "overview": "A Five with a strong Four wing is more emotionally sensitive, more creative, and more attuned to beauty. The Four wing brings feeling and a pull toward meaning into the Five's intellectual life.",
+        "bullets": [
+          "You feel your way into ideas, not just think them.",
+          "You bring aesthetic judgment to what you build.",
+          "Your inner world is unusually rich.",
+          "Others may find you warmer and more expressive than they expect of a Five.",
+          "Left unexamined, feeling and analysis can start pulling in opposite directions."
+        ],
+        "resource": "When the analysis has gone cold, reach for the Four wing. It turns the Observer's clarity into something with warmth in it."
       },
       "wing_b": {
         "target_type": 6,
-        "body": "The Six wing brings loyalty, caution, and a focus on security into the Five. Where the core Five gathers knowledge for its own sake, the Six wing adds practical vigilance and commitment to people and systems. Fives with a Six wing tend to be more grounded, collaborative, and oriented toward trust.\n\nAt their best: insightful and steady — understanding put in service of what matters."
-      }
+        "body": "The Six wing brings loyalty, caution, and a focus on security into the Five. Where the core Five gathers knowledge for its own sake, the Six wing adds practical vigilance and commitment to people and systems. Fives with a Six wing tend to be more grounded, collaborative, and oriented toward trust.\n\nAt their best: insightful and steady — understanding put in service of what matters.",
+        "overview": "A Five with a strong Six wing is more cautious, more loyal, and more engaged with questions of trust. The Six wing brings vigilance and practical problem-solving into the Five's observing stance.",
+        "bullets": [
+          "You see problems coming before other people do.",
+          "You engage with systems instead of watching them.",
+          "You show real loyalty to the few you trust.",
+          "Others may find you more practical and involved than they expect of a Five.",
+          "Left unchecked, two head types together can spin worry into real paralysis."
+        ],
+        "resource": "When you need to act before you have all the information, reach for the Six wing. It turns the Observer's caution into practical preparation."
+      },
+      "intro_v3": "Wings are the two types immediately adjacent to your home base type. Each wing \"flavors\" how your type shows up, and most people naturally lean more towards one wing. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type."
     },
     "lines": {
       "stress": {
         "target_type": 7,
-        "narrative": "Under significant pressure, Fives can shift toward Seven energy — becoming scattered, restless, and prone to mental escape into multiple ideas and possibilities. The careful focus fragments into distraction. When noticed early, it's a signal that the demands have outpaced the available resources.",
-        "resource_card": "Under pressure: scattered, restless, escaping into possibility. Consciously accessed: spontaneity, breadth, and engagement with life's options."
+        "narrative": "Under pressure, Fives shift toward Seven energy — more scattered, restless, escaping into possibility. The careful focus fragments.",
+        "resource_card": "Draw on it when you need spontaneity, range, and a reason to come out and engage.",
+        "bullets_v3": [
+          "The demands have outrun what you have to give, and the reserve is nearly gone.",
+          "The mind starts running everywhere at once, and none of it settles into work.",
+          "What goes first is the depth: attention scatters across everything and lands nowhere."
+        ]
       },
       "security": {
         "target_type": 8,
-        "narrative": "When Fives feel genuinely safe and resourced, they move toward Eight energy — becoming more assertive, embodied, and willing to take direct action in the world. The detachment gives way to presence; thinking translates into decisive engagement.",
-        "resource_card": "In flow: assertion, embodiment, decisive action. Available now: bringing your understanding into the world through direct engagement."
-      }
+        "narrative": "When Fives feel safe and resourced, they move toward Eight — more assertive, embodied, willing to act. Thinking turns into doing.",
+        "resource_card": "Draw on it when you need presence, directness, and the will to act on what you know.",
+        "bullets_v3": [
+          "You take up space in the room, and what you understand finally arrives out loud.",
+          "It becomes reachable when there is enough left over to spend some of it on people.",
+          "Knowing stops being a private store, and starts being something you act on."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the focus fragmenting, and yourself reaching for anything other than the thing itself.",
+        "The energy you were guarding is going out sideways, and none of it is reaching the work that matters.",
+        "Pick the one thing, close everything else, and stay with it for longer than feels comfortable."
+      ]
     },
     "strengths": [
       {
@@ -1999,24 +2232,60 @@
     "wings": {
       "wing_a": {
         "target_type": 5,
-        "body": "The Five wing brings detachment, analysis, and a need for knowledge into the Six. Where the core Six scans for threat, the Five wing adds intellectual depth and a measured, observing quality. Sixes with a Five wing tend to be more reserved, studious, and independent in how they manage uncertainty.\n\nAt their best: loyal and insightful — vigilance grounded in clear understanding."
+        "body": "The Five wing brings detachment, analysis, and a need for knowledge into the Six. Where the core Six scans for threat, the Five wing adds intellectual depth and a measured, observing quality. Sixes with a Five wing tend to be more reserved, studious, and independent in how they manage uncertainty.\n\nAt their best: loyal and insightful — vigilance grounded in clear understanding.",
+        "overview": "A Six with a strong Five wing is more introverted, more analytical, and more inclined to gather information before acting. The Five wing brings intellectual depth and a habit of withdrawing to think.",
+        "bullets": [
+          "You think a problem through before moving.",
+          "You hold real expertise in what you've committed to.",
+          "You stay calm while you analyze.",
+          "Others may find you more self-contained and private than they expect of a Six.",
+          "Left unchecked, withdrawing to think can amplify the worry rather than settle it."
+        ],
+        "resource": "When the questions are spinning and you need solid ground, reach for the Five wing. It turns the Questioner's vigilance into patient analysis."
       },
       "wing_b": {
         "target_type": 7,
-        "body": "The Seven wing brings optimism, energy, and a taste for possibility into the Six. Where the core Six anticipates danger, the Seven wing adds lightness and forward momentum. Sixes with a Seven wing tend to be more outgoing, adventurous, and able to balance caution with enthusiasm.\n\nAt their best: loyal and engaging — security-seeking lightened by optimism."
-      }
+        "body": "The Seven wing brings optimism, energy, and a taste for possibility into the Six. Where the core Six anticipates danger, the Seven wing adds lightness and forward momentum. Sixes with a Seven wing tend to be more outgoing, adventurous, and able to balance caution with enthusiasm.\n\nAt their best: loyal and engaging — security-seeking lightened by optimism.",
+        "overview": "A Six with a strong Seven wing is more outgoing, more playful, and more comfortable with risk. The Seven wing brings optimism and a willingness to reframe fear toward possibility rather than threat.",
+        "bullets": [
+          "You find the lighter angle when the room runs heavy.",
+          "You take risks the pure Six pattern would avoid.",
+          "Your loyalty comes with genuine warmth and humor.",
+          "Others may find you more easygoing and light-hearted than they expect of a Six.",
+          "Left unexamined, reframing can become a way to skip past the fear entirely."
+        ],
+        "resource": "When worry has narrowed the field to a single bad outcome, reach for the Seven wing. It turns the Questioner's what-ifs into possibilities worth exploring."
+      },
+      "intro_v3": "Wings are the two types immediately adjacent to your home base type. Each wing \"flavors\" how your type shows up, and most people naturally lean more towards one wing. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type."
     },
     "lines": {
       "stress": {
         "target_type": 3,
-        "narrative": "Under significant pressure, Sixes can shift toward Three energy — becoming driven, image-focused, and busy as a way to outrun the anxiety. Activity substitutes for security; productivity becomes a defense. When noticed early, it's a signal that the underlying fear is being managed by doing rather than addressed.",
-        "resource_card": "Under pressure: overdrive, image-management, busyness as defense. Consciously accessed: confidence, efficiency, and the ability to act decisively."
+        "narrative": "Under pressure, Sixes shift toward Three energy — more driven, image-focused, outrunning the doubt. Activity replaces certainty.",
+        "resource_card": "Draw on it when you need drive, decisiveness, and the momentum to act before you are sure.",
+        "bullets_v3": [
+          "The uncertainty has not resolved, so you start moving fast enough to outrun it.",
+          "Doing replaces deciding: you produce and perform while the question stays open.",
+          "The doubt does not leave, it just goes underground and waits for a quiet moment."
+        ]
       },
       "security": {
         "target_type": 9,
-        "narrative": "When Sixes feel genuinely safe and supported, they move toward Nine energy — becoming more relaxed, trusting, and at ease. The vigilance quiets; there's more room to settle, accept, and let the next unknown simply be unknown.",
-        "resource_card": "In flow: ease, trust, relaxation. Available now: letting the vigilance rest and trusting that things can be okay."
-      }
+        "narrative": "When Sixes feel safe and supported, they move toward Nine — steadier, more accepting, less braced. The scanning quiets down.",
+        "resource_card": "Draw on it when you need steadiness, ease, and the ability to let something be fine.",
+        "bullets_v3": [
+          "The bracing stops: you are simply here, and nothing needs checking right now.",
+          "It becomes reachable when the people around you have earned the trust you gave.",
+          "Certainty stops being the price of calm, and the calm turns up without it anyway."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the scanning start up, and yourself getting busy so the open question has less room.",
+        "You are moving quickly and deciding nothing, and the doubt is waiting exactly where it was.",
+        "Name the thing you are actually unsure about, say it out loud, and then make the call anyway."
+      ]
     },
     "strengths": [
       {
@@ -2250,24 +2519,60 @@
     "wings": {
       "wing_a": {
         "target_type": 6,
-        "body": "The Six wing brings caution, loyalty, and a sense of responsibility into the Seven. Where the core Seven keeps options open, the Six wing adds commitment and an awareness of risk. Sevens with a Six wing tend to be more grounded, relational, and willing to follow through on what they start.\n\nAt their best: enthusiastic and committed — possibility balanced with loyalty and follow-through."
+        "body": "The Six wing brings caution, loyalty, and a sense of responsibility into the Seven. Where the core Seven keeps options open, the Six wing adds commitment and an awareness of risk. Sevens with a Six wing tend to be more grounded, relational, and willing to follow through on what they start.\n\nAt their best: enthusiastic and committed — possibility balanced with loyalty and follow-through.",
+        "overview": "A Seven with a strong Six wing is more loyal, more responsible, and more attentive to relationships. The Six wing brings warmth and a capacity for genuine commitment into the Seven's forward motion.",
+        "bullets": [
+          "You stay with people and projects past the novelty.",
+          "You notice what could go wrong before you leap.",
+          "Your enthusiasm comes with follow-through.",
+          "Others may find you steadier and more reliable than they expect of a Seven.",
+          "Left unchecked, optimism and worry run at the same time, and both are tiring."
+        ],
+        "resource": "When you need to stay, finish, or keep a promise, reach for the Six wing. It turns the Enthusiast's energy into something people can count on."
       },
       "wing_b": {
         "target_type": 8,
-        "body": "The Eight wing brings assertiveness, drive, and intensity into the Seven. Where the core Seven seeks pleasure and possibility, the Eight wing adds force and a willingness to take charge. Sevens with an Eight wing tend to be more bold, ambitious, and entrepreneurial, pursuing what they want with directness.\n\nAt their best: enthusiastic and powerful — vision driven into reality with force."
-      }
+        "body": "The Eight wing brings assertiveness, drive, and intensity into the Seven. Where the core Seven seeks pleasure and possibility, the Eight wing adds force and a willingness to take charge. Sevens with an Eight wing tend to be more bold, ambitious, and entrepreneurial, pursuing what they want with directness.\n\nAt their best: enthusiastic and powerful — vision driven into reality with force.",
+        "overview": "A Seven with a strong Eight wing is more assertive, more action-oriented, and more willing to push through resistance. The Eight wing brings directness and a tolerance for conflict into the Seven's energy.",
+        "bullets": [
+          "You turn ideas into motion fast.",
+          "You push through resistance rather than around it.",
+          "You say the hard thing when it needs saying.",
+          "Others may find you more forceful and decisive than they expect of a Seven.",
+          "Left unexamined, impatience with slower people can quietly cost you the room."
+        ],
+        "resource": "When something needs to happen now and nobody else will move, reach for the Eight wing. It turns the Enthusiast's ideas into decisive action."
+      },
+      "intro_v3": "Wings are the two types immediately adjacent to your home base type. Each wing \"flavors\" how your type shows up, and most people naturally lean more towards one wing. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type."
     },
     "lines": {
       "stress": {
         "target_type": 1,
-        "narrative": "Under significant pressure, Sevens can shift toward One energy — becoming critical, rigid, and perfectionistic. The easy optimism narrows into frustration, judgment, and a sharp focus on what's wrong. When noticed early, it's a signal that the avoidance of pain has finally caught up.",
-        "resource_card": "Under pressure: criticism, rigidity, frustration. Consciously accessed: discernment, focus, and the discipline to finish what matters."
+        "narrative": "Under pressure, Sevens shift toward One energy — more critical, rigid, sharply focused on what is wrong. The optimism narrows.",
+        "resource_card": "Draw on it when you need discernment, standards, and the discipline to finish something.",
+        "bullets_v3": [
+          "The exits have closed and the reframe is not working, so something has to be wrong.",
+          "The lightness goes sharp: you start correcting, judging, finding fault out loud.",
+          "What you were outrunning has caught up, and now it is looking for someone to blame."
+        ]
       },
       "security": {
         "target_type": 5,
-        "narrative": "When Sevens feel genuinely safe and supported, they move toward Five energy — becoming more focused, reflective, and able to go deep rather than wide. The scattered breadth gives way to sustained attention; possibility settles into genuine mastery.",
-        "resource_card": "In flow: depth, focus, sustained attention. Available now: trading breadth for genuine depth and mastery in what matters."
-      }
+        "narrative": "When Sevens feel safe and resourced, they move toward Five — more focused and reflective. Breadth turns into depth.",
+        "resource_card": "Draw on it when you need focus, quiet, and the patience to go all the way in.",
+        "bullets_v3": [
+          "You stay with one thing for long enough that it actually becomes yours to keep.",
+          "It becomes reachable when stopping stops feeling like something is being lost.",
+          "Depth turns out to hold more than the next option ever did, and you notice."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the mood turning sharp, and yourself finding fault with whatever is in front of you.",
+        "The thing you were moving away from has arrived anyway, and the irritation is where it lives.",
+        "Stay in the room with the discomfort for one more minute before you reach for the next thing."
+      ]
     },
     "strengths": [
       {
