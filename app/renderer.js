@@ -3303,7 +3303,7 @@ function _clv3Lines(m) {
         ${pt.bullets.map(b => `<div class="v3-pt-item"><div class="v3-pt-dot is-${tone}"></div><div class="v3-pt-txt">${_v3t(b)}</div></div>`).join('\n        ')}
       </div>
       <div class="v3-band">
-        <div class="v3-band-lbl">Accessing the High Side of Type ${pt.number}</div>
+        <div class="v3-band-lbl">As a Resource</div>
         <div class="v3-band-txt">${_v3t(pt.band)}</div>
       </div>
     </div>`;

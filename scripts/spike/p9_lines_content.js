@@ -34,16 +34,16 @@ const P9_SPIKE = {
       'Rest stops needing to be earned, and pleasure stops arriving only after the list is finished.',
     ],
     work: [
-      'You notice the correcting turn inward, and the tone getting personal.',
-      "One flaw has filled the frame, and the rest of what's true is gone.",
-      'Say out loud what good enough looks like here, before revising again.',
+      'You notice the correcting turn inward, and the tone of it shifting from standards to something personal.',
+      'One flaw has filled the frame, and everything else that is true about the work has dropped out of view.',
+      'Say out loud what good enough actually looks like here, and then let the work be finished at that.',
     ],
   },
   4: {
     stress_narrative: 'Under pressure, Fours shift toward Two energy — more focused on others, over-giving, seeking connection by being needed. The self recedes.',
     stress_band: 'Draw on it when you need warmth, generosity, and real attention to what someone else needs.',
     security_narrative: 'When Fours feel safe and supported, they move toward One energy — more disciplined and structured. Ideals turn into action.',
-    security_band: 'Draw on it when you need discipline, structure, and the follow-through to finish something.',
+    security_band: 'Draw on it when you need discipline, structure, and the follow-through to finish what you start.',
     stress: [
       'The connection you want is not arriving, so you work harder to earn yourself a place in it.',
       'Attention swings outward: you tend to their needs closely and stop naming any of your own.',
@@ -55,9 +55,9 @@ const P9_SPIKE = {
       'The work stops waiting on the mood, and something gets finished while the feeling still moves.',
     ],
     work: [
-      'You notice yourself tending to everyone else and going quiet.',
-      'You have gone missing from your own day, and no one has noticed.',
-      'Say one true thing you want, before deciding if it is welcome.',
+      "You notice yourself tending closely to everyone else's needs, and going quiet about anything of your own.",
+      'You have gone missing from your own day, and nobody has noticed because you are being so useful.',
+      'Say one thing you actually want, out loud, before you have worked out whether it will be welcome.',
     ],
   },
   8: {
@@ -76,33 +76,35 @@ const P9_SPIKE = {
       'Strength stops needing to announce itself, and protecting someone looks like tenderness.',
     ],
     work: [
-      'You notice yourself going quiet, pulling back, and working the problem alone.',
-      "The people who could actually help are the ones you've put furthest outside it.",
-      "Tell one person what's going on before you've fixed it, or decided you must.",
+      'You notice yourself going quiet, pulling back from the room, and working the whole problem alone.',
+      'The people who could actually help are the ones you have put furthest outside it, and they can tell.',
+      'Tell one person what is actually going on before you have fixed it, or decided that you have to.',
     ],
   },
-  // Type 9 — verbatim from docs/mockup/claude_The_Peacemaker_Page_Lines_v1.html, kept as the
-  // round-1 control. Design spec v3.0 §7.2 records Type 9's p9 content as Claude-authored,
-  // NOT canon. Its narratives/bands are the mockup's own, not the docx.
+  // Type 9 — REWRITTEN to the round-5 template, 13 Aug 2026. Supersedes the mockup
+  // transcription that spec v3.0 section 7.2 records as Claude-authored and not canon.
+  // Drafted narrative-first: the narratives were locked, then the bullets written against
+  // them, which is what stops the closing-sentence/first-bullet collision by construction
+  // rather than by iteration (rounds 3, 4 and 5 each closed one and opened another).
   9: {
-    stress_narrative: 'When pressure builds past what steady acceptance can absorb, Nines move toward Type 6. You may show either the strengths or the challenges of the Questioner, depending on the circumstances.',
-    stress_band: 'Useful vigilance, loyalty, and the commitment to face what matters rather than smooth it over.',
-    security_narrative: 'When Nines feel genuinely safe and supported, they move toward Type 3. Here too you may show either the strengths or the challenges of the Performer, depending on the circumstances.',
-    security_band: 'Stepping into your own goals rather than deferring. Letting yourself want something and moving toward it.',
+    stress_narrative: 'Under pressure, Nines shift toward Six energy — more anxious, doubting, worst-case-focused. The easy calm gives way to worry.',
+    stress_band: 'Draw on it when you need vigilance, preparation, and the will to face what you would avoid.',
+    security_narrative: 'When Nines feel safe and supported, they move toward Three energy — more focused and energized. Priorities come into view.',
+    security_band: 'Draw on it when you need focus, drive, and the push to act on your own goals rather than defer.',
     stress: [
-      'The easy calm gives way to anxiety, doubt, and worst-case thinking.',
-      'Noticed early, the movement signals that something important has been pushed down.',
-      'The same line carries you toward Six when you are mobilizing for action, not only when strained.',
+      'Something that mattered got set aside to keep the peace, and it has not gone away.',
+      'The scanning starts: every outcome gets checked, and none of them feels safe enough.',
+      'The steadiness goes first: what usually holds you level is what starts to shake.',
     ],
     security: [
-      'The diffusion gives way to direction, focus, and energy.',
-      'Priorities come into focus and get pursued, without waiting for someone else to set the agenda.',
-      'The movement can also arrive paradoxically, when you are overwhelmed or exhausted rather than settled.',
+      'The fog clears: you know what you want and you move on it without stalling.',
+      "It becomes reachable when your own agenda is allowed to matter as much as everyone else's.",
+      'Wanting something stops feeling like a risk to the peace, and starts moving you.',
     ],
     work: [
-      'Notice the moment the easy calm turns to worry, or the diffusion turns to drive. Early is better than accurate.',
-      'Ask what the people around you are experiencing while you are in that energy. The shift lands on them too.',
-      'Seen clearly, the movement becomes something you use on purpose rather than something that happens to you.',
+      'You notice yourself going along with something, agreeing easily, while the thing you actually think stays unsaid.',
+      'The peace you are keeping is costing you your own position, and the worry underneath it keeps growing.',
+      'Name the one thing you want here, out loud, before the moment closes and going along becomes the answer.',
     ],
   },
 };
