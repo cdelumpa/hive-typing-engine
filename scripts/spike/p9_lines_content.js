@@ -19,10 +19,10 @@
 
 const P9_SPIKE = {
   1: {
-    stress_narrative: "Under pressure, Ones shift toward Four energy — more emotional, melancholic, focused on what's missing. The composed surface cracks and feeling floods in.",
-    stress_band: 'Accessed intentionally: depth, honesty, emotional range.',
-    security_narrative: 'When Ones feel safe and resourced, they move toward Seven energy — more spontaneous, playful, open to possibility. The grip of the standard loosens.',
-    security_band: 'Accessed intentionally: spontaneity, play, real pleasure.',
+    stress_narrative: "Under pressure, Ones shift toward Four energy — more emotional, melancholic, focused on what's missing. The composed surface cracks.",
+    stress_band: 'Draw on it when you need emotional depth, honesty, and the courage to feel what is actually there.',
+    security_narrative: 'When Ones feel safe and resourced, they move toward Seven energy — more spontaneous and playful. The standard stops running the day.',
+    security_band: 'Draw on it when you need spontaneity, play, and permission for things to be imperfect.',
     stress: [
       'Your standards go unmet, your effort unnoticed, and something underneath now feels personal.',
       'The self-correction turns inward and sours into a heavier, far more private sense of being unseen.',
@@ -40,10 +40,10 @@ const P9_SPIKE = {
     ],
   },
   4: {
-    stress_narrative: 'Under pressure, Fours shift toward Two energy — more focused on others, over-giving, seeking connection by being needed. The inward focus turns outward.',
-    stress_band: 'Accessed intentionally: warmth, generosity, genuine care.',
-    security_narrative: 'When Fours feel safe and supported, they move toward One energy — more disciplined, more structured, able to act on their ideals rather than only feel them.',
-    security_band: 'Accessed intentionally: discipline, structure, follow-through.',
+    stress_narrative: 'Under pressure, Fours shift toward Two energy — more focused on others, over-giving, seeking connection by being needed. The self recedes.',
+    stress_band: 'Draw on it when you need warmth, generosity, and real attention to what someone else needs.',
+    security_narrative: 'When Fours feel safe and supported, they move toward One energy — more disciplined and structured. Ideals turn into action.',
+    security_band: 'Draw on it when you need discipline, structure, and the follow-through to finish something.',
     stress: [
       'The connection you want is not arriving, so you work harder to earn yourself a place in it.',
       'Attention swings outward: you tend to their needs closely and stop naming any of your own.',
@@ -61,10 +61,10 @@ const P9_SPIKE = {
     ],
   },
   8: {
-    stress_narrative: 'Under pressure, Eights shift toward Five energy — more withdrawn, cerebral, detached. The forward-moving force goes quiet and retreats into the mind.',
-    stress_band: 'Accessed intentionally: strategy, patience, careful observation.',
-    security_narrative: 'When Eights feel safe and resourced, they move toward Two energy — warmer, more openly caring, more willing to tend to others without the armor on.',
-    security_band: 'Accessed intentionally: warmth, attunement, strength as generosity.',
+    stress_narrative: 'Under pressure, Eights shift toward Five energy — more withdrawn, cerebral, detached. The forward force goes quiet and retreats inward.',
+    stress_band: 'Draw on it when you need strategy, patience, and the ability to observe before acting.',
+    security_narrative: 'When Eights feel safe and resourced, they move toward Two energy — warmer, more openly caring, more willing to tend to others.',
+    security_band: 'Draw on it when you need warmth, attunement, and strength that expresses itself as care.',
     stress: [
       'The situation stops yielding to force, and pushing harder is no longer changing anything.',
       'The forward motion goes quiet: you pull back, say less, and handle it alone in your head.',
