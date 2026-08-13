@@ -2982,8 +2982,30 @@ function _v3NoBreak(escaped) {
 const _v3Compounds = (s) => s.replace(V3_COMPOUND_RE, (c) =>
   (c.length <= V3_NOBREAK_MAX && !/[A-Z]{4,}/.test(c)) ? _v3nb(c) : c);
 
-/** Escape + protect. Use for any v3 prose so the protection is automatic, not remembered. */
-const _v3t = (s) => _v3NoBreak(esc(s));
+/**
+ * Straighten Word's typographic punctuation.
+ *
+ * CD Brief §3 wants straight forms. A one-time source pass cleans the docx, but it cannot
+ * STAY clean: Word's smart quotes are on by default — build_content_library.js names Word as
+ * the editing surface precisely because it "handles smart quotes" — so every future edit
+ * reintroduces curly forms automatically, with no gate to catch them. This transform is the
+ * permanent half of that pair, and it is a no-op on already-straight text.
+ *
+ * Unlike the em-dash question this is NOT editorial. Nobody reviewing copy is choosing
+ * between U+2019 and U+0027; Word picked it. A dash-versus-colon decision is Mo's and stays
+ * in the source, where she reviews it.
+ *
+ * Applied BEFORE esc(), so the straightened quote is then escaped normally (" -> &quot;).
+ * v3 client path only — the coach renderer never calls this, so coach output and its
+ * byte-identical baseline are untouched.
+ */
+const _v3Straighten = (s) => String(s)
+  .replace(/’/g, "'")            // ’ curly apostrophe
+  .replace(/[“”]/g, '"')    // “ ” curly double quotes
+  .replace(/…/g, '...');         // … ellipsis
+
+/** Straighten + escape + protect. Use for any v3 prose so all three are automatic. */
+const _v3t = (s) => _v3NoBreak(esc(_v3Straighten(s)));
 
 /**
  * Shared page header.

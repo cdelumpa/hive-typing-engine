@@ -52,7 +52,7 @@ const INTERIM_WELCOME = {
     "We're honored to be on this journey with you."
   ],
   signoff: "With gratitude and respect,",
-  callout: "You are the final authority on your own type. If something in here resonates deeply, wonderful — that’s the recognition we’re going for. If something doesn’t quite fit, that’s useful information too. Hold all of it lightly, and stay curious."
+  callout: "You are the final authority on your own type. If something in here resonates deeply, wonderful — that's the recognition we're going for. If something doesn't quite fit, that's useful information too. Hold all of it lightly, and stay curious."
 };
 
 // INTERIM SOURCE — client report v3 Contents page (sheet 2). Nine entries, transcribed
@@ -121,10 +121,10 @@ const INTERIM_THOUGHTS = {
 // when the canonical docx gains a Word-styled USING YOUR WINGS AND LINES section, replace
 // this with a parseStatics() read and confirm regenerated output is identical.
 const INTERIM_WINGS_USING = [
-  'Notice which wing is more active this week. You don’t need to pick one permanently — just observe where the texture is coming from right now.',
+  'Notice which wing is more active this week. You don\'t need to pick one permanently — just observe where the texture is coming from right now.',
   'Use your stress point as an early warning system. When you notice yourself moving into that pattern, something important has been pushed aside.',
   'Your security point is a resource, not just a destination. You can consciously move toward those qualities before you need them.',
-  'Wings and lines aren’t fixed. They’re dynamic — the texture of your type shifts with context, stress, and growth.',
+  'Wings and lines aren\'t fixed. They\'re dynamic — the texture of your type shifts with context, stress, and growth.',
 ].join('\n');
 
 // INTERIM SOURCE — client report v3 "Your Wings" page content.
