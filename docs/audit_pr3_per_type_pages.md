@@ -619,32 +619,59 @@ regression, render and transparency are therefore all green against output produ
 produce. `.github/workflows/report-verify.yml` has no `env:`, no `secrets`, no `services`, so
 CI cannot read the table as the workflow stands.
 
-### 9.3 Byte forensics
+### 9.3 What actually changed in each row
 
-`publishOverride` stores `JSON.stringify(value)` with no indent, so these counts are directly
-comparable. `36aab5c` (18 Jun) is the last library commit before 1 July and is therefore the
-baseline all seven publishes were made against.
+Read from the database on 12 August 2026 and diffed field by field against the 18-June
+library snapshot (`git show 36aab5c:app/content/content_library.json`), which is the last
+library commit before 1 July and therefore the baseline all seven publishes were made
+against.
 
-| key | prod override | 18-Jun baseline `36aab5c` | today's baseline | Δ vs June |
+**⚠️ Two corrections to the delivered audit, both mine.**
+
+*First: the "−42 byte delta" was an artifact of my own measurement.* Postgres `length()`
+returns **characters**; `Buffer.byteLength(JSON.stringify(…))` returns **bytes**. Every delta
+in the first version of this table compared one against the other, and the gap is exactly the
+UTF-8 overhead of the em dashes and curly quotes in each value. Compared like with like:
+
+| key | stored (chars) | 18-Jun baseline (chars) | Δ chars | what actually changed |
 |---|---|---|---|---|
-| `static.primer` | 3414 | 3456 | 3564 | **−42** |
-| `static.welcome` | 1292 | 1334 | 1358 | **−42** |
-| `static.wings_using` | 418 | 543 | 537 | −125 |
-| `subtype_sp9.tagline` | 67 | 68 | 68 | −1 |
-| `subtype_sx9.tagline` | 62 | 59 | 59 | +3 |
-| **`type_1.wings`** | **880** | **880** | **880** | **0** |
-| `type_8.wings` | 855 | 907 | 907 | −52 |
+| `static.primer` | 3414 | 3434 | −20 | `footer` **replaced wholesale** |
+| `static.welcome` | 1292 | 1292 | **0** | **nothing — a publish with no edit** |
+| `static.wings_using` | 418 | 533 | −115 | the **4th bullet deleted** |
+| `subtype_sp9.tagline` | 67 | 66 | +1 | trailing period added |
+| `subtype_sx9.tagline` | 62 | 57 | +5 | "a beloved other" → "a **significant** other" |
+| `type_1.wings` | 855 | 872 | −17 | both wing bodies trimmed |
+| `type_8.wings` | 880 | 899 | −19 | `wing_a.body` trimmed |
+
+*Second: `type_1.wings` and `type_8.wings` were reported to me with their sizes transposed.*
+`type_1.wings` is 855 chars, not 880. It is **not** a byte-identical no-op publish, and my
+"publish with no edit" reading of it was wrong. **`static.welcome` is the no-op row** — Δ 0
+characters, every leaf identical to the June baseline.
+
+The "detonates on success" mechanism is unaffected by that correction: both wings rows carry
+the v2 `{target_type, body}` shape, both are inert while their type has no v3 wing content,
+and both will clobber it the moment PR 3 lands. Only the identity of the no-op row moves.
+
+**Six of seven rows carry a real edit.** The premise that stale-by-construction was the whole
+story is wrong; see §9.5(b).
+
+`previous_value IS NULL` on all seven — each was published exactly once, so the
+/admin/content revert button offers no undo at all, only a delete.
 
 ### 9.4 Per-row effect
 
 | Row | Reader | Shape vs today | Rendered output |
 |---|---|---|---|
 | `static.welcome` | v3 sheet 3 · legacy p1 | ✗ **missing `signoff`** | **renders the literal word "undefined"** |
-| `static.primer` | v3 sheet 4 · legacy p2 | ✓ keys match | replaces signed-off copy; **headroom 12.58px → 5.91px** |
-| `type_1.wings` | v3 sheet 8 | ✗ v2 shape | **no-op today; blanks the page the moment Type 1 content lands** |
-| `type_8.wings` | v3 sheet 8 | ✗ v2 shape | same, plus a −52-byte content edit |
+| `static.primer` | v3 sheet 4 · legacy p2 | ✗ **missing `scan_heading`** | blanks the What Is scan heading; replaces `footer`; **headroom 12.58px → 5.91px** |
+| `type_1.wings` | v3 sheet 8 | ✓ today · ✗ after PR 3 | inert now; **blanks the page the moment Type 1 content lands** |
+| `type_8.wings` | v3 sheet 8 | ✓ today · ✗ after PR 3 | same |
 | `static.wings_using` | **legacy p5 only** | ✓ string | legacy-only; dies at PR 7 |
 | `subtype_{sp9,sx9}.tagline` | legacy p6 · v3 sheet 10 (PR 4) | ✓ string | not in PR 3's four sheets |
+
+Confirmed by `npm run overrides:check` against production, 12 Aug 2026: **2 of 7 rows would
+throw today** (`static.primer`, `static.welcome`); the two `type_N.wings` rows pass now and
+begin throwing when PR 3 lands their content — precisely the case §9.5's guard is for.
 
 #### `static.welcome` puts the word "undefined" in a client PDF
 
@@ -661,22 +688,26 @@ overrides ON :  v3_welcome.signoff = undefined                       literal "un
 `_v3t(undefined)` → `String(undefined)` → escaped → shipped, in `.v3-wl-signoff`, directly
 above the founder photos.
 
-#### `static.primer.intro` is almost certainly **not** truncated in storage
+#### `static.primer.intro` is not truncated — and neither explanation on offer was right
 
-The override is **3414 bytes against a June baseline of 3456 — a 42-byte reduction.** A
-truncation of `intro` from 419 chars to 17 would be roughly **−402 bytes**. The arithmetic
-fails by an order of magnitude.
+The stored value genuinely ends on "The Enneagram is…", ellipsis and all, at 3414 characters.
+So the display-artifact theory was wrong. But it is not a defect either: the next field in the
+same object is `pillars` — Dynamic / Motivational / Relational — and the sentence is a
+deliberate lead-in that completes visually in the three pillar cards beneath it. It is a
+rhetorical construction, and in the v2 design it worked.
 
-There is also no truncation mechanism in the write path. `cmsCollect` (`server.js:10268`)
-starts from `CMS_TEMPLATE[key]` — a deep clone of the baseline as served — and overwrites each
-`data-path` from its input; `publishOverride` `JSON.stringify`s the result whole. Nothing
-slices. **Read: "The Enneagram is…" is a display truncation in whatever surfaced the row, not
-the stored value.** Settle it with
-`SELECT length(value), substring(value from 1 for 400) FROM content_overrides WHERE content_key='static.primer';`
+My arithmetic disproved a claim nobody had made (that `intro` had been cut from 419 chars to
+17). The evidence that settles it was `pillars`, sitting in the row the whole time. Recorded
+because both readings were confident and both were wrong, and neither of us looked one field
+to the right.
 
-**What the −42 *is*, and it matters more:** a small, real copy edit made through the CMS rather
-than through Word, on 29 June, to a field the docx owns — three weeks before PR 1.5 declared
-Word canonical. `static.welcome` carries the same −42 signature.
+**This strengthens the case for retiring rather than migrating.** The override is a coherent
+v2 artifact in which `intro` and `pillars` worked as a pair. v3 cut the pillars band — which
+is exactly why §0.3 and PR 2 flagged `pillars` as orphaned. Carrying the intro forward without
+them strands that sentence mid-air on the What Is page, and nobody would trace it back to a
+June CMS edit.
+
+**The real edit in this row is `footer`, replaced wholesale** — see §9.5(b).
 
 #### The punctuation reintroduction is narrower than it looks
 
@@ -694,46 +725,79 @@ exposure is **legacy-client-only, and legacy retires at PR 7.** Note em dashes a
 in the taglines (`"The Collector — peace through comfort…"` is the current library value), so
 only curly quotes/apostrophes/ellipses are in scope.
 
-#### `type_1.wings` at 880 bytes is a landmine that detonates on success
+#### Both wings rows are landmines that detonate on success
 
-Exactly the June baseline and exactly today's. A **publish with no edit**. Measured consequence
-today: none — both library and override are v2-shaped. **The moment Mo's Type 1 wing content
-lands, the June override reverts it to the v2 shape and Type 1's Wings page goes blank again**
-— and the obvious suspects (parser, gate, renderer) will all check out clean, because they will
-all be correct. Type 1 is the pilot for the §6.1 remap, so clear it first.
+Each carries the v2 `{target_type, body}` shape and a small body trim. Measured consequence
+today: **none** — types 1 and 8 have no v3 wing fields either, so the shapes match and
+`overrides:check` passes them.
 
-### 9.5 Proposed position — not implemented, awaiting ratification
+**The moment Mo's Type 1 wing content lands, the June override reverts it to the v2 shape and
+Type 1's Wings page goes blank again** — and the obvious suspects (parser, gate, renderer)
+will all check out clean, because they will all be correct. Type 1 is the pilot for the §6.1
+remap, so this row must be gone before that work starts.
 
-**(a) The resolver — fail loudly on shape mismatch, at render time.**
-Not deep-merge: that marries June's `letters` to August's `signoff`, a combination nobody
-reviewed, and it makes the stale row permanently invisible so nothing ever prompts a cleanup.
-Not silent reject-to-baseline: a coach's published edit would quietly stop applying with no
-notice. **Proposal:** in `resolveLibObject`, compare the override's leaf-path set to the
-baseline's; on mismatch, throw, naming the key and both sets. This is the doctrine the codebase
-already runs on (font probe, coach byte-diff, diagram gate, the retired `--accept-drift`), and
-it surfaces at `/api/submit`'s dry-validate probe rather than in a delivered PDF. `value` being
-`text` rather than `jsonb` costs nothing here — `jsonb` validates JSON-ness, not shape.
+The shape guard in §9.5 catches it: the same override that passes today throws the day the
+content lands. That transition is pinned by a test.
 
-**(b) The seven rows — retire all seven, after a snapshot.**
-**Retiring is NOT reversible in the app**: `revertOverride` is
-`DELETE FROM content_overrides WHERE content_key = $1` (`content_overrides.js:183`), so
-`previous_value` goes with the row. `previous_value` only undoes the last publish while the row
-exists; it is not an archive. Take
-`COPY (SELECT * FROM content_overrides) TO STDOUT WITH CSV HEADER` first, then delete. Retire
-rather than migrate — the library holds better copy than every override except possibly
-`static.primer`, whose −42 should be read before deletion and, if wanted, moved into the docx.
+### 9.5 Ratified and built — branch `cms-override-cleanup`
 
-**(c) The gate gap — three things, cheapest first.**
-1. **One line, today:** every harness prints `overrides: N published (0 = none loaded)`, so no
-   future report can cite a harness run as evidence about production content without the reader
-   seeing the override layer was absent.
-2. **`npm run overrides:check`** — diffs every published override's leaf-path set against
-   `content_library.json`, exits non-zero on mismatch. Runs wherever the DB is; no CI secret.
-3. **The resolver throw from (a) is the actual gate** — no manifest, no CI database, no new
-   script, and the only one that cannot be forgotten.
+**(a) The resolver — fail loudly on shape mismatch.** Built.
+`resolveContent` compares the override's leaf-path set to the baseline's and throws an
+`OverrideShapeError` naming the key and both shapes. Array indices normalize to `[]`, so
+cardinality is not a mismatch — a coach adding a practice bullet is a legitimate edit, and the
+counts that matter (5 wing bullets, 3 pillars, 9 contents entries) are already hard-gated in
+`build_content_library.js`.
 
-A fixture carrying a small published-override map (the 23 July audit's recommendation 7) still
-stands, and belongs in the same PR as (a).
+Not a deep merge: that marries June's `letters` to August's `signoff`, a combination nobody
+reviewed and nobody can source, and it makes the stale row permanently invisible so nothing
+ever prompts a cleanup — the 130-field drift mechanism applied to a new table. Not a silent
+fallback either: that stops a coach's published edit applying with no notice.
+
+**⚠️ DEPLOY ORDER — surfaced while building, not anticipated in the delivered audit.** The
+throw reaches *every* render, including the dry-validate probe in `/api/submit`. A mismatched
+row therefore fails **assessment submission**, not just a PDF — and `static.primer` and
+`static.welcome` are global, so shipping the throw against today's table would stop report
+generation for every client. **Retire or re-publish the offending rows and get
+`overrides:check` green before deploying.** That sequencing is the mitigation, and the check
+is what proves it.
+
+**(b) The seven rows — retire, but four need a decision first.** Tooling built, not executed.
+
+`scripts/retire_overrides.js` is dry-run by default and, with `--confirm`, snapshots every
+column including `previous_value` to a gitignored `.override_snapshots/` before deleting. This
+matters because the /admin/content revert button is a bare `DELETE` and all seven rows carry
+`previous_value IS NULL`: the button offers no undo, only removal.
+
+Not executed here, for two reasons. It is a production data deletion that should be run by a
+human with the console open, and — the substantive one — **six of the seven rows carry a real
+edit, not the stale-by-construction copies the plan assumed.** Two of those reach v3:
+
+| Row | The edit | Reaches |
+|---|---|---|
+| `static.primer.footer` | *"Each of us has access to all nine Enneagram types and one of these is your home base. Keep reading to find out which type your responses pointed to…"* → *"For more detailed information on the Enneagram or each of the nine Enneagram types, visit us at https://www.hiveleadership.com/the-enneagram."* | **v3 sheet 4** (`v3_whatis.close`) |
+| `subtype_sx9.tagline` | *"peace through merging with a **beloved** other"* → *"…a **significant** other"* | legacy p6 · **v3 sheet 10** (PR 4) |
+| `static.wings_using` | 4th bullet (*"Wings and lines aren't fixed…"*) deleted | legacy p5 only — dies at PR 7 |
+| `type_1.wings`, `type_8.wings` | wing `body` trims | legacy p5 only — v3 reads `overview`/`bullets`/`resource`, never `body` |
+| `subtype_sp9.tagline` | trailing period | trivial |
+
+The two that reach v3 are editorial decisions someone made on purpose and they belong in the
+docx if they are wanted. Note the `footer` replacement duplicates a URL the approved PR 2
+Welcome copy already carries (`INTERIM_WELCOME.letters[3]`), which is an argument that it is
+superseded rather than lost — but that is Mo's call, not the resolver's.
+
+**(c) The gate gap — all three built.**
+
+1. **`scripts/lib/override_banner.js`** — every harness now prints
+   `overrides: N published (0 = none loaded)` as a first-class line. The absence of the layer
+   was previously reported as an error among other noise and read as an environment complaint.
+2. **`npm run overrides:check`** — diffs every published override's leaf-path set against the
+   library; exit 0 clean, 1 on mismatch, **2 when it could not run**, so "no DATABASE_URL" can
+   never be mistaken for green. CI has no database (`report-verify.yml` has no `env`, no
+   `secrets`, no `services`), so this runs where the database is.
+3. **`tests/content_overrides_test.js` + `tests/fixtures/published_overrides.json`** — the
+   fixture the 23 July audit asked for in its recommendation 7, unactioned since. Nine cases,
+   no database, in `npm test`. Two reproduce the real production rows; one pins the
+   detonates-on-success transition from both sides.
 
 ### 9.6 For the board, not this PR
 
@@ -812,7 +876,9 @@ alternative to this change — it is the other half of the same fix.
 7. **`Type1_Improver_Authoring_Draft_080526.docx` exists** — 181 zones, 140 T2 / 40 T3 — and is
    unaccounted for in the build plan. Remap it before authoring type 2.
 8. **The CMS override table is a fourth content source** reaching the v3 client path. Seven
-   stale rows; one renders the literal word "undefined" in a client PDF; one is a landmine that
-   fires when Type 1 content lands. §9.5 needs a decision before PR 3 authoring begins.
+   rows; one renders the literal word "undefined" in a client PDF; two are landmines that fire
+   when PR 3's wing content lands. Ratified and built on `cms-override-cleanup` (§9.5). Two
+   open items remain: the deploy-order constraint, and Mo's call on the two editorial edits in
+   §9.5(b) before the rows are deleted.
 9. **`validateType`'s v3 Wings gate is now unconditional** (§10) — decide whether it commits to
    `main` now or rides the PR 3 branch.
