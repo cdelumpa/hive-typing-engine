@@ -325,6 +325,24 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
         };
         return { intro: t.wings.intro_v3 || '', wing_a: mk('wing_a'), wing_b: mk('wing_b') };
       })(),
+      // CLIENT REPORT v3 — p9 "Your Stress and Security Points". SPIKE wiring.
+      //
+      // narrative and band are CANON: type_N.lines.{stress,security}.{narrative,resource_card},
+      // docx-sourced and Mo-approved for all nine types. They are read AS-IS and must not be
+      // trimmed to fit — see docs/audit_pr3_per_type_pages.md.
+      //
+      // bullets / work / intro / work_lead come from the v3-only fields, absent for any type
+      // whose p9 content is unauthored (they render empty, exactly as Wings does for types 1-8).
+      v3_lines: (() => {
+        const mk = (slot) => {
+          const ln = t.lines[slot], n = ln.target_type;
+          return { number: n, name: TYPE_NAMES[n],
+            narrative: ln.narrative || '', band: ln.resource_card || '',
+            bullets: ln.bullets_v3 || [] };
+        };
+        return { intro: t.lines.intro_v3 || '', work_lead: t.lines.work_lead_v3 || '',
+          work: t.lines.work_v3 || [], stress: mk('stress'), security: mk('security') };
+      })(),
       instinct_subtype: {                                                                       // P6
         subtype: { name: st.name, tagline: st.tagline, narrative: st.narrative, patterns: st.patterns },
         instinct_evidence: cf.instinct_evidence ?? null,

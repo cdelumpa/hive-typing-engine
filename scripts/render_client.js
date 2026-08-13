@@ -53,13 +53,18 @@ const REPORTS = {
     build: async (apiResult) => R.buildClientReportHTML_v3(
       await prep.buildClientModel({ apiResult, client: V3_CLIENT, coach })),
     selector: '.v3-page',
-    expected: 6,
+    expected: 7,
     enforceSheet: true,
     // Document order, not sheet order: PR 2 adds sheets 1-4 and 12 around the Wings page
     // PR 1 built, and sheets 5-11 land in later PRs.
-    labels: ['P1 Cover', 'P2 Contents', 'P3 Welcome', 'P4 What Is', 'P8 Wings', 'P12 Thoughts'],
+    labels: ['P1 Cover', 'P2 Contents', 'P3 Welcome', 'P4 What Is', 'P8 Wings', 'P9 Lines', 'P12 Thoughts'],
     checkHyphens: true,
-    fixtures: ['anders_sx9'],   // Type 9 / SX9 — the only type with v3 content so far
+    fixtures: ['anders_sx9'],   // Type 9 / SX9 — the fixture the v3 mockups were built for
+    // Render EVERY type from the one fixture, swapping confirmed_type. The per-type pages
+    // fit differently per type — the canon line narratives alone range 284-351 chars — so a
+    // single-type run cannot answer "does this page fit". No new fixtures needed: the client
+    // model derives everything from hypothesis.confirmed_type.
+    types: [1, 2, 3, 4, 5, 6, 7, 8, 9],
   },
   coach: {
     build: async (apiResult) => R.buildCoachReportHTML(await prep.buildCoachModel({ apiResult, client, coach })),
@@ -183,9 +188,18 @@ async function measureLayout(page, selector) {
   try {
     for (const [kind, cfg] of Object.entries(REPORTS)) {
      for (const fx of (cfg.fixtures || ['sp4', 'sx7'])) {
-      const apiResult = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
-      {
-        console.log(`\n=== ${fx} · ${kind} ===`);
+      const fixture = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
+      for (const asType of (cfg.types || [null])) {
+        const apiResult = asType == null ? fixture : (() => {
+          const c = JSON.parse(JSON.stringify(fixture));
+          c.hypothesis.confirmed_type = asType;
+          c.hypothesis.confirmed_type_name = null;                 // suppress the name-drift flag
+          c.hypothesis.alternate_candidate = (asType % 9) + 1;
+          const pb = c.coach_report && c.coach_report.section6 && c.coach_report.section6.pushes_back;
+          if (pb) pb.alt_type_name = null;
+          return c;
+        })();
+        console.log(`\n=== ${fx}${asType == null ? '' : ` as Type ${asType}`} · ${kind} ===`);
         let html;
         try {
           html = await cfg.build(apiResult);
@@ -193,7 +207,8 @@ async function measureLayout(page, selector) {
           fail(`${kind} build threw: ${e.message}`);
           continue;
         }
-        fs.writeFileSync(path.join(OUT, `${kind}_${fx}.html`), html);
+        const tag = asType == null ? fx : `${fx}_t${asType}`;
+        fs.writeFileSync(path.join(OUT, `${kind}_${tag}.html`), html);
 
         const page = await browser.newPage();
         await page.setViewport({ width: 816, height: PAGE_PX, deviceScaleFactor: 1 });
@@ -216,7 +231,7 @@ async function measureLayout(page, selector) {
           console.log(`  ${(cfg.labels[p.index] || 'page ' + p.index).padEnd(16)} ${p.height}px  ` +
                       `stack ${p.natural.toFixed(2)}px  ${room}${spill}`);
           if (cfg.enforceSheet && p.height > PAGE_PX + 1) {
-            fail(`${kind} ${cfg.labels[p.index] || 'page ' + p.index} spills to ${p.sheets} sheets (${p.height}px > ${PAGE_PX}px)`);
+            fail(`${kind}${asType == null ? '' : ' Type ' + asType} ${cfg.labels[p.index] || 'page ' + p.index} spills to ${p.sheets} sheets (${p.height}px > ${PAGE_PX}px)`);
           }
         }
         if (pages.length !== cfg.expected) {
@@ -230,9 +245,9 @@ async function measureLayout(page, selector) {
           }
           if (!hb.length) console.log('  hyphenation: no word split across lines');
         }
-        await page.pdf({ path: path.join(OUT, `${kind}_${fx}.pdf`), ...R.buildCoachPdfOptions() });
+        await page.pdf({ path: path.join(OUT, `${kind}_${tag}.pdf`), ...R.buildCoachPdfOptions() });
         await page.close();
-        console.log(`  logical pages: ${pages.length} · estimated physical sheets: ${sheets} · wrote .phase6_out/${kind}_${fx}.pdf`);
+        console.log(`  logical pages: ${pages.length} · estimated physical sheets: ${sheets} · wrote .phase6_out/${kind}_${tag}.pdf`);
       }
      }
     }
