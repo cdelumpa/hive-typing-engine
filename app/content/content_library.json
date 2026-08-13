@@ -235,14 +235,31 @@
     "lines": {
       "stress": {
         "target_type": 5,
-        "narrative": "Under significant pressure, Eights can shift toward Five energy — becoming more withdrawn, cerebral, and detached. The usual forward-moving force goes quiet; instead there's retreat into the mind and a preference for observation over action. When noticed early, it's a signal to slow down and tend to what's happening underneath.",
-        "resource_card": "Under pressure: withdrawal, detachment, retreat into the mind. Consciously accessed: strategic thinking, careful observation, the ability to step back before acting."
+        "narrative": "Under pressure, Eights shift toward Five energy — more withdrawn, cerebral, detached. The forward force goes quiet and retreats inward.",
+        "resource_card": "Draw on it when you need strategy, patience, and the ability to observe before acting.",
+        "bullets_v3": [
+          "The situation stops yielding to force, and pushing harder is no longer changing anything.",
+          "The forward motion goes quiet: you pull back, say less, and handle it alone in your head.",
+          "Contact goes first: the people who would help are the ones being held furthest away."
+        ]
       },
       "security": {
         "target_type": 2,
-        "narrative": "When Eights feel genuinely safe and resourced, they move toward Two energy — becoming warmer, more openly caring, and more willing to tend to others without the armor on. The strength is still there, but it expresses itself through generosity and attunement rather than force.",
-        "resource_card": "In flow: warmth, care, genuine attunement. Available now: letting strength express itself through generosity rather than force."
-      }
+        "narrative": "When Eights feel safe and resourced, they move toward Two energy — warmer, more openly caring, more willing to tend to others.",
+        "resource_card": "Draw on it when you need warmth, attunement, and strength that expresses itself as care.",
+        "bullets_v3": [
+          "The armor comes off: warmth shows without being asked for, and care arrives before force.",
+          "It becomes reachable when trust is genuinely present and nothing has to be defended.",
+          "Strength stops needing to announce itself, and protecting someone looks like tenderness."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice yourself going quiet, pulling back from the room, and working the whole problem alone.",
+        "The people who could actually help are the ones you have put furthest outside it, and they can tell.",
+        "Tell one person what is actually going on before you have fixed it, or decided that you have to."
+      ]
     },
     "strengths": [
       {
@@ -504,14 +521,31 @@
     "lines": {
       "stress": {
         "target_type": 6,
-        "narrative": "Under significant pressure, Nines can shift toward Six energy — becoming more anxious, doubting, and worst-case-focused. The easy calm gives way to worry and a search for what could go wrong. When noticed early, it's a signal that something important has been pushed down and needs attention.",
-        "resource_card": "Under pressure: anxiety, doubt, scanning for what could go wrong. Consciously accessed: useful vigilance, commitment, and loyalty to what matters."
+        "narrative": "Under pressure, Nines shift toward Six energy — more anxious, doubting, worst-case-focused. The easy calm gives way to worry.",
+        "resource_card": "Draw on it when you need vigilance, preparation, and the will to face what you would avoid.",
+        "bullets_v3": [
+          "Something that mattered got set aside to keep the peace, and it has not gone away.",
+          "The scanning starts: every outcome gets checked, and none of them feels safe enough.",
+          "The steadiness goes first: what usually holds you level is what starts to shake."
+        ]
       },
       "security": {
         "target_type": 3,
-        "narrative": "When Nines feel genuinely safe and supported, they move toward Three energy — becoming more focused, energized, and able to act on their own goals. The diffusion gives way to direction; priorities come into focus and get pursued.",
-        "resource_card": "In flow: focus, drive, and the ability to act on your own priorities. Available now: stepping into your own goals rather than deferring to others'."
-      }
+        "narrative": "When Nines feel safe and supported, they move toward Three energy — more focused and energized. Priorities come into view.",
+        "resource_card": "Draw on it when you need focus, drive, and the push to act on your own goals rather than defer.",
+        "bullets_v3": [
+          "The fog clears: you know what you want and you move on it without stalling.",
+          "It becomes reachable when your own agenda is allowed to matter as much as everyone else's.",
+          "Wanting something stops feeling like a risk to the peace, and starts moving you."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice yourself going along with something, agreeing easily, while the thing you actually think stays unsaid.",
+        "The peace you are keeping is costing you your own position, and the worry underneath it keeps growing.",
+        "Name the one thing you want here, out loud, before the moment closes and going along becomes the answer."
+      ]
     },
     "strengths": [
       {
@@ -754,14 +788,31 @@
     "lines": {
       "stress": {
         "target_type": 4,
-        "narrative": "Under significant pressure, Ones can shift toward Four energy — becoming more emotional, melancholic, and focused on what's missing. The composed surface cracks, and feelings that were held down come flooding up, often with a sense of being uniquely flawed or hard done by. When noticed early, it's a signal that the suppression has reached its limit.",
-        "resource_card": "Under pressure: melancholy, emotional flooding, focus on what's lacking. Consciously accessed: emotional depth, authenticity, and creative self-expression."
+        "narrative": "Under pressure, Ones shift toward Four energy — more emotional, melancholic, focused on what's missing. The composed surface cracks.",
+        "resource_card": "Draw on it when you need emotional depth, honesty, and the courage to feel what is actually there.",
+        "bullets_v3": [
+          "Your standards go unmet, your effort unnoticed, and something underneath now feels personal.",
+          "The self-correction turns inward and sours into a heavier, far more private sense of being unseen.",
+          "Proportion goes: the flaw grows larger, the whole picture shrinks, and the mood carries the day."
+        ]
       },
       "security": {
         "target_type": 7,
-        "narrative": "When Ones feel genuinely safe and resourced, they move toward Seven energy — becoming more spontaneous, playful, and open to possibility. The grip of the standard loosens; there's more room for pleasure, fun, and doing things imperfectly just because they're enjoyable.",
-        "resource_card": "In flow: spontaneity, playfulness, openness to pleasure. Available now: letting things be enjoyable and imperfect rather than correct."
-      }
+        "narrative": "When Ones feel safe and resourced, they move toward Seven energy — more spontaneous and playful. The standard stops running the day.",
+        "resource_card": "Draw on it when you need spontaneity, play, and permission for things to be imperfect.",
+        "bullets_v3": [
+          "The grip loosens: possibility returns, the day opens up, and good things feel allowed again.",
+          "It comes within reach when the work is good enough and you deliberately let yourself stop checking.",
+          "Rest stops needing to be earned, and pleasure stops arriving only after the list is finished."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the correcting turn inward, and the tone of it shifting from standards to something personal.",
+        "One flaw has filled the frame, and everything else that is true about the work has dropped out of view.",
+        "Say out loud what good enough actually looks like here, and then let the work be finished at that."
+      ]
     },
     "strengths": [
       {
@@ -1005,14 +1056,31 @@
     "lines": {
       "stress": {
         "target_type": 8,
-        "narrative": "Under significant pressure, Twos can shift toward Eight energy — becoming more demanding, forceful, and confrontational. The warmth gives way to a harder edge, often when the giving has gone unreturned for too long. When noticed early, it's a signal that real needs have been suppressed past their limit.",
-        "resource_card": "Under pressure: demanding, forceful, confrontational. Consciously accessed: directness, healthy assertion, the ability to name your own needs."
+        "narrative": "Under pressure, Twos shift toward Eight — more forceful, blunt, and openly angry. The warmth hardens into demand.",
+        "resource_card": "Draw on it when you need directness, backbone, and the will to say what you actually want.",
+        "bullets_v3": [
+          "The giving has not been returned, and something owed is starting to feel unpaid.",
+          "You stop asking and start telling, and the edge in your voice surprises people.",
+          "The help you gave becomes a debt you are collecting, and that changes what it was."
+        ]
       },
       "security": {
         "target_type": 4,
-        "narrative": "When Twos feel genuinely safe and supported, they move toward Four energy — turning attention inward, getting in touch with their own feelings and needs, and expressing their authentic self rather than shaping it to others.",
-        "resource_card": "In flow: inwardness, authenticity, contact with your own feelings. Available now: tending to your own emotional life as fully as you tend to others'."
-      }
+        "narrative": "When Twos feel safe and supported, they move toward Four energy — more inward and honest about their own needs. The attention turns home.",
+        "resource_card": "Draw on it when you need depth, honesty, and real contact with what you actually feel.",
+        "bullets_v3": [
+          "You know what you are feeling before you know what anyone else needs from you.",
+          "It becomes reachable when being liked stops being the price of being yourself.",
+          "Your own wanting becomes something to follow rather than something to apologize for."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the giving turning into keeping score, and the warmth going hard at the edges of what you say.",
+        "The care you meant to give has turned into an account you are quietly keeping, and other people can feel it.",
+        "Ask for the thing you want directly, out loud, before the asking turns into a bill for services."
+      ]
     },
     "strengths": [
       {
@@ -1256,14 +1324,31 @@
     "lines": {
       "stress": {
         "target_type": 9,
-        "narrative": "Under significant pressure, Threes can shift toward Nine energy — becoming disengaged, diffuse, and unable to mobilize. The usual drive stalls out into procrastination, distraction, and a checked-out numbness. When noticed early, it's a signal that the engine has been running too hard for too long.",
-        "resource_card": "Under pressure: disengagement, procrastination, numbness. Consciously accessed: ease, presence, the ability to rest without performing."
+        "narrative": "Under pressure, Threes shift toward Nine — more disengaged, diffuse, unable to mobilize. The engine stalls out.",
+        "resource_card": "Draw on it when you need rest, presence, and the ability to stop without losing yourself.",
+        "bullets_v3": [
+          "The results stopped landing, and effort no longer converts into anything visible.",
+          "You go quiet and busy at once: motion without traction, tasks without the goal.",
+          "The drive that usually carries you is the exact thing that will not start now."
+        ]
       },
       "security": {
         "target_type": 6,
-        "narrative": "When Threes feel genuinely safe and supported, they move toward Six energy — becoming more loyal, collaborative, and committed to others rather than only to outcomes. The focus shifts from personal success to shared purpose and genuine connection with a team.",
-        "resource_card": "In flow: loyalty, collaboration, commitment to others. Available now: investing in shared purpose, not just personal achievement."
-      }
+        "narrative": "When Threes feel safe and supported, they move toward Six — more loyal and collaborative. Success stops being a solo project.",
+        "resource_card": "Draw on it when you need loyalty, trust, and a purpose you share with other people.",
+        "bullets_v3": [
+          "You work with people rather than past them, and the win stops being only yours.",
+          "It becomes reachable when you let someone see the effort and not just the result.",
+          "Belonging stops competing with achievement, and starts making it worth something."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the momentum going flat, and yourself filling the day with motion that goes nowhere.",
+        "The harder you push the less moves, and the person underneath the performance is out of reach.",
+        "Stop, and tell one person what is actually going on for you before you produce another result."
+      ]
     },
     "strengths": [
       {
@@ -1507,14 +1592,31 @@
     "lines": {
       "stress": {
         "target_type": 2,
-        "narrative": "Under significant pressure, Fours can shift toward Two energy — becoming more focused on others, over-giving, and seeking connection by being needed. The inward focus turns outward, sometimes losing the self in attending to someone else. When noticed early, it's a signal that the longing has gone looking for relief in the wrong place.",
-        "resource_card": "Under pressure: over-giving, clinging, losing self in others. Consciously accessed: generosity, warmth, and genuine care for others' needs."
+        "narrative": "Under pressure, Fours shift toward Two energy — more focused on others, over-giving, seeking connection by being needed. The self recedes.",
+        "resource_card": "Draw on it when you need warmth, generosity, and real attention to what someone else needs.",
+        "bullets_v3": [
+          "The connection you want is not arriving, so you work harder to earn yourself a place in it.",
+          "Attention swings outward: you tend to their needs closely and stop naming any of your own.",
+          "What gets lost is you: the self you were protecting disappears into someone else's needs."
+        ]
       },
       "security": {
         "target_type": 1,
-        "narrative": "When Fours feel genuinely safe and supported, they move toward One energy — becoming more disciplined, structured, and able to act on their ideals rather than only feel them. Emotion gets channeled into focused, principled action and follow-through.",
-        "resource_card": "In flow: discipline, structure, principled action. Available now: turning feeling and vision into steady, grounded follow-through."
-      }
+        "narrative": "When Fours feel safe and supported, they move toward One energy — more disciplined and structured. Ideals turn into action.",
+        "resource_card": "Draw on it when you need discipline, structure, and the follow-through to finish what you start.",
+        "bullets_v3": [
+          "Feeling settles into structure: you work steadily and the day holds its shape without effort.",
+          "It becomes reachable when the feeling is allowed to pass and the next small task is begun.",
+          "The work stops waiting on the mood, and something gets finished while the feeling still moves."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice yourself tending closely to everyone else's needs, and going quiet about anything of your own.",
+        "You have gone missing from your own day, and nobody has noticed because you are being so useful.",
+        "Say one thing you actually want, out loud, before you have worked out whether it will be welcome."
+      ]
     },
     "strengths": [
       {
@@ -1758,14 +1860,31 @@
     "lines": {
       "stress": {
         "target_type": 7,
-        "narrative": "Under significant pressure, Fives can shift toward Seven energy — becoming scattered, restless, and prone to mental escape into multiple ideas and possibilities. The careful focus fragments into distraction. When noticed early, it's a signal that the demands have outpaced the available resources.",
-        "resource_card": "Under pressure: scattered, restless, escaping into possibility. Consciously accessed: spontaneity, breadth, and engagement with life's options."
+        "narrative": "Under pressure, Fives shift toward Seven energy — more scattered, restless, escaping into possibility. The careful focus fragments.",
+        "resource_card": "Draw on it when you need spontaneity, range, and a reason to come out and engage.",
+        "bullets_v3": [
+          "The demands have outrun what you have to give, and the reserve is nearly gone.",
+          "The mind starts running everywhere at once, and none of it settles into work.",
+          "What goes first is the depth: attention scatters across everything and lands nowhere."
+        ]
       },
       "security": {
         "target_type": 8,
-        "narrative": "When Fives feel genuinely safe and resourced, they move toward Eight energy — becoming more assertive, embodied, and willing to take direct action in the world. The detachment gives way to presence; thinking translates into decisive engagement.",
-        "resource_card": "In flow: assertion, embodiment, decisive action. Available now: bringing your understanding into the world through direct engagement."
-      }
+        "narrative": "When Fives feel safe and resourced, they move toward Eight — more assertive, embodied, willing to act. Thinking turns into doing.",
+        "resource_card": "Draw on it when you need presence, directness, and the will to act on what you know.",
+        "bullets_v3": [
+          "You take up space in the room, and what you understand finally arrives out loud.",
+          "It becomes reachable when there is enough left over to spend some of it on people.",
+          "Knowing stops being a private store, and starts being something you act on."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the focus fragmenting, and yourself reaching for anything other than the thing itself.",
+        "The energy you were guarding is going out sideways, and none of it is reaching the work that matters.",
+        "Pick the one thing, close everything else, and stay with it for longer than feels comfortable."
+      ]
     },
     "strengths": [
       {
@@ -2009,14 +2128,31 @@
     "lines": {
       "stress": {
         "target_type": 3,
-        "narrative": "Under significant pressure, Sixes can shift toward Three energy — becoming driven, image-focused, and busy as a way to outrun the anxiety. Activity substitutes for security; productivity becomes a defense. When noticed early, it's a signal that the underlying fear is being managed by doing rather than addressed.",
-        "resource_card": "Under pressure: overdrive, image-management, busyness as defense. Consciously accessed: confidence, efficiency, and the ability to act decisively."
+        "narrative": "Under pressure, Sixes shift toward Three energy — more driven, image-focused, outrunning the doubt. Activity replaces certainty.",
+        "resource_card": "Draw on it when you need drive, decisiveness, and the momentum to act before you are sure.",
+        "bullets_v3": [
+          "The uncertainty has not resolved, so you start moving fast enough to outrun it.",
+          "Doing replaces deciding: you produce and perform while the question stays open.",
+          "The doubt does not leave, it just goes underground and waits for a quiet moment."
+        ]
       },
       "security": {
         "target_type": 9,
-        "narrative": "When Sixes feel genuinely safe and supported, they move toward Nine energy — becoming more relaxed, trusting, and at ease. The vigilance quiets; there's more room to settle, accept, and let the next unknown simply be unknown.",
-        "resource_card": "In flow: ease, trust, relaxation. Available now: letting the vigilance rest and trusting that things can be okay."
-      }
+        "narrative": "When Sixes feel safe and supported, they move toward Nine — steadier, more accepting, less braced. The scanning quiets down.",
+        "resource_card": "Draw on it when you need steadiness, ease, and the ability to let something be fine.",
+        "bullets_v3": [
+          "The bracing stops: you are simply here, and nothing needs checking right now.",
+          "It becomes reachable when the people around you have earned the trust you gave.",
+          "Certainty stops being the price of calm, and the calm turns up without it anyway."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the scanning start up, and yourself getting busy so the open question has less room.",
+        "You are moving quickly and deciding nothing, and the doubt is waiting exactly where it was.",
+        "Name the thing you are actually unsure about, say it out loud, and then make the call anyway."
+      ]
     },
     "strengths": [
       {
@@ -2260,14 +2396,31 @@
     "lines": {
       "stress": {
         "target_type": 1,
-        "narrative": "Under significant pressure, Sevens can shift toward One energy — becoming critical, rigid, and perfectionistic. The easy optimism narrows into frustration, judgment, and a sharp focus on what's wrong. When noticed early, it's a signal that the avoidance of pain has finally caught up.",
-        "resource_card": "Under pressure: criticism, rigidity, frustration. Consciously accessed: discernment, focus, and the discipline to finish what matters."
+        "narrative": "Under pressure, Sevens shift toward One energy — more critical, rigid, sharply focused on what is wrong. The optimism narrows.",
+        "resource_card": "Draw on it when you need discernment, standards, and the discipline to finish something.",
+        "bullets_v3": [
+          "The exits have closed and the reframe is not working, so something has to be wrong.",
+          "The lightness goes sharp: you start correcting, judging, finding fault out loud.",
+          "What you were outrunning has caught up, and now it is looking for someone to blame."
+        ]
       },
       "security": {
         "target_type": 5,
-        "narrative": "When Sevens feel genuinely safe and supported, they move toward Five energy — becoming more focused, reflective, and able to go deep rather than wide. The scattered breadth gives way to sustained attention; possibility settles into genuine mastery.",
-        "resource_card": "In flow: depth, focus, sustained attention. Available now: trading breadth for genuine depth and mastery in what matters."
-      }
+        "narrative": "When Sevens feel safe and resourced, they move toward Five — more focused and reflective. Breadth turns into depth.",
+        "resource_card": "Draw on it when you need focus, quiet, and the patience to go all the way in.",
+        "bullets_v3": [
+          "You stay with one thing for long enough that it actually becomes yours to keep.",
+          "It becomes reachable when stopping stops feeling like something is being lost.",
+          "Depth turns out to hold more than the next option ever did, and you notice."
+        ]
+      },
+      "intro_v3": "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+      "work_lead_v3": "Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.",
+      "work_v3": [
+        "You notice the mood turning sharp, and yourself finding fault with whatever is in front of you.",
+        "The thing you were moving away from has arrived anyway, and the irritation is where it lives.",
+        "Stay in the room with the discomfort for one more minute before you reach for the next thing."
+      ]
     },
     "strengths": [
       {

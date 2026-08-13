@@ -177,6 +177,260 @@ const INTERIM_WINGS_V3 = {
   },
 };
 
+// INTERIM SOURCE — client report v3 "Your Stress and Security Points" page (sheet 9).
+// Hive-authored copy, transcribed verbatim from scripts/spike/p9_lines_content.js on
+// pr-3-per-type-pages, where it was written and render-verified across seven spike rounds.
+// Every one of the 119 strings below was copied by machine and asserted byte-identical
+// against that file, not retyped.
+//
+// THIS CONSTANT IS THE EDITING SURFACE FOR THESE FIELDS. `narrative` and `resource_card`
+// are also parsed from the docx a few lines below in assembleType(); the values here
+// REPLACE them for all nine types. That is the ratified 13 Aug 2026 position — the docx is
+// source material for this page, not its source of truth. It was not a style preference:
+// the docx narratives run 284-351 characters against a layout drawn for ~189, and round 1
+// measured every type it tried spilling past one sheet. These are rewritten to the layout's
+// numbers, at 3 rendered lines for narratives and 2 for bands.
+//
+// The practical consequence, stated so nobody loses an afternoon to it: editing a p9
+// narrative or resource card in the docx now has NO effect on the built library. Edit it
+// here. validateLines() below is unconditional for all nine types, so this page cannot land
+// blank the way p8 Wings could.
+//
+// intro and work_lead are static across all nine types (ratified 13 Aug 2026), as are the
+// three .v3-work-lbl labels, which live in the renderer rather than here because they are
+// layout furniture rather than content.
+const INTERIM_LINES_V3 = {
+  intro: "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.",
+  work_lead: 'Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.',
+  types: {
+    1: {
+      stress: {
+        narrative: "Under pressure, Ones shift toward Four energy — more emotional, melancholic, focused on what's missing. The composed surface cracks.",
+        resource_card: 'Draw on it when you need emotional depth, honesty, and the courage to feel what is actually there.',
+        bullets: [
+          'Your standards go unmet, your effort unnoticed, and something underneath now feels personal.',
+          'The self-correction turns inward and sours into a heavier, far more private sense of being unseen.',
+          'Proportion goes: the flaw grows larger, the whole picture shrinks, and the mood carries the day.',
+        ],
+      },
+      security: {
+        narrative: 'When Ones feel safe and resourced, they move toward Seven energy — more spontaneous and playful. The standard stops running the day.',
+        resource_card: 'Draw on it when you need spontaneity, play, and permission for things to be imperfect.',
+        bullets: [
+          'The grip loosens: possibility returns, the day opens up, and good things feel allowed again.',
+          'It comes within reach when the work is good enough and you deliberately let yourself stop checking.',
+          'Rest stops needing to be earned, and pleasure stops arriving only after the list is finished.',
+        ],
+      },
+      work: [
+        'You notice the correcting turn inward, and the tone of it shifting from standards to something personal.',
+        'One flaw has filled the frame, and everything else that is true about the work has dropped out of view.',
+        'Say out loud what good enough actually looks like here, and then let the work be finished at that.',
+      ],
+    },
+    2: {
+      stress: {
+        narrative: 'Under pressure, Twos shift toward Eight — more forceful, blunt, and openly angry. The warmth hardens into demand.',
+        resource_card: 'Draw on it when you need directness, backbone, and the will to say what you actually want.',
+        bullets: [
+          'The giving has not been returned, and something owed is starting to feel unpaid.',
+          'You stop asking and start telling, and the edge in your voice surprises people.',
+          'The help you gave becomes a debt you are collecting, and that changes what it was.',
+        ],
+      },
+      security: {
+        narrative: 'When Twos feel safe and supported, they move toward Four energy — more inward and honest about their own needs. The attention turns home.',
+        resource_card: 'Draw on it when you need depth, honesty, and real contact with what you actually feel.',
+        bullets: [
+          'You know what you are feeling before you know what anyone else needs from you.',
+          'It becomes reachable when being liked stops being the price of being yourself.',
+          'Your own wanting becomes something to follow rather than something to apologize for.',
+        ],
+      },
+      work: [
+        'You notice the giving turning into keeping score, and the warmth going hard at the edges of what you say.',
+        'The care you meant to give has turned into an account you are quietly keeping, and other people can feel it.',
+        'Ask for the thing you want directly, out loud, before the asking turns into a bill for services.',
+      ],
+    },
+    3: {
+      stress: {
+        narrative: 'Under pressure, Threes shift toward Nine — more disengaged, diffuse, unable to mobilize. The engine stalls out.',
+        resource_card: 'Draw on it when you need rest, presence, and the ability to stop without losing yourself.',
+        bullets: [
+          'The results stopped landing, and effort no longer converts into anything visible.',
+          'You go quiet and busy at once: motion without traction, tasks without the goal.',
+          'The drive that usually carries you is the exact thing that will not start now.',
+        ],
+      },
+      security: {
+        narrative: 'When Threes feel safe and supported, they move toward Six — more loyal and collaborative. Success stops being a solo project.',
+        resource_card: 'Draw on it when you need loyalty, trust, and a purpose you share with other people.',
+        bullets: [
+          'You work with people rather than past them, and the win stops being only yours.',
+          'It becomes reachable when you let someone see the effort and not just the result.',
+          'Belonging stops competing with achievement, and starts making it worth something.',
+        ],
+      },
+      work: [
+        'You notice the momentum going flat, and yourself filling the day with motion that goes nowhere.',
+        'The harder you push the less moves, and the person underneath the performance is out of reach.',
+        'Stop, and tell one person what is actually going on for you before you produce another result.',
+      ],
+    },
+    4: {
+      stress: {
+        narrative: 'Under pressure, Fours shift toward Two energy — more focused on others, over-giving, seeking connection by being needed. The self recedes.',
+        resource_card: 'Draw on it when you need warmth, generosity, and real attention to what someone else needs.',
+        bullets: [
+          'The connection you want is not arriving, so you work harder to earn yourself a place in it.',
+          'Attention swings outward: you tend to their needs closely and stop naming any of your own.',
+          "What gets lost is you: the self you were protecting disappears into someone else's needs.",
+        ],
+      },
+      security: {
+        narrative: 'When Fours feel safe and supported, they move toward One energy — more disciplined and structured. Ideals turn into action.',
+        resource_card: 'Draw on it when you need discipline, structure, and the follow-through to finish what you start.',
+        bullets: [
+          'Feeling settles into structure: you work steadily and the day holds its shape without effort.',
+          'It becomes reachable when the feeling is allowed to pass and the next small task is begun.',
+          'The work stops waiting on the mood, and something gets finished while the feeling still moves.',
+        ],
+      },
+      work: [
+        "You notice yourself tending closely to everyone else's needs, and going quiet about anything of your own.",
+        'You have gone missing from your own day, and nobody has noticed because you are being so useful.',
+        'Say one thing you actually want, out loud, before you have worked out whether it will be welcome.',
+      ],
+    },
+    5: {
+      stress: {
+        narrative: 'Under pressure, Fives shift toward Seven energy — more scattered, restless, escaping into possibility. The careful focus fragments.',
+        resource_card: 'Draw on it when you need spontaneity, range, and a reason to come out and engage.',
+        bullets: [
+          'The demands have outrun what you have to give, and the reserve is nearly gone.',
+          'The mind starts running everywhere at once, and none of it settles into work.',
+          'What goes first is the depth: attention scatters across everything and lands nowhere.',
+        ],
+      },
+      security: {
+        narrative: 'When Fives feel safe and resourced, they move toward Eight — more assertive, embodied, willing to act. Thinking turns into doing.',
+        resource_card: 'Draw on it when you need presence, directness, and the will to act on what you know.',
+        bullets: [
+          'You take up space in the room, and what you understand finally arrives out loud.',
+          'It becomes reachable when there is enough left over to spend some of it on people.',
+          'Knowing stops being a private store, and starts being something you act on.',
+        ],
+      },
+      work: [
+        'You notice the focus fragmenting, and yourself reaching for anything other than the thing itself.',
+        'The energy you were guarding is going out sideways, and none of it is reaching the work that matters.',
+        'Pick the one thing, close everything else, and stay with it for longer than feels comfortable.',
+      ],
+    },
+    6: {
+      stress: {
+        narrative: 'Under pressure, Sixes shift toward Three energy — more driven, image-focused, outrunning the doubt. Activity replaces certainty.',
+        resource_card: 'Draw on it when you need drive, decisiveness, and the momentum to act before you are sure.',
+        bullets: [
+          'The uncertainty has not resolved, so you start moving fast enough to outrun it.',
+          'Doing replaces deciding: you produce and perform while the question stays open.',
+          'The doubt does not leave, it just goes underground and waits for a quiet moment.',
+        ],
+      },
+      security: {
+        narrative: 'When Sixes feel safe and supported, they move toward Nine — steadier, more accepting, less braced. The scanning quiets down.',
+        resource_card: 'Draw on it when you need steadiness, ease, and the ability to let something be fine.',
+        bullets: [
+          'The bracing stops: you are simply here, and nothing needs checking right now.',
+          'It becomes reachable when the people around you have earned the trust you gave.',
+          'Certainty stops being the price of calm, and the calm turns up without it anyway.',
+        ],
+      },
+      work: [
+        'You notice the scanning start up, and yourself getting busy so the open question has less room.',
+        'You are moving quickly and deciding nothing, and the doubt is waiting exactly where it was.',
+        'Name the thing you are actually unsure about, say it out loud, and then make the call anyway.',
+      ],
+    },
+    7: {
+      stress: {
+        narrative: 'Under pressure, Sevens shift toward One energy — more critical, rigid, sharply focused on what is wrong. The optimism narrows.',
+        resource_card: 'Draw on it when you need discernment, standards, and the discipline to finish something.',
+        bullets: [
+          'The exits have closed and the reframe is not working, so something has to be wrong.',
+          'The lightness goes sharp: you start correcting, judging, finding fault out loud.',
+          'What you were outrunning has caught up, and now it is looking for someone to blame.',
+        ],
+      },
+      security: {
+        narrative: 'When Sevens feel safe and resourced, they move toward Five — more focused and reflective. Breadth turns into depth.',
+        resource_card: 'Draw on it when you need focus, quiet, and the patience to go all the way in.',
+        bullets: [
+          'You stay with one thing for long enough that it actually becomes yours to keep.',
+          'It becomes reachable when stopping stops feeling like something is being lost.',
+          'Depth turns out to hold more than the next option ever did, and you notice.',
+        ],
+      },
+      work: [
+        'You notice the mood turning sharp, and yourself finding fault with whatever is in front of you.',
+        'The thing you were moving away from has arrived anyway, and the irritation is where it lives.',
+        'Stay in the room with the discomfort for one more minute before you reach for the next thing.',
+      ],
+    },
+    8: {
+      stress: {
+        narrative: 'Under pressure, Eights shift toward Five energy — more withdrawn, cerebral, detached. The forward force goes quiet and retreats inward.',
+        resource_card: 'Draw on it when you need strategy, patience, and the ability to observe before acting.',
+        bullets: [
+          'The situation stops yielding to force, and pushing harder is no longer changing anything.',
+          'The forward motion goes quiet: you pull back, say less, and handle it alone in your head.',
+          'Contact goes first: the people who would help are the ones being held furthest away.',
+        ],
+      },
+      security: {
+        narrative: 'When Eights feel safe and resourced, they move toward Two energy — warmer, more openly caring, more willing to tend to others.',
+        resource_card: 'Draw on it when you need warmth, attunement, and strength that expresses itself as care.',
+        bullets: [
+          'The armor comes off: warmth shows without being asked for, and care arrives before force.',
+          'It becomes reachable when trust is genuinely present and nothing has to be defended.',
+          'Strength stops needing to announce itself, and protecting someone looks like tenderness.',
+        ],
+      },
+      work: [
+        'You notice yourself going quiet, pulling back from the room, and working the whole problem alone.',
+        'The people who could actually help are the ones you have put furthest outside it, and they can tell.',
+        'Tell one person what is actually going on before you have fixed it, or decided that you have to.',
+      ],
+    },
+    9: {
+      stress: {
+        narrative: 'Under pressure, Nines shift toward Six energy — more anxious, doubting, worst-case-focused. The easy calm gives way to worry.',
+        resource_card: 'Draw on it when you need vigilance, preparation, and the will to face what you would avoid.',
+        bullets: [
+          'Something that mattered got set aside to keep the peace, and it has not gone away.',
+          'The scanning starts: every outcome gets checked, and none of them feels safe enough.',
+          'The steadiness goes first: what usually holds you level is what starts to shake.',
+        ],
+      },
+      security: {
+        narrative: 'When Nines feel safe and supported, they move toward Three energy — more focused and energized. Priorities come into view.',
+        resource_card: 'Draw on it when you need focus, drive, and the push to act on your own goals rather than defer.',
+        bullets: [
+          'The fog clears: you know what you want and you move on it without stalling.',
+          "It becomes reachable when your own agenda is allowed to matter as much as everyone else's.",
+          'Wanting something stops feeling like a risk to the peace, and starts moving you.',
+        ],
+      },
+      work: [
+        'You notice yourself going along with something, agreeing easily, while the thing you actually think stays unsaid.',
+        'The peace you are keeping is costing you your own position, and the worry underneath it keeps growing.',
+        'Name the one thing you want here, out loud, before the moment closes and going along becomes the answer.',
+      ],
+    },
+  },
+};
+
 // Engine source of truth (mirrors renderer TYPE_NAMES + design A6; Phase 4 centralizes into type_meta.js).
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver', 3: 'The Performer', 4: 'The Individualist',
@@ -279,7 +533,18 @@ function assembleType(n, blocks) {
     const card = (np.find(p => /^Resource card:/i.test(p)) || '').replace(/^Resource card:\s*/i, '');
     const narrative = np.find(p => !/^Resource card:/i.test(p)) || '';
     t.lines[slot] = { target_type: tt ? +tt[1] : null, narrative, resource_card: card };
+    // v3 client report additions (INTERIM, see top). bullets_v3 is purely additive; narrative
+    // and resource_card are REPLACED — see the constant's header for why.
+    const l3 = INTERIM_LINES_V3.types[n];
+    if (l3) Object.assign(t.lines[slot], {
+      narrative: l3[slot].narrative, resource_card: l3[slot].resource_card, bullets_v3: l3[slot].bullets,
+    });
   });
+  if (INTERIM_LINES_V3.types[n]) {
+    t.lines.intro_v3 = INTERIM_LINES_V3.intro;
+    t.lines.work_lead_v3 = INTERIM_LINES_V3.work_lead;
+    t.lines.work_v3 = INTERIM_LINES_V3.types[n].work;
+  }
 
   // strengths / challenges → 3 {title, body} pairs each
   const pairs = (label) => {
@@ -440,6 +705,7 @@ function validateType(n, t) {
   need(t.lines.stress.target_type === TYPE_META[n].stress, `${P}.lines.stress target ${t.lines.stress.target_type} != engine ${TYPE_META[n].stress}`);
   need(t.lines.security.target_type === TYPE_META[n].security, `${P}.lines.security target ${t.lines.security.target_type} != engine ${TYPE_META[n].security}`);
   for (const s of ['stress', 'security']) { need(t.lines[s].narrative, `${P}.lines.${s}.narrative empty`); need(t.lines[s].resource_card, `${P}.lines.${s}.resource_card empty`); }
+  validateLines(n, t);
   need(t.strengths.length === 3, `${P}.strengths = ${t.strengths.length} (want 3)`);
   need(t.challenges.length === 3, `${P}.challenges = ${t.challenges.length} (want 3)`);
   need(t.practices.bullets.length >= 1, `${P}.practices.bullets empty`);
@@ -451,6 +717,50 @@ function validateType(n, t) {
   }
   for (const r of ['core_motivation', 'focus', 'energy', 'gifts', 'challenges']) need(t.comparison[r], `${P}.comparison.${r} empty`);
 }
+/**
+ * v3 "Your Stress and Security Points" page fields (sheet 9).
+ *
+ * UNCONDITIONAL, all nine types. Not `if (INTERIM_LINES_V3.types[n])`, and the reason is on
+ * the record rather than a matter of taste: the v3 Wings gate was written conditionally on
+ * exactly that reasoning — unauthored types would "fail loudly at their own PR" — and they
+ * did not. report_prep's mk() defaults every missing v3 field to '' / [], so types 1-8
+ * rendered a Wings page with empty overviews, no bullets and empty resource bands, with
+ * every gate green, because a blank page satisfies the single-sheet contract more
+ * comfortably than a full one does. A conditional gate cannot see missing content; it can
+ * only see content that is present and wrong.
+ *
+ * p9 ships with content for all nine types in the same commit, so unconditional costs
+ * nothing today. It is what stops the page silently emptying later — a botched edit to
+ * INTERIM_LINES_V3, or a tenth type — rather than a signal that content is outstanding.
+ *
+ * Cardinality is asserted, not just presence. Three stress bullets, three security bullets
+ * and three "Putting Your Resources to Work" bodies are what the layout is drawn for: the
+ * work row is a three-column flex and a fourth entry would silently squeeze it, while the
+ * renderer pairs work[i] with a fixed WORK_LABELS[i], so a short array renders a labelled
+ * empty cell rather than failing.
+ */
+function validateLines(n, t) {
+  const P = `type_${n}`;
+  const L = t.lines;
+  need(L.intro_v3, `${P}.lines.intro_v3 empty (v3 page intro)`);
+  need(L.work_lead_v3, `${P}.lines.work_lead_v3 empty (v3 "Putting Your Resources to Work" lead)`);
+  need(Array.isArray(L.work_v3) && L.work_v3.length === 3 && L.work_v3.every(Boolean),
+    `${P}.lines.work_v3 must be exactly 3 non-empty (v3), got ${Array.isArray(L.work_v3) ? L.work_v3.length : 'none'}`);
+  for (const slot of ['stress', 'security']) {
+    const s = L[slot];
+    // narrative and resource_card are asserted non-empty above for every type, docx-parsed
+    // or not. What is new here is that INTERIM_LINES_V3 must actually have supplied them —
+    // a type missing from the constant would otherwise pass on the docx values, which are
+    // the 284-351ch originals this page cannot fit.
+    need(INTERIM_LINES_V3.types[n] && s.narrative === INTERIM_LINES_V3.types[n][slot].narrative,
+      `${P}.lines.${slot}.narrative is not the v3 rewrite (INTERIM_LINES_V3 missing or not applied)`);
+    need(INTERIM_LINES_V3.types[n] && s.resource_card === INTERIM_LINES_V3.types[n][slot].resource_card,
+      `${P}.lines.${slot}.resource_card is not the v3 rewrite (INTERIM_LINES_V3 missing or not applied)`);
+    need(Array.isArray(s.bullets_v3) && s.bullets_v3.length === 3 && s.bullets_v3.every(Boolean),
+      `${P}.lines.${slot}.bullets_v3 must be exactly 3 non-empty (v3), got ${Array.isArray(s.bullets_v3) ? s.bullets_v3.length : 'none'}`);
+  }
+}
+
 function validateSubtype(key, st) {
   const P = `subtype_${key}`;
   need(st.name, `${P}.name empty`); need(st.tagline, `${P}.tagline empty`); need(st.narrative, `${P}.narrative empty`);

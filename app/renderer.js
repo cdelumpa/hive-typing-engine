@@ -2882,6 +2882,43 @@ function clientReportV3PageStyles() {
 .v3-page .v3-resource{ background:var(--v3-green-fill); border-top:1px solid var(--v3-border); padding:18px; }
 .v3-page .v3-res-lbl{ font-size:9px; font-weight:bold; color:var(--v3-green-label); text-transform:uppercase; letter-spacing:.1em; margin-bottom:5px; }
 .v3-page .v3-res-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.45; }
+
+/* ── p9 Your Stress and Security Points ───────────────────────────────────── */
+/* Ported from docs/mockup/claude_The_Peacemaker_Page_Lines_v1.html. Class names namespaced
+   v3-pt/v3-band/v3-work: the mockup's bare .band collides with a DIFFERENT .band on the
+   cover, and .intro means one thing here and another on Your Thoughts (§3.4). */
+/* MAJOR SECTION BREAK = 18px. Ratified 13 Aug 2026 as a document-wide rule, not a value
+   picked for this page: the point boxes and the "Putting Your Resources to Work" heading
+   are a section break, and every section break in the v3 client report takes 18px.
+   Was the mockup's 14px, which read as crowded on the rendered Type 4 sheet.
+   NOTE: .v3-intro on this same page is still 26px and predates the rule — see the round-3
+   spike report. Not changed here; that is a separate, whole-document decision. */
+.v3-page .v3-pts{ display:flex; gap:18px; margin-bottom:18px; }
+.v3-page .v3-pt{ flex:1; border:1px solid var(--v3-border); display:flex; flex-direction:column; }
+.v3-page .v3-pt-head{ background:var(--v3-leading-bg); padding:13px 16px; display:flex; align-items:center; gap:12px; }
+.v3-page .v3-pt-num{ flex:0 0 auto; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:bold; color:#FFFFFF; }
+.v3-page .v3-pt-num.is-stress{ background:var(--v3-stress); }
+.v3-page .v3-pt-num.is-security{ background:var(--v3-security); }
+.v3-page .v3-pt-lbl{ font-size:9px; font-weight:bold; color:var(--v3-soft-navy); text-transform:uppercase; letter-spacing:.1em; margin-bottom:3px; }
+.v3-page .v3-pt-name{ font-size:15px; font-weight:bold; color:var(--v3-navy); }
+.v3-page .v3-pt-body{ padding:14px 18px; flex:1; }
+.v3-page .v3-pt-over{ font-size:12.5px; color:var(--v3-navy); line-height:1.55; padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--v3-border); }
+.v3-page .v3-pt-item{ display:flex; margin-bottom:8px; }
+.v3-page .v3-pt-item:last-child{ margin-bottom:0; }
+.v3-page .v3-pt-dot{ flex:0 0 auto; width:5px; height:5px; border-radius:50%; margin:7px 10px 0 0; }
+.v3-page .v3-pt-dot.is-stress{ background:var(--v3-stress); }
+.v3-page .v3-pt-dot.is-security{ background:var(--v3-security); }
+.v3-page .v3-pt-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.5; }
+
+.v3-page .v3-band{ padding:12px 18px; border-top:1px solid var(--v3-border); background:var(--v3-green-fill); }
+.v3-page .v3-band-lbl{ font-size:9px; font-weight:bold; color:var(--v3-green-label); text-transform:uppercase; letter-spacing:.1em; margin-bottom:5px; }
+.v3-page .v3-band-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.5; }
+
+.v3-page .v3-work-lead{ font-size:13px; color:var(--v3-grey); line-height:1.5; margin-bottom:11px; }
+.v3-page .v3-work-row{ display:flex; gap:18px; }
+.v3-page .v3-work-item{ flex:1; }
+.v3-page .v3-work-lbl{ font-size:9px; font-weight:bold; color:var(--v3-cyan); text-transform:uppercase; letter-spacing:.1em; margin-bottom:6px; }
+.v3-page .v3-work-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.5; }
 </style>`;
 }
 
@@ -2896,19 +2933,34 @@ function clientReportV3PageStyles() {
  *  cannot drift — the mockup's hard-coded footers number Welcome=1..Thoughts=10 against a
  *  12-sheet document, which is the bug this replaces (spec section 8 question 7).
  *  Populated page by page; PR 1 carries Wings only. */
+/**
+ * The twelve sheets of the v3 client report, in document order.
+ *
+ * `built: true` marks a page buildClientReportHTML_v3 actually emits today. The document
+ * grows one page per PR, and before this flag existed every downstream count restated the
+ * current subset by hand: tests/report_pages_test.js carried the built key list, the footer
+ * count and the header count as three separate literals, and scripts/render_client.js a
+ * fourth. Landing the Lines page meant editing four places, and PR 3-Lines opened on a red
+ * `npm test` because the p9 spike updated one of them and missed the others.
+ *
+ * Set `built` when a page's renderer function is wired into buildClientReportHTML_v3, in the
+ * same commit. Everything that needs "which pages exist yet" derives from here.
+ *
+ * ONE COUNT IS DELIBERATELY NOT DERIVED — see tests/lib/report_page_inventory.js.
+ */
 const V3_PAGE_ORDER = [
-  { key: 'cover',     sheet: 1,  footer: null, chrome: 'none',  title: 'Cover' },
-  { key: 'contents',  sheet: 2,  footer: null, chrome: 'blank', title: 'Contents',                          eyebrow: "What's In This Report" },
-  { key: 'welcome',   sheet: 3,  footer: 1,    title: 'Welcome',                                            eyebrow: 'A Note from Cai & Mo' },
-  { key: 'whatis',    sheet: 4,  footer: 2,    title: 'What Is the Enneagram?',                             eyebrow: null },
+  { key: 'cover',     sheet: 1,  footer: null, chrome: 'none',  built: true, title: 'Cover' },
+  { key: 'contents',  sheet: 2,  footer: null, chrome: 'blank', built: true, title: 'Contents',             eyebrow: "What's In This Report" },
+  { key: 'welcome',   sheet: 3,  footer: 1,    built: true,     title: 'Welcome',                           eyebrow: 'A Note from Cai & Mo' },
+  { key: 'whatis',    sheet: 4,  footer: 2,    built: true,     title: 'What Is the Enneagram?',            eyebrow: null },
   { key: 'quickref',  sheet: 5,  footer: 3,    title: 'Quick Reference',                                    eyebrow: 'Your Report at a Glance' },
   { key: 'typeA',     sheet: 6,  footer: 4,    title: 'Exploring Your Type Hypothesis',                     eyebrow: null },
   { key: 'typeB',     sheet: 7,  footer: 5,    title: 'Exploring Your Type Hypothesis (continued)' },
-  { key: 'wings',     sheet: 8,  footer: 6,    title: 'Your Wings',                                         eyebrow: 'Navigating the Enneagram System' },
-  { key: 'lines',     sheet: 9,  footer: 7,    title: 'Your Stress and Security Points',                    eyebrow: 'Navigating the Enneagram System' },
+  { key: 'wings',     sheet: 8,  footer: 6,    built: true,     title: 'Your Wings',                        eyebrow: 'Navigating the Enneagram System' },
+  { key: 'lines',     sheet: 9,  footer: 7,    built: true,     title: 'Your Stress and Security Points',   eyebrow: 'Navigating the Enneagram System' },
   { key: 'instincts', sheet: 10, footer: 8,    title: 'Instincts & Subtypes',                               eyebrow: 'Navigating the Enneagram System' },
   { key: 'car',       sheet: 11, footer: 9,    title: 'Development Ideas for {nickname_plural}',            eyebrow: 'Insight to Action' },
-  { key: 'thoughts',  sheet: 12, footer: 10,   title: 'Your Thoughts',                                      eyebrow: 'Questions to Explore' },
+  { key: 'thoughts',  sheet: 12, footer: 10,   built: true,     title: 'Your Thoughts',                     eyebrow: 'Questions to Explore' },
 ];
 
 const v3Page = (key) => {
@@ -3236,6 +3288,68 @@ function _clv3Wings(m) {
 </div>`;
 }
 
+/**
+ * p9 "Your Stress and Security Points" — SPIKE, not finished work.
+ *
+ * Ported from docs/mockup/claude_The_Peacemaker_Page_Lines_v1.html to measure whether the
+ * 13-zone-per-type content pattern fits before eight more types are written to it. The
+ * diagram variant ('client-lines') and the geometry already shipped in PR 1; only the page
+ * body is new here.
+ *
+ * The three .v3-work-lbl strings are STATIC across all nine types (ratified 13 Aug 2026):
+ * Catch the shift / Notice the impact / Then choose. Only the bodies beneath them vary.
+ */
+function _clv3Lines(m) {
+  const page = v3Page('lines');
+  const l = m.pages.v3_lines;
+  const WORK_LABELS = ['Catch the shift', 'Notice the impact', 'Then choose'];
+
+  const point = (pt, tone) => `
+    <div class="v3-pt">
+      <div class="v3-pt-head">
+        <div class="v3-pt-num is-${tone}">${pt.number}</div>
+        <div>
+          <div class="v3-pt-lbl">${tone === 'stress' ? 'Stress Point' : 'Security Point'} &middot; Type ${pt.number}</div>
+          <div class="v3-pt-name">${esc(pt.name)}</div>
+        </div>
+      </div>
+      <div class="v3-pt-body">
+        <div class="v3-pt-over">${_v3t(pt.narrative)}</div>
+        ${pt.bullets.map(b => `<div class="v3-pt-item"><div class="v3-pt-dot is-${tone}"></div><div class="v3-pt-txt">${_v3t(b)}</div></div>`).join('\n        ')}
+      </div>
+      <div class="v3-band">
+        <div class="v3-band-lbl">As a Resource</div>
+        <div class="v3-band-txt">${_v3t(pt.band)}</div>
+      </div>
+    </div>`;
+
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule is-tight"></div>
+
+  <div class="eyebrow">${esc(page.eyebrow)}</div>
+  <h1>${esc(page.title)}</h1>
+  <div class="v3-intro">
+    <div class="v3-intro-body"><div class="lead is-flush">${_v3t(l.intro)}</div></div>
+    <div class="v3-dia">${buildEnneagramSVG({ type: m.hero.number, variant: 'client-lines' })}</div>
+  </div>
+
+  <div class="v3-pts">${point(l.stress, 'stress')}${point(l.security, 'security')}
+  </div>
+
+  <h2 class="is-tight">Putting Your Resources to Work</h2>
+  <div class="v3-work-lead">${_v3t(l.work_lead)}</div>
+  <div class="v3-work-row">
+${l.work.map((w, i) => `    <div class="v3-work-item">
+      <div class="v3-work-lbl">${esc(WORK_LABELS[i])}</div>
+      <div class="v3-work-txt">${_v3t(w)}</div>
+    </div>`).join('\n')}
+  </div>
+
+  ${_v3Footer(page)}
+</div>`;
+}
+
 /** v3 document root. Not called by production until cutover. */
 function buildClientReportHTML_v3(model) {
   return `<!DOCTYPE html>
@@ -3249,6 +3363,7 @@ ${_clv3Contents(model)}
 ${_clv3Welcome(model)}
 ${_clv3WhatIs(model)}
 ${_clv3Wings(model)}
+${_clv3Lines(model)}
 ${_clv3Thoughts(model)}
 </body></html>`;
 }

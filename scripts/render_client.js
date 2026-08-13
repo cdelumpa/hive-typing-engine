@@ -53,13 +53,18 @@ const REPORTS = {
     build: async (apiResult) => R.buildClientReportHTML_v3(
       await prep.buildClientModel({ apiResult, client: V3_CLIENT, coach })),
     selector: '.v3-page',
-    expected: 6,
+    expected: 7,
     enforceSheet: true,
     // Document order, not sheet order: PR 2 adds sheets 1-4 and 12 around the Wings page
     // PR 1 built, and sheets 5-11 land in later PRs.
-    labels: ['P1 Cover', 'P2 Contents', 'P3 Welcome', 'P4 What Is', 'P8 Wings', 'P12 Thoughts'],
+    labels: ['P1 Cover', 'P2 Contents', 'P3 Welcome', 'P4 What Is', 'P8 Wings', 'P9 Lines', 'P12 Thoughts'],
     checkHyphens: true,
-    fixtures: ['anders_sx9'],   // Type 9 / SX9 — the only type with v3 content so far
+    fixtures: ['anders_sx9'],   // Type 9 / SX9 — the fixture the v3 mockups were built for
+    // Render EVERY type from the one fixture, swapping confirmed_type. The per-type pages
+    // fit differently per type — the canon line narratives alone range 284-351 chars — so a
+    // single-type run cannot answer "does this page fit". No new fixtures needed: the client
+    // model derives everything from hypothesis.confirmed_type.
+    types: [1, 2, 3, 4, 5, 6, 7, 8, 9],
   },
   coach: {
     build: async (apiResult) => R.buildCoachReportHTML(await prep.buildCoachModel({ apiResult, client, coach })),
@@ -121,15 +126,58 @@ async function findHyphenBreaks(page, selector) {
   }, selector);
 }
 
-// Measure each page container's rendered height + physical-sheet count under flowing layout.
+/**
+ * Measure each page container's rendered height, physical-sheet count, and HEADROOM.
+ *
+ * WHY HEADROOM IS MEASURED SEPARATELY, AND WHY IT MATTERS MORE THAN ITS SIZE SUGGESTS
+ * -----------------------------------------------------------------------------------
+ * `.v3-page` is `min-height:1056px`, so getBoundingClientRect().height reports exactly
+ * 1056px for every page that fits — on every platform, at every content length. The spill
+ * check below is still correct (an overflowing page grows past the minimum and is caught),
+ * but the number it prints carries almost no information: a page with 200px to spare and a
+ * page one word from spilling both log `1056px`.
+ *
+ * That is why CI green has only ever proved "content stack <= 976px". It says nothing about
+ * whether the stack is 938.75px on Linux or 951px — and the character bands governing the
+ * ~550 authoring units of PR 3 have never been corroborated cross-platform by anything
+ * except the font probe. Liberation Sans is metric-compatible with Arial, so they should
+ * agree; "should" is not a measurement.
+ *
+ * Releasing min-height to 0 lets the box collapse to its natural content height. Headroom is
+ * then 1056 minus that — directly "how much can this page grow before it spills", with no
+ * convention to argue about. (Note this differs by ~20px from the figures in
+ * docs/audit_pr2_static_pages.md section 9, which excluded the .page-footer box from the
+ * stack; the ordering is identical and the offset is constant.)
+ *
+ * With this printed, PR 3's first CI run yields the Linux bands for free.
+ *
+ * CAVEAT: this only collapses boxes sized by `min-height`. The legacy `.cover` pages (Title,
+ * TOC, P1 Welcome) use a fixed `height`, so they report `0.00px free` — that is "not
+ * measurable this way", not "one word from spilling". Every `.v3-page` is min-height, so the
+ * figure is real for the whole v3 document, which is what PR 3 needs.
+ */
 async function measureLayout(page, selector) {
   await page.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
   await new Promise(r => setTimeout(r, 150));
   return page.evaluate((PAGE_PX, selector) => {
-    return [...document.querySelectorAll(selector)].map((el, i) => {
+    const els = [...document.querySelectorAll(selector)];
+    const rendered = els.map(el => el.getBoundingClientRect().height);
+    // Natural height with the minimum released, then restored. Done per element and undone
+    // immediately so no later measurement in this page context sees a mutated layout.
+    const natural = els.map(el => {
+      const prev = el.style.minHeight;
+      el.style.minHeight = '0px';
       const h = el.getBoundingClientRect().height;
-      return { index: i, height: Math.round(h), sheets: Math.max(1, Math.ceil(h / (PAGE_PX + 1))) };
+      el.style.minHeight = prev;
+      return h;
     });
+    return els.map((el, i) => ({
+      index: i,
+      height: Math.round(rendered[i]),
+      natural: +natural[i].toFixed(2),
+      headroom: +(PAGE_PX - natural[i]).toFixed(2),
+      sheets: Math.max(1, Math.ceil(rendered[i] / (PAGE_PX + 1))),
+    }));
   }, PAGE_PX, selector);
 }
 
@@ -140,9 +188,18 @@ async function measureLayout(page, selector) {
   try {
     for (const [kind, cfg] of Object.entries(REPORTS)) {
      for (const fx of (cfg.fixtures || ['sp4', 'sx7'])) {
-      const apiResult = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
-      {
-        console.log(`\n=== ${fx} · ${kind} ===`);
+      const fixture = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
+      for (const asType of (cfg.types || [null])) {
+        const apiResult = asType == null ? fixture : (() => {
+          const c = JSON.parse(JSON.stringify(fixture));
+          c.hypothesis.confirmed_type = asType;
+          c.hypothesis.confirmed_type_name = null;                 // suppress the name-drift flag
+          c.hypothesis.alternate_candidate = (asType % 9) + 1;
+          const pb = c.coach_report && c.coach_report.section6 && c.coach_report.section6.pushes_back;
+          if (pb) pb.alt_type_name = null;
+          return c;
+        })();
+        console.log(`\n=== ${fx}${asType == null ? '' : ` as Type ${asType}`} · ${kind} ===`);
         let html;
         try {
           html = await cfg.build(apiResult);
@@ -150,7 +207,8 @@ async function measureLayout(page, selector) {
           fail(`${kind} build threw: ${e.message}`);
           continue;
         }
-        fs.writeFileSync(path.join(OUT, `${kind}_${fx}.html`), html);
+        const tag = asType == null ? fx : `${fx}_t${asType}`;
+        fs.writeFileSync(path.join(OUT, `${kind}_${tag}.html`), html);
 
         const page = await browser.newPage();
         await page.setViewport({ width: 816, height: PAGE_PX, deviceScaleFactor: 1 });
@@ -168,9 +226,12 @@ async function measureLayout(page, selector) {
         for (const p of pages) {
           sheets += p.sheets;
           const spill = p.height > PAGE_PX + 1 ? `  *** SPILL → ${p.sheets} sheets` : '';
-          console.log(`  ${(cfg.labels[p.index] || 'page ' + p.index).padEnd(16)} ${p.height}px${spill}`);
+          // headroom, not height, is the informative number — see measureLayout.
+          const room = p.headroom < 0 ? `OVER by ${(-p.headroom).toFixed(2)}px` : `${p.headroom.toFixed(2)}px free`;
+          console.log(`  ${(cfg.labels[p.index] || 'page ' + p.index).padEnd(16)} ${p.height}px  ` +
+                      `stack ${p.natural.toFixed(2)}px  ${room}${spill}`);
           if (cfg.enforceSheet && p.height > PAGE_PX + 1) {
-            fail(`${kind} ${cfg.labels[p.index] || 'page ' + p.index} spills to ${p.sheets} sheets (${p.height}px > ${PAGE_PX}px)`);
+            fail(`${kind}${asType == null ? '' : ' Type ' + asType} ${cfg.labels[p.index] || 'page ' + p.index} spills to ${p.sheets} sheets (${p.height}px > ${PAGE_PX}px)`);
           }
         }
         if (pages.length !== cfg.expected) {
@@ -184,9 +245,9 @@ async function measureLayout(page, selector) {
           }
           if (!hb.length) console.log('  hyphenation: no word split across lines');
         }
-        await page.pdf({ path: path.join(OUT, `${kind}_${fx}.pdf`), ...R.buildCoachPdfOptions() });
+        await page.pdf({ path: path.join(OUT, `${kind}_${tag}.pdf`), ...R.buildCoachPdfOptions() });
         await page.close();
-        console.log(`  logical pages: ${pages.length} · estimated physical sheets: ${sheets} · wrote .phase6_out/${kind}_${fx}.pdf`);
+        console.log(`  logical pages: ${pages.length} · estimated physical sheets: ${sheets} · wrote .phase6_out/${kind}_${tag}.pdf`);
       }
      }
     }
