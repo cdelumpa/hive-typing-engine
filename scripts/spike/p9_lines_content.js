@@ -20,9 +20,9 @@
 const P9_SPIKE = {
   1: {
     stress_narrative: "Under pressure, Ones shift toward Four energy — more emotional, melancholic, focused on what's missing. The composed surface cracks and feeling floods in.",
-    stress_band: 'Under pressure: melancholy, flooding. Consciously accessed: depth, honesty.',
+    stress_band: 'Accessed intentionally: depth, honesty, emotional range.',
     security_narrative: 'When Ones feel safe and resourced, they move toward Seven energy — more spontaneous, playful, open to possibility. The grip of the standard loosens.',
-    security_band: 'In flow: spontaneity, play, pleasure. Available now: letting things be imperfect.',
+    security_band: 'Accessed intentionally: spontaneity, play, real pleasure.',
     stress: [
       'Your standards go unmet, your effort unnoticed, and something underneath now feels personal.',
       'The self-correction turns inward and sours into a heavier, far more private sense of being unseen.',
@@ -34,16 +34,16 @@ const P9_SPIKE = {
       'Rest stops needing to be earned, and pleasure stops arriving only after the list is finished.',
     ],
     work: [
-      'You notice the correcting turn inward, and the tone of it getting personal.',
-      "The one flaw has filled the frame, and the rest of what's true has gone out of view.",
-      'Name what good enough actually looks like here, out loud, before you revise again.',
+      'You notice the correcting turn inward, and the tone getting personal.',
+      "One flaw has filled the frame, and the rest of what's true is gone.",
+      'Say out loud what good enough looks like here, before revising again.',
     ],
   },
   4: {
     stress_narrative: 'Under pressure, Fours shift toward Two energy — more focused on others, over-giving, seeking connection by being needed. The inward focus turns outward.',
-    stress_band: 'Under pressure: over-giving, losing self. Consciously accessed: warmth, real care.',
+    stress_band: 'Accessed intentionally: warmth, generosity, genuine care.',
     security_narrative: 'When Fours feel safe and supported, they move toward One energy — more disciplined, more structured, able to act on their ideals rather than only feel them.',
-    security_band: 'In flow: discipline, structure, action. Available now: steady follow-through.',
+    security_band: 'Accessed intentionally: discipline, structure, follow-through.',
     stress: [
       'The connection you want is not arriving, so you work harder to earn yourself a place in it.',
       'Attention swings outward: you tend to their needs closely and stop naming any of your own.',
@@ -55,16 +55,16 @@ const P9_SPIKE = {
       'The work stops waiting on the mood, and something gets finished while the feeling still moves.',
     ],
     work: [
-      "You notice yourself tending to everyone else's needs and going quiet about your own.",
-      "The connection you wanted still isn't arriving, and now you've disappeared into earning it.",
-      "Say one true thing you actually want, before you've worked out whether it's welcome.",
+      'You notice yourself tending to everyone else and going quiet.',
+      'You have gone missing from your own day, and no one has noticed.',
+      'Say one true thing you want, before deciding if it is welcome.',
     ],
   },
   8: {
     stress_narrative: 'Under pressure, Eights shift toward Five energy — more withdrawn, cerebral, detached. The forward-moving force goes quiet and retreats into the mind.',
-    stress_band: 'Under pressure: withdrawal, detachment. Consciously accessed: strategy, patience.',
+    stress_band: 'Accessed intentionally: strategy, patience, careful observation.',
     security_narrative: 'When Eights feel safe and resourced, they move toward Two energy — warmer, more openly caring, more willing to tend to others without the armor on.',
-    security_band: 'In flow: warmth, care, attunement. Available now: strength as generosity.',
+    security_band: 'Accessed intentionally: warmth, attunement, strength as generosity.',
     stress: [
       'The situation stops yielding to force, and pushing harder is no longer changing anything.',
       'The forward motion goes quiet: you pull back, say less, and handle it alone in your head.',
