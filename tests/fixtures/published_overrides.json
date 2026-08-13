@@ -1,0 +1,34 @@
+{
+  "_meta": {
+    "purpose": "A published-override map for offline tests. Recommendation 7 of docs/client_report_test_coverage_audit_072326.md: every harness renders with an EMPTY override map, so override breakage is invisible in testing. This fixture is the map.",
+    "source": "Shapes transcribed from the seven rows published to production 13-29 June 2026, read 12 August 2026. Values are sentinels, not the production copy — the fixture exists to exercise shape handling, not to mirror content.",
+    "captured": "2026-08-12"
+  },
+
+  "matching": {
+    "_note": "Same shape as the current library. Must resolve cleanly and change the rendered output.",
+    "subtype_sx9.tagline": "FIXTURE tagline for the One-to-One Nine",
+    "static.wings_using": "FIXTURE wings-and-lines bullet one.\nFIXTURE bullet two."
+  },
+
+  "drifted": {
+    "_note": "The real defect, reproduced. static.welcome as published in June predates the `signoff` key PR 2 added on 12 Aug 2026; type_1.wings carries the v2 wing shape and predates the overview/bullets/resource/intro_v3 fields PR 1 added on 11 Aug. Both must throw.",
+    "static.welcome": {
+      "subhead": "FIXTURE subhead.",
+      "letters": ["FIXTURE letter one.", "FIXTURE letter two.", "FIXTURE letter three.", "FIXTURE letter four.", "FIXTURE letter five."],
+      "callout": "FIXTURE callout retained from the v2 design."
+    },
+    "type_9.wings": {
+      "wing_a": { "target_type": 8, "body": "FIXTURE v2 wing body for the Eight wing." },
+      "wing_b": { "target_type": 1, "body": "FIXTURE v2 wing body for the One wing." }
+    }
+  },
+
+  "cardinality": {
+    "_note": "Same fields, different array length. A coach adding a practice bullet is a legitimate edit and must NOT throw — the guard is about shape, not count.",
+    "type_9.practices": {
+      "intro": "FIXTURE practices intro.",
+      "bullets": ["FIXTURE bullet one.", "FIXTURE bullet two.", "FIXTURE bullet three.", "FIXTURE bullet four.", "FIXTURE bullet five.", "FIXTURE bullet six.", "FIXTURE bullet seven."]
+    }
+  }
+}

@@ -24,3 +24,6 @@ docs/Coach Portal Screens/
 # generated 168px data URIs are what the report actually uses.
 docs/hive_cai_headshot-round_kit_091125.png
 docs/mo_headshot_square_07162-4.jpeg
+
+# Snapshots written by scripts/retire_overrides.js before a delete — production content, not source.
+.override_snapshots/

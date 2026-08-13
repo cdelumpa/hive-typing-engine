@@ -5,10 +5,11 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test ../tests/auth_test.js ../tests/redirect_logic_test.js ../tests/stage1_scoring_test.js ../tests/timing_test.js ../tests/report_pages_test.js",
+    "test": "node --test ../tests/auth_test.js ../tests/redirect_logic_test.js ../tests/stage1_scoring_test.js ../tests/timing_test.js ../tests/report_pages_test.js ../tests/content_overrides_test.js",
     "test:fixtures": "node ../tests/run_test.js",
     "verify:render": "node ../scripts/verify_phase4_prep.js && node ../scripts/render_client.js",
-    "content:check": "node ../scripts/verify_content_library.js"
+    "content:check": "node ../scripts/verify_content_library.js",
+    "overrides:check": "node ../scripts/overrides_check.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.39.0",

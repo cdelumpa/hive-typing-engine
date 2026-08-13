@@ -55,6 +55,7 @@ async function measureLayout(page) {
 }
 
 (async () => {
+  await require(path.join(ROOT, 'scripts/lib/override_banner.js')).printOverrideBanner();
   const browser = await launch();
   try {
     for (const fx of ['sp4', 'sx7']) {
