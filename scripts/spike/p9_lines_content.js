@@ -39,6 +39,48 @@ const P9_SPIKE = {
       'Say out loud what good enough actually looks like here, and then let the work be finished at that.',
     ],
   },
+  2: {
+    stress_narrative: 'Under pressure, Twos shift toward Eight — more forceful, blunt, and openly angry. The warmth hardens into demand.',
+    stress_band: 'Draw on it when you need directness, backbone, and the will to say what you actually want.',
+    security_narrative: 'When Twos feel safe and supported, they move toward Four energy — more inward and honest about their own needs. The attention turns home.',
+    security_band: 'Draw on it when you need depth, honesty, and real contact with what you actually feel.',
+    stress: [
+      'The giving has not been returned, and something owed is starting to feel unpaid.',
+      'You stop asking and start telling, and the edge in your voice surprises people.',
+      'The help you gave becomes a debt you are collecting, and that changes what it was.',
+    ],
+    security: [
+      'You know what you are feeling before you know what anyone else needs from you.',
+      'It becomes reachable when being liked stops being the price of being yourself.',
+      'Your own wanting becomes something to follow rather than something to apologize for.',
+    ],
+    work: [
+      'You notice the giving turning into keeping score, and the warmth going hard at the edges of what you say.',
+      'The care you meant to give has turned into an account you are quietly keeping, and other people can feel it.',
+      'Ask for the thing you want directly, out loud, before the asking turns into a bill for services.',
+    ],
+  },
+  3: {
+    stress_narrative: 'Under pressure, Threes shift toward Nine — more disengaged, diffuse, unable to mobilize. The engine stalls out.',
+    stress_band: 'Draw on it when you need rest, presence, and the ability to stop without losing yourself.',
+    security_narrative: 'When Threes feel safe and supported, they move toward Six — more loyal and collaborative. Success stops being a solo project.',
+    security_band: 'Draw on it when you need loyalty, trust, and a purpose you share with other people.',
+    stress: [
+      'The results stopped landing, and effort no longer converts into anything visible.',
+      'You go quiet and busy at once: motion without traction, tasks without the goal.',
+      'The drive that usually carries you is the exact thing that will not start now.',
+    ],
+    security: [
+      'You work with people rather than past them, and the win stops being only yours.',
+      'It becomes reachable when you let someone see the effort and not just the result.',
+      'Belonging stops competing with achievement, and starts making it worth something.',
+    ],
+    work: [
+      'You notice the momentum going flat, and yourself filling the day with motion that goes nowhere.',
+      'The harder you push the less moves, and the person underneath the performance is out of reach.',
+      'Stop, and tell one person what is actually going on for you before you produce another result.',
+    ],
+  },
   4: {
     stress_narrative: 'Under pressure, Fours shift toward Two energy — more focused on others, over-giving, seeking connection by being needed. The self recedes.',
     stress_band: 'Draw on it when you need warmth, generosity, and real attention to what someone else needs.',
@@ -58,6 +100,69 @@ const P9_SPIKE = {
       "You notice yourself tending closely to everyone else's needs, and going quiet about anything of your own.",
       'You have gone missing from your own day, and nobody has noticed because you are being so useful.',
       'Say one thing you actually want, out loud, before you have worked out whether it will be welcome.',
+    ],
+  },
+  5: {
+    stress_narrative: 'Under pressure, Fives shift toward Seven energy — more scattered, restless, escaping into possibility. The careful focus fragments.',
+    stress_band: 'Draw on it when you need spontaneity, range, and a reason to come out and engage.',
+    security_narrative: 'When Fives feel safe and resourced, they move toward Eight — more assertive, embodied, willing to act. Thinking turns into doing.',
+    security_band: 'Draw on it when you need presence, directness, and the will to act on what you know.',
+    stress: [
+      'The demands have outrun what you have to give, and the reserve is nearly gone.',
+      'The mind starts running everywhere at once, and none of it settles into work.',
+      'What goes first is the depth: attention scatters across everything and lands nowhere.',
+    ],
+    security: [
+      'You take up space in the room, and what you understand finally arrives out loud.',
+      'It becomes reachable when there is enough left over to spend some of it on people.',
+      'Knowing stops being a private store, and starts being something you act on.',
+    ],
+    work: [
+      'You notice the focus fragmenting, and yourself reaching for anything other than the thing itself.',
+      'The energy you were guarding is going out sideways, and none of it is reaching the work that matters.',
+      'Pick the one thing, close everything else, and stay with it for longer than feels comfortable.',
+    ],
+  },
+  6: {
+    stress_narrative: 'Under pressure, Sixes shift toward Three energy — more driven, image-focused, outrunning the doubt. Activity replaces certainty.',
+    stress_band: 'Draw on it when you need drive, decisiveness, and the momentum to act before you are sure.',
+    security_narrative: 'When Sixes feel safe and supported, they move toward Nine — steadier, more accepting, less braced. The scanning quiets down.',
+    security_band: 'Draw on it when you need steadiness, ease, and the ability to let something be fine.',
+    stress: [
+      'The uncertainty has not resolved, so you start moving fast enough to outrun it.',
+      'Doing replaces deciding: you produce and perform while the question stays open.',
+      'The doubt does not leave, it just goes underground and waits for a quiet moment.',
+    ],
+    security: [
+      'The bracing stops: you are simply here, and nothing needs checking right now.',
+      'It becomes reachable when the people around you have earned the trust you gave.',
+      'Certainty stops being the price of calm, and the calm turns up without it anyway.',
+    ],
+    work: [
+      'You notice the scanning start up, and yourself getting busy so the open question has less room.',
+      'You are moving quickly and deciding nothing, and the doubt is waiting exactly where it was.',
+      'Name the thing you are actually unsure about, say it out loud, and then make the call anyway.',
+    ],
+  },
+  7: {
+    stress_narrative: 'Under pressure, Sevens shift toward One energy — more critical, rigid, sharply focused on what is wrong. The optimism narrows.',
+    stress_band: 'Draw on it when you need discernment, standards, and the discipline to finish something.',
+    security_narrative: 'When Sevens feel safe and resourced, they move toward Five — more focused and reflective. Breadth turns into depth.',
+    security_band: 'Draw on it when you need focus, quiet, and the patience to go all the way in.',
+    stress: [
+      'The exits have closed and the reframe is not working, so something has to be wrong.',
+      'The lightness goes sharp: you start correcting, judging, finding fault out loud.',
+      'What you were outrunning has caught up, and now it is looking for someone to blame.',
+    ],
+    security: [
+      'You stay with one thing for long enough that it actually becomes yours to keep.',
+      'It becomes reachable when stopping stops feeling like something is being lost.',
+      'Depth turns out to hold more than the next option ever did, and you notice.',
+    ],
+    work: [
+      'You notice the mood turning sharp, and yourself finding fault with whatever is in front of you.',
+      'The thing you were moving away from has arrived anyway, and the irritation is where it lives.',
+      'Stay in the room with the discomfort for one more minute before you reach for the next thing.',
     ],
   },
   8: {
