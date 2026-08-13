@@ -1,7 +1,7 @@
 {
   "_meta": {
     "source": "InsightOut_Static_Content_Library_v1_060526.docx",
-    "source_sha256": "e7aec0aa726a1f019a40bb956860b914b4c085434d5693c212e85bdaf9eec551",
+    "source_sha256": "a28e8d0f0f3f8149f92f4facc353df8bbb33cb83cf3a1e68e68273d81e68ba54",
     "version": "v1_060526"
   },
   "static": {
@@ -15,7 +15,7 @@
         "We're honored to be on this journey with you."
       ],
       "signoff": "With gratitude and respect,",
-      "callout": "You are the final authority on your own type. If something in here resonates deeply, wonderful — that’s the recognition we’re going for. If something doesn’t quite fit, that’s useful information too. Hold all of it lightly, and stay curious."
+      "callout": "You are the final authority on your own type. If something in here resonates deeply, wonderful — that's the recognition we're going for. If something doesn't quite fit, that's useful information too. Hold all of it lightly, and stay curious."
     },
     "primer": {
       "intro": "The Enneagram is a dynamic system that describes nine distinct ways of being in the world: nine strategies, shaped early in life, for how to get love, belonging, and control. Each type is anchored by a core worldview and a deep, core motivation that drives how we think, feel, and behave.\n\nUnderstanding our type is about seeing the pattern clearly enough that we have a choice about it. Below is an introduction to the nine types and their core motivation, along with the gifts each one offers.",
@@ -28,7 +28,7 @@
         },
         {
           "title": "Motivational",
-          "body": "Driven by your deeper “why”, not just what you do."
+          "body": "Driven by your deeper \"why\", not just what you do."
         },
         {
           "title": "Relational",
@@ -104,7 +104,7 @@
     },
     "wings_primer": "Wings are the two types adjacent to your core type. They flavor how your core pattern shows up, not changing who you are but adding color and texture. Most people lean toward one wing; some experience both equally.",
     "lines_primer": "Each type has two resource points connected by lines on the diagram. Your stress point is the type your energy moves toward under pressure — often showing up as uncharacteristic behavior. Your security point is where you go when you feel safe and in flow. Awareness of these movements gives you choice about how to work with them.",
-    "wings_using": "Notice which wing is more active this week. You don’t need to pick one permanently — just observe where the texture is coming from right now.\nUse your stress point as an early warning system. When you notice yourself moving into that pattern, something important has been pushed aside.\nYour security point is a resource, not just a destination. You can consciously move toward those qualities before you need them.\nWings and lines aren’t fixed. They’re dynamic — the texture of your type shifts with context, stress, and growth.",
+    "wings_using": "Notice which wing is more active this week. You don't need to pick one permanently — just observe where the texture is coming from right now.\nUse your stress point as an early warning system. When you notice yourself moving into that pattern, something important has been pushed aside.\nYour security point is a resource, not just a destination. You can consciously move toward those qualities before you need them.\nWings and lines aren't fixed. They're dynamic — the texture of your type shifts with context, stress, and growth.",
     "instinct_primer": "Alongside your core type, you have a dominant instinct — one of three innate drives that shape where your survival energy goes first. All three instincts are present in everyone, but one tends to run the show. Understanding your dominant instinct helps explain why two people of the same type can look quite different in practice.",
     "instinct_definitions": [
       {
@@ -277,8 +277,8 @@
       "bullets": [
         "Notice the impulse to act before you act. A breath or a count to ten isn't weakness — it's choosing the response instead of running on it.",
         "When anger or intense energy arrives quickly, get curious about what's underneath. Eights often use anger to cover softer feelings — hurt, fear, disappointment — that are harder to access.",
-        "Investigate the difference between weakness and vulnerability. Vulnerability is the capacity to be affected — not the same as being powerless. Strength and tenderness can live in the same body.",
-        "Notice the impact of your intensity on others — not to shrink it, but to choose when to bring its full force and when to bring something softer.",
+        "Investigate the difference between weakness and vulnerability. Vulnerability is the capacity to be affected, not the same as being powerless. Strength and tenderness can live in the same body.",
+        "Notice the impact of your intensity on others, not to shrink it, but to choose when to bring its full force and when to bring something softer.",
         "Practice being less certain. Be open to the possibility that someone else's perspective — especially when it contradicts yours — might contain a truth worth hearing."
       ]
     },
@@ -295,7 +295,7 @@
         "Others may hear certainty as closure — your directness can signal that the conversation is over before they've had a chance to contribute.",
         "Intensity is a default setting — the volume you experience as normal may land louder than you intend.",
         "Slowing down slightly, asking before stating, creates room for others to bring something you might not have considered.",
-        "Naming your intent upfront (“I want to think this through with you, not just tell you what I think”) lowers the temperature before you've even started."
+        "Naming your intent upfront (\"I want to think this through with you, not just tell you what I think\") lowers the temperature before you've even started."
       ]
     },
     "conflict": {
@@ -343,7 +343,7 @@
     "code": "SP8",
     "name": "Self-Preservation Eight",
     "tagline": "The Survivalist — protective energy turned inward, building a fortress and a circle",
-    "narrative": "Self-Preservation Eights focus their protective energy on survival and territory — home, resources, and the people inside their close circle. There's often a preoccupation with having what you need: security, independence, and control over your own environment. The Eight's power goes into building and maintaining a domain that others can't easily penetrate or disrupt.\n\nOf the three Eight subtypes, SP Eights tend to be the most contained — observing situations before moving, reading dynamics carefully, and acting when the moment is right. Relationships tend to be “in or out,” with fierce loyalty to those inside and real wariness toward those outside. The intensity is there; it's just channeled into protection rather than open display.",
+    "narrative": "Self-Preservation Eights focus their protective energy on survival and territory — home, resources, and the people inside their close circle. There's often a preoccupation with having what you need: security, independence, and control over your own environment. The Eight's power goes into building and maintaining a domain that others can't easily penetrate or disrupt.\n\nOf the three Eight subtypes, SP Eights tend to be the most contained — observing situations before moving, reading dynamics carefully, and acting when the moment is right. Relationships tend to be \"in or out,\" with fierce loyalty to those inside and real wariness toward those outside. The intensity is there; it's just channeled into protection rather than open display.",
     "patterns": {
       "thinking": [
         "Attention goes to resources and territory — who controls what, whether the environment is secure, where the vulnerabilities are.",
@@ -371,15 +371,15 @@
     "code": "SO8",
     "name": "Social Eight",
     "tagline": "The Group Leader — power in service of a cause, loyalty as identity",
-    "narrative": "Social Eights redirect Eight energy outward — toward a group, a cause, or a fight that matters. They take a leadership role on behalf of those who can’t protect themselves, and their loyalty to people and principles runs deep. What drives this is a felt sense of moral weight as opposed to altruism.\n\nThe Social Eight is the countertype of Type 8, which means the classic confrontational, dominating image fits less cleanly here. The anger is organized around the group’s welfare, not personal power, and the force is directed outward toward injustice. This can make Social Eights read more like a Type Two or Type Six from the outside.",
+    "narrative": "Social Eights redirect Eight energy outward — toward a group, a cause, or a fight that matters. They take a leadership role on behalf of those who can't protect themselves, and their loyalty to people and principles runs deep. What drives this is a felt sense of moral weight as opposed to altruism.\n\nThe Social Eight is the countertype of Type 8, which means the classic confrontational, dominating image fits less cleanly here. The anger is organized around the group's welfare, not personal power, and the force is directed outward toward injustice. This can make Social Eights read more like a Type Two or Type Six from the outside.",
     "patterns": {
       "thinking": [
-        "Attention lands on group dynamics first — who has power, who’s being marginalized, where the system is failing people.",
+        "Attention lands on group dynamics first — who has power, who's being marginalized, where the system is failing people.",
         "Strategic about choosing fights; they pick their spots carefully.",
         "Loyalty to the group creates blind spots and can obscure where people fall short in their eyes."
       ],
       "feeling": [
-        "Anger at injustice is the primary fuel — organized around the group’s welfare, not personal grievance.",
+        "Anger at injustice is the primary fuel — organized around the group's welfare, not personal grievance.",
         "The forgiveness/justice tension is real and recurring. The pull toward accountability can be hard to release.",
         "Tenderness is reserved and flows outward towards a small, trusted inner circle."
       ],
@@ -399,12 +399,12 @@
     "code": "SX8",
     "name": "One-to-One Eight",
     "tagline": "The Director — intensity channeled into deep connection, provocation as contact",
-    "narrative": "One-to-One Eights have big, outgoing energy that seeks full engagement. Their force goes into significant relationships — the people they are most alive with, most in conflict with, and most protective of. Where the Social Eight fights for the group and the SP Eight protects the territory, the SX Eight wants complete connection: to know and be known, to push and be pushed back.\n\nThere’s a paradox at the heart of this subtype. The SX Eight projects enormous force — commanding, rebellious, possessive — but underneath is a longing to surrender, to trust completely, to find someone who can hold their full force without flinching. What’s easy to miss is the yearning underneath — rarely visible, rarely expressed.",
+    "narrative": "One-to-One Eights have big, outgoing energy that seeks full engagement. Their force goes into significant relationships — the people they are most alive with, most in conflict with, and most protective of. Where the Social Eight fights for the group and the SP Eight protects the territory, the SX Eight wants complete connection: to know and be known, to push and be pushed back.\n\nThere's a paradox at the heart of this subtype. The SX Eight projects enormous force — commanding, rebellious, possessive — but underneath is a longing to surrender, to trust completely, to find someone who can hold their full force without flinching. What's easy to miss is the yearning underneath — rarely visible, rarely expressed.",
     "patterns": {
       "thinking": [
         "Attention focuses on the significant other — their loyalty and the intensity of the connection.",
-        "Highly attuned to power within relationships: who’s giving, who’s withholding, whether the connection is real or performed.",
-        "Provocation can be intentional — testing others’ capacity to be with their big energy and power."
+        "Highly attuned to power within relationships: who's giving, who's withholding, whether the connection is real or performed.",
+        "Provocation can be intentional — testing others' capacity to be with their big energy and power."
       ],
       "feeling": [
         "Emotional intensity is the most available of all three Eight subtypes; it's raw, immediate, hard to contain.",
@@ -436,7 +436,7 @@
           "Attention goes to others' agendas and to keeping the peace — your own position can be the last thing that comes into focus.",
           "Decisions can feel hard because every side has merit; seeing all perspectives makes choosing one uncomfortable.",
           "The mind tends to diffuse into comfortable routines and side-tasks rather than the one thing that matters most.",
-          "Knowing what you don't want is often clearer than knowing what you do — the “yes” takes more work to locate.",
+          "Knowing what you don't want is often clearer than knowing what you do — the \"yes\" takes more work to locate.",
           "Mental merging means you can absorb others' opinions so thoroughly they start to feel like your own.",
           "When pushed to assert, a quiet stubbornness can appear — a holding-the-line that surprises people who expected easy agreement."
         ],
@@ -449,7 +449,7 @@
           "The emotional baseline is even and agreeable; strong feeling can seem like a disruption to be managed.",
           "Discomfort gets soothed through comfort and routine rather than addressed directly.",
           "Self-forgetting is emotional too — your own feelings can be the ones that get least attention.",
-          "When anger does surface, it can come out sideways: passive resistance, withdrawal, or a sudden immovable “no.”",
+          "When anger does surface, it can come out sideways: passive resistance, withdrawal, or a sudden immovable \"no.\"",
           "Underneath the calm is a real tenderness and care — the feeling is there; the work is staying with it."
         ],
         "inquiry": "What do you do with anger when it shows up — and where does it go?"
@@ -544,7 +544,7 @@
     "practices": {
       "intro": "These practices can help you build on what's already working and work with the patterns that can hold you back.",
       "bullets": [
-        "Practice locating your own position before you ask for everyone else's. Even a small, private “I want…” builds the muscle of knowing your own mind.",
+        "Practice locating your own position before you ask for everyone else's. Even a small, private \"I want...\" builds the muscle of knowing your own mind.",
         "Notice when you're soothing discomfort with routine, food, or distraction instead of addressing what's actually bothering you.",
         "Treat anger as information, not a threat to connection. The thing that irritates you is often pointing at a priority you've set aside.",
         "Pick the one essential thing before the day diffuses into secondary tasks. Doing the important thing first protects it from inertia.",
@@ -562,9 +562,9 @@
       ],
       "watch_for": [
         "Others may not know what you think, because you've prioritized harmony over stating your view.",
-        "Saying “I don't mind” too often trains people to stop asking what you want.",
+        "Saying \"I don't mind\" too often trains people to stop asking what you want.",
         "Naming your position early — before you've smoothed it into everyone else's — gives the room something real to work with.",
-        "Your “yes” means more when people know you'll also say “no.” Letting disagreement show builds trust, not conflict."
+        "Your \"yes\" means more when people know you'll also say \"no.\" Letting disagreement show builds trust, not conflict."
       ]
     },
     "conflict": {
@@ -587,14 +587,14 @@
       "subhead": "Coming Back to Center — Coming Back Into Your Own Body",
       "framework": "Body / Gut Center",
       "bullets": [
-        "As a Body Center type, your knowing lives in the gut — but for Nines, that signal is often numbed before it registers.",
+        "As a Body Center type, your knowing lives in the gut, but for Nines, that signal is often numbed before it registers.",
         "The Body Center's organizing emotion is anger, and for Nines it's the most submerged. Reconnecting with it is reconnecting with your own priorities.",
-        "Presence, for you, means showing up as a distinct self — not merging into the field around you.",
+        "Presence, for you, means showing up as a distinct self, not merging into the field around you.",
         "The goal isn't to become forceful; it's to stop disappearing — to take up the space that's already yours."
       ],
       "off_center": [
         "Signals: going along, diffusing into busywork, a vague sense of absence or 'checking out' of your own life.",
-        "The return path: physical and direct. Movement, a clear small action, asking yourself “what do I want” wakes the body up.",
+        "The return path: physical and direct. Movement, a clear small action, asking yourself \"what do I want\" wakes the body up.",
         "Notice numbing in real time — the second helping, the extra episode, the easy yes. That's the pattern, gently visible.",
         "Moving toward your security point (Type 3) means letting yourself want something and act on it."
       ]
@@ -612,21 +612,21 @@
     "code": "SP9",
     "name": "Self-Preservation Nine",
     "tagline": "The Collector — peace through comfort, routine, and the familiar",
-    "narrative": "Self-Preservation Nines create the practical rhythms and comforts that make daily life feel safe and settled. Peace comes through the body and the environment — good food, familiar routines, a comfortable space, the satisfying accumulation of things that soothe. There can be a tendency to narcotizing through habit and consumption.\n\nOf the three Nine subtypes, SP Nines are the least visibly “peacemaking“ in the social sense — they keep the peace through their own routines rather than by managing groups or merging with a partner. This can read as self-sufficiency or contentment rather than conflict-avoidance, which is why SP Nines are sometimes the hardest Nines to spot.",
+    "narrative": "Self-Preservation Nines create the practical rhythms and comforts that make daily life feel safe and settled. Peace comes through the body and the environment — good food, familiar routines, a comfortable space, the satisfying accumulation of things that soothe. There can be a tendency to narcotizing through habit and consumption.\n\nOf the three Nine subtypes, SP Nines are the least visibly \"peacemaking\" in the social sense — they keep the peace through their own routines rather than by managing groups or merging with a partner. This can read as self-sufficiency or contentment rather than conflict-avoidance, which is why SP Nines are sometimes the hardest Nines to spot.",
     "patterns": {
       "thinking": [
-        "Attention goes to comfort and routine — what’s familiar, what’s soothing, and what brings calm.",
+        "Attention goes to comfort and routine — what's familiar, what's soothing, and what brings calm.",
         "Practical and concrete; abstract priorities replaced by what's right in front of them.",
         "The essential task can get crowded out by comfortable, non-essential \"busy-ness\"."
       ],
       "feeling": [
         "The emotional baseline is steady and content — strong feeling gets smoothed over through habit.",
-        "Anger and discontent are numbed early, often through the body before they’re fully felt.",
+        "Anger and discontent are numbed early, often through the body before they're fully felt.",
         "Underneath the calm can be resistance to anything that disrupts the familiar."
       ],
       "behaving": [
         "Builds and protects comfortable routines; resists disruption to the established rhythm of life.",
-        "Self-sufficient and grounded, masking an avoidance of conflict or what’s uncomfortable."
+        "Self-sufficient and grounded, masking an avoidance of conflict or what's uncomfortable."
       ]
     },
     "shifts": [
@@ -639,22 +639,22 @@
     "code": "SO9",
     "name": "Social Nine",
     "tagline": "The Community Benefactor — peace through participation and belonging",
-    "narrative": "Social Nines blend with the style and agenda of their groups, working hard on behalf of the collective as a way of belonging. They are often the most visibly “peacemaking“ Nines — mediating, including, showing up for the group’s harmony. Real generosity sits alongside a tendency to merge with the group and lose oneself.\n\nUnderneath the engaged, agreeable exterior is a quiet ambivalence about belonging, a longing to be fully part of the group paired with an uncertainty about whether they truly do belong. The hard work can look like earning one's place, and the inner question of do I fit in? rarely surfaces.",
+    "narrative": "Social Nines blend with the style and agenda of their groups, working hard on behalf of the collective as a way of belonging. They are often the most visibly \"peacemaking\" Nines — mediating, including, showing up for the group's harmony. Real generosity sits alongside a tendency to merge with the group and lose oneself.\n\nUnderneath the engaged, agreeable exterior is a quiet ambivalence about belonging, a longing to be fully part of the group paired with an uncertainty about whether they truly do belong. The hard work can look like earning one's place, and the inner question of do I fit in? rarely surfaces.",
     "patterns": {
       "thinking": [
-        "Attention goes to the group’s agenda and harmony — reading the collective mood, finding where things align.",
+        "Attention goes to the group's agenda and harmony — reading the collective mood, finding where things align.",
         "Sees all sides in group dynamics and can sacrifice their own stance to preserve the peace.",
         "The question of belonging runs underneath: am I truly part of this group?"
       ],
       "feeling": [
         "Warm and inclusive toward the group, with a genuine care for collective wellbeing.",
-        "Personal feelings merge with the group’s mood or atmosphere.",
+        "Personal feelings merge with the group's mood or atmosphere.",
         "A quiet ambivalence about belonging can sit beneath the engaged, agreeable surface."
       ],
       "behaving": [
         "Works hard on behalf of groups and causes — organizing, mediating, contributing selflessly.",
-        "Blends with the group’s style and agenda, losing track of one's own perspective.",
-        "Can “fall asleep“ in a comfortable social role, mistaking participation for genuine belonging."
+        "Blends with the group's style and agenda, losing track of one's own perspective.",
+        "Can \"fall asleep\" in a comfortable social role, mistaking participation for genuine belonging."
       ]
     },
     "shifts": [
@@ -667,7 +667,7 @@
     "code": "SX9",
     "name": "One-to-One Nine",
     "tagline": "The Seeker — peace through merging with a beloved other",
-    "narrative": "One-to-One Nines find peace through deep union — merging with an intimate partner, with nature, or with something larger than themselves. The longing is for fusion: to dissolve the separateness that feels lonely and to lose oneself in connection.\n\nSX Nines can look intensely devoted, even consumed by their most important relationship — which doesn’t match the classic easygoing Nine image. They may be mistaken for Fours (in the longing) or Twos (in the merging). The self-forgetting happens through the beloved: their own desires dissolve into the other’s, and boundaries are genuinely hard to hold.",
+    "narrative": "One-to-One Nines find peace through deep union — merging with an intimate partner, with nature, or with something larger than themselves. The longing is for fusion: to dissolve the separateness that feels lonely and to lose oneself in connection.\n\nSX Nines can look intensely devoted, even consumed by their most important relationship — which doesn't match the classic easygoing Nine image. They may be mistaken for Fours (in the longing) or Twos (in the merging). The self-forgetting happens through the beloved: their own desires dissolve into the other's, and boundaries are genuinely hard to hold.",
     "patterns": {
       "thinking": [
         "Attention orients around the beloved other; their moods and presence become the organizing center.",
@@ -705,7 +705,7 @@
           "Attention goes straight to the flaw — the error, the gap, the thing that isn't right yet.",
           "Thinking is organized around standards: there's a correct way, and deviations register immediately.",
           "The inner critic runs continuously, applying the same exacting standard inward as outward.",
-          "Right and wrong feel clear and binary; gray areas and “good enough” create real discomfort.",
+          "Right and wrong feel clear and binary; gray areas and \"good enough\" create real discomfort.",
           "Improvement is the default mental mode — even good things get scanned for what could be better.",
           "There's often a sense of personal responsibility for getting it right that others don't seem to share."
         ],
@@ -714,7 +714,7 @@
       "feeling": {
         "intro": "Ones often experience a tight, contained relationship with feeling — especially anger, which the standard says should be controlled. The result is a quiet pressure that builds beneath a composed surface.",
         "bullets": [
-          "Anger is the core feeling — but it's judged as “bad,” so it gets suppressed and leaks out as irritation, tension, or resentment.",
+          "Anger is the core feeling — but it's judged as \"bad,\" so it gets suppressed and leaks out as irritation, tension, or resentment.",
           "Feelings get filtered through should: which ones are acceptable to have, and which need controlling.",
           "The body often holds the suppressed charge — tension, tightness, a clenched quality.",
           "Resentment builds quietly — at others who don't try as hard, and at the self for never quite measuring up.",
@@ -733,13 +733,13 @@
           "Procrastination can appear where the standard feels unreachable — better not to start than to do it badly.",
           "Reliability is real and deep: when you commit, it gets done, and done well."
         ],
-        "inquiry": "What would you do differently if “good enough” were actually enough?"
+        "inquiry": "What would you do differently if \"good enough\" were actually enough?"
       }
     },
     "inquiry_lines": [
       "What does your inner critic say — and whose voice is it using?",
       "Where do you feel the held tension in your body when something isn't right?",
-      "What would you do differently if “good enough” were actually enough?"
+      "What would you do differently if \"good enough\" were actually enough?"
     ],
     "wings": {
       "wing_a": {
@@ -788,15 +788,15 @@
       },
       {
         "title": "Rigidity",
-        "body": "Difficulty with gray areas, flexibility, and “good enough” — the right way can become the only way."
+        "body": "Difficulty with gray areas, flexibility, and \"good enough\" — the right way can become the only way."
       }
     ],
     "practices": {
       "intro": "These practices can help you build on what's already working and work with the patterns that can hold you back.",
       "bullets": [
-        "Notice the inner critic as a voice, not a fact. You can hear it without obeying it — and ask whether its standard is actually yours.",
+        "Notice the inner critic as a voice, not a fact. You can hear it without obeying it, and ask whether its standard is actually yours.",
         "Let anger be information. The irritation is pointing at something that matters; suppressing it just sends it underground.",
-        "Practice “good enough” on purpose. Choose something low-stakes and deliberately leave it imperfect — and notice you're still okay.",
+        "Practice \"good enough\" on purpose. Choose something low-stakes and deliberately leave it imperfect, and notice you're still okay.",
         "Cultivate warmth toward yourself. The standard you'd never impose on a friend is the one you apply to yourself daily.",
         "Make room for pleasure that has no purpose. Moving toward your security point (Type 7) means letting things be fun, not just correct."
       ]
@@ -813,7 +813,7 @@
       "watch_for": [
         "Constant correction, however accurate, can land as criticism — people hear the flaw before the appreciation.",
         "Leading with what's wrong before what's working can deflate the people you're trying to help.",
-        "Naming the standard explicitly (“here's what I'm aiming for”) helps others meet it without feeling judged.",
+        "Naming the standard explicitly (\"here's what I'm aiming for\") helps others meet it without feeling judged.",
         "Letting some warmth and approval through — not just the correction — makes the feedback land better."
       ]
     },
@@ -837,7 +837,7 @@
       "subhead": "Coming Back to Center — Releasing the Grip",
       "framework": "Body / Gut Center",
       "bullets": [
-        "As a Body Center type, your knowing lives in the gut — but for Ones it arrives pre-filtered through the standard of what's correct.",
+        "As a Body Center type, your knowing lives in the gut, but for Ones it arrives pre-filtered through the standard of what's correct.",
         "The Body Center's organizing emotion is anger, and for Ones it's controlled and judged rather than expressed.",
         "Presence, for you, means loosening the grip — letting the body relax out of its habitual tension.",
         "The goal isn't to abandon your standards; it's to hold them without the clench, with more ease and less self-attack."
@@ -845,7 +845,7 @@
       "off_center": [
         "Signals: physical tension, irritation, a tightening of the jaw or gut, the critic getting louder.",
         "The return path: release the body first. Breath, movement, and deliberate relaxation soften the grip the mind can't.",
-        "Notice the should in real time — “I should…,” “they should…” — and ask whether it's serving you.",
+        "Notice the should in real time — \"I should...,\" \"they should...\" — and ask whether it's serving you.",
         "Moving toward your security point (Type 7) means letting pleasure and play back in, no justification required."
       ]
     },
@@ -890,7 +890,7 @@
     "code": "SO1",
     "name": "Social One",
     "tagline": "The Social Reformer — standards turned toward how the world should work",
-    "narrative": "Social Ones channel their standards into the larger world — institutions, rules, social movements, the right way for a group or society to function. They carry a clear sense of how things should be done and a responsibility to model and advance it. They are often civic-minded, principled, and engaged, holding themselves up as an example of the correct way.\n\nThe challenge here is the difficulty flexing around others’ “incorrect“ words and actions. SO Ones can come across as principled and reform-minded rather than rigid, but the friction shows up clearly when someone doesn’t meet the standard they hold for the group.",
+    "narrative": "Social Ones channel their standards into the larger world — institutions, rules, social movements, the right way for a group or society to function. They carry a clear sense of how things should be done and a responsibility to model and advance it. They are often civic-minded, principled, and engaged, holding themselves up as an example of the correct way.\n\nThe challenge here is the difficulty flexing around others' \"incorrect\" words and actions. SO Ones can come across as principled and reform-minded rather than rigid, but the friction shows up clearly when someone doesn't meet the standard they hold for the group.",
     "patterns": {
       "thinking": [
         "Attention goes to how systems and groups should work - rules, structures, and standards.",
@@ -904,7 +904,7 @@
       ],
       "behaving": [
         "Models the correct behavior and advocates for it — civic-minded, engaged, reform-oriented.",
-        "Has difficulty adapting to others’ approaches if they don't exactly align to their standards.",
+        "Has difficulty adapting to others' approaches if they don't exactly align to their standards.",
         "Leads by example, modeling the right way of doing things."
       ]
     },
@@ -1045,9 +1045,9 @@
     "practices": {
       "intro": "These practices can help you build on what's already working and work with the patterns that can hold you back.",
       "bullets": [
-        "Practice naming your own needs out loud. “I need…” is not weakness — it's the honesty that lets others actually love you.",
+        "Practice naming your own needs out loud. \"I need...\" is not weakness — it's the honesty that lets others actually love you.",
         "Notice the ledger. When you feel resentful, look for the giving that quietly expected something back.",
-        "Let yourself receive without immediately repaying. Accepting help is its own practice — and it's how relationships balance.",
+        "Let yourself receive without immediately repaying. Accepting help is its own practice, and it's how relationships balance.",
         "Pause before helping. Ask whether help was wanted, and whether you're giving freely or to secure connection.",
         "Tend to your inner life. Moving toward your security point (Type 4) means making your own feelings as real as everyone else's."
       ]
@@ -1095,7 +1095,7 @@
       ],
       "off_center": [
         "Signals: depletion, resentment, losing track of your own needs, helping that has a compulsive edge.",
-        "The return path: ask “what do I need right now?” and let the answer matter as much as anyone else's.",
+        "The return path: ask \"what do I need right now?\" and let the answer matter as much as anyone else's.",
         "Notice the moment you reshape yourself to fit a relationship — that's the pattern, gently visible.",
         "Moving toward your security point (Type 4) means tending your own emotional life as fully as others'."
       ]
@@ -1113,17 +1113,17 @@
     "code": "SP2",
     "name": "Self-Preservation Two",
     "tagline": "The Family Nurturer — warmth with a childlike, reciprocal undercurrent (countertype)",
-    "narrative": "Self-Preservation Twos build warm, personable relationships and take care of others so they will be taken care of in return. There’s a childlike, endearing quality, and often an unspoken entitlement — “I’ve given so much, now it’s my turn“ — or its inverse, false modesty. The giving has a reciprocal undercurrent: care offered with an expectation of care received.\n\nThis is the countertype of Type 2. SP Twos can look more childlike, dependent, or even needy than the classic giving Two, and the helping can carry a conditional quality that isn’t obvious on the surface. The pride that resists receiving in other Twos is softer here — there’s a more direct, if unspoken, hope to be looked after.",
+    "narrative": "Self-Preservation Twos build warm, personable relationships and take care of others so they will be taken care of in return. There's a childlike, endearing quality, and often an unspoken entitlement — \"I've given so much, now it's my turn\" — or its inverse, false modesty. The giving has a reciprocal undercurrent: care offered with an expectation of care received.\n\nThis is the countertype of Type 2. SP Twos can look more childlike, dependent, or even needy than the classic giving Two, and the helping can carry a conditional quality that isn't obvious on the surface. The pride that resists receiving in other Twos is softer here — there's a more direct, if unspoken, hope to be looked after.",
     "patterns": {
       "thinking": [
         "Attention goes to close relationships and to being cared for in return.",
-        "Runs a silent reciprocation ledger; what’s been given, and what’s owed back.",
+        "Runs a silent reciprocation ledger; what's been given, and what's owed back.",
         "More focused on a small circle of important others."
       ],
       "feeling": [
         "Warmth comes with a childlike, endearing quality that draws others in.",
-        "A quiet entitlement (“now it’s my turn”) or its inverse (false modesty) is always present.",
-        "Hurt surfaces when the reciprocity doesn’t come, though it’s rarely named directly."
+        "A quiet entitlement (\"now it's my turn\") or its inverse (false modesty) is always present.",
+        "Hurt surfaces when the reciprocity doesn't come, though it's rarely named directly."
       ],
       "behaving": [
         "Builds personable bonds and shows care to those close to them.",
@@ -1169,7 +1169,7 @@
     "code": "SX2",
     "name": "One-to-One Two",
     "tagline": "The Healer — warmth concentrated into magnetic, intense connection",
-    "narrative": "One-to-One Twos channel all their interpersonal attunement into winning the approval and devotion of selected significant others. There’s a magnetic, sometimes seductive quality to the energy — not necessarily sexual, but charged with the desire to be irresistible to the people who matter. The giving is intense and personal, aimed at becoming indispensable to one or a few.\n\nThe aggressive side of this subtype can surprise — this is a Two who will demand recognition and connection rather than quietly earn it. They can appear charming and magnetic but also intense and insistent. The need underneath is for a chosen person to find them essential, even irresistible.",
+    "narrative": "One-to-One Twos channel all their interpersonal attunement into winning the approval and devotion of selected significant others. There's a magnetic, sometimes seductive quality to the energy — not necessarily sexual, but charged with the desire to be irresistible to the people who matter. The giving is intense and personal, aimed at becoming indispensable to one or a few.\n\nThe aggressive side of this subtype can surprise — this is a Two who will demand recognition and connection rather than quietly earn it. They can appear charming and magnetic but also intense and insistent. The need underneath is for a chosen person to find them essential, even irresistible.",
     "patterns": {
       "thinking": [
         "Attention concentrates on significant others, winning their approval, devotion.",
@@ -1296,7 +1296,7 @@
     "practices": {
       "intro": "These practices can help you build on what's already working and work with the patterns that can hold you back.",
       "bullets": [
-        "Practice stopping on purpose. Stillness lets the feelings catch up — and reconnecting with them is how you find the self beneath the image.",
+        "Practice stopping on purpose. Stillness lets the feelings catch up, and reconnecting with them is how you find the self beneath the image.",
         "Separate worth from results. You are not your last achievement; notice when failure feels like annihilation rather than information.",
         "Tell someone the unpolished truth. Letting a trusted person see the struggle, not just the success, is where real connection lives.",
         "Ask what you actually want, not what would impress. The goal worth pursuing is the one that's yours, not the context's.",
@@ -1364,7 +1364,7 @@
     "code": "SP3",
     "name": "Self-Preservation Three",
     "tagline": "The Diligent Worker — success through hard work and material security (countertype)",
-    "narrative": "Self-Preservation Threes channel their drive into material success, financial security, and the tangible markers of a well-run life. They prefer to be seen as hardworking and reliable rather than flashy or self-promoting — the image being managed is, paradoxically, the image of someone who doesn’t manage image. Quality, productivity, and doing things properly matter here.\n\nThis is the countertype of Type 3, and it can look surprisingly like a One because of the emphasis on doing things correctly rather than showing off. The classic ambitious, image-conscious Three doesn’t fit cleanly. They presented an image of humility and often have genuinely complicated feelings about being recognized for their accomplishments.",
+    "narrative": "Self-Preservation Threes channel their drive into material success, financial security, and the tangible markers of a well-run life. They prefer to be seen as hardworking and reliable rather than flashy or self-promoting — the image being managed is, paradoxically, the image of someone who doesn't manage image. Quality, productivity, and doing things properly matter here.\n\nThis is the countertype of Type 3, and it can look surprisingly like a One because of the emphasis on doing things correctly rather than showing off. The classic ambitious, image-conscious Three doesn't fit cleanly. They presented an image of humility and often have genuinely complicated feelings about being recognized for their accomplishments.",
     "patterns": {
       "thinking": [
         "Attention goes to security, productivity, and the tangible markers of a well-run life.",
@@ -1470,7 +1470,7 @@
           "Feelings are deep, vivid, and central — emotional intensity is where life feels most real.",
           "There's a comfort with melancholy and longing that others find hard to stay with.",
           "Moods can pull strongly, coloring everything until they shift.",
-          "Identity can fuse with feeling — “I am my sadness” rather than “I feel sad right now.”",
+          "Identity can fuse with feeling — \"I am my sadness\" rather than \"I feel sad right now.\"",
           "Envy of others' apparent wholeness can run underneath, quiet but persistent.",
           "The capacity to feel fully is a gift — the work is feeling without drowning in it."
         ],
@@ -1547,7 +1547,7 @@
     "practices": {
       "intro": "These practices can help you build on what's already working and work with the patterns that can hold you back.",
       "bullets": [
-        "Notice feelings as weather, not identity. “I feel sad” is true; “I am sad” fuses you to a passing state. The distinction creates room to move.",
+        "Notice feelings as weather, not identity. \"I feel sad\" is true; \"I am sad\" fuses you to a passing state. The distinction creates room to move.",
         "Practice appreciating what's present. The pull toward the absent is strong — deliberately turning toward what's already here rebalances it.",
         "Catch the comparison in real time. The measuring against others is automatic; seeing it lets you set it down.",
         "Take ordinary action even without inspiration. Moving toward your security point (Type 1) means structure and follow-through, not waiting for the feeling.",
@@ -1592,7 +1592,7 @@
       "bullets": [
         "As a Heart Center type, you process the world through emotion and the question of identity.",
         "The Heart Center's organizing emotion is shame, and for Fours it surfaces as a felt sense of being flawed or missing something essential.",
-        "Presence, for you, means feeling fully without becoming the feeling — and turning toward the present.",
+        "Presence, for you, means feeling fully without becoming the feeling, and turning toward the present.",
         "The goal isn't to feel less; it's to stay grounded in what's actually here while you feel."
       ],
       "off_center": [
@@ -1615,7 +1615,7 @@
     "code": "SP4",
     "name": "Self-Preservation Four",
     "tagline": "The Creative Individualist — suffering met with dauntless endurance (countertype)",
-    "narrative": "Self-Preservation Fours throw themselves into life with a dauntless, sometimes reckless energy — jumping into new situations, taking risks, or pursuing unorthodox paths when the standard options feel inauthentic. Rather than displaying their suffering, they internalize it and work hard not to be defeated by the sense of not being enough.\n\nThis is the countertype of Type 4, and it often doesn’t wear the melancholic, inward, longing quality classically associated with the type. SP Fours can look driven and resilient — almost like a Three — refusing to be beaten by the feeling of deficiency. The suffering is internalized rather than expressed, which is exactly what makes this Four hard to recognize.",
+    "narrative": "Self-Preservation Fours throw themselves into life with a dauntless, sometimes reckless energy — jumping into new situations, taking risks, or pursuing unorthodox paths when the standard options feel inauthentic. Rather than displaying their suffering, they internalize it and work hard not to be defeated by the sense of not being enough.\n\nThis is the countertype of Type 4, and it often doesn't wear the melancholic, inward, longing quality classically associated with the type. SP Fours can look driven and resilient — almost like a Three — refusing to be beaten by the feeling of deficiency. The suffering is internalized rather than expressed, which is exactly what makes this Four hard to recognize.",
     "patterns": {
       "thinking": [
         "Attention goes to enduring and overcoming, proving they can push through their suffering.",
@@ -1816,7 +1816,7 @@
       ],
       "watch_for": [
         "Reserve can read as coldness or disinterest, even when you're fully engaged inside.",
-        "Processing privately before responding leaves others guessing; a brief “let me think on that” bridges the gap.",
+        "Processing privately before responding leaves others guessing; a brief \"let me think on that\" bridges the gap.",
         "Sharing a little more than feels necessary helps others feel connected to you.",
         "Bringing feeling into the conversation, not just analysis, makes your insight land as warmth, not distance."
       ]
@@ -1922,7 +1922,7 @@
     "code": "SX5",
     "name": "One-to-One Five",
     "tagline": "The Secret Agent — selective, intense, compartmentalized intimacy (countertype)",
-    "narrative": "One-to-One Fives share their inner experiences selectively with carefully chosen intimates, seeking a quality of connection that’s rare and trusted. They keep their lives compartmentalized, sharing different parts with different people. Quietly intense and secretive, with high barriers to trust, they look for an ideal merging that most relationships can’t provide.\n\nThis is the countertype within Type 5. SX Fives can appear more emotionally available and connected than the classic detached Five — the intensity in their selected relationships is real. But the compartmentalization is rarely visible from outside; others may not realize how much is kept separate, or that the openness they receive is just one carefully chosen room in a larger, guarded house.",
+    "narrative": "One-to-One Fives share their inner experiences selectively with carefully chosen intimates, seeking a quality of connection that's rare and trusted. They keep their lives compartmentalized, sharing different parts with different people. Quietly intense and secretive, with high barriers to trust, they look for an ideal merging that most relationships can't provide.\n\nThis is the countertype within Type 5. SX Fives can appear more emotionally available and connected than the classic detached Five — the intensity in their selected relationships is real. But the compartmentalization is rarely visible from outside; others may not realize how much is kept separate, or that the openness they receive is just one carefully chosen room in a larger, guarded house.",
     "patterns": {
       "thinking": [
         "Attention goes to a few intimates and the quality of connection with them.",
@@ -1969,7 +1969,7 @@
       "feeling": {
         "intro": "Sixes live with an undercurrent of anxiety — sometimes quiet, sometimes loud — that colors how they read situations and people. The relationship to fear is central, whether they move away from it or straight at it.",
         "bullets": [
-          "Anxiety is the baseline feeling — an undercurrent of “what if” that rises and falls with circumstances.",
+          "Anxiety is the baseline feeling — an undercurrent of \"what if\" that rises and falls with circumstances.",
           "Trust and loyalty run deep once earned; the bond, once real, is fiercely held.",
           "Fear can show as caution and withdrawal, or flip into counterphobic boldness — running at the threat.",
           "Doubt extends inward, producing a recurring uncertainty about your own perceptions.",
@@ -2051,7 +2051,7 @@
       "bullets": [
         "Distinguish real signal from background noise. Some fears point at genuine problems; many just spin. Learning the difference is the core skill.",
         "Practice trusting your own judgment. Make a small decision and stand by it without seeking outside reassurance — the muscle strengthens with use.",
-        "Notice the certainty you're chasing. There's no final guarantee against uncertainty — and acting without one is possible and often necessary.",
+        "Notice the certainty you're chasing. There's no final guarantee against uncertainty, and acting without one is possible and often necessary.",
         "Let trust extend a little before it's fully earned. Constant testing protects you and also keeps people at a distance.",
         "Practice resting in 'okay.' Moving toward your security point (Type 9) means letting the vigilance set down and trusting the moment."
       ]
@@ -2145,12 +2145,12 @@
     "code": "SO6",
     "name": "Social Six",
     "tagline": "The Social Guardian — security through duty, roles, and the rules",
-    "narrative": "Social Sixes take responsibility for the agenda and security of the group. Having a clear role and clear rules is a primary concern — they need to know the guidelines, or to create them, in order to feel safe and avoid the rejection that comes with getting it wrong. They provide real service through their ability to organize and structure things for everyone’s benefit.\n\nSO Sixes can look like highly engaged institutional loyalists — often the people who make the system work. The anxiety gets channeled into the role, which can make them resemble Type Ones (rule-following) or Type Threes (responsible achievers). The duty is genuine, but it can also become a burden that has them set aside their own needs and feelings.",
+    "narrative": "Social Sixes take responsibility for the agenda and security of the group. Having a clear role and clear rules is a primary concern — they need to know the guidelines, or to create them, in order to feel safe and avoid the rejection that comes with getting it wrong. They provide real service through their ability to organize and structure things for everyone's benefit.\n\nSO Sixes can look like highly engaged institutional loyalists — often the people who make the system work. The anxiety gets channeled into the role, which can make them resemble Type Ones (rule-following) or Type Threes (responsible achievers). The duty is genuine, but it can also become a burden that has them set aside their own needs and feelings.",
     "patterns": {
       "thinking": [
-        "Attention goes to the group’s rules, roles, and agenda and whether the guidelines are clear.",
+        "Attention goes to the group's rules, roles, and agenda and whether the guidelines are clear.",
         "Seeks safety through structure, trusting that systems and processes reduce threat.",
-        "Tracks where they stand with the group and whether they’re meeting expectations."
+        "Tracks where they stand with the group and whether they're meeting expectations."
       ],
       "feeling": [
         "Security comes from a clear role and clear rules; ambiguity raises the anxiety sharply.",
@@ -2173,7 +2173,7 @@
     "code": "SX6",
     "name": "One-to-One Six",
     "tagline": "The Warrior — fear met head-on with strength and boldness (countertype)",
-    "narrative": "One-to-One Sixes demonstrate a warrior spirit — overcoming fear through willpower, physical or intellectual strength, and fierce, often ideological positions. This is the counterphobic stance: rather than retreating from fear, they run straight at it, taking risks and confronting threats to prove the fear won’t rule them.\n\nThis is the countertype of Type 6, and it can look strikingly like a Type Eight — confrontational, risk-taking, ideologically intense, apparently fearless. But the fear is present underneath, carefully hidden, sometimes even from the Six themselves. The boldness is about pushing against their fear, not the absence of it.",
+    "narrative": "One-to-One Sixes demonstrate a warrior spirit — overcoming fear through willpower, physical or intellectual strength, and fierce, often ideological positions. This is the counterphobic stance: rather than retreating from fear, they run straight at it, taking risks and confronting threats to prove the fear won't rule them.\n\nThis is the countertype of Type 6, and it can look strikingly like a Type Eight — confrontational, risk-taking, ideologically intense, apparently fearless. But the fear is present underneath, carefully hidden, sometimes even from the Six themselves. The boldness is about pushing against their fear, not the absence of it.",
     "patterns": {
       "thinking": [
         "Attention goes to confronting threats directly — running at fear rather than away from it.",
@@ -2301,7 +2301,7 @@
       "intro": "These practices can help you build on what's already working and work with the patterns that can hold you back.",
       "bullets": [
         "Practice staying with discomfort instead of pivoting. The feeling you move past holds the depth you're actually looking for.",
-        "Notice the reframe in real time. The automatic positive spin is a gift — and sometimes it skips a truth worth facing.",
+        "Notice the reframe in real time. The automatic positive spin is a gift, and sometimes it skips a truth worth facing.",
         "Choose depth over breadth on purpose. Committing to one thing fully — and finishing it — delivers a satisfaction that options never do.",
         "Treat commitment as freedom, not a trap. The open door you keep can be the very thing keeping you from arriving anywhere.",
         "Cultivate focus and stillness. Moving toward your security point (Type 5) means going deep, sitting with one thing long enough to master it."
@@ -2368,7 +2368,7 @@
     "code": "SP7",
     "name": "Self-Preservation Seven",
     "tagline": "The Epicure — abundance and pleasure within a trusted circle",
-    "narrative": "Self-Preservation Sevens create an abundant lifestyle within their family and circle of friends — good food, good conversation, fun projects, and a network of opportunities and pleasures. This is the classic epicurean Seven, with a real gift for entrepreneurial ventures and for keeping interesting options alive within a known, trusted world.\n\nOf the three Seven subtypes, this one is closest to the classic Seven stereotype, so it's often recognized readily. What can be missed is the self-preservation element — the focus on a safe, abundant personal world rather than wide social expansion. The “family” orientation toward a known circle can even look Two-like or Six-like in its focus on a chosen few.",
+    "narrative": "Self-Preservation Sevens create an abundant lifestyle within their family and circle of friends — good food, good conversation, fun projects, and a network of opportunities and pleasures. This is the classic epicurean Seven, with a real gift for entrepreneurial ventures and for keeping interesting options alive within a known, trusted world.\n\nOf the three Seven subtypes, this one is closest to the classic Seven stereotype, so it's often recognized readily. What can be missed is the self-preservation element — the focus on a safe, abundant personal world rather than wide social expansion. The \"family\" orientation toward a known circle can even look Two-like or Six-like in its focus on a chosen few.",
     "patterns": {
       "thinking": [
         "Attention goes to creating abundance and opportunity within a trusted circle of family and friends.",
@@ -2424,17 +2424,17 @@
     "code": "SX7",
     "name": "One-to-One Seven",
     "tagline": "The Adventurer — enthusiasm idealized and channeled into fascination",
-    "narrative": "One-to-One Sevens are dreamers — easily influenced by the attraction of new ideas, adventures, and relationships, and gifted with great powers of suggestion. They use their charm to lead others into new paradigms, purchases, and possibilities, and they idealize the people and experiences they’re fascinated by, seeing the world through optimistic, rose-colored possibility.\n\nThe suggestibility works both ways: SX Sevens can appear as followers, easily pulled into others’ plans, or as leaders, pulling others into theirs. The quick direction changes can look like Type Four or Type Eight depending on the day. The fascination is real but tends to move — satiated with one possibility, they’re drawn to the next.",
+    "narrative": "One-to-One Sevens are dreamers — easily influenced by the attraction of new ideas, adventures, and relationships, and gifted with great powers of suggestion. They use their charm to lead others into new paradigms, purchases, and possibilities, and they idealize the people and experiences they're fascinated by, seeing the world through optimistic, rose-colored possibility.\n\nThe suggestibility works both ways: SX Sevens can appear as followers, easily pulled into others' plans, or as leaders, pulling others into theirs. The quick direction changes can look like Type Four or Type Eight depending on the day. The fascination is real but tends to move — satiated with one possibility, they're drawn to the next.",
     "patterns": {
       "thinking": [
         "Attention goes to pleasurable possibilities — the fascinating idea, person, or adventure.",
         "Highly suggestible and highly suggestive, fascinated by fresh perspectives.",
-        "Sees through rose-colored optimism, idealizing what’s caught their fascination."
+        "Sees through rose-colored optimism, idealizing what's caught their fascination."
       ],
       "feeling": [
         "Enthusiasm runs high and to others can feel like infectious energy.",
         "The intensity tends to move; satiation with one possibility automatically leads to the next.",
-        "Underneath the optimism is the Seven’s avoidance of limitation and pain."
+        "Underneath the optimism is the Seven's avoidance of limitation and pain."
       ],
       "behaving": [
         "Chases fascination — new adventures and relationships are pursued with verve.",
