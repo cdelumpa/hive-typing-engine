@@ -144,6 +144,48 @@ Server runs at http://localhost:3000. Log in at `/admin/login` with any seeded
 user (e.g. `smoke-coach@local.test`). Both scripts hard-refuse any non-local
 `DATABASE_URL` as a guardrail against pointing at prod.
 
+## Deploying a content change — READ BEFORE SHIPPING
+
+There are **four** places report content lives, not three: the Word source, the compiled
+`app/content/content_library.json`, the `INTERIM_*` constants in
+`scripts/build_content_library.js`, and the **`content_overrides` table** written by
+`/admin/content`. The fourth is the one that bites, because every offline harness renders
+with an empty override map and therefore cannot see it.
+
+`resolveContent` **throws** when a published override's shape no longer matches the library
+field it replaces. That throw reaches *every* render including the dry-validate probe in
+`POST /api/submit`, so **a mismatched row fails assessment submission, not just a PDF** — and
+`static.*` keys are global, so it fails for every client at once.
+
+**Before deploying any change that alters an overridable field's shape** — adding, renaming or
+removing a key under `static.*`, `type_N.*` or `subtype_*.*`:
+
+```bash
+npm run overrides:check          # from app/, against the DEPLOY TARGET's database
+```
+
+* **exit 0** — every published override matches the current library shape. Safe to deploy.
+* **exit 1** — at least one row would throw. Fix it before deploying: re-publish the row from
+  the current baseline in `/admin/content`, or retire it with
+  `node scripts/retire_overrides.js --confirm` (dry-run by default; snapshots every column,
+  including `previous_value`, to a gitignored `.override_snapshots/` before deleting).
+* **exit 2** — the check did **not run** (no `DATABASE_URL`). This is not a pass.
+
+CI cannot run this: `.github/workflows/report-verify.yml` has no `env`, no `secrets` and no
+`services`, so the runner has no database. That is deliberate — a production `DATABASE_URL` in
+PR CI is a worse trade — which is exactly why the step is written down here instead.
+
+**Backstop, if the check is skipped:** `loadPublishedOverrides()` audits every row on each
+cache fill — the first render after a deploy, and immediately after any coach publishes — and
+prints a boxed `PUBLISHED OVERRIDE(S) WILL THROW AT RENDER TIME` block naming the keys. It is
+deliberately non-fatal; the hard stop stays at render. If that block is in the deploy log,
+stop and fix the rows.
+
+*History: seven rows published 13-29 June 2026 sat outside PR 1.5's docx/JSON reconciliation
+for seven weeks. One would have rendered the literal word "undefined" in a client PDF; two
+would have blanked a Wings page the moment PR 3's content landed. All seven were migrated or
+retired on 12 August 2026 — see `docs/audit_pr3_per_type_pages.md` section 9.*
+
 ## Confidentiality
 
 This repository contains proprietary content developed by Hive, Inc. for the Hive Typing Engine. Do not share, redistribute, or check this material into any public repository.

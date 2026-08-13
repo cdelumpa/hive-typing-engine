@@ -105,3 +105,27 @@ test('an empty override map returns the baseline object by identity', () => {
   const out = co.resolveLibObject(new Map(), 'static', library.static);
   assert.strictEqual(out, library.static, 'no override -> byte-identical output');
 });
+
+test('auditShapes warns loudly but does NOT throw — it is the smoke alarm, not the sprinkler', () => {
+  // loadPublishedOverrides' contract is that it never throws. A boot that dies because of a
+  // content row is a worse failure than one that shouts, so the early warning must stay
+  // non-fatal; the hard stop is resolveContent.
+  const lines = [];
+  const real = console.error;
+  console.error = (...a) => lines.push(a.join(' '));
+  try {
+    assert.doesNotThrow(() => co.auditShapes(mapOf(FIX.drifted)));
+  } finally { console.error = real; }
+  const out = lines.join('\n');
+  assert.match(out, /WILL THROW AT RENDER TIME/);
+  assert.match(out, /static\.welcome/);
+  assert.match(out, /signoff/);
+});
+
+test('auditShapes is silent on a clean set', () => {
+  const lines = [];
+  const real = console.error;
+  console.error = (...a) => lines.push(a.join(' '));
+  try { co.auditShapes(mapOf(FIX.matching)); } finally { console.error = real; }
+  assert.strictEqual(lines.length, 0, 'a matching override set must not warn');
+});

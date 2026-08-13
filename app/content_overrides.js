@@ -56,6 +56,7 @@ async function loadPublishedOverrides() {
         map.set(row.content_key, row.value);
       }
     }
+    auditShapes(map);        // loud, non-fatal early warning — see auditShapes
     _publishedCache = map;   // cache only a genuine result (an empty table yields an empty Map, still cached)
     return map;
   } catch (err) {
@@ -116,6 +117,44 @@ function overrideShape(v, prefix = '', out = null) {
  * pointed at the target database, is the pre-deploy gate that proves it is safe to ship.
  */
 class OverrideShapeError extends Error {}
+
+/**
+ * Loud, NON-FATAL early warning, run once per cache fill.
+ *
+ * assertOverrideShape throws at render time, which is correct but late: the first symptom is
+ * a failed report render, and because two of the seven June rows were on GLOBAL keys
+ * (static.primer, static.welcome) that would have meant every client, including the
+ * dry-validate probe in /api/submit.
+ *
+ * This runs at the two moments a bad row can first appear — the first render after a deploy,
+ * and immediately after a coach publishes (every mutator busts the cache) — and puts the
+ * offending keys in the deploy log before a client ever hits them. It deliberately does not
+ * throw: loadPublishedOverrides' contract is that it never throws, and a boot that dies
+ * because of a content row is a worse failure than one that shouts.
+ *
+ * The hard stop stays at resolveContent. This is the smoke alarm, not the sprinkler.
+ */
+function auditShapes(map) {
+  if (!map || map.size === 0) return;
+  const library = require('./content/content_library.json');
+  const bad = [];
+  for (const [key, value] of map) {
+    const dot = key.indexOf('.');
+    const top = dot < 0 ? key : key.slice(0, dot), f = dot < 0 ? null : key.slice(dot + 1);
+    if (!f || !library[top] || !(f in library[top])) { bad.push(`${key} — no such field in the content library`); continue; }
+    try { assertOverrideShape(key, library[top][f], value); }
+    catch (e) { bad.push(`${key} — ${e.message.split('\n')[1].trim()}`); }
+  }
+  if (!bad.length) return;
+  console.error('\n' + '='.repeat(78));
+  console.error(`[content_overrides] ${bad.length} PUBLISHED OVERRIDE(S) WILL THROW AT RENDER TIME`);
+  for (const b of bad) console.error(`  - ${b}`);
+  console.error('  Every report render resolves these, including the dry-validate probe in');
+  console.error('  /api/submit — a mismatched row fails assessment submission, not just a PDF.');
+  console.error('  Fix: re-publish the row from the current baseline in /admin/content, or retire');
+  console.error('  it with scripts/retire_overrides.js. Details: npm run overrides:check');
+  console.error('='.repeat(78) + '\n');
+}
 
 function assertOverrideShape(key, baselineValue, overrideValue) {
   const want = overrideShape(baselineValue);
@@ -264,5 +303,5 @@ module.exports = {
   loadPublishedOverrides, invalidateOverridesCache, resolveContent, resolveLibObject,
   getAllOverrides, saveDraftOverride, publishOverride, revertOverride,
   // Shape guard — exported for tests and scripts/overrides_check.js.
-  overrideShape, assertOverrideShape, OverrideShapeError,
+  overrideShape, assertOverrideShape, OverrideShapeError, auditShapes,
 };
