@@ -72,14 +72,37 @@ function leaves(o, prefix = '', out = {}) {
 }
 const countLeaves = (o) => Object.keys(leaves(o)).length;
 
-/** Build into a temp file without disturbing the committed artifact. */
+/**
+ * Build into a temp file without disturbing the committed artifact.
+ *
+ * A FAILING BUILD IS AN EXPECTED STATE HERE, not an exception. Through PR 3 the content
+ * library legitimately fails for every type whose page content is not authored yet — that
+ * failure IS the content-readiness signal. With `stdio: 'pipe'`, an uncaught execFileSync
+ * error prints its own error object, which renders the child's stderr as a raw Buffer:
+ * 6728 bytes of `[ 42, 42, 42, 32, ... 3257 more items ]` around 60 lines of legible
+ * coverage failures. Catch it and print what the build actually said.
+ */
 function buildToTemp(tmpPath) {
   const original = fs.readFileSync(LIB);
+  let failure = null;
   try {
-    execFileSync('node', [SCRIPT], { cwd: ROOT, stdio: 'pipe' });
-    fs.copyFileSync(LIB, tmpPath);
+    try { execFileSync('node', [SCRIPT], { cwd: ROOT, stdio: 'pipe' }); }
+    catch (e) { failure = e; }
+    if (!failure) fs.copyFileSync(LIB, tmpPath);
   } finally {
+    // Always restore, including on a failed build. The report below therefore runs AFTER
+    // this block and never from inside it: process.exit() does not run pending finally
+    // blocks, so exiting in the catch would skip the restore. Harmless while the build
+    // exits before its own writeFileSync, which is precisely the kind of "safe by accident"
+    // this file exists to stop relying on.
     fs.writeFileSync(LIB, original);
+  }
+  if (failure) {
+    const out = [failure.stdout, failure.stderr]
+      .map(b => (b == null ? '' : b.toString())).join('').trimEnd();
+    console.error(out || `(build produced no output; exit ${failure.status})`);
+    console.error(`\nCONTENT LIBRARY: build failed (exit ${failure.status}) — the invariant cannot be checked.`);
+    process.exit(1);
   }
 }
 

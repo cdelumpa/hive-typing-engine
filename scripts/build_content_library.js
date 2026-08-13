@@ -425,17 +425,28 @@ function validateType(n, t) {
   const wt = [t.wings.wing_a.target_type, t.wings.wing_b.target_type].sort();
   need(JSON.stringify(wt) === JSON.stringify([...TYPE_META[n].wings].sort()), `${P}.wings targets ${wt} != engine ${TYPE_META[n].wings}`);
   need(t.wings.wing_a.body && t.wings.wing_b.body, `${P}.wings body empty`);
-  // v3 "Your Wings" page fields. Gated per type: enforced only where INTERIM_WINGS_V3
-  // supplies content, so types not yet authored fail loudly at their own PR, not this one.
-  if (INTERIM_WINGS_V3[n]) {
-    need(t.wings.intro_v3, `${P}.wings.intro_v3 empty (v3 page intro)`);
-    for (const slot of ['wing_a', 'wing_b']) {
-      const w = t.wings[slot];
-      need(w.overview, `${P}.wings.${slot}.overview empty (v3)`);
-      need(Array.isArray(w.bullets) && w.bullets.length === 5 && w.bullets.every(Boolean),
-        `${P}.wings.${slot}.bullets must be exactly 5 non-empty (v3), got ${w.bullets ? w.bullets.length : 'none'}`);
-      need(w.resource, `${P}.wings.${slot}.resource empty (v3 "As a Resource" band)`);
-    }
+  // v3 "Your Wings" page fields — UNCONDITIONAL as of the PR 3 audit.
+  //
+  // This was `if (INTERIM_WINGS_V3[n])`, i.e. enforced only for types that already had
+  // content, on the reasoning that unauthored types would "fail loudly at their own PR".
+  // They did not. Measured: rendering buildClientReportHTML_v3 for types 1-8 produces a
+  // Wings page with two empty overviews, two empty resource bands, no bullets and no intro
+  // — 560px of content against a 976px budget — and every gate stays green, because
+  // report_prep's mk() defaults each missing field to '' / [] and 416px of headroom is
+  // MORE comfortable than Type 9's 37.25px. A conditional gate cannot see missing content;
+  // it can only see content that is present and wrong.
+  //
+  // Unconditional means the build now fails for the eight unauthored types. That is the
+  // intended signal and it is what PR 3 closes, type by type. It is deliberately NOT put
+  // behind a flag: PR 1.5 retired --accept-drift precisely because a flag used routinely
+  // stops being a guard.
+  need(t.wings.intro_v3, `${P}.wings.intro_v3 empty (v3 page intro)`);
+  for (const slot of ['wing_a', 'wing_b']) {
+    const w = t.wings[slot];
+    need(w.overview, `${P}.wings.${slot}.overview empty (v3)`);
+    need(Array.isArray(w.bullets) && w.bullets.length === 5 && w.bullets.every(Boolean),
+      `${P}.wings.${slot}.bullets must be exactly 5 non-empty (v3), got ${w.bullets ? w.bullets.length : 'none'}`);
+    need(w.resource, `${P}.wings.${slot}.resource empty (v3 "As a Resource" band)`);
   }
   need(t.lines.stress.target_type === TYPE_META[n].stress, `${P}.lines.stress target ${t.lines.stress.target_type} != engine ${TYPE_META[n].stress}`);
   need(t.lines.security.target_type === TYPE_META[n].security, `${P}.lines.security target ${t.lines.security.target_type} != engine ${TYPE_META[n].security}`);
