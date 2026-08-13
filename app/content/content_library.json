@@ -1,7 +1,7 @@
 {
   "_meta": {
     "source": "InsightOut_Static_Content_Library_v1_060526.docx",
-    "source_sha256": "a28e8d0f0f3f8149f92f4facc353df8bbb33cb83cf3a1e68e68273d81e68ba54",
+    "source_sha256": "3fb8e97128e7674b0a8f8c24e17bb223468c2ff4bac6286c1c26e5a71ac62175",
     "version": "v1_060526"
   },
   "static": {
@@ -100,7 +100,7 @@
           "gifts": "Loyalty, foresight, fierce commitment"
         }
       ],
-      "footer": "Each of us has access to all nine Enneagram types, and one of them is your home base. Keep reading to find out which type your responses pointed to most clearly."
+      "footer": "For more detailed information on the Enneagram or each of the nine Enneagram types, visit us at https://www.hiveleadership.com/the-enneagram."
     },
     "wings_primer": "Wings are the two types adjacent to your core type. They flavor how your core pattern shows up, not changing who you are but adding color and texture. Most people lean toward one wing; some experience both equally.",
     "lines_primer": "Each type has two resource points connected by lines on the diagram. Your stress point is the type your energy moves toward under pressure — often showing up as uncharacteristic behavior. Your security point is where you go when you feel safe and in flow. Awareness of these movements gives you choice about how to work with them.",
@@ -719,7 +719,7 @@
   "subtype_sx9": {
     "code": "SX9",
     "name": "One-to-One Nine",
-    "tagline": "The Seeker — peace through merging with a beloved other",
+    "tagline": "The Seeker — peace through merging with a significant other.",
     "narrative": "One-to-One Nines find peace through deep union — merging with an intimate partner, with nature, or with something larger than themselves. The longing is for fusion: to dissolve the separateness that feels lonely and to lose oneself in connection.\n\nSX Nines can look intensely devoted, even consumed by their most important relationship — which doesn't match the classic easygoing Nine image. They may be mistaken for Fours (in the longing) or Twos (in the merging). The self-forgetting happens through the beloved: their own desires dissolve into the other's, and boundaries are genuinely hard to hold.",
     "patterns": {
       "thinking": [

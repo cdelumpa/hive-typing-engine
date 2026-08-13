@@ -182,6 +182,7 @@ async function measureLayout(page, selector) {
 }
 
 (async () => {
+  await require(path.join(ROOT, 'scripts/lib/override_banner.js')).printOverrideBanner();
   const browser = await launch();
   let failed = false;
   const fail = (msg) => { failed = true; console.log(`  *** FAIL — ${msg}`); };

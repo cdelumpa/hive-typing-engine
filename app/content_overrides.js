@@ -56,6 +56,7 @@ async function loadPublishedOverrides() {
         map.set(row.content_key, row.value);
       }
     }
+    auditShapes(map);        // loud, non-fatal early warning — see auditShapes
     _publishedCache = map;   // cache only a genuine result (an empty table yields an empty Map, still cached)
     return map;
   } catch (err) {
@@ -65,11 +66,124 @@ async function loadPublishedOverrides() {
 }
 
 /**
+ * Structural leaf-path set for a value, with ARRAY INDICES NORMALIZED.
+ *
+ *   { subhead: 'x', letters: ['a','b'], signoff: 'y' }  ->  subhead · letters[] · signoff
+ *
+ * Indices are collapsed to `[]` on purpose. The defect class this guards against is a
+ * published override that is MISSING A FIELD the library has since gained — the shape has
+ * moved under it. Cardinality is not that: a coach adding a fourth practice bullet is a
+ * legitimate edit and must not throw. Field counts that genuinely matter (5 wing bullets,
+ * 3 pillars, 9 contents entries) are already hard-gated in build_content_library.js.
+ */
+function overrideShape(v, prefix = '', out = null) {
+  const set = out || new Set();
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    const keys = Object.keys(v);
+    if (!keys.length) set.add(`${prefix}{}`);
+    for (const k of keys) overrideShape(v[k], prefix ? `${prefix}.${k}` : k, set);
+  } else if (Array.isArray(v)) {
+    if (!v.length) set.add(`${prefix}[]`);
+    for (const x of v) overrideShape(x, `${prefix}[]`, set);
+  } else {
+    set.add(prefix || '(scalar)');
+  }
+  return set;
+}
+
+/**
+ * Throw when a published override's shape no longer matches the library field it replaces.
+ *
+ * WHY A THROW AND NOT A MERGE OR A SILENT FALLBACK
+ * ------------------------------------------------
+ * resolveLibObject replaces a field WHOLE (`out[field] = resolved`). An override published
+ * against an older library therefore silently drops any key the field has gained since.
+ * Measured on production, 12 Aug 2026: the June `static.welcome` row predates the `signoff`
+ * key PR 2 added, so the v3 Welcome page rendered the literal word "undefined" above the
+ * founder photos. Nothing caught it — every offline harness runs with an empty override map.
+ *
+ * Deep-merging would marry June's `letters` to August's `signoff`: a combination nobody
+ * reviewed and nobody can point to a source for, and — worse — it makes the stale row
+ * permanently invisible, so nothing ever prompts a cleanup. That is the 130-field drift
+ * mechanism applied to a new table. Falling back to the baseline silently is the same defect
+ * pointed the other way: a coach's published edit stops applying and nobody is told.
+ *
+ * A shape mismatch is a data problem only a human can resolve — re-publish the row or retire
+ * it. Guessing on the client's behalf is what this codebase has repeatedly paid for.
+ *
+ * ⚠️ DEPLOY ORDER. This throw reaches EVERY report render, including the dry-validate probe
+ * in /api/submit. A mismatched row therefore fails assessment submission, not just a PDF.
+ * Retire or re-publish offending rows BEFORE deploying this. `npm run overrides:check`,
+ * pointed at the target database, is the pre-deploy gate that proves it is safe to ship.
+ */
+class OverrideShapeError extends Error {}
+
+/**
+ * Loud, NON-FATAL early warning, run once per cache fill.
+ *
+ * assertOverrideShape throws at render time, which is correct but late: the first symptom is
+ * a failed report render, and because two of the seven June rows were on GLOBAL keys
+ * (static.primer, static.welcome) that would have meant every client, including the
+ * dry-validate probe in /api/submit.
+ *
+ * This runs at the two moments a bad row can first appear — the first render after a deploy,
+ * and immediately after a coach publishes (every mutator busts the cache) — and puts the
+ * offending keys in the deploy log before a client ever hits them. It deliberately does not
+ * throw: loadPublishedOverrides' contract is that it never throws, and a boot that dies
+ * because of a content row is a worse failure than one that shouts.
+ *
+ * The hard stop stays at resolveContent. This is the smoke alarm, not the sprinkler.
+ */
+function auditShapes(map) {
+  if (!map || map.size === 0) return;
+  const library = require('./content/content_library.json');
+  const bad = [];
+  for (const [key, value] of map) {
+    const dot = key.indexOf('.');
+    const top = dot < 0 ? key : key.slice(0, dot), f = dot < 0 ? null : key.slice(dot + 1);
+    if (!f || !library[top] || !(f in library[top])) { bad.push(`${key} — no such field in the content library`); continue; }
+    try { assertOverrideShape(key, library[top][f], value); }
+    catch (e) { bad.push(`${key} — ${e.message.split('\n')[1].trim()}`); }
+  }
+  if (!bad.length) return;
+  console.error('\n' + '='.repeat(78));
+  console.error(`[content_overrides] ${bad.length} PUBLISHED OVERRIDE(S) WILL THROW AT RENDER TIME`);
+  for (const b of bad) console.error(`  - ${b}`);
+  console.error('  Every report render resolves these, including the dry-validate probe in');
+  console.error('  /api/submit — a mismatched row fails assessment submission, not just a PDF.');
+  console.error('  Fix: re-publish the row from the current baseline in /admin/content, or retire');
+  console.error('  it with scripts/retire_overrides.js. Details: npm run overrides:check');
+  console.error('='.repeat(78) + '\n');
+}
+
+function assertOverrideShape(key, baselineValue, overrideValue) {
+  const want = overrideShape(baselineValue);
+  const got = overrideShape(overrideValue);
+  const missing = [...want].filter(p => !got.has(p));
+  const unknown = [...got].filter(p => !want.has(p));
+  if (!missing.length && !unknown.length) return;
+  throw new OverrideShapeError(
+    `Published content override "${key}" no longer matches the content library's shape.\n` +
+    (missing.length ? `  missing from the override: ${missing.join(', ')}\n` : '') +
+    (unknown.length ? `  present only in the override: ${unknown.join(', ')}\n` : '') +
+    `  library shape:  ${[...want].sort().join(' · ')}\n` +
+    `  override shape: ${[...got].sort().join(' · ')}\n` +
+    `The override was published against an older library. Re-publish it from the current\n` +
+    `baseline in /admin/content, or revert it. Run \`npm run overrides:check\` to list every\n` +
+    `affected row at once.`
+  );
+}
+
+/**
  * Returns the override value if one exists for this key, otherwise the baseline
- * value from the JSON file.
+ * value from the JSON file. Throws if a published override's shape has drifted from
+ * the baseline it replaces (see assertOverrideShape).
  */
 function resolveContent(overrides, key, baselineValue) {
-  return overrides && overrides.has(key) ? overrides.get(key) : baselineValue;
+  if (!overrides || !overrides.has(key)) return baselineValue;
+  const value = overrides.get(key);
+  assertOverrideShape(key, baselineValue, value);
+  return value;
 }
 
 /**
@@ -188,4 +302,6 @@ async function revertOverride(contentKey) {
 module.exports = {
   loadPublishedOverrides, invalidateOverridesCache, resolveContent, resolveLibObject,
   getAllOverrides, saveDraftOverride, publishOverride, revertOverride,
+  // Shape guard — exported for tests and scripts/overrides_check.js.
+  overrideShape, assertOverrideShape, OverrideShapeError, auditShapes,
 };

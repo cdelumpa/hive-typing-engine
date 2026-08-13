@@ -20,6 +20,7 @@ const client = { first_name: 'Test', last_name: 'Client', organization: 'Acme Co
 const coach = { full_name: 'Cai Delumpa', type: 5, instinct: 'SP' };
 
 (async () => {
+  await require(path.join(ROOT, 'scripts/lib/override_banner.js')).printOverrideBanner();
 for (const fx of ['sp4', 'sx7']) {
   console.log(`\nFIXTURE ${fx}:`);
   const apiResult = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
