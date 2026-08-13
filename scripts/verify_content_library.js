@@ -50,9 +50,21 @@ const SCRIPT_SOURCED = [
     retires: 'when the docx gains a WELCOME PAGE section (no current plan — raise with design)' },
   { path: 'static.wings_using', label: 'static.wings_using',
     retires: 'when the docx gains a USING YOUR WINGS AND LINES section (no current plan — raise with design)' },
-  { path: 'type_9.wings', label: 'type_9 v3 wing fields (intro_v3/overview/bullets/resource)',
-    retires: 'when Wings content lands in Word for all nine types (drafted, in review with Mo)',
-    only: ['intro_v3', 'overview', 'bullets', 'resource'] },
+  // p8 "Your Wings", all nine types, from INTERIM_WINGS_V3.
+  //
+  // PURELY ADDITIVE, and that is the difference from the p9 rows below. The docx parse
+  // produces only {target_type, body} for a wing (build_content_library.js:750); overview,
+  // bullets, resource and intro_v3 have never had a Word equivalent for ANY type, Type 9
+  // included. So there is no "replaced the docx value" group to split out here — every leaf
+  // this row counts is a leaf the library would not otherwise have.
+  //
+  // Was pinned to `type_9.wings` while Type 9 was the only authored type. A fixed path
+  // cannot express "every type", so it counted 15 while types 1-8 added 120 more — the
+  // printed Word-canonical figure would have RISEN as non-Word content landed.
+  { path: 'types_v3_wings',
+    label: 'v3 wing fields, all 9 types (intro_v3/overview/bullets/resource)',
+    retires: 'when Wings content lands in Word for all nine types (no current plan — the docx has no section for these three fields)',
+    walkTypes: ['intro_v3', 'overview', 'bullets', 'resource'], under: 'wings' },
 
   // p9 "Your Stress and Security Points", all nine types, from INTERIM_LINES_V3.
   //

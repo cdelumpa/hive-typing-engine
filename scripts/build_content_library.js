@@ -127,24 +127,261 @@ const INTERIM_WINGS_USING = [
   'Wings and lines aren\'t fixed. They\'re dynamic — the texture of your type shifts with context, stress, and growth.',
 ].join('\n');
 
-// INTERIM SOURCE — client report v3 "Your Wings" page content.
-// Hive-authored copy (design spec v3.0 section 7.1 lists wings narratives and resource
-// bands as authored and approved), transcribed verbatim from the tracked reference
-// implementation docs/mockup/claude_The_Peacemaker_Page_Wings_v1.html. Nothing here is
-// newly written.
+// INTERIM SOURCE — client report v3 "Your Wings" page content, all nine types.
 //
-// The v3 page needs three fields per wing that the current docx schema has no sections
-// for — an overview, exactly five bullets, and an "As a Resource" band — so it cannot be
-// parsed out of the canonical docx yet. It lives here rather than as a hand-edit of the
-// built JSON so that this script remains the only writer of that file.
+// Hive-authored copy. Types 1-8 transcribed from
+// docs/hive_insightout_wings_content_all_types_081226_r2_verified.md (revision 2,
+// render-verified) by a parser reading that document, not by hand. Type 9 is the original
+// mockup copy, reproduced in r2 unchanged and asserted here byte-identical to what the
+// library already shipped — 14/14 zones — which is what proves the parser reads the
+// document correctly rather than merely plausibly.
 //
-// Type 9 only. Types 1-8 land with their page content in a later PR. When the docx gains
-// TYPE {n} WING {t} OVERVIEW / BULLETS / AS A RESOURCE sections, replace this with a
-// parser read (the tokenizer already handles ALL-CAPS labels and ListParagraph bullets,
-// so that change is small) and confirm regenerated output is identical.
+// 126 zones: 112 new, 14 Type 9. Two differ from r2 as authored, both ratified before this
+// build and both listed with before/after in docs/wings_content_r3_changed_zones.md:
+//   type 2, wing 3, bullet 3   52ch -> 45ch   (52 wrapped to two lines at 3% fill)
+//   type 3, wing 4, resource  157ch -> 148ch  (157 ran to four lines at 22% fill)
+// Nothing else was re-cut. The character bands those two were cut to are the MEASURED ones
+// from docs/audit_pr3_wings.md section C3a — bullets <=48 or 69-89, resource bands 134-150
+// or 186-196 — not the older proxy the r2 document itself was drafted against.
+//
+// The v3 page needs three fields per wing that the docx schema has no sections for, so this
+// content has never had a docx equivalent for ANY type, Type 9 included. Unlike
+// INTERIM_LINES_V3 it therefore replaces nothing: it is purely additive, and the
+// Word-canonical accounting in verify_content_library.js reflects that.
+//
+// This constant is the editing surface for the page. validateType() enforces every field
+// unconditionally for all nine types.
+
+/**
+ * The page intro. IDENTICAL for all nine types, so it lives here once and every entry
+ * references it — nine copies of one paragraph would be nine chances to drift, and the gate
+ * can only see an empty intro, never a divergent one.
+ *
+ * "...lean more towards one wing." is r2's wording and a deliberate change to live output:
+ * the shipped Type 9 page reads "...lean more towards one." Decided by Cai, applied here,
+ * and it is the one intentional change to Type 9's rendered page in this PR.
+ */
+const WINGS_INTRO_V3 = 'Wings are the two types immediately adjacent to your home base type. Each wing "flavors" how your type shows up, and most people naturally lean more towards one wing. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type.';
+
 const INTERIM_WINGS_V3 = {
+  1: {
+    intro: WINGS_INTRO_V3,
+    wings: {
+      9: {
+        overview: "A One with a stronger Nine wing tends to be softer, more easygoing, and more patient. The Nine wing brings acceptance and a willingness to let things be, which can cool the inner critic's heat.",
+        bullets: [
+          'You can let a thing stay imperfect without feeling the pull to correct it.',
+          'You bring patience where there was urgency.',
+          'Your standards hold; the pressure eases.',
+          'Others may find you calmer and more approachable than they expect of a One.',
+          'Left unexamined, the drive to improve can quietly settle into passivity and drift.',
+        ],
+        resource: "When you need to soften, wait, or let something be good enough, reach for the Nine wing. It turns the Improver's precision into something more forgiving.",
+      },
+      2: {
+        overview: 'A One with a strong Two wing is warmer, more people-focused, and more openly caring. The Two wing brings attention to relationships and a real desire to help, softening the corrective edge.',
+        bullets: [
+          'You lead with warmth, so correction lands as care.',
+          "You notice what people need, not only what's wrong.",
+          'You hold standards without losing warmth.',
+          'Others may find you warmer and more openly generous than they expect of a One.',
+          'Left unchecked, criticism can arrive dressed up as helpfulness and concern.',
+        ],
+        resource: "When you need to connect, encourage, or lead with care, reach for the Two wing. It turns the Improver's high standards into something people can receive.",
+      },
+    },
+  },
+  2: {
+    intro: WINGS_INTRO_V3,
+    wings: {
+      1: {
+        overview: "A Two with a strong One wing is more structured, principled, and attentive to doing things correctly. The One wing brings discipline and a sense of right conduct to the Two's generosity.",
+        bullets: [
+          'You give with structure, not just with feeling.',
+          'You follow through on what you offer to do.',
+          'Your generosity carries a sense of right conduct.',
+          'Others may find you more principled and steady than they expect of a Two.',
+          "Left unchecked, warmth can cool into criticism when care isn't done properly.",
+        ],
+        resource: "When you need to hold a boundary or say the harder thing, reach for the One wing. It turns the Giver's warmth into something with a spine.",
+      },
+      3: {
+        overview: "A Two with a strong Three wing is more outgoing, ambitious, and image-aware. The Three wing brings energy and charisma to the Two's warmth, making the care both visible and effective in the wider world.",
+        bullets: [
+          'You turn care into visible, effective action.',
+          'You move easily between warmth and results.',
+          'People are drawn to you, and you use it well.',
+          'Others may find you more ambitious and polished than they expect of a Two.',
+          'Left unexamined, giving can become a performance calibrated to how it lands.',
+        ],
+        resource: "When you need reach, momentum, or visible results, reach for the Three wing. It turns the Giver's generosity into something that scales.",
+      },
+    },
+  },
+  3: {
+    intro: WINGS_INTRO_V3,
+    wings: {
+      2: {
+        overview: 'A Three with a strong Two wing is warmer, more people-oriented, and more charming. The Two wing brings genuine care about others into the success drive, so achievement becomes something shared.',
+        bullets: [
+          'You lead through connection, not only results.',
+          'You notice people while you drive toward the goal.',
+          'Your success tends to lift the people around you.',
+          'Others may find you warmer and more generous than they expect of a Three.',
+          'Left unchecked, you can end up chasing approval on two fronts at the same time.',
+        ],
+        resource: "When you need to bring people with you rather than past them, reach for the Two wing. It turns the Performer's drive into something others want to join.",
+      },
+      4: {
+        overview: 'A Three with a strong Four wing is more introspective, artistic, and attuned to personal expression. The Four wing brings emotional depth and a pull toward authenticity into the achievement drive.',
+        bullets: [
+          'You want the work to mean something.',
+          'You bring real aesthetic judgment to what you make.',
+          'You notice quickly when the image and the substance underneath have parted ways.',
+          'Others may find you deeper and more self-questioning than they expect of a Three.',
+          'Left unexamined, that noticing can quietly curdle into private dissatisfaction.',
+        ],
+        resource: "When you need to know whether the work matters, reach for the Four wing. It turns the Performer's momentum into something with substance underneath.",
+      },
+    },
+  },
+  4: {
+    intro: WINGS_INTRO_V3,
+    wings: {
+      3: {
+        overview: 'A Four with a strong Three wing is more outgoing, more accomplished, and more engaged with the outside world. The Three wing brings drive and a capacity to turn inner intensity into visible work.',
+        bullets: [
+          'You get your inner world out into the open.',
+          'You can finish things, not just feel them.',
+          'Your intensity translates into work people can see.',
+          'Others may find you more driven and productive than they expect of a Four.',
+          'Left unchecked, the pull to be seen starts competing with the pull to be real.',
+        ],
+        resource: "When you need to finish, ship, or be seen, reach for the Three wing. It turns the Individualist's depth into something that reaches other people.",
+      },
+      5: {
+        overview: "A Four with a strong Five wing is more introspective, more private, and more intellectually focused. The Five wing brings analysis and a love of ideas to the Four's emotional depth.",
+        bullets: [
+          'You think as carefully as you feel.',
+          'You go deep into what interests you and stay there.',
+          'Solitude restores you rather than draining you.',
+          'Others may find you more contained and private than they expect of a Four.',
+          'Left unexamined, longing plus withdrawal can settle into real loneliness.',
+        ],
+        resource: "When a mood has you in its grip, reach for the Five wing. It turns the Individualist's feeling into something you can examine rather than inhabit.",
+      },
+    },
+  },
+  5: {
+    intro: WINGS_INTRO_V3,
+    wings: {
+      4: {
+        overview: "A Five with a strong Four wing is more emotionally sensitive, more creative, and more attuned to beauty. The Four wing brings feeling and a pull toward meaning into the Five's intellectual life.",
+        bullets: [
+          'You feel your way into ideas, not just think them.',
+          'You bring aesthetic judgment to what you build.',
+          'Your inner world is unusually rich.',
+          'Others may find you warmer and more expressive than they expect of a Five.',
+          'Left unexamined, feeling and analysis can start pulling in opposite directions.',
+        ],
+        resource: "When the analysis has gone cold, reach for the Four wing. It turns the Observer's clarity into something with warmth in it.",
+      },
+      6: {
+        overview: "A Five with a strong Six wing is more cautious, more loyal, and more engaged with questions of trust. The Six wing brings vigilance and practical problem-solving into the Five's observing stance.",
+        bullets: [
+          'You see problems coming before other people do.',
+          'You engage with systems instead of watching them.',
+          'You show real loyalty to the few you trust.',
+          'Others may find you more practical and involved than they expect of a Five.',
+          'Left unchecked, two head types together can spin worry into real paralysis.',
+        ],
+        resource: "When you need to act before you have all the information, reach for the Six wing. It turns the Observer's caution into practical preparation.",
+      },
+    },
+  },
+  6: {
+    intro: WINGS_INTRO_V3,
+    wings: {
+      5: {
+        overview: 'A Six with a strong Five wing is more introverted, more analytical, and more inclined to gather information before acting. The Five wing brings intellectual depth and a habit of withdrawing to think.',
+        bullets: [
+          'You think a problem through before moving.',
+          "You hold real expertise in what you've committed to.",
+          'You stay calm while you analyze.',
+          'Others may find you more self-contained and private than they expect of a Six.',
+          'Left unchecked, withdrawing to think can amplify the worry rather than settle it.',
+        ],
+        resource: "When the questions are spinning and you need solid ground, reach for the Five wing. It turns the Questioner's vigilance into patient analysis.",
+      },
+      7: {
+        overview: 'A Six with a strong Seven wing is more outgoing, more playful, and more comfortable with risk. The Seven wing brings optimism and a willingness to reframe fear toward possibility rather than threat.',
+        bullets: [
+          'You find the lighter angle when the room runs heavy.',
+          'You take risks the pure Six pattern would avoid.',
+          'Your loyalty comes with genuine warmth and humor.',
+          'Others may find you more easygoing and light-hearted than they expect of a Six.',
+          'Left unexamined, reframing can become a way to skip past the fear entirely.',
+        ],
+        resource: "When worry has narrowed the field to a single bad outcome, reach for the Seven wing. It turns the Questioner's what-ifs into possibilities worth exploring.",
+      },
+    },
+  },
+  7: {
+    intro: WINGS_INTRO_V3,
+    wings: {
+      6: {
+        overview: "A Seven with a strong Six wing is more loyal, more responsible, and more attentive to relationships. The Six wing brings warmth and a capacity for genuine commitment into the Seven's forward motion.",
+        bullets: [
+          'You stay with people and projects past the novelty.',
+          'You notice what could go wrong before you leap.',
+          'Your enthusiasm comes with follow-through.',
+          'Others may find you steadier and more reliable than they expect of a Seven.',
+          'Left unchecked, optimism and worry run at the same time, and both are tiring.',
+        ],
+        resource: "When you need to stay, finish, or keep a promise, reach for the Six wing. It turns the Enthusiast's energy into something people can count on.",
+      },
+      8: {
+        overview: "A Seven with a strong Eight wing is more assertive, more action-oriented, and more willing to push through resistance. The Eight wing brings directness and a tolerance for conflict into the Seven's energy.",
+        bullets: [
+          'You turn ideas into motion fast.',
+          'You push through resistance rather than around it.',
+          'You say the hard thing when it needs saying.',
+          'Others may find you more forceful and decisive than they expect of a Seven.',
+          'Left unexamined, impatience with slower people can quietly cost you the room.',
+        ],
+        resource: "When something needs to happen now and nobody else will move, reach for the Eight wing. It turns the Enthusiast's ideas into decisive action.",
+      },
+    },
+  },
+  8: {
+    intro: WINGS_INTRO_V3,
+    wings: {
+      7: {
+        overview: "An Eight with a strong Seven wing is more outgoing, more playful, and more entrepreneurial. The Seven wing brings optimism and a taste for life's pleasures into the Eight's intensity.",
+        bullets: [
+          'You bring appetite to everything you take on.',
+          'You see opportunity where others see only the fight.',
+          'Your intensity comes with real charm.',
+          'Others may find you more playful and expansive than they expect of an Eight.',
+          'Left unchecked, two fast-moving types together can act well before thinking.',
+        ],
+        resource: "When the work needs lightness or a fresh angle, reach for the Seven wing. It turns the Protector's force into something people enjoy being near.",
+      },
+      9: {
+        overview: "An Eight with a strong Nine wing is more grounded, more patient, and more measured. The Nine wing brings calm and a quality of steady presence into the Eight's energy.",
+        bullets: [
+          'You hold your ground without needing to push.',
+          'Your power is felt before it is announced.',
+          'You stay calm when the pressure rises.',
+          'Others may find you steadier and more approachable than they expect of an Eight.',
+          'Left unexamined, comfort-seeking can talk you out of a needed confrontation.',
+        ],
+        resource: "When you need to lower the temperature in a room, reach for the Nine wing. It turns the Protector's strength into steady, unhurried presence.",
+      },
+    },
+  },
   9: {
-    intro: 'Wings are the two types immediately adjacent to your home base type. Each wing "flavors" how your type shows up, and most people naturally lean more towards one. Both are always present, but which one shows up more is unique to you. When you access your wings intentionally they become valuable resources for balancing the automatic patterns of your home base type.',
+    intro: WINGS_INTRO_V3,
     wings: {
       8: {
         overview: 'A Nine with a strong Eight wing carries more edge, more appetite, and more willingness to push back when pushed. The Eight wing brings access to anger as a useful signal rather than something to manage away.',
@@ -164,11 +401,6 @@ const INTERIM_WINGS_V3 = {
           'You hold standards and want things done right.',
           'You bring care and craft to what you take on.',
           'Others may find you more orderly and idealistic than they expect of a Nine.',
-          // Plain U+002D, byte-identical to the approved copy. Chromium breaks this line at
-          // the hyphen; that is fixed in the RENDERER (_v3NoBreak wraps the compound in a
-          // nowrap span) rather than by substituting U+2011 here. A non-breaking hyphen in
-          // the source would leave the built string one character adrift from the copy under
-          // review, and would not survive a client copying the text out of the PDF.
           'Left unchecked, quiet perfectionism can turn self-forgetting into self-judgment.',
         ],
         resource: "When you need focus, standards, or the discipline to finish something important, reach for the One wing. It channels the Peacemaker's acceptance into something more purposeful.",
@@ -690,17 +922,28 @@ function validateType(n, t) {
   const wt = [t.wings.wing_a.target_type, t.wings.wing_b.target_type].sort();
   need(JSON.stringify(wt) === JSON.stringify([...TYPE_META[n].wings].sort()), `${P}.wings targets ${wt} != engine ${TYPE_META[n].wings}`);
   need(t.wings.wing_a.body && t.wings.wing_b.body, `${P}.wings body empty`);
-  // v3 "Your Wings" page fields. Gated per type: enforced only where INTERIM_WINGS_V3
-  // supplies content, so types not yet authored fail loudly at their own PR, not this one.
-  if (INTERIM_WINGS_V3[n]) {
-    need(t.wings.intro_v3, `${P}.wings.intro_v3 empty (v3 page intro)`);
-    for (const slot of ['wing_a', 'wing_b']) {
-      const w = t.wings[slot];
-      need(w.overview, `${P}.wings.${slot}.overview empty (v3)`);
-      need(Array.isArray(w.bullets) && w.bullets.length === 5 && w.bullets.every(Boolean),
-        `${P}.wings.${slot}.bullets must be exactly 5 non-empty (v3), got ${w.bullets ? w.bullets.length : 'none'}`);
-      need(w.resource, `${P}.wings.${slot}.resource empty (v3 "As a Resource" band)`);
-    }
+  // v3 "Your Wings" page fields — UNCONDITIONAL as of the PR 3 audit.
+  //
+  // This was `if (INTERIM_WINGS_V3[n])`, i.e. enforced only for types that already had
+  // content, on the reasoning that unauthored types would "fail loudly at their own PR".
+  // They did not. Measured: rendering buildClientReportHTML_v3 for types 1-8 produces a
+  // Wings page with two empty overviews, two empty resource bands, no bullets and no intro
+  // — 560px of content against a 976px budget — and every gate stays green, because
+  // report_prep's mk() defaults each missing field to '' / [] and 416px of headroom is
+  // MORE comfortable than Type 9's 37.25px. A conditional gate cannot see missing content;
+  // it can only see content that is present and wrong.
+  //
+  // Unconditional means the build now fails for the eight unauthored types. That is the
+  // intended signal and it is what PR 3 closes, type by type. It is deliberately NOT put
+  // behind a flag: PR 1.5 retired --accept-drift precisely because a flag used routinely
+  // stops being a guard.
+  need(t.wings.intro_v3, `${P}.wings.intro_v3 empty (v3 page intro)`);
+  for (const slot of ['wing_a', 'wing_b']) {
+    const w = t.wings[slot];
+    need(w.overview, `${P}.wings.${slot}.overview empty (v3)`);
+    need(Array.isArray(w.bullets) && w.bullets.length === 5 && w.bullets.every(Boolean),
+      `${P}.wings.${slot}.bullets must be exactly 5 non-empty (v3), got ${w.bullets ? w.bullets.length : 'none'}`);
+    need(w.resource, `${P}.wings.${slot}.resource empty (v3 "As a Resource" band)`);
   }
   need(t.lines.stress.target_type === TYPE_META[n].stress, `${P}.lines.stress target ${t.lines.stress.target_type} != engine ${TYPE_META[n].stress}`);
   need(t.lines.security.target_type === TYPE_META[n].security, `${P}.lines.security target ${t.lines.security.target_type} != engine ${TYPE_META[n].security}`);
