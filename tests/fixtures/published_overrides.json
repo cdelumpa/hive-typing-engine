@@ -12,11 +12,15 @@
   },
 
   "drifted": {
-    "_note": "The real defect, reproduced. static.welcome as published in June predates the `signoff` key PR 2 added on 12 Aug 2026; type_1.wings carries the v2 wing shape and predates the overview/bullets/resource/intro_v3 fields PR 1 added on 11 Aug. Both must throw.",
+    "_note": "The real defect, reproduced. static.welcome as published in June predates the `signoff` key PR 2 added on 12 Aug 2026. type_1.wings and type_9.wings carry the v2 {target_type, body} shape and predate the overview/bullets/resource/intro_v3 fields — PR 1 added them for type 9 on 11 Aug, PR 3-Wings for types 1-8 on 13 Aug. All three must throw. type_1.wings and type_8.wings were two of the seven real published rows; type_1 is reproduced here because it is the literal incident the cleanup exists to prevent.",
     "static.welcome": {
       "subhead": "FIXTURE subhead.",
       "letters": ["FIXTURE letter one.", "FIXTURE letter two.", "FIXTURE letter three.", "FIXTURE letter four.", "FIXTURE letter five."],
       "callout": "FIXTURE callout retained from the v2 design."
+    },
+    "type_1.wings": {
+      "wing_a": { "target_type": 9, "body": "FIXTURE v2 wing body for the Nine wing." },
+      "wing_b": { "target_type": 2, "body": "FIXTURE v2 wing body for the Two wing." }
     },
     "type_9.wings": {
       "wing_a": { "target_type": 8, "body": "FIXTURE v2 wing body for the Eight wing." },
