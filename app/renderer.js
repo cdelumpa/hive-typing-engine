@@ -2887,7 +2887,13 @@ function clientReportV3PageStyles() {
 /* Ported from docs/mockup/claude_The_Peacemaker_Page_Lines_v1.html. Class names namespaced
    v3-pt/v3-band/v3-work: the mockup's bare .band collides with a DIFFERENT .band on the
    cover, and .intro means one thing here and another on Your Thoughts (§3.4). */
-.v3-page .v3-pts{ display:flex; gap:18px; margin-bottom:14px; }
+/* MAJOR SECTION BREAK = 18px. Ratified 13 Aug 2026 as a document-wide rule, not a value
+   picked for this page: the point boxes and the "Putting Your Resources to Work" heading
+   are a section break, and every section break in the v3 client report takes 18px.
+   Was the mockup's 14px, which read as crowded on the rendered Type 4 sheet.
+   NOTE: .v3-intro on this same page is still 26px and predates the rule — see the round-3
+   spike report. Not changed here; that is a separate, whole-document decision. */
+.v3-page .v3-pts{ display:flex; gap:18px; margin-bottom:18px; }
 .v3-page .v3-pt{ flex:1; border:1px solid var(--v3-border); display:flex; flex-direction:column; }
 .v3-page .v3-pt-head{ background:var(--v3-leading-bg); padding:13px 16px; display:flex; align-items:center; gap:12px; }
 .v3-page .v3-pt-num{ flex:0 0 auto; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:17px; font-weight:bold; color:#FFFFFF; }

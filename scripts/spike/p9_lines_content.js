@@ -24,7 +24,7 @@ const P9_SPIKE = {
     security_narrative: 'When Ones feel safe and resourced, they move toward Seven energy — more spontaneous, playful, open to possibility. The grip of the standard loosens.',
     security_band: 'In flow: spontaneity, play, pleasure. Available now: letting things be imperfect.',
     stress: [
-      'Your standards go unmet, your effort goes unnoticed, and something underneath now feels personal.',
+      'Your standards go unmet, your effort unnoticed, and something underneath now feels personal.',
       'The self-correction turns inward and sours into a heavier, far more private sense of being unseen.',
       'Proportion goes: the flaw grows larger, the whole picture shrinks, and the mood carries the day.',
     ],
@@ -34,9 +34,9 @@ const P9_SPIKE = {
       'Rest stops needing to be earned, and pleasure stops arriving only after the list is finished.',
     ],
     work: [
-      'The critique turns inward and heavy.',
-      'Proportion goes; the flaw fills the frame.',
-      'Name what is actually good enough.',
+      'You notice the correcting turn inward, and the tone of it getting personal.',
+      "The one flaw has filled the frame, and the rest of what's true has gone out of view.",
+      'Name what good enough actually looks like here, out loud, before you revise again.',
     ],
   },
   4: {
@@ -55,9 +55,9 @@ const P9_SPIKE = {
       'The work stops waiting on the mood, and something gets finished while the feeling still moves.',
     ],
     work: [
-      'You start tending everyone but yourself.',
-      'Your needs go unnamed.',
-      'Say one thing you actually want.',
+      "You notice yourself tending to everyone else's needs and going quiet about your own.",
+      "The connection you wanted still isn't arriving, and now you've disappeared into earning it.",
+      "Say one true thing you actually want, before you've worked out whether it's welcome.",
     ],
   },
   8: {
@@ -76,9 +76,9 @@ const P9_SPIKE = {
       'Strength stops needing to announce itself, and protecting someone looks like tenderness.',
     ],
     work: [
-      'You go quiet and handle it alone.',
-      'People stop being able to reach you.',
-      'Let one person in before you fix it.',
+      'You notice yourself going quiet, pulling back, and working the problem alone.',
+      "The people who could actually help are the ones you've put furthest outside it.",
+      "Tell one person what's going on before you've fixed it, or decided you must.",
     ],
   },
   // Type 9 — verbatim from docs/mockup/claude_The_Peacemaker_Page_Lines_v1.html, kept as the
@@ -108,7 +108,7 @@ const P9_SPIKE = {
 };
 
 const INTRO_MOCKUP = "The Enneagram system shows you where you tend to move when you're feeling secure and in flow, and where you tend to move under an unusual amount of stress. Both moves happen in the background, part of the same internal operating system as your Home Base type and your Wings. When you access these points intentionally they become valuable resources to expand your range of choices in any situation.";
-const WORK_LEAD = 'These movements are easier to work with once you can see them happening. The skill is catching yourself in the moment, and it builds with practice.';
+const WORK_LEAD = 'Your Wings and your Stress and Security points give you more choices, and more range. The first step is catching yourself in the moment, pausing to notice, and then making a purposeful choice.';
 
 /**
  * Splice spike content into a deep copy of the content library.
