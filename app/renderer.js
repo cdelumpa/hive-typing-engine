@@ -3502,11 +3502,15 @@ function _clv3TypeA(m) {
   ${_v3Header(m)}
   <div class="header-rule is-tight"></div>
 
-  <div class="eyebrow">${esc(page.eyebrow)}</div>
-  <h1>Type ${m.hero.number} &middot; ${esc(m.hero.name)}</h1>
-
+  <!-- The eyebrow and h1 sit INSIDE the flex row, as the mockup has them: the 168px wheel is
+       centred against the whole title block, not just the paragraph. Hoisting them out of the
+       row costs 53.56px of page height and moves the wheel down beside the body text alone. -->
   <div class="v3-ta-intro">
-    <div class="v3-ta-intro-body"><div class="lead is-flush">${_v3t(V3_TYPEA_INTRO(m))}</div></div>
+    <div class="v3-ta-intro-body">
+      <div class="eyebrow">${esc(page.eyebrow)}</div>
+      <h1>Type ${m.hero.number} &middot; ${esc(m.hero.name)}</h1>
+      <div class="lead is-flush">${_v3t(V3_TYPEA_INTRO(m))}</div>
+    </div>
     <div class="v3-ta-sym">${buildEnneagramSVG({ type: m.hero.number, variant: 'client-explore' })}</div>
   </div>
 
