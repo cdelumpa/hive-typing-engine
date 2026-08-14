@@ -110,8 +110,32 @@ console.log('\ncountByClass token boundaries:');
       return;
     }
 
-    const total = countPages(html, 'client_v3');
-    assert(total === EXPECTED_PAGES.client_v3, `v3: ${total} .v3-page containers (expected ${EXPECTED_PAGES.client_v3})`);
+    // The fixture is Type 9, which is the sheets 6-7 pilot type, so this render carries the
+    // NINE-page document. `client_v3` (7) is the count for every other type and is exercised
+    // by the non-pilot render below.
+    const total = countPages(html, 'client_v3_pilot');
+    assert(total === EXPECTED_PAGES.client_v3_pilot,
+      `v3: ${total} .v3-page containers for the pilot type (expected ${EXPECTED_PAGES.client_v3_pilot})`);
+
+    // NON-PILOT TYPE — the other half of the pilot gate. Type 1 has no explore_v3 content, so
+    // the document must be SEVEN pages with no Exploring markup at all. A blank sheet 6/7
+    // rendering silently is the exact defect the Wings and Lines gates were added to stop, so
+    // it is asserted here rather than assumed from the renderer's filter.
+    {
+      const t1 = JSON.parse(JSON.stringify(apiResult));
+      t1.hypothesis.confirmed_type = 1;
+      t1.hypothesis.confirmed_type_name = null;
+      const m1 = await prep.buildClientModel({ apiResult: t1, client: V3_CLIENT, coach });
+      const h1 = R.buildClientReportHTML_v3(m1);
+      const n1 = countPages(h1, 'client_v3');
+      assert(n1 === EXPECTED_PAGES.client_v3,
+        `v3: non-pilot type renders ${n1} .v3-page containers (expected ${EXPECTED_PAGES.client_v3})`);
+      // Scoped to class ATTRIBUTES: the p6/p7 rules ship in the stylesheet on every page, so
+      // a bare substring test matches the CSS and passes for the wrong reason.
+      assert(!/class="v3-ta-|class="v3-tb-/.test(h1), 'v3: a non-pilot type emits no Exploring-sheet markup');
+      assert(R.v3PagesFor(1).length === EXPECTED_PAGES.client_v3,
+        'v3: v3PagesFor(1) agrees with the non-pilot page count');
+    }
 
     // The order table itself: sheets 1..12, contiguous; cover and contents unnumbered;
     // every other sheet numbered sheet-2. A typo here would renumber the whole document.
@@ -126,7 +150,9 @@ console.log('\ncountByClass token boundaries:');
     // restated here. The three assertions below used to carry that subset by hand — the key
     // list, the footer count and the header count — so landing a page meant editing four
     // literals across two files. The p9 spike edited one of them and this suite went red.
-    const builtPages = order.filter(p => p.built);
+    // Pilot-scoped sheets mean "which pages exist" is a function of the type, so this comes
+    // from the same helper the renderer emits with rather than from `built` alone.
+    const builtPages = R.v3PagesFor(model.hero.number);
     // Pages that emit chrome. _v3Footer returns '' for chrome:'none' (the cover), and the
     // cover is likewise the only page with no header — so both counts are the same subset.
     const withChrome = builtPages.filter(p => p.chrome !== 'none');

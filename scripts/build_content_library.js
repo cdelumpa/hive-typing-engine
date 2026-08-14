@@ -663,6 +663,107 @@ const INTERIM_LINES_V3 = {
   },
 };
 
+// INTERIM SOURCE — client report v3 "Exploring Your Type Hypothesis" pages (sheets 6 and 7).
+//
+// TYPE 9 ONLY, DELIBERATELY. This is the solo pilot before the 1/4/8 batch. Types 1-8 have no
+// content here and MUST NOT render these pages — see the pilot gate on the typeA/typeB entries
+// in V3_PAGE_ORDER (app/renderer.js) and validateExplore() below.
+//
+// PORTED, NOT AUTHORED. Every string is transcribed verbatim from the two Type 9 mockups,
+//   docs/mockup/claude_The_Peacemaker_Page_LeadingType_A_v1.html   (sheet 6)
+//   docs/mockup/claude_The_Peacemaker_Page_LeadingType_B_v1.html   (sheet 7)
+// by reading the RENDERED DOM rather than the HTML source, because the mockup wraps prose
+// across source lines and only the browser's own normalisation yields the string as it
+// actually renders. 34 of 34 zones verified byte-identical against that DOM.
+//
+// THIS IS APPROVED HIVE CONTENT, NOT DRAFT COPY. Unlike the Wings r2 batch, nothing here
+// carries standing authorization for editorial re-cuts. If a zone does not fit, that is a
+// finding for Cai and Mo, not a build-time trim.
+//
+// The prose contains type-specific literals — "As a Peacemaker", "Nines" — which are stored
+// VERBATIM rather than tokenised. Tokenising approved prose would be editing it, and the
+// batch build will carry each type's own text anyway. Only the page chrome is tokenised.
+//
+// The docx has no sections for any of these zones (checked: no At-a-Glance, no Core Belief,
+// no Decision-Making, no catching-patterns), so this cannot be a parseStatics() read. Same
+// contract as INTERIM_WINGS_V3 and INTERIM_LINES_V3: when the docx gains them, replace this
+// with a parser read and confirm regenerated output is identical.
+
+// PILOT SCOPE — the single place in this file that says which types render sheets 6 and 7.
+// app/renderer.js carries the matching list on the typeA/typeB V3_PAGE_ORDER entries.
+// ⚠️ PLACEHOLDER, revisit before the 1/4/8 batch: two lists that must agree is precisely the
+// drift this project has been bitten by, and the batch build should collapse them into one.
+const EXPLORE_PILOT_TYPES = [9];
+
+const INTERIM_EXPLORE_V3 = {
+  9: {
+    p6: {
+      core_motivation: 'To maintain inner and outer peace, stay connected to others, and avoid the conflict and discomfort that come with asserting your own priorities.',
+      worldview: 'The world has an underlying unity that conflict threatens. Your role is to maintain harmony and find common ground.',
+      core_belief: 'Keeping the peace keeps you connected. Asserting yourself risks the harmony you depend on.',
+      glance: [
+        'To have inner and outer peace, and to experience a sense of belonging',
+        "The environment around them, potential conflict, and other people's agendas and claims on them",
+        'Conflict, discomfort, and feeling disregarded or disconnected',
+        'Anger. Though present, anger goes unacknowledged in order to preserve inner and outer peace.',
+      ],
+      patterns: [
+        "As a Peacemaker, your attention goes outward to everyone else's positions, agendas, and comfort, often more readily than to your own. Locating your own stance is the harder task.",
+        'As a Peacemaker, you carry a steady, even temperament, but that calm can sit on top of feelings smoothed over rather than fully felt. Anger, in particular, goes quiet first.',
+        'As a Peacemaker, your behavior organizes around not making waves: going along, smoothing things over, keeping everyone comfortable. Your steadiness is a gift, and sometimes a hiding place.',
+      ],
+    },
+    p7: {
+      best: [
+        { title: 'Steady warmth.', body: 'A receptive presence that makes people feel genuinely welcome.' },
+        { title: 'Holding multiple perspectives.', body: 'Non-judgmental and inclusive, making you a trusted mediator.' },
+        { title: 'Steady presence.', body: 'A calm, stabilizing force that becomes real strength when embodied.' },
+      ],
+      edge: [
+        { title: 'Self-forgetting.', body: "You may manage everyone else's comfort while quietly losing track of your own." },
+        { title: 'Merging.', body: 'Agreeableness, repeated over time, can make you forget your own agenda.' },
+        { title: 'Quiet anger.', body: 'Unacknowledged, it turns into inertia or passive resistance.' },
+      ],
+      styles: [
+        {
+          name: 'Inclusive and Indirect',
+          bullets: [
+            'You listen more than you assert. People rarely leave knowing what you actually think.',
+            'Your real position forms later, in private. In the moment, you may not know it.',
+            "Maybe, perhaps, I don't mind. Qualifiers take the edges off your point.",
+          ],
+        },
+        {
+          name: 'Go Along to Get Along',
+          bullets: [
+            'You find the reading where everyone is fine. What you reframe returns larger.',
+            'Discomfort gets smoothed, not named. Relief now, a vague heaviness later.',
+            'When pushed, you may dig in, become stubborn, and slow down the pace.',
+          ],
+        },
+        {
+          name: 'Every Option Counts',
+          bullets: [
+            'Every choice has a case, so deciding feels like discarding rather than gaining.',
+            'Your own preference surfaces last. Choosing on the spot is hard.',
+            "Knowing what you don't want comes first. That is a usable starting point.",
+          ],
+        },
+      ],
+      signs: [
+        'You say "yes" when you want to say "no".',
+        'You withhold your opinion to not rock the boat.',
+        'You ignore the tension in your body.',
+      ],
+      interrupt: [
+        'Make a counteroffer instead of a flat-out "no".',
+        'Speak your truth with no attachments.',
+        'Pause, breathe, and be curious about the tension.',
+      ],
+    },
+  },
+};
+
 // Engine source of truth (mirrors renderer TYPE_NAMES + design A6; Phase 4 centralizes into type_meta.js).
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver', 3: 'The Performer', 4: 'The Individualist',
@@ -777,6 +878,12 @@ function assembleType(n, blocks) {
     t.lines.work_lead_v3 = INTERIM_LINES_V3.work_lead;
     t.lines.work_v3 = INTERIM_LINES_V3.types[n].work;
   }
+
+  // v3 sheets 6 and 7, "Exploring Your Type Hypothesis". Type 9 only for the pilot; the key is
+  // ABSENT for every other type, which is what the renderer's pilot gate keys off. Absent, not
+  // empty: an empty object would render a blank page, which is the failure mode this whole
+  // sequence exists to prevent.
+  if (INTERIM_EXPLORE_V3[n]) t.explore_v3 = INTERIM_EXPLORE_V3[n];
 
   // strengths / challenges → 3 {title, body} pairs each
   const pairs = (label) => {
@@ -949,6 +1056,7 @@ function validateType(n, t) {
   need(t.lines.security.target_type === TYPE_META[n].security, `${P}.lines.security target ${t.lines.security.target_type} != engine ${TYPE_META[n].security}`);
   for (const s of ['stress', 'security']) { need(t.lines[s].narrative, `${P}.lines.${s}.narrative empty`); need(t.lines[s].resource_card, `${P}.lines.${s}.resource_card empty`); }
   validateLines(n, t);
+  validateExplore(n, t);
   need(t.strengths.length === 3, `${P}.strengths = ${t.strengths.length} (want 3)`);
   need(t.challenges.length === 3, `${P}.challenges = ${t.challenges.length} (want 3)`);
   need(t.practices.bullets.length >= 1, `${P}.practices.bullets empty`);
@@ -982,6 +1090,58 @@ function validateType(n, t) {
  * renderer pairs work[i] with a fixed WORK_LABELS[i], so a short array renders a labelled
  * empty cell rather than failing.
  */
+/**
+ * v3 sheets 6 and 7. PILOT SCOPE: type 9 carries content, types 1-8 carry NONE.
+ *
+ * Both halves are asserted, and the second is the one that matters. A type with a PARTIAL
+ * explore_v3 — some zones filled, some missing — would render a page with visible gaps and
+ * every gate green, which is exactly the defect the unconditional Wings gate was introduced
+ * to stop. So an unauthored type must have the key ABSENT entirely, not empty and not
+ * half-filled, and this asserts that rather than trusting it.
+ *
+ * When the 1/4/8 batch lands, EXPLORE_PILOT_TYPES moves and this keeps working unchanged.
+ */
+function validateExplore(n, t) {
+  const P = `type_${n}`;
+  const e = t.explore_v3;
+
+  if (!EXPLORE_PILOT_TYPES.includes(n)) {
+    need(e === undefined,
+      `${P}.explore_v3 present but type ${n} is not in EXPLORE_PILOT_TYPES [${EXPLORE_PILOT_TYPES}] — `
+      + 'a type either has all of sheets 6-7 or none of it');
+    return;
+  }
+  if (!e) { need(false, `${P}.explore_v3 missing (type ${n} is a pilot type)`); return; }
+
+  const arr = (v, k, len) => need(Array.isArray(v) && v.length === len && v.every(Boolean),
+    `${P}.explore_v3.${k} must be exactly ${len} non-empty, got ${Array.isArray(v) ? v.length : 'none'}`);
+
+  need(e.p6, `${P}.explore_v3.p6 missing`);
+  if (e.p6) {
+    need(e.p6.core_motivation, `${P}.explore_v3.p6.core_motivation empty`);
+    need(e.p6.worldview, `${P}.explore_v3.p6.worldview empty`);
+    need(e.p6.core_belief, `${P}.explore_v3.p6.core_belief empty`);
+    arr(e.p6.glance, 'p6.glance', 4);
+    arr(e.p6.patterns, 'p6.patterns', 3);
+  }
+
+  need(e.p7, `${P}.explore_v3.p7 missing`);
+  if (e.p7) {
+    for (const k of ['best', 'edge']) {
+      need(Array.isArray(e.p7[k]) && e.p7[k].length === 3 && e.p7[k].every(x => x && x.title && x.body),
+        `${P}.explore_v3.p7.${k} must be exactly 3 items with title+body, got ${Array.isArray(e.p7[k]) ? e.p7[k].length : 'none'}`);
+    }
+    need(Array.isArray(e.p7.styles) && e.p7.styles.length === 3,
+      `${P}.explore_v3.p7.styles must be exactly 3 (communication, conflict, decision-making), got ${Array.isArray(e.p7.styles) ? e.p7.styles.length : 'none'}`);
+    (e.p7.styles || []).forEach((st, i) => {
+      need(st && st.name, `${P}.explore_v3.p7.styles[${i}].name empty`);
+      arr(st && st.bullets, `p7.styles[${i}].bullets`, 3);
+    });
+    arr(e.p7.signs, 'p7.signs', 3);
+    arr(e.p7.interrupt, 'p7.interrupt', 3);
+  }
+}
+
 function validateLines(n, t) {
   const P = `type_${n}`;
   const L = t.lines;

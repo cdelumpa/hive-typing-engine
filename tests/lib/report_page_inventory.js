@@ -37,7 +37,13 @@ const PAGE_INVENTORY = {
   // This number is the tripwire. It is maintained by hand, by whoever lands the page, and
   // it fails when the constant is wrong rather than when it is inconsistent with itself.
   // Do not "tidy" it into a derivation.
-  client_v3: { 'v3-page': 7 },
+  //
+  // TYPE-AWARE as of PR 3-Explore. Sheets 6-7 are pilot-scoped to type 9, so type 9 emits
+  // NINE pages and every other type seven. A single number can no longer express the
+  // document, and pretending otherwise would either fail the pilot type or stop noticing a
+  // missing page on the other eight. Both entries stay hand-maintained for the reason above.
+  client_v3: { 'v3-page': 7 },          // types 1-8 — sheets 6-7 not authored yet
+  client_v3_pilot: { 'v3-page': 9 },    // type 9 — the two Exploring sheets included
 };
 
 // Expected total page containers per kind, derived from PAGE_INVENTORY (coach 3, client 10).

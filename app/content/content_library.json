@@ -566,6 +566,90 @@
         "Name the one thing you want here, out loud, before the moment closes and going along becomes the answer."
       ]
     },
+    "explore_v3": {
+      "p6": {
+        "core_motivation": "To maintain inner and outer peace, stay connected to others, and avoid the conflict and discomfort that come with asserting your own priorities.",
+        "worldview": "The world has an underlying unity that conflict threatens. Your role is to maintain harmony and find common ground.",
+        "core_belief": "Keeping the peace keeps you connected. Asserting yourself risks the harmony you depend on.",
+        "glance": [
+          "To have inner and outer peace, and to experience a sense of belonging",
+          "The environment around them, potential conflict, and other people's agendas and claims on them",
+          "Conflict, discomfort, and feeling disregarded or disconnected",
+          "Anger. Though present, anger goes unacknowledged in order to preserve inner and outer peace."
+        ],
+        "patterns": [
+          "As a Peacemaker, your attention goes outward to everyone else's positions, agendas, and comfort, often more readily than to your own. Locating your own stance is the harder task.",
+          "As a Peacemaker, you carry a steady, even temperament, but that calm can sit on top of feelings smoothed over rather than fully felt. Anger, in particular, goes quiet first.",
+          "As a Peacemaker, your behavior organizes around not making waves: going along, smoothing things over, keeping everyone comfortable. Your steadiness is a gift, and sometimes a hiding place."
+        ]
+      },
+      "p7": {
+        "best": [
+          {
+            "title": "Steady warmth.",
+            "body": "A receptive presence that makes people feel genuinely welcome."
+          },
+          {
+            "title": "Holding multiple perspectives.",
+            "body": "Non-judgmental and inclusive, making you a trusted mediator."
+          },
+          {
+            "title": "Steady presence.",
+            "body": "A calm, stabilizing force that becomes real strength when embodied."
+          }
+        ],
+        "edge": [
+          {
+            "title": "Self-forgetting.",
+            "body": "You may manage everyone else's comfort while quietly losing track of your own."
+          },
+          {
+            "title": "Merging.",
+            "body": "Agreeableness, repeated over time, can make you forget your own agenda."
+          },
+          {
+            "title": "Quiet anger.",
+            "body": "Unacknowledged, it turns into inertia or passive resistance."
+          }
+        ],
+        "styles": [
+          {
+            "name": "Inclusive and Indirect",
+            "bullets": [
+              "You listen more than you assert. People rarely leave knowing what you actually think.",
+              "Your real position forms later, in private. In the moment, you may not know it.",
+              "Maybe, perhaps, I don't mind. Qualifiers take the edges off your point."
+            ]
+          },
+          {
+            "name": "Go Along to Get Along",
+            "bullets": [
+              "You find the reading where everyone is fine. What you reframe returns larger.",
+              "Discomfort gets smoothed, not named. Relief now, a vague heaviness later.",
+              "When pushed, you may dig in, become stubborn, and slow down the pace."
+            ]
+          },
+          {
+            "name": "Every Option Counts",
+            "bullets": [
+              "Every choice has a case, so deciding feels like discarding rather than gaining.",
+              "Your own preference surfaces last. Choosing on the spot is hard.",
+              "Knowing what you don't want comes first. That is a usable starting point."
+            ]
+          }
+        ],
+        "signs": [
+          "You say \"yes\" when you want to say \"no\".",
+          "You withhold your opinion to not rock the boat.",
+          "You ignore the tension in your body."
+        ],
+        "interrupt": [
+          "Make a counteroffer instead of a flat-out \"no\".",
+          "Speak your truth with no attachments.",
+          "Pause, breathe, and be curious about the tension."
+        ]
+      }
+    },
     "strengths": [
       {
         "title": "Steady Calm",

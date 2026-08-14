@@ -250,6 +250,10 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       // label alone ("One-to-One"). For a subtype string use display.subtype_label.
       nickname: nickname(meta.name),                          // "The Peacemaker" -> "Peacemaker"
       nickname_plural: `${nickname(meta.name)}s`,             // -> "Peacemakers"
+      // The TYPE-NUMBER plural, which is a different string from the nickname plural and the
+      // one sheet 6's at-a-glance labels use: "What Nines Want", not "What Peacemakers Want".
+      // Six is the only one that does not take a bare "s".
+      type_word_plural: TYPE_WORD[heroN] === 'Six' ? 'Sixes' : `${TYPE_WORD[heroN]}s`,
     },
     alternate: nameNode(altN),
     confidence: { label: confidenceLabel(h.confidence_level), near_tie: nearTie(h.call1_ranking) },
@@ -325,6 +329,15 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
         };
         return { intro: t.wings.intro_v3 || '', wing_a: mk('wing_a'), wing_b: mk('wing_b') };
       })(),
+      // CLIENT REPORT v3 — sheets 6 and 7, "Exploring Your Type Hypothesis".
+      //
+      // PILOT: type 9 only. `explore_v3` is ABSENT from the content library for every other
+      // type (build_content_library.js validateExplore enforces that), so this resolves to
+      // null and the renderer's pilot gate drops both sheets from the document. Deliberately
+      // NOT defaulted to '' / [] the way v3_wings and v3_lines are: those default so an
+      // unauthored type renders an empty page, which is the failure mode this sequence has
+      // twice had to fix. Here, no content means no page.
+      v3_explore: t.explore_v3 || null,
       // CLIENT REPORT v3 — p9 "Your Stress and Security Points". SPIKE wiring.
       //
       // narrative and band are CANON: type_N.lines.{stress,security}.{narrative,resource_card},

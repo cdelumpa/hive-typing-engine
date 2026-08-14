@@ -90,6 +90,14 @@ const SCRIPT_SOURCED = [
     label: 'p9 narrative + resource card, all 9 types (REPLACE the docx values)',
     retires: 'if the docx p9 narratives are ever rewritten to the v3 length budget',
     walkTypes: ['narrative', 'resource_card'], under: 'lines' },
+  // Sheets 6-7 "Exploring Your Type Hypothesis", from INTERIM_EXPLORE_V3. PILOT: type 9 only,
+  // so the walk finds 40 leaves today and grows as the 1/4/8 batch and then the rest land.
+  // `under: 'explore_v3'` with an empty field list would match nothing, so the walk is keyed
+  // on the two page nodes; every leaf beneath them is script-sourced.
+  { path: 'types_v3_explore',
+    label: 'sheets 6-7 Exploring (p6 + p7), pilot types only',
+    retires: 'when the docx gains AT A GLANCE / CORE BELIEF / DECISION-MAKING / CATCHING PATTERNS sections (no current plan)',
+    walkTypes: ['p6', 'p7'], under: 'explore_v3' },
   { path: 'static.contents', label: 'static.contents (v3 Contents page, 9 entries)',
     retires: 'when the docx gains a CONTENTS ENTRIES section (no current plan — raise with design)' },
   { path: 'static.thoughts', label: 'static.thoughts (v3 Your Thoughts page)',
