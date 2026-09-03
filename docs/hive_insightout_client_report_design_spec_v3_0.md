@@ -261,17 +261,22 @@ Anything sourced from v3 must be verified against the coach report or production
 
 §4.3 covers places the mockup is simply *wrong*. These are different: places where the shipped
 renderer **intentionally differs** from `LeadingType_A_v1` / `LeadingType_B_v1`. A pixel-diff
-against those files will flag all three. **They are not regressions — do not "fix" them back.**
-Each is also commented at its definition in `app/renderer.js`.
+against those files will flag ~~all three~~ **all four** (M4 added 3 Sep 2026). **They are not
+regressions — do not "fix" them back.** Each is also commented at its definition in
+`app/renderer.js`.
 
 | # | Departure | Mockup | Shipped | Why |
 |---|-----------|--------|---------|-----|
 | M1 | At-a-glance labels | `What Nines Want` / `Where Nines Turn Their Attention` / `What Nines Tend to Avoid` / `Driving Emotion` | `Core Desire` / `Attention Goes To` / `Avoidance` / `Driving Emotion` | The locked wording in the four p6/p7 source docs, which head these zones with the new labels. `Driving Emotion` is the tell — it is identical in both, so the doc headings are labels, not zone names. Ratified 20 Aug 2026. |
 | M2 | Space above each sheet-7 `h2` | 30px (`.two-col`, `.styles`), with `h2` margin-bottom 14px | 20px, with `h2` margin-bottom 10px | The two Exploring mockups disagree with each other — sheet 6 uses 20px above / 10px below, sheet 7 uses 30px / 14px. The original port already resolved the *bottom* half in sheet 6's favour (the shared `h2` rule is 10px), leaving the sheets inconsistent in opposite directions. This finishes the normalisation and buys 20px on the tightest page in the document. Ratified 20 Aug 2026. |
 | M3 | Glance label gutter | none — label box is `flex:0 0 92px` with no padding, value starts where it ends | `padding-right:10px` inside the 92px | A consequence of M1, not a free choice. `ATTENTION GOES` renders 89.42px into the 92px box — a 2.58px gutter against 22–45px on the other three — and collides with the value text. Hidden while the labels were long plurals, which broke into short lines. The padding is *inside* the flex basis so the **value column stays 221.5px**; the glance budgets (80 and 111 chars) were measured at that width and taking the gutter out of the value would invalidate them. |
+| M4 | p6 diagram home node | all nine nodes equal — `rNode` 12.5, numeral 12 | home node `rNode` **16**, home numeral **15**, plus the fill and stroke | The mockup draws the home node larger, not merely filled. This **departs from §3.5's equal-radii convention**, which the cover and What-Is wheels follow — those differentiate home BY FILL ONLY and keep all nine radii equal. Ported as drawn rather than normalised, because the mockup is the design reference and silently "fixing" it would be a design decision taken inside a build. **Note it is two changes, not one:** the numeral grows with the node (`homeFs` 12 → 15), so a pixel-diff flags both. Defined at `EXPLORE_GEO` in `app/renderer.js`, where the comment is now the pointer to this row rather than the record. Recorded 3 Sep 2026; **the departure itself is still open for Cai and Mo** — this row documents what ships today, it does not ratify it. |
 
-A fourth difference is content, not design: **Type 9's p6/p7 prose is no longer the mockup's.**
-See §7.4 for the source of record, and §7.2 for the one part of it still unlocked.
+~~A fourth difference~~ **A further difference** is content, not design: **Type 9's p6/p7 prose is
+no longer the mockup's.** See §7.4 for the source of record, and §7.2 for the one part of it still
+unlocked. (Reworded 3 Sep 2026 — "fourth" referred to the count when the table held three rows, and
+M4 now occupies that number. This difference is deliberately *not* an M-row: the M-rows are design
+departures, this one is content.)
 
 ---
 
@@ -330,12 +335,139 @@ in mind across nine types.
 | Strengths / challenges bullets | Exactly **2 lines**. Bold label under 20 chars, total under 90 | Bold Arial is ~2× width per char. A 99-char bullet with a 29-char bold label wraps to 3; a 98-char bullet with a 15-char label fits 2 |
 | Practice bullets (p7) | **1 line**, under 47 chars | Six single lines scan as a checklist |
 | Style names (p7) | **1 line**, under 24 chars | Longer names wrap and break header alignment across the three cards |
-| Pattern / shift bullets | ~27 words, last line **>50% of column width** | Line count is not the issue — stranded 13–20% last lines are what read as ragged |
-| Paired column overviews | **Matched line counts** between columns | Verified programmatically, not by eye |
-| Subtype comparison zones | 3–4 lines, last line >50% | |
+| Pattern / shift bullets | ~~\~27 words, last line **>50% of column width**~~ **53–88 characters** (see the bands below); last line **not below 25%** of column width, >50% aspirational | Line count is not the issue — stranded 13–20% last lines are what read as ragged |
+| Paired column overviews | **Matched line counts** between columns. Scope of enforcement: **§6.1** | Verified programmatically, not by eye |
+| Subtype comparison zones | 3–4 lines, last line ~~>50%~~ **not below 25%**, >50% aspirational | |
 | Diagram labels | Under **88px** at 11px Arial (~17 chars) | Includes the eyebrow strings, which are wider than the names |
 | "How You May Experience SP/SO/SX" | Exactly 25 chars, fits 1 line | No headroom at current column width |
 | CAR page title | `Development Ideas for {plural}` | Strip "The" from archetype name, add `s`. All nine work |
+
+> **Post-lock correction — 3 Sep 2026.** Two corrections to the table above, both established by
+> the 12 Aug fit spike (`scripts/spike/explore_fit_probe.js`) — measured in the real v3 renderer
+> against the shared stylesheet, pinned Chromium, Arial asserted, line counts from
+> `Range.getClientRects()` merged by top edge.
+>
+> - **Word counts do not predict wrapping; character counts do.** One row had kept a word count
+>   (`~27 words`) under a preamble that already declares these guardrails "structural, not word
+>   counts" — the row contradicted the section it sits in. Two strings of equal word count wrap
+>   differently on word shape alone. The measured bands, at the pattern-body column width:
+>
+>   | Characters | Renders as |
+>   |------------|------------|
+>   | **≤ 52** | one full line |
+>   | **53–70** | the ragged band — two lines, last holding only **6–33%** |
+>   | **71–88** | two lines, well filled at **50–81%** |
+>
+>   53–70 is the band to write *out* of, not into. It is the only range that reliably produces the
+>   stranded last line the "Why" column describes.
+>
+> - **">50% last line" was never a gate, and asserting it as one was wrong.** The approved Type 9
+>   page misses it on **5 of its 11 multi-line zones**. A rule that ratified content fails is not a
+>   gate; enforcing it would have rejected approved work. The honest discriminator is **nothing
+>   below 25%** — that is what separates the ragged band from the well-filled one in the measured
+>   data. **>50% remains the target to write toward, and is aspirational, not enforced.**
+>
+> Applied to both rows that carried the >50% figure: Pattern / shift bullets, and Subtype
+> comparison zones.
+
+### 6.1 Matched line counts — scope of enforcement
+
+*Added 3 Sep 2026. This scopes the rule the table already states; it does not add one.*
+
+The "matched line counts between paired columns" rule has been in this section since the spec was
+written and has **never been enforced**. The table said "verified programmatically" without saying
+what that verification covers, so nothing was ever built.
+
+| Surface | Pairs | Enforcement |
+|---------|-------|-------------|
+| **p6 / p7** | `worldview` / `core_belief`; `best` / `edge` (`.v3-tb-two`); `signs` / `interrupt` (`.v3-tb-practice`) | **HARD GATE** |
+| **p8 Wings, p9 Lines** | their paired columns | **REPORT-ONLY** |
+
+**Why p8/p9 are report-only rather than exempt.** Both shipped before any such check existed, so we
+do not yet know whether they satisfy the rule this section already states. Gating them would turn a
+PR 3 deliverable into a retro-fix of two merged pages. Reporting them tells us the answer at no
+cost. **A clean p8/p9 result promotes the rule to document-wide.** If they turn out to fail, §6
+gets a dated correction recording that the stated rule was never met there — the pages do not get
+retrofitted inside a PR 3 gate.
+
+**The rule cannot be derived from content.** Line count is a function of character count, word
+shapes **and** column width, so it requires rendering. This is the same failure mode the fit spike
+caught in its own method: a single growing string samples one wrap path, not the ceiling, and
+validating that against shipped content failed immediately. The instrument already exists —
+`scripts/spike/explore_fit_probe.js` merges `Range.getClientRects()` by top edge to produce
+per-zone line counts. Building the gate is promoting that core out of `spike/`, not new research.
+
+**Derive the gate from the four built types (1, 4, 7, 9), not nine.** The five unbuilt types have
+no strings to measure. The point of the check is to catch drift *while* the remaining types are
+authored, so waiting for all nine to exist inverts it.
+
+### 6.2 The client-quote zone — "In Your Own Words" (p6)
+
+*Added 3 Sep 2026.*
+
+Every other band in this section assumes a writer working to a budget. This zone has no writer:
+it is the client's own verbatim language, read from `client_words.leading_quotes` off the Call #2
+result. It is the **only per-client zone on either Exploring sheet** — everything else there is
+per-type library content. The constraint therefore lives at **generation and selection time**, not
+in an authoring guideline, and this subsection exists because §6 otherwise has no concept of a zone
+whose length nobody controls.
+
+| Control | Value | Status |
+|---------|-------|--------|
+| Character cap, **including** quotation marks | **270** | ⚠️ **PROVISIONAL** — see below |
+| Render-time assertion | quote band renders in **3 lines** | backstop |
+| Fourth line | tolerated overflow, **not design** | — |
+
+**270 is neither measured nor derived. It is an estimate, and the spec should say so until it is
+replaced.** It is bracketed by two real figures and sits between them:
+
+- The ratified mockup's own example quote: **267 characters including marks**, 265 without, 45
+  words, mean word length 4.91, longest word 11.
+- **290** — the highest value *measured* safe at three lines. This is the top of what was tested,
+  **not a bound anyone established.** Nothing above 290 has been measured, in either direction.
+
+**Replacing the estimate is a single measurement, not an investigation.**
+`scripts/spike/explore_fit_probe.js` is the instrument: sweep the band zone upward across distinct
+real-prose samples until a fourth line appears, and set the cap from the measured SAFE threshold
+minus a margin. Then delete "PROVISIONAL" here and record the measured figure and its date.
+
+**Why the cap alone is insufficient, and the render assertion is not belt-and-braces.** Character
+count does not determine wrap — word shapes do. A 285-character quote of long words can take a
+fourth line where a 295-character quote of short ones does not. Any character cap is therefore a
+*heuristic* over the real constraint, and the only reliable statement about a rendered quote is
+made after rendering it. The 3-line assertion is what actually holds the page; the cap keeps the
+common case away from the boundary.
+
+**Truncation convention.** Stated here rather than left to whoever implements it. The last three
+points are design decisions and are **open for ratification**, not yet settled:
+
+1. Apply the cap to the **joined** string. Where a client has two quotes, P3 joins them with `' … '`
+   (space, U+2026, space) and this zone uses the same join, so the pair is one string for the
+   purpose of the cap.
+2. **Never truncate mid-word.** Cut at the last word boundary that keeps the total — including both
+   quotation marks and the ellipsis — at or under the cap.
+3. Append a single **U+2026**, with **no space before it**, inside the closing quotation mark.
+   Do not use three periods, and do not stack an ellipsis onto a quote that already ends in one.
+4. Where a *pair* of quotes would exceed the cap, **drop the second quote entirely rather than
+   truncating it to a fragment.** A truncated second quote reads as the client trailing off
+   mid-thought when in fact it is the layout speaking.
+5. If a **single** quote alone exceeds the cap, truncate it per 2–3. There is no shorter fallback.
+
+**Measured geometry, for anyone reasoning about the page budget.** All figures measured in the real
+renderer, not derived:
+
+| Figure | Value |
+|--------|-------|
+| Band cost at 3 lines | **104.13px**, stable across 247 / 267 / 290 characters (all three wrap to three lines) |
+| Type 9 p6 headroom **with** the band | **55.56px** (current build, `2675b52`) |
+| Approximate cost of a fourth line | **~34px**, which would take that page to **~21px** |
+
+⚠️ **The 17.31px figure that circulated earlier is retired — do not cite it.** It was a spike
+condition measured against a page state that was never shipped. **55.56px is the number the p6
+budget should be reasoned against.**
+
+Type 9 is the only authored type currently carrying the band, because the fixture's quotes are
+withheld from re-typed renders. It is therefore the tightest case *and* the only observed one.
 
 ---
 
