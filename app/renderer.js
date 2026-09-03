@@ -2945,6 +2945,12 @@ function clientReportV3PageStyles() {
 .v3-page .v3-ta-cm-col + .v3-ta-cm-col{ border-left:1px solid var(--v3-border); }
 .v3-page .v3-ta-cm-lbl{ font-size:9px; font-weight:bold; color:var(--v3-soft-navy); text-transform:uppercase; letter-spacing:.1em; margin-bottom:7px; }
 .v3-page .v3-ta-cm-txt{ font-size:13px; color:var(--v3-navy); line-height:1.5; }
+/* "In Your Own Words" — mockup BAND 3, .cm-words. #F5F5EE is the callout cream already used
+   by p3-own-words and CLIENT_COLORS.calloutBg; it has no v3 var, so the literal is kept as
+   the mockup and the fit spike both wrote it. */
+.v3-page .v3-ta-words{ background:#F5F5EE; border-top:1px solid var(--v3-border); padding:13px 20px; }
+.v3-page .v3-ta-words-lbl{ font-size:9px; font-weight:bold; color:var(--v3-soft-navy); text-transform:uppercase; letter-spacing:.1em; margin-bottom:9px; }
+.v3-page .v3-ta-words-q{ font-size:12.5px; color:var(--v3-navy); line-height:1.55; font-style:italic; }
 
 .v3-page .v3-ta-glance{ border:1px solid var(--v3-border); margin-bottom:20px; }
 .v3-page .v3-ta-ghead{ background:var(--v3-leading-bg); padding:8px 20px; font-size:9px; font-weight:bold; color:var(--v3-grey); text-transform:uppercase; letter-spacing:.1em; }
@@ -2953,7 +2959,18 @@ function clientReportV3PageStyles() {
 .v3-page .v3-ta-gcol + .v3-ta-gcol{ border-left:1px solid var(--v3-border); }
 .v3-page .v3-ta-grow{ display:flex; align-items:baseline; margin-bottom:10px; }
 .v3-page .v3-ta-grow:last-child{ margin-bottom:0; }
-.v3-page .v3-ta-glbl{ flex:0 0 92px; font-size:9px; font-weight:bold; color:var(--v3-soft-navy); text-transform:uppercase; letter-spacing:.08em; line-height:1.4; }
+/* padding-right is the GUTTER, and it has to live inside the 92px rather than beside it.
+   .v3-ta-grow has no gap, so the value box starts exactly where the label box ends and the
+   only separation is whatever slack the label text leaves. That was invisible while the
+   labels were type-number plurals ("Where Nines Turn Their Attention" broke into short
+   lines), but "ATTENTION GOES" renders 89.42px into the 92px box — a 2.58px gutter, against
+   22-45px on the other three — and collides with the value text.
+   The reset sets box-sizing:border-box globally, so this padding comes out of the 92px and
+   the VALUE COLUMN STAYS 222px. That matters: the glance value budgets (80 and 111 chars)
+   were measured at 222px, and taking the gutter out of the value instead would invalidate
+   them. Line count is unchanged — "ATTENTION GOES / TO" simply rebreaks as
+   "ATTENTION / GOES TO", which also reads better. */
+.v3-page .v3-ta-glbl{ flex:0 0 92px; padding-right:10px; font-size:9px; font-weight:bold; color:var(--v3-soft-navy); text-transform:uppercase; letter-spacing:.08em; line-height:1.4; }
 .v3-page .v3-ta-gval{ flex:1; font-size:12.5px; color:var(--v3-navy); line-height:1.45; }
 
 .v3-page .v3-ta-pats{ display:flex; gap:16px; }
@@ -2964,7 +2981,8 @@ function clientReportV3PageStyles() {
 .v3-page .v3-ta-pat-body{ padding:14px 14px; font-size:12.5px; color:var(--v3-navy); line-height:1.55; }
 
 /* sheet 7 */
-.v3-page .v3-tb-two{ display:flex; gap:18px; margin-bottom:30px; }
+/* 20px, not the sheet-7 mockup's 30px, above each h2 on this sheet — see v3-tb-styles. */
+.v3-page .v3-tb-two{ display:flex; gap:18px; margin-bottom:20px; }
 .v3-page .v3-tb-col{ flex:1; border:1px solid var(--v3-border); }
 .v3-page .v3-tb-col-head{ padding:11px 16px; font-size:10px; font-weight:bold; text-transform:uppercase; letter-spacing:.1em; }
 .v3-page .v3-tb-col-head.is-best{ background:#E8F4E8; color:#2D7A2D; }
@@ -2977,7 +2995,16 @@ function clientReportV3PageStyles() {
 .v3-page .v3-tb-dot.is-edge{ background:#A32D2D; }
 .v3-page .v3-tb-item-txt{ font-size:13px; color:var(--v3-navy); line-height:1.55; }
 
-.v3-page .v3-tb-styles{ display:flex; gap:16px; margin-bottom:30px; }
+/* SPACE ABOVE THE h2, and a deliberate 10px departure from the sheet-7 mockup.
+   The two Exploring mockups disagree with each other: sheet 6 sets 20px above its h2
+   (.glance margin-bottom) with h2 margin-bottom 10px, while sheet 7 sets 30px (.two-col
+   and .styles) with h2 margin-bottom 14px. The port already resolved the BOTTOM half of
+   that disagreement in sheet 6's favour — the shared .v3-page h2 rule is 10px, not 14px —
+   so leaving the top half at 30px left the two sheets inconsistent in opposite directions.
+   These two rules finish the normalisation: both sheets now read 20px above / 10px below.
+   Ratified by Cai 20 Aug 2026. Buys 20px of sheet-7 headroom, which is where the page is
+   tight — p7 ran 12-13px free for types 1/7/9 against p6's 56px. */
+.v3-page .v3-tb-styles{ display:flex; gap:16px; margin-bottom:20px; }
 .v3-page .v3-tb-style{ flex:1; border:1px solid var(--v3-border); display:flex; flex-direction:column; }
 .v3-page .v3-tb-style-head{ background:#F7FBFC; border-bottom:1px solid var(--v3-border); padding:13px 16px; }
 .v3-page .v3-tb-style-lbl{ font-size:9px; font-weight:bold; color:var(--v3-cyan); text-transform:uppercase; letter-spacing:.1em; margin-bottom:6px; }
@@ -3075,7 +3102,7 @@ function clientReportV3PageStyles() {
  * must agree is exactly the drift this project has been bitten by; collapsing them is part of
  * that same revisit.
  */
-const V3_EXPLORE_PILOT_TYPES = [9];
+const V3_EXPLORE_PILOT_TYPES = [1, 4, 7, 9];
 
 const V3_PAGE_ORDER = [
   { key: 'cover',     sheet: 1,  footer: null, chrome: 'none',  built: true, title: 'Cover' },
@@ -3433,13 +3460,15 @@ function _clv3Wings(m) {
 /**
  * Sheets 6 and 7 — "Exploring Your Type Hypothesis" and its continuation.
  *
- * PILOT SCOPE: type 9 only. Both functions throw rather than render if the model carries no
+ * PILOT SCOPE: types 1, 4, 7 and 9. Both functions throw rather than render if the model carries no
  * explore_v3, and buildClientReportHTML_v3 drops both sheets for any non-pilot type, so an
  * unauthored type cannot produce a blank page. See V3_EXPLORE_PILOT_TYPES.
  *
- * PORTED, NOT DESIGNED. Both are transcribed from the Type 9 mockups:
+ * GEOMETRY PORTED, NOT DESIGNED. Both layouts are transcribed from the Type 9 mockups:
  *   docs/mockup/claude_The_Peacemaker_Page_LeadingType_A_v1.html   (sheet 6)
  *   docs/mockup/claude_The_Peacemaker_Page_LeadingType_B_v1.html   (sheet 7)
+ * The PROSE no longer comes from them — all four authored types, type 9 included, now carry
+ * content written to the measured per-zone budgets. See INTERIM_EXPLORE_V3.
  *
  * CLASS NAMESPACING. The mockups use bare generic names — .intro, .col, .item, .dot, .lead,
  * .styles, .practice — and client_report_v3_styles.js explicitly owns that namespace ("Generic
@@ -3469,15 +3498,24 @@ const V3_TYPEB_LEAD = (m) =>
   + `show up in the real world. Here are some things to look for.`;
 
 /**
- * The at-a-glance labels. Static across all nine types and tokenised on the TYPE-NUMBER plural
- * — "What Nines Want", not "What Peacemakers Want" — which is why display.type_word_plural
- * exists separately from display.nickname_plural. The VALUES beside them are authored content
- * and are printed verbatim from the content library.
+ * The at-a-glance labels. Static across all nine types; the VALUES beside them are authored
+ * content and are printed verbatim from the content library.
+ *
+ * A DELIBERATE DEPARTURE FROM THE MOCKUP, ratified by Cai 20 Aug 2026. The mockup prints
+ * type-number plurals — "What Nines Want", "Where Nines Turn Their Attention", "What Nines
+ * Tend to Avoid" — and the port reproduced them. The four p6/p7 source docs head these zones
+ * CORE DESIRE / ATTENTION GOES TO / AVOIDANCE / DRIVING EMOTION instead, which is the locked
+ * wording. The fourth label is the tell that these headings are labels and not merely zone
+ * names: "Driving Emotion" already matched what the mockup prints.
+ *
+ * NO LONGER TOKENISED. display.type_word_plural (report_prep.js) existed solely to feed the
+ * three plurals above and is now unused — left in place rather than removed, since sheets
+ * 5, 10 and 11 are unbuilt and may want it. Delete it if they don't.
  */
 const V3_GLANCE_LABELS = [
-  'What {type_word_plural} Want',
-  'Where {type_word_plural} Turn Their Attention',
-  'What {type_word_plural} Tend to Avoid',
+  'Core Desire',
+  'Attention Goes To',
+  'Avoidance',
   'Driving Emotion',
 ];
 
@@ -3497,6 +3535,26 @@ function _clv3TypeA(m) {
           <div class="v3-ta-glbl">${_v3t(_v3Tokens(m, V3_GLANCE_LABELS[i]))}</div>
           <div class="v3-ta-gval">${_v3t(x.glance[i])}</div>
         </div>`;
+
+  // "In Your Own Words" — the one PER-CLIENT zone on this sheet. Everything else on sheets 6
+  // and 7 is per-TYPE library content, so this reads a different source: the client's own
+  // Stage-1 language, via client_words.leading_quotes on the Call #2 result.
+  //
+  // OMITTED, NOT EMPTIED, when the client has no quotes. A client whose result carries none
+  // (and every synthetic fixture that leaves client_words empty) must get no band at all
+  // rather than a cream strip with an empty italic line under a heading — the same
+  // blank-zone failure the Wings and Lines gates were added to stop. Absence is why the
+  // band shipped as a measured spike rather than as renderer code in PR 3-Explore.
+  //
+  // Multiple quotes join with an ellipsis, matching how P3 joins its 1-2 AI quotes.
+  const quotes = (e.words || []).filter(Boolean);
+  const words = quotes.length
+    ? `    <div class="v3-ta-words">
+      <div class="v3-ta-words-lbl">In Your Own Words</div>
+      <div class="v3-ta-words-q">&ldquo;${quotes.map(q => _v3t(q)).join(' &hellip; ')}&rdquo;</div>
+    </div>
+`
+    : '';
 
   return `<div class="v3-page">
   ${_v3Header(m)}
@@ -3524,7 +3582,7 @@ function _clv3TypeA(m) {
       <div class="v3-ta-cm-col"><div class="v3-ta-cm-lbl">Worldview</div><div class="v3-ta-cm-txt">${_v3t(x.worldview)}</div></div>
       <div class="v3-ta-cm-col"><div class="v3-ta-cm-lbl">Core Belief</div><div class="v3-ta-cm-txt">${_v3t(x.core_belief)}</div></div>
     </div>
-  </div>
+${words}  </div>
 
   <div class="v3-ta-glance">
     <div class="v3-ta-ghead">${_v3t(_v3Tokens(m, 'The {nickname} at a Glance'))}</div>

@@ -1,5 +1,5 @@
 {
-  "_comment": "Synthetic Call #2 result for client report v3 layout verification. Type 9 / SX9, matching the reference implementation's client (Anders Wennerstrom). Contains NO authored report content: every AI-authored zone the client model can read (client_facing.*, client_words.*, coach_report.*) is optional and left empty, because the v3 Wings page is entirely library-driven. Only confirmed_type, alternate_candidate and dominant_instinct_hypothesis are strictly required by buildClientModel; the score vectors are included for the Quick Reference page in a later PR. Instinct values are the coach report's SX9 figures (SP 66 / SO 64 / SX 84) per design spec v3.0 section 4.3, which requires anything sourced from the mockup to be verified against the coach report.",
+  "_comment": "Synthetic Call #2 result for client report v3 layout verification. Type 9 / SX9, matching the reference implementation's client (Anders Wennerstrom). client_facing.* and coach_report.* carry NO authored report content: they are optional, and the v3 pages built so far are library-driven. client_words.leading_quotes is the ONE exception and is populated deliberately — sheet 6's \"In Your Own Words\" band is the only per-CLIENT zone on the Exploring sheets, so with it empty the band cannot be rendered or measured at all. The two quotes are transcribed from the ratified mockup docs/mockup/claude_The_Peacemaker_Page_LeadingType_A_v1.html (BAND 3, .cm-words), which prints them as one string joined by an ellipsis — the same ' … ' join P3 uses for its 1-2 quotes, which is why they are stored as two. They are the reference implementation's words for this client, NOT the output of a live Call #2. Only confirmed_type, alternate_candidate and dominant_instinct_hypothesis are strictly required by buildClientModel; the score vectors are included for the Quick Reference page in a later PR. Instinct values are the coach report's SX9 figures (SP 66 / SO 64 / SX 84) per design spec v3.0 section 4.3, which requires anything sourced from the mockup to be verified against the coach report.",
   "hypothesis": {
     "confirmed_type": 9,
     "confirmed_type_name": "Type 9 — The Peacemaker",
@@ -15,22 +15,66 @@
     "redirect_from_type": null,
     "gap": 8,
     "call1_ranking": [
-      { "type": 9, "score": 91 },
-      { "type": 5, "score": 83 },
-      { "type": 1, "score": 74 },
-      { "type": 8, "score": 52 },
-      { "type": 3, "score": 47 },
-      { "type": 2, "score": 44 },
-      { "type": 7, "score": 38 },
-      { "type": 4, "score": 35 },
-      { "type": 6, "score": 31 }
+      {
+        "type": 9,
+        "score": 91
+      },
+      {
+        "type": 5,
+        "score": 83
+      },
+      {
+        "type": 1,
+        "score": 74
+      },
+      {
+        "type": 8,
+        "score": 52
+      },
+      {
+        "type": 3,
+        "score": 47
+      },
+      {
+        "type": 2,
+        "score": 44
+      },
+      {
+        "type": 7,
+        "score": 38
+      },
+      {
+        "type": 4,
+        "score": 35
+      },
+      {
+        "type": 6,
+        "score": 31
+      }
     ],
     "type_score_profile": {
-      "1": 74, "2": 44, "3": 47, "4": 35, "5": 83, "6": 31, "7": 38, "8": 52, "9": 91
+      "1": 74,
+      "2": 44,
+      "3": 47,
+      "4": 35,
+      "5": 83,
+      "6": 31,
+      "7": 38,
+      "8": 52,
+      "9": 91
     },
-    "instinct_score_profile": { "SP": 66, "SO": 64, "SX": 84 }
+    "instinct_score_profile": {
+      "SP": 66,
+      "SO": 64,
+      "SX": 84
+    }
   },
   "client_facing": {},
-  "client_words": {},
+  "client_words": {
+    "leading_quotes": [
+      "I project a calm presence and this helps others regulate and calm themselves as well. It can be a powerful antidote to fear, anxiety, and other emotions that disrupt connection",
+      "I overthink things at times, perhaps often. This slows me down and leads to indecision."
+    ]
+  },
   "coach_report": {}
 }

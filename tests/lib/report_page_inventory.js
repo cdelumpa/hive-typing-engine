@@ -38,12 +38,14 @@ const PAGE_INVENTORY = {
   // it fails when the constant is wrong rather than when it is inconsistent with itself.
   // Do not "tidy" it into a derivation.
   //
-  // TYPE-AWARE as of PR 3-Explore. Sheets 6-7 are pilot-scoped to type 9, so type 9 emits
-  // NINE pages and every other type seven. A single number can no longer express the
-  // document, and pretending otherwise would either fail the pilot type or stop noticing a
-  // missing page on the other eight. Both entries stay hand-maintained for the reason above.
-  client_v3: { 'v3-page': 7 },          // types 1-8 — sheets 6-7 not authored yet
-  client_v3_pilot: { 'v3-page': 9 },    // type 9 — the two Exploring sheets included
+  // TYPE-AWARE as of PR 3-Explore. Sheets 6-7 are pilot-scoped to the types whose p6/p7 prose
+  // has been authored, so those emit NINE pages and the rest seven. A single number can no
+  // longer express the document, and pretending otherwise would either fail the authored
+  // types or stop noticing a missing page on the others. Both entries stay hand-maintained
+  // for the reason above. Note these are PAGE COUNTS, not type lists — they do not change as
+  // types move from one bucket to the other; V3_EXPLORE_PILOT_TYPES is what moves.
+  client_v3: { 'v3-page': 7 },          // types 2, 3, 5, 6, 8 — sheets 6-7 not authored yet
+  client_v3_pilot: { 'v3-page': 9 },    // types 1, 4, 7, 9 — the two Exploring sheets included
 };
 
 // Expected total page containers per kind, derived from PAGE_INVENTORY (coach 3, client 10).

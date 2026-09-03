@@ -691,74 +691,273 @@ const INTERIM_LINES_V3 = {
 
 // PILOT SCOPE — the single place in this file that says which types render sheets 6 and 7.
 // app/renderer.js carries the matching list on the typeA/typeB V3_PAGE_ORDER entries.
-// ⚠️ PLACEHOLDER, revisit before the 1/4/8 batch: two lists that must agree is precisely the
-// drift this project has been bitten by, and the batch build should collapse them into one.
-const EXPLORE_PILOT_TYPES = [9];
+// ⚠️ PLACEHOLDER, revisit before the remaining five types: two lists that must agree is
+// precisely the drift this project has been bitten by, and the batch build should collapse
+// them into one.
+const EXPLORE_PILOT_TYPES = [1, 4, 7, 9];
 
 const INTERIM_EXPLORE_V3 = {
-  9: {
+  1: {
     p6: {
-      core_motivation: 'To maintain inner and outer peace, stay connected to others, and avoid the conflict and discomfort that come with asserting your own priorities.',
-      worldview: 'The world has an underlying unity that conflict threatens. Your role is to maintain harmony and find common ground.',
-      core_belief: 'Keeping the peace keeps you connected. Asserting yourself risks the harmony you depend on.',
+      worldview: 'The world is a place where goodness is always within reach but is allowed to slip away.',
+      core_motivation: 'To reform, improve, and hold the line on your standards.',
+      core_belief: "You'll be worthy if you are good, right, and beyond criticism.",
       glance: [
-        'To have inner and outer peace, and to experience a sense of belonging',
-        "The environment around them, potential conflict, and other people's agendas and claims on them",
-        'Conflict, discomfort, and feeling disregarded or disconnected',
-        'Anger. Though present, anger goes unacknowledged in order to preserve inner and outer peace.',
+        'To feel in control of yourself, right, and beyond reproach.',
+        "What's right or wrong, what's out of line with your standards, and how you're measuring up.",
+        'Making mistakes, being criticized, and expressing anger outwardly.',
+        'Resentment at the gap between how things are and how they should be, yourself included.',
       ],
       patterns: [
-        "As a Peacemaker, your attention goes outward to everyone else's positions, agendas, and comfort, often more readily than to your own. Locating your own stance is the harder task.",
-        'As a Peacemaker, you carry a steady, even temperament, but that calm can sit on top of feelings smoothed over rather than fully felt. Anger, in particular, goes quiet first.',
-        'As a Peacemaker, your behavior organizes around not making waves: going along, smoothing things over, keeping everyone comfortable. Your steadiness is a gift, and sometimes a hiding place.',
+        "Your mind is filled with shoulds and have-tos — how the world ought to be and what needs to happen to fix it. You're the only one holding the line.",
+        "Behind a cheerful demeanor sits frustration that things aren't as they ought to be, and a relentless inner critic that never lets you forget where you fall short.",
+        'Your energy goes toward improving things, avoiding mistakes, and organizing your life. When you allow yourself to let go, you can enjoy life and the people in it, free of expectations.',
       ],
     },
     p7: {
       best: [
-        { title: 'Steady warmth.', body: 'A receptive presence that makes people feel genuinely welcome.' },
-        { title: 'Holding multiple perspectives.', body: 'Non-judgmental and inclusive, making you a trusted mediator.' },
-        { title: 'Steady presence.', body: 'A calm, stabilizing force that becomes real strength when embodied.' },
+        { title: 'Integrity', body: "— You do what you said you'd do, whether or not anyone is watching." },
+        { title: 'Quality', body: '— You bring care and exactness to the work, and it shows in the result.' },
+        { title: 'Improvement', body: "— You see what could be better and you're willing to do something about it." },
       ],
       edge: [
-        { title: 'Self-forgetting.', body: "You may manage everyone else's comfort while quietly losing track of your own." },
-        { title: 'Merging.', body: 'Agreeableness, repeated over time, can make you forget your own agenda.' },
-        { title: 'Quiet anger.', body: 'Unacknowledged, it turns into inertia or passive resistance.' },
+        { title: 'The Inner Critic', body: '— Takes 2% of the truth and makes it the whole truth.' },
+        { title: 'Perfectionism', body: '— Over-controlling the last 2% when 98% was already good enough.' },
+        { title: 'Judgment', body: '— Holding others to your standard can cost you the relationship.' },
       ],
       styles: [
         {
-          name: 'Inclusive and Indirect',
+          name: 'Principled and Practical',
           bullets: [
-            'You listen more than you assert. People rarely leave knowing what you actually think.',
-            'Your real position forms later, in private. In the moment, you may not know it.',
-            "Maybe, perhaps, I don't mind. Qualifiers take the edges off your point.",
+            'You speak clearly and concisely, meaning what you say with no hidden agenda.',
+            'Feedback for others can land as criticism even when offered with positive intent.',
+            "People can tell when you're irritated; your face and body give you away.",
+          ],
+        },
+        {
+          name: 'Making the Case',
+          bullets: [
+            "You frame the disagreement in terms of right and wrong. It's the principle that matters.",
+            'You approach arguments logically and pragmatically, keeping emotion out of it.',
+            'Conceding can feel like giving up on your standards, so you hold your position.',
+          ],
+        },
+        {
+          name: "Choosing What's Right",
+          bullets: [
+            "Your moral compass points you to what's right over what's easy or convenient.",
+            'You take your time, measuring the options against the standard before choosing.',
+            "You'll consider other views, though they have to clear the same bar yours did.",
+          ],
+        },
+      ],
+      signs: [
+        'You catch yourself saying "should" a lot.',
+        'You notice tightness in your jaw and body.',
+        "You're reworking something that's already been done.",
+      ],
+      interrupt: [
+        'Try replacing "should" with "what if?".',
+        "Get curious about what's annoying you.",
+        'Trust that you can correct things after it ships.',
+      ],
+    },
+  },
+  4: {
+    p6: {
+      worldview: 'The world is a place that abandons you, and leaves something essential missing.',
+      core_motivation: 'To feel significant and authentic, express your uniqueness, and experience real emotional depth.',
+      core_belief: "You'll reclaim the connection you lost by being special, deep, and unmistakably yourself.",
+      glance: [
+        'To feel whole, at home in yourself, and no longer alone in the world.',
+        "What's missing, how you're different, and the ideal experience that would finally complete you.",
+        "Being ordinary, feeling deficient, and settling for what's merely okay.",
+        'Sadness for what you perceive to be fundamentally missing in you that others seem to have.',
+      ],
+      patterns: [
+        'Your mind is constantly comparing you to others, making you feel better than or less than, often at the same time. In flow, you find purpose, meaning, and beauty in the smallest of things.',
+        'The sadness for what you perceive to be missing gives way to envy for the ease with which others are lovable and whole. It shows up as longing, or a melancholy that colors everything.',
+        "Your energy goes into cultivating and presenting a version of yourself that fills in the missing pieces. When relaxed, you're able to appreciate yourself and the world as they are.",
+      ],
+    },
+    p7: {
+      best: [
+        { title: 'Depth', body: '— You sit comfortably with emotional discomfort others flinch at.' },
+        { title: 'Authenticity', body: "— Your stand for what's real gives others permission to be themselves." },
+        { title: 'Creativity', body: '— You turn inner experience into something others can see and feel.' },
+      ],
+      edge: [
+        { title: 'Moody', body: '— Your emotional weather can take over and impact your relationships.' },
+        { title: 'Unsatisfied', body: '— Engaging in "compare and despair" blocks your acceptance of what is.' },
+        { title: 'Self-Absorbed', body: "— The intensity of your experience can crowd out room for anyone else's." },
+      ],
+      styles: [
+        {
+          name: 'Expressive and Intense',
+          bullets: [
+            'Your comfort holding a wide range of emotions helps others express themselves freely.',
+            'You easily speak truth to power, focusing on what\'s real and on the greater "why".',
+            'Your speaking style carries some intensity that can be both emphatic and intimidating.',
+          ],
+        },
+        {
+          name: 'Make It Matter',
+          bullets: [
+            'You want conflict to be raw, authentic, and over something meaningful.',
+            "You often focus on what's lacking in the relationship or the other person's response.",
+            "You expect the other person to match the emotional size you're experiencing.",
+          ],
+        },
+        {
+          name: 'What Feels True',
+          bullets: [
+            'How a decision feels is more important than the objective data supporting it.',
+            'Decisions must align to your personal purpose, identity, and values to feel right.',
+            'You tend to avoid "ordinary" paths, opting for more unique solutions to problems.',
+          ],
+        },
+      ],
+      signs: [
+        'Comparison to others is bringing you down.',
+        "You're feeling consumed with an emotion.",
+        'What you wanted has lost its shine.',
+      ],
+      interrupt: [
+        'Ask what you actually want, not who has it.',
+        'Remember you are not your emotion.',
+        'Take a moment to appreciate what you do have.',
+      ],
+    },
+  },
+  7: {
+    p6: {
+      worldview: 'The world is a place filled with pain and limitations that can be avoided.',
+      core_motivation: 'To live life fully, escaping limits and maintaining your freedom.',
+      core_belief: 'You will be okay if you keep options open, stay positive, and plan for the future.',
+      glance: [
+        'To experience joy, fun, and adventure in as many ways as possible.',
+        "What's next, what's possible, and the quickest way around anything painful.",
+        "Pain, boredom, and being trapped in something you can't leave.",
+        "Fear of pain and limitation, kept at a distance by filling life with what's good.",
+      ],
+      patterns: [
+        "Your mind is quick, associative, and always generating. The plan for what's next is often more vivid than what's actually in front of you, and staying ahead is what keeps the hard thing behind you.",
+        "Being enthusiastic and positive is your default mode. What's harder is staying with something painful long enough to feel it before you pivot to the bright side.",
+        'Your energy goes toward saying yes — new projects, new people, a full calendar and more ideas than time. When you slow down and go deep, the thing you started actually gets finished.',
+      ],
+    },
+    p7: {
+      best: [
+        { title: 'Optimistic', body: '— Your ability to reframe negatives into positives maintains momentum.' },
+        { title: 'Infectious Energy', body: '— Your playful and joyful demeanor can light up the darkest of rooms.' },
+        { title: 'Creative', body: '— You generate possibilities and connect dots that make the impossible seem doable.' },
+      ],
+      edge: [
+        { title: 'Pain-Avoidant', body: '— Pivoting too quickly away from pain loses you a valuable lesson.' },
+        { title: 'Positivity Overload', body: '— Sometimes the room needs to experience the seriousness of the moment.' },
+        { title: 'Scattered Attention', body: '— You often lose focus and that has a direct hit on follow-through.' },
+      ],
+      styles: [
+        {
+          name: 'Quick and Engaging',
+          bullets: [
+            'You think out loud, and the story arrives with three tangents attached.',
+            'Your energy draws people in, and the room usually moves at your pace.',
+            'Humor does real work for you, including the work of not going somewhere heavy.',
+          ],
+        },
+        {
+          name: 'React, Reframe, Move On',
+          bullets: [
+            "You're not afraid of a good argument, especially when your idea is on the line.",
+            "You'll flood the room with options rather than sit in a conflicting opinion.",
+            "Rather than process through tough emotions, you're on to the next idea.",
+          ],
+        },
+        {
+          name: 'Keeping Options Open',
+          bullets: [
+            'When ordering off a menu, you go last and usually have three-plus options lined up.',
+            'Committing to one path means letting go of the others, which is the hard part.',
+            'You see several moves ahead and plan accordingly, reserving the right to pivot.',
+          ],
+        },
+      ],
+      signs: [
+        "You're drowning in possibilities.",
+        'You found the bright side fast.',
+        'You started something before finishing.',
+      ],
+      interrupt: [
+        'Land on one and write down the first step.',
+        'Sit with the hard part before moving past it.',
+        'Circle back and finish what you started.',
+      ],
+    },
+  },
+  9: {
+    p6: {
+      worldview: 'The world is a place where harmony is precious and fragile, easily broken by self-interest.',
+      core_motivation: 'To keep the peace, stay connected, and avoid conflict.',
+      core_belief: "You'll experience harmony and connection if you set aside your own interests and blend in with others.",
+      glance: [
+        'To feel settled, at ease, and quietly certain that you belong.',
+        "The space around you, what others want, and what's pressuring your inner peace.",
+        'Discomfort, disconnection, and sharing a position that sets you apart.',
+        'Anger smoldering beneath the surface, either unacknowledged or completely out of your awareness.',
+      ],
+      patterns: [
+        "Your thoughts can stray easily, away from what's pressing and toward what's comfortable or routine. You hold multiple points of view, and keeping yours quiet is what keeps the room easy.",
+        "You keep an even keel emotionally that reads as affable, diffusing your anger so thoroughly you often don't know you're angry. It comes out sideways — stubbornness, or quietly slowing the pace.",
+        "You put your energy toward what keeps things peaceful — routines, familiar tasks, going along with what others want. Once you're moving on something that matters, you're steady and hard to stop.",
+      ],
+    },
+    p7: {
+      best: [
+        { title: 'Peacemaking', body: '— Your calm presence reassures others, especially when things get difficult.' },
+        { title: 'Patience', body: "— You let processes unfold without forcing an outcome before it's ready." },
+        { title: 'Inclusiveness', body: '— You hold and convey multiple perspectives, so others feel seen and valued.' },
+      ],
+      edge: [
+        { title: 'Conflict Avoidance', body: '— Smoothing things over leaves the real issue unaddressed.' },
+        { title: 'Procrastination', body: '— The uncomfortable thing waits while the less pressing things get done.' },
+        { title: 'Self-Forgetting', body: '— You merge with others so completely you forget your own priorities.' },
+      ],
+      styles: [
+        {
+          name: 'Friendly and Indirect',
+          bullets: [
+            "Listening is your superpower. You'd rather ask about someone than talk about yourself.",
+            "You'd rather share your opinion last and sometimes the room moves on without yours.",
+            "You're indirect when asserting your opinion, often asking leading questions instead.",
           ],
         },
         {
           name: 'Go Along to Get Along',
           bullets: [
-            'You find the reading where everyone is fine. What you reframe returns larger.',
-            'Discomfort gets smoothed, not named. Relief now, a vague heaviness later.',
-            'When pushed, you may dig in, become stubborn, and slow down the pace.',
+            'You withdraw or concede when confronted, thinking this will restore your inner peace.',
+            'When conflict is tacit, your first move is to smooth things over and seek consensus.',
+            'Pushed hard enough you dig in, becoming stubborn and taking control by slowing the pace.',
           ],
         },
         {
           name: 'Every Option Counts',
           bullets: [
-            'Every choice has a case, so deciding feels like discarding rather than gaining.',
-            'Your own preference surfaces last. Choosing on the spot is hard.',
-            "Knowing what you don't want comes first. That is a usable starting point.",
+            'You see merit in all options, causing you to sometimes overthink the decision at hand.',
+            'You are willing to trade off what you want if it runs counter to what the group wants.',
+            "You're often more clear on what you don't want, which you can use to rule out options.",
           ],
         },
       ],
       signs: [
         'You say "yes" when you want to say "no".',
-        'You withhold your opinion to not rock the boat.',
+        "You're busy with everything but the hard thing.",
         'You ignore the tension in your body.',
       ],
       interrupt: [
-        'Make a counteroffer instead of a flat-out "no".',
-        'Speak your truth with no attachments.',
-        'Pause, breathe, and be curious about the tension.',
+        'Make a counteroffer instead of a flat "no".',
+        'Do the uncomfortable thing first, for ten minutes.',
+        'Pause, breathe, get curious about the tension.',
       ],
     },
   },
@@ -879,7 +1078,7 @@ function assembleType(n, blocks) {
     t.lines.work_v3 = INTERIM_LINES_V3.types[n].work;
   }
 
-  // v3 sheets 6 and 7, "Exploring Your Type Hypothesis". Type 9 only for the pilot; the key is
+  // v3 sheets 6 and 7, "Exploring Your Type Hypothesis". Types 1/4/7/9 are authored; the key is
   // ABSENT for every other type, which is what the renderer's pilot gate keys off. Absent, not
   // empty: an empty object would render a blank page, which is the failure mode this whole
   // sequence exists to prevent.
@@ -1091,7 +1290,8 @@ function validateType(n, t) {
  * empty cell rather than failing.
  */
 /**
- * v3 sheets 6 and 7. PILOT SCOPE: type 9 carries content, types 1-8 carry NONE.
+ * v3 sheets 6 and 7. PILOT SCOPE: types 1, 4, 7 and 9 carry content; 2, 3, 5, 6 and 8 carry
+ * NONE.
  *
  * Both halves are asserted, and the second is the one that matters. A type with a PARTIAL
  * explore_v3 — some zones filled, some missing — would render a page with visible gaps and
@@ -1099,7 +1299,8 @@ function validateType(n, t) {
  * to stop. So an unauthored type must have the key ABSENT entirely, not empty and not
  * half-filled, and this asserts that rather than trusting it.
  *
- * When the 1/4/8 batch lands, EXPLORE_PILOT_TYPES moves and this keeps working unchanged.
+ * As each further type is authored, EXPLORE_PILOT_TYPES moves and this keeps working
+ * unchanged.
  */
 function validateExplore(n, t) {
   const P = `type_${n}`;

@@ -337,7 +337,15 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       // NOT defaulted to '' / [] the way v3_wings and v3_lines are: those default so an
       // unauthored type renders an empty page, which is the failure mode this sequence has
       // twice had to fix. Here, no content means no page.
-      v3_explore: t.explore_v3 || null,
+      // `words` is the sheet's one PER-CLIENT zone ("In Your Own Words") and is deliberately
+      // carried on this object rather than beside it: it is what sheet 6 renders, and the
+      // renderer already reads this object. Source is client_words.leading_quotes — the same
+      // verbatim Stage-1 language P3 quotes — NOT the content library, which is per-type.
+      //
+      // SPREAD, never mutate: t.explore_v3 is the require-cached content library object,
+      // shared by every render in the process. Assigning onto it would leak one client's
+      // quotes into the next client's report.
+      v3_explore: t.explore_v3 ? { ...t.explore_v3, words: cw.leading_quotes || [] } : null,
       // CLIENT REPORT v3 — p9 "Your Stress and Security Points". SPIKE wiring.
       //
       // narrative and band are CANON: type_N.lines.{stress,security}.{narrative,resource_card},

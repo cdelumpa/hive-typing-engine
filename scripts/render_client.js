@@ -197,11 +197,21 @@ async function measureLayout(page, selector) {
       for (const asType of (cfg.types || [null])) {
         const apiResult = asType == null ? fixture : (() => {
           const c = JSON.parse(JSON.stringify(fixture));
+          const realType = fixture.hypothesis.confirmed_type;
           c.hypothesis.confirmed_type = asType;
           c.hypothesis.confirmed_type_name = null;                 // suppress the name-drift flag
           c.hypothesis.alternate_candidate = (asType % 9) + 1;
           const pb = c.coach_report && c.coach_report.section6 && c.coach_report.section6.pushes_back;
           if (pb) pb.alt_type_name = null;
+          // The client's verbatim quotes are EVIDENCE FOR THE FIXTURE'S REAL TYPE, so they are
+          // dropped when the fixture is re-typed. Sheet 6's "In Your Own Words" band would
+          // otherwise print this Type 9 client's own language ("I project a calm presence…")
+          // under a Type 1 or Type 7 heading — content that reads as authored-for-this-type and
+          // is not. Every other zone on the re-typed sheets is per-type library content and
+          // follows asType correctly; this is the only per-client one, and the only one that
+          // has to be withheld. Consequence for review renders: the band appears on the
+          // fixture's own type and nowhere else, which is the honest result.
+          if (asType !== realType) c.client_words = {};
           return c;
         })();
         console.log(`\n=== ${fx}${asType == null ? '' : ` as Type ${asType}`} · ${kind} ===`);
