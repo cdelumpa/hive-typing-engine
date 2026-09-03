@@ -1,7 +1,8 @@
 # InsightOut Client Report — Design Specification v3.0
 
 **Date:** 7 August 2026
-**Status:** Design locked. Content and engine work not started.
+**Status:** Design locked. Engine work in progress — see §4.4 for shipped departures from the
+mockup, and §7.3/§7.4 for content status.
 **Supersedes:** Client Report CD Brief v2.0 (4 Aug 2026)
 **Reference implementation:** 12 HTML files + `insightout_client_report_full_draft_080726.pdf`
 
@@ -256,6 +257,22 @@ The v3 client report mockup has been wrong about client data twice:
 
 Anything sourced from v3 must be verified against the coach report or production output.
 
+### 4.4 Deliberate departures from the mockup (sheets 6 and 7)
+
+§4.3 covers places the mockup is simply *wrong*. These are different: places where the shipped
+renderer **intentionally differs** from `LeadingType_A_v1` / `LeadingType_B_v1`. A pixel-diff
+against those files will flag all three. **They are not regressions — do not "fix" them back.**
+Each is also commented at its definition in `app/renderer.js`.
+
+| # | Departure | Mockup | Shipped | Why |
+|---|-----------|--------|---------|-----|
+| M1 | At-a-glance labels | `What Nines Want` / `Where Nines Turn Their Attention` / `What Nines Tend to Avoid` / `Driving Emotion` | `Core Desire` / `Attention Goes To` / `Avoidance` / `Driving Emotion` | The locked wording in the four p6/p7 source docs, which head these zones with the new labels. `Driving Emotion` is the tell — it is identical in both, so the doc headings are labels, not zone names. Ratified 20 Aug 2026. |
+| M2 | Space above each sheet-7 `h2` | 30px (`.two-col`, `.styles`), with `h2` margin-bottom 14px | 20px, with `h2` margin-bottom 10px | The two Exploring mockups disagree with each other — sheet 6 uses 20px above / 10px below, sheet 7 uses 30px / 14px. The original port already resolved the *bottom* half in sheet 6's favour (the shared `h2` rule is 10px), leaving the sheets inconsistent in opposite directions. This finishes the normalisation and buys 20px on the tightest page in the document. Ratified 20 Aug 2026. |
+| M3 | Glance label gutter | none — label box is `flex:0 0 92px` with no padding, value starts where it ends | `padding-right:10px` inside the 92px | A consequence of M1, not a free choice. `ATTENTION GOES` renders 89.42px into the 92px box — a 2.58px gutter against 22–45px on the other three — and collides with the value text. Hidden while the labels were long plurals, which broke into short lines. The padding is *inside* the flex basis so the **value column stays 221.5px**; the glance budgets (80 and 111 chars) were measured at that width and taking the gutter out of the value would invalidate them. |
+
+A fourth difference is content, not design: **Type 9's p6/p7 prose is no longer the mockup's.**
+See §7.4 for the source of record, and §7.2 for the one part of it still unlocked.
+
 ---
 
 ## 5. Design tokens
@@ -339,16 +356,47 @@ in mind across nine types.
 - **The three CAR capacity practices (p11)** — structure is canon-derived (avoidance, resource
   points, holy idea), specific lines are not. Definitions and preambles are Cai-authored.
 - **The four debrief tips (p5)** — explicit placeholders.
-- **All Type 9 practice bullets (p7).**
+- **All Type 9 practice bullets (p7).** ⚠️ **Still open, for a changed reason.** The mockup's
+  Claude-authored bullets no longer ship — the Type 9 source doc replaced them, along with the
+  rest of that type's p6/p7 prose (36 of its 40 strings; see §7.4). But the doc flags the
+  replacement set itself as *"discussed but never explicitly locked"*, and notes it does not
+  follow the Thinking / Feeling / Behaving row order the other three authored types use: rows 1
+  and 2 are both Behaving, row 3 is Feeling, and nothing covers Thinking. So this entry is not
+  closed — it now describes the replacement rather than the mockup.
 
 ### 7.3 Known content gaps
 
-- Type 9 is the only type authored. Eight remain.
+- **Types 1, 4, 7 and 9 are authored (20 Aug 2026). Five remain: 2, 3, 5, 6, 8.** Sheets 6-7 are
+  gated to the authored set by `V3_EXPLORE_PILOT_TYPES` (`app/renderer.js`) and
+  `EXPLORE_PILOT_TYPES` (`scripts/build_content_library.js`) — two lists that must agree, flagged
+  in both files for collapse when the remaining five land.
 - The subtype signature (`Merging & Intensity`) is a new three-part naming convention: formal name,
   nickname, two-word signature. Only the three Type 9 subtypes exist.
 - One "In Your Responses" bullet on p5 — "Ask about the alternate" — only makes sense when a second
   pattern scored close. As global static content it needs to hold for a client whose leading type is
   20 points clear, or become conditional.
+
+### 7.4 Sheets 6-7 prose — source of record
+
+The p6/p7 content for types 1, 4, 7 and 9 is authored by Cai and Mo in four Google Docs
+(`Type N — <Nickname> · p6/p7 Final Content for Review`), transcribed into `INTERIM_EXPLORE_V3`
+in `scripts/build_content_library.js`. The docs are the source; the constant is a transcription.
+
+**Type 9's entry is a replacement, not an update.** Sheets 6-7 originally shipped as a verbatim
+port of the two Type 9 mockups, landed with an explicit note that it carried no authorisation for
+editorial re-cuts. The Type 9 source doc supersedes it — 36 of 40 strings differ. This was
+ratified by Cai on 20 Aug 2026; the mockups are no longer the content source for any authored
+type, only the geometry source.
+
+Two cautions when re-transcribing:
+
+- **The per-zone character counts printed in the docs are unreliable** — low by 1 to 6 in roughly
+  half the zones, and not by a consistent offset. Measure the strings. The **budgets** beside them
+  are sound: they come from `scripts/spike/explore_fit_probe.js`, measured in the real rendered
+  page under the pinned Chromium.
+- **Sheet 7, not sheet 6, is the tight page.** After the M2 normalisation it runs 32–52px free
+  across the four authored types; sheet 6 runs 56px on Type 9 with the quote band and ~160px
+  without it. Growth on p7 is what pushes the document.
 
 ---
 

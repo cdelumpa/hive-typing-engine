@@ -53,11 +53,15 @@ const REPORTS = {
     build: async (apiResult) => R.buildClientReportHTML_v3(
       await prep.buildClientModel({ apiResult, client: V3_CLIENT, coach })),
     selector: '.v3-page',
-    expected: 7,
+    // PER-TYPE, not a single literal. Sheets 6-7 are pilot-scoped to type 9, so type 9 emits
+    // nine pages and every other type seven. A fixed `expected` cannot express that, and a
+    // uniform count is genuinely wrong until the rollout finishes.
+    expectedFor: (type) => R.v3PagesFor(type == null ? 9 : type).length,
+    labelsFor: (type) => R.v3PagesFor(type == null ? 9 : type)
+      .map(p => `P${p.sheet} ${p.title.replace(/ \(continued\)$/, ' cont')}`.slice(0, 16)),
     enforceSheet: true,
     // Document order, not sheet order: PR 2 adds sheets 1-4 and 12 around the Wings page
     // PR 1 built, and sheets 5-11 land in later PRs.
-    labels: ['P1 Cover', 'P2 Contents', 'P3 Welcome', 'P4 What Is', 'P8 Wings', 'P9 Lines', 'P12 Thoughts'],
     checkHyphens: true,
     fixtures: ['anders_sx9'],   // Type 9 / SX9 — the fixture the v3 mockups were built for
     // Render EVERY type from the one fixture, swapping confirmed_type. The per-type pages
@@ -193,11 +197,21 @@ async function measureLayout(page, selector) {
       for (const asType of (cfg.types || [null])) {
         const apiResult = asType == null ? fixture : (() => {
           const c = JSON.parse(JSON.stringify(fixture));
+          const realType = fixture.hypothesis.confirmed_type;
           c.hypothesis.confirmed_type = asType;
           c.hypothesis.confirmed_type_name = null;                 // suppress the name-drift flag
           c.hypothesis.alternate_candidate = (asType % 9) + 1;
           const pb = c.coach_report && c.coach_report.section6 && c.coach_report.section6.pushes_back;
           if (pb) pb.alt_type_name = null;
+          // The client's verbatim quotes are EVIDENCE FOR THE FIXTURE'S REAL TYPE, so they are
+          // dropped when the fixture is re-typed. Sheet 6's "In Your Own Words" band would
+          // otherwise print this Type 9 client's own language ("I project a calm presence…")
+          // under a Type 1 or Type 7 heading — content that reads as authored-for-this-type and
+          // is not. Every other zone on the re-typed sheets is per-type library content and
+          // follows asType correctly; this is the only per-client one, and the only one that
+          // has to be withheld. Consequence for review renders: the band appears on the
+          // fixture's own type and nowhere else, which is the honest result.
+          if (asType !== realType) c.client_words = {};
           return c;
         })();
         console.log(`\n=== ${fx}${asType == null ? '' : ` as Type ${asType}`} · ${kind} ===`);
@@ -229,14 +243,16 @@ async function measureLayout(page, selector) {
           const spill = p.height > PAGE_PX + 1 ? `  *** SPILL → ${p.sheets} sheets` : '';
           // headroom, not height, is the informative number — see measureLayout.
           const room = p.headroom < 0 ? `OVER by ${(-p.headroom).toFixed(2)}px` : `${p.headroom.toFixed(2)}px free`;
-          console.log(`  ${(cfg.labels[p.index] || 'page ' + p.index).padEnd(16)} ${p.height}px  ` +
+          const LBL = cfg.labelsFor ? cfg.labelsFor(asType) : cfg.labels;
+          console.log(`  ${(LBL[p.index] || 'page ' + p.index).padEnd(16)} ${p.height}px  ` +
                       `stack ${p.natural.toFixed(2)}px  ${room}${spill}`);
           if (cfg.enforceSheet && p.height > PAGE_PX + 1) {
-            fail(`${kind}${asType == null ? '' : ' Type ' + asType} ${cfg.labels[p.index] || 'page ' + p.index} spills to ${p.sheets} sheets (${p.height}px > ${PAGE_PX}px)`);
+            fail(`${kind}${asType == null ? '' : ' Type ' + asType} ${(cfg.labelsFor ? cfg.labelsFor(asType) : cfg.labels)[p.index] || 'page ' + p.index} spills to ${p.sheets} sheets (${p.height}px > ${PAGE_PX}px)`);
           }
         }
-        if (pages.length !== cfg.expected) {
-          fail(`${kind} page count ${pages.length}, expected ${cfg.expected}`);
+        const want = cfg.expectedFor ? cfg.expectedFor(asType) : cfg.expected;
+        if (pages.length !== want) {
+          fail(`${kind}${asType == null ? '' : ' Type ' + asType} page count ${pages.length}, expected ${want}`);
         }
         if (cfg.checkHyphens) {
           const hb = await findHyphenBreaks(page, cfg.selector);

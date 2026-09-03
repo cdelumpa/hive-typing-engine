@@ -27,3 +27,11 @@ docs/mo_headshot_square_07162-4.jpeg
 
 # Snapshots written by scripts/retire_overrides.js before a delete — production content, not source.
 .override_snapshots/
+
+# Per-type p6/p7 review renders (docs/client_report_v3_TYPE_<n>_<Nickname>_<date>.pdf).
+# Regenerated from the renderer on demand by scripts/render_client.js; eight of them per
+# batch at ~1 MB each. NOT a reversal of 12c1d21, which committed the Type 9 pilot's
+# sheet-level review PDFs so reviewers could open them from the PR — those stay tracked,
+# and this pattern is written narrowly so it does not match them (TYPE_9_full, sheet6*,
+# sheet7*). Widen it only with the same reasoning applied to those files too.
+docs/client_report_v3_TYPE_[1-9]_The_*.pdf

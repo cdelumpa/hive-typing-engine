@@ -1069,6 +1069,23 @@ const CLIENT_HEXAGON = [1, 4, 2, 8, 5, 7, 1];
 // Node radii are UNIFORM on both — the cover's home type is differentiated by fill alone.
 const COVER_GEO  = { vw: 420, vh: 420, cx: 210, cy: 210, r: 158, rNode: 23, fs: 19, ring: 1.6, web: '#7FD3E8', web_w: 2 };
 const WHATIS_GEO = { vw: 300, vh: 300, cx: 150, cy: 150, r: 112, rNode: 16, fs: 13, ring: 1.4, web: '#9FD9EA', web_w: 1.5 };
+
+/**
+ * Sheet 6 "Exploring Your Type Hypothesis" — the small in-line wheel.
+ *
+ * A third client geometry, smaller than either of the other two and ported from
+ * docs/mockup/claude_The_Peacemaker_Page_LeadingType_A_v1.html. It carries NO web lines: the
+ * mockup draws the ring and the nine nodes only, so the triangle and hexagon are omitted
+ * rather than drawn faintly.
+ *
+ * ⚠️ DEPARTS FROM THE COVER/WHAT-IS CONVENTION, deliberately and visibly. Those two
+ * differentiate the home node BY FILL ONLY and keep all nine radii equal. This mockup grows
+ * the home node (12.5 -> 16) and its numeral (12 -> 15) as well as filling it. Ported as
+ * drawn rather than normalised, because the mockup is the design reference and silently
+ * "fixing" it would be a design decision taken in a build. Flagged for Cai and Mo.
+ */
+const EXPLORE_GEO = { vw: 200, vh: 200, cx: 100, cy: 100, r: 80, rNode: 12.5, fs: 12, ring: 1.5,
+  homeRNode: 16, homeFs: 15, homeFill: '#D9E4E9', homeStroke: '#00B2D9' };
 // Same clockwise-from-9-at-top angles as the 430x252 pair, so all four v3 figures agree.
 const _wheelNodes = (C) => Object.fromEntries(Object.entries(CLIENT_ANGLES).map(([k, deg]) => {
   const rad = deg * Math.PI / 180;
@@ -1210,6 +1227,27 @@ function buildEnneagramSVG({ type, variant }) {
   // silently, which is exactly the defect design spec v3.0 §4.3 records in an earlier
   // mockup — so the structural gate in verify_diagrams.js asserts node inventory, angles
   // and the two flow sequences for these two instead.
+  // Sheet 6's wheel: ring + nine nodes, no web, home node grown and filled. Kept as its own
+  // branch rather than folded into the cover/what-is one, whose "equal radii, fill only" rule
+  // is stated in a comment there and is not true here.
+  if (variant === 'client-explore') {
+    if (!SVG_TYPE_META[type]) throw new Error(`buildEnneagramSVG: type ${type} required for variant "client-explore"`);
+    const C = EXPLORE_GEO;
+    const N = _wheelNodes(C);
+    let nodes = '';
+    for (const k of Object.keys(N)) {
+      const i = +k, home = i === type, [x, y] = N[i];
+      const r = home ? C.homeRNode : C.rNode, fs = home ? C.homeFs : C.fs;
+      nodes += `<circle cx="${x}" cy="${y}" r="${r}" fill="${home ? C.homeFill : '#FFFFFF'}" `
+             + `stroke="${home ? C.homeStroke : '#C8D0D9'}" stroke-width="${C.ring}"/>`
+             + `<text x="${x}" y="${(y + fs * 0.37).toFixed(1)}" text-anchor="middle" font-family="Arial" `
+             + `font-size="${fs}" font-weight="bold" fill="${home ? '#1E2A35' : '#4A5568'}">${i}</text>`;
+    }
+    return `<svg viewBox="0 0 ${C.vw} ${C.vh}" xmlns="http://www.w3.org/2000/svg">`
+      + `<circle cx="${C.cx}" cy="${C.cy}" r="${C.r}" fill="none" stroke="#C8D0D9" stroke-width="${C.ring}"/>`
+      + nodes + `</svg>`;
+  }
+
   if (variant === 'client-cover' || variant === 'client-whatis') {
     // 'client-whatis' highlights nothing and needs no type; 'client-cover' must have one,
     // or the cover would silently print nine identical grey nodes and lose the one client
@@ -2883,6 +2921,109 @@ function clientReportV3PageStyles() {
 .v3-page .v3-res-lbl{ font-size:9px; font-weight:bold; color:var(--v3-green-label); text-transform:uppercase; letter-spacing:.1em; margin-bottom:5px; }
 .v3-page .v3-res-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.45; }
 
+
+/* ── p6 / p7 Exploring Your Type Hypothesis ───────────────────────────────── */
+/* Ported from docs/mockup/claude_The_Peacemaker_Page_LeadingType_{A,B}_v1.html. Class names
+   namespaced v3-ta- (sheet 6) / v3-tb- (sheet 7): the mockups use bare .intro, .col, .item,
+   .dot, .styles and .practice, and client_report_v3_styles.js owns that generic namespace.
+   Chrome (.eyebrow, h1, h2, .lead, header, footer) is reused from the shared sheet, not
+   redefined here — only .lead's existing is-flush / is-loose modifiers are used. */
+
+/* sheet 6 */
+.v3-page .v3-ta-intro{ display:flex; align-items:center; gap:28px; margin-bottom:22px; }
+.v3-page .v3-ta-intro-body{ flex:1; }
+.v3-page .v3-ta-sym{ flex:0 0 168px; }
+.v3-page .v3-ta-sym svg{ display:block; width:168px; height:168px; }
+
+.v3-page .v3-ta-cm{ border:1px solid var(--v3-border); margin-bottom:22px; }
+.v3-page .v3-ta-cm-head{ background:var(--v3-leading-bg); padding:14px 20px; display:flex; align-items:center; gap:16px; }
+.v3-page .v3-ta-num{ flex:0 0 auto; width:42px; height:42px; border-radius:50%; background:#FFFFFF; border:2px solid var(--v3-cyan); display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:bold; color:var(--v3-navy); }
+.v3-page .v3-ta-cm-title{ flex:0 0 152px; font-size:16px; font-weight:bold; color:var(--v3-navy); line-height:1.25; }
+.v3-page .v3-ta-cm-narr{ flex:1; font-size:13.5px; color:var(--v3-navy); line-height:1.5; padding-left:18px; border-left:1px solid #A8BFCA; }
+.v3-page .v3-ta-cm-cols{ display:flex; }
+.v3-page .v3-ta-cm-col{ flex:1; padding:15px 20px; }
+.v3-page .v3-ta-cm-col + .v3-ta-cm-col{ border-left:1px solid var(--v3-border); }
+.v3-page .v3-ta-cm-lbl{ font-size:9px; font-weight:bold; color:var(--v3-soft-navy); text-transform:uppercase; letter-spacing:.1em; margin-bottom:7px; }
+.v3-page .v3-ta-cm-txt{ font-size:13px; color:var(--v3-navy); line-height:1.5; }
+/* "In Your Own Words" — mockup BAND 3, .cm-words. #F5F5EE is the callout cream already used
+   by p3-own-words and CLIENT_COLORS.calloutBg; it has no v3 var, so the literal is kept as
+   the mockup and the fit spike both wrote it. */
+.v3-page .v3-ta-words{ background:#F5F5EE; border-top:1px solid var(--v3-border); padding:13px 20px; }
+.v3-page .v3-ta-words-lbl{ font-size:9px; font-weight:bold; color:var(--v3-soft-navy); text-transform:uppercase; letter-spacing:.1em; margin-bottom:9px; }
+.v3-page .v3-ta-words-q{ font-size:12.5px; color:var(--v3-navy); line-height:1.55; font-style:italic; }
+
+.v3-page .v3-ta-glance{ border:1px solid var(--v3-border); margin-bottom:20px; }
+.v3-page .v3-ta-ghead{ background:var(--v3-leading-bg); padding:8px 20px; font-size:9px; font-weight:bold; color:var(--v3-grey); text-transform:uppercase; letter-spacing:.1em; }
+.v3-page .v3-ta-gcols{ display:flex; }
+.v3-page .v3-ta-gcol{ flex:1; padding:12px 20px; }
+.v3-page .v3-ta-gcol + .v3-ta-gcol{ border-left:1px solid var(--v3-border); }
+.v3-page .v3-ta-grow{ display:flex; align-items:baseline; margin-bottom:10px; }
+.v3-page .v3-ta-grow:last-child{ margin-bottom:0; }
+/* padding-right is the GUTTER, and it has to live inside the 92px rather than beside it.
+   .v3-ta-grow has no gap, so the value box starts exactly where the label box ends and the
+   only separation is whatever slack the label text leaves. That was invisible while the
+   labels were type-number plurals ("Where Nines Turn Their Attention" broke into short
+   lines), but "ATTENTION GOES" renders 89.42px into the 92px box — a 2.58px gutter, against
+   22-45px on the other three — and collides with the value text.
+   The reset sets box-sizing:border-box globally, so this padding comes out of the 92px and
+   the VALUE COLUMN STAYS 222px. That matters: the glance value budgets (80 and 111 chars)
+   were measured at 222px, and taking the gutter out of the value instead would invalidate
+   them. Line count is unchanged — "ATTENTION GOES / TO" simply rebreaks as
+   "ATTENTION / GOES TO", which also reads better. */
+.v3-page .v3-ta-glbl{ flex:0 0 92px; padding-right:10px; font-size:9px; font-weight:bold; color:var(--v3-soft-navy); text-transform:uppercase; letter-spacing:.08em; line-height:1.4; }
+.v3-page .v3-ta-gval{ flex:1; font-size:12.5px; color:var(--v3-navy); line-height:1.45; }
+
+.v3-page .v3-ta-pats{ display:flex; gap:16px; }
+.v3-page .v3-ta-pat{ flex:1; border:1px solid var(--v3-border); display:flex; flex-direction:column; }
+.v3-page .v3-ta-pat-head{ background:#F7FBFC; border-bottom:1px solid var(--v3-border); padding:9px 14px; display:flex; align-items:center; gap:9px; }
+.v3-page .v3-ta-pat-num{ flex:0 0 auto; width:20px; height:20px; border-radius:50%; background:var(--v3-leading-bg); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:bold; color:var(--v3-navy); }
+.v3-page .v3-ta-pat-lbl{ font-size:10px; font-weight:bold; color:var(--v3-navy); text-transform:uppercase; letter-spacing:.1em; }
+.v3-page .v3-ta-pat-body{ padding:14px 14px; font-size:12.5px; color:var(--v3-navy); line-height:1.55; }
+
+/* sheet 7 */
+/* 20px, not the sheet-7 mockup's 30px, above each h2 on this sheet — see v3-tb-styles. */
+.v3-page .v3-tb-two{ display:flex; gap:18px; margin-bottom:20px; }
+.v3-page .v3-tb-col{ flex:1; border:1px solid var(--v3-border); }
+.v3-page .v3-tb-col-head{ padding:11px 16px; font-size:10px; font-weight:bold; text-transform:uppercase; letter-spacing:.1em; }
+.v3-page .v3-tb-col-head.is-best{ background:#E8F4E8; color:#2D7A2D; }
+.v3-page .v3-tb-col-head.is-edge{ background:#FAE8E8; color:#A32D2D; }
+.v3-page .v3-tb-col-body{ padding:20px 18px; }
+.v3-page .v3-tb-item{ display:flex; margin-bottom:14px; }
+.v3-page .v3-tb-item:last-child{ margin-bottom:0; }
+.v3-page .v3-tb-dot{ flex:0 0 auto; width:5px; height:5px; border-radius:50%; margin:7px 10px 0 0; }
+.v3-page .v3-tb-dot.is-best{ background:#2D7A2D; }
+.v3-page .v3-tb-dot.is-edge{ background:#A32D2D; }
+.v3-page .v3-tb-item-txt{ font-size:13px; color:var(--v3-navy); line-height:1.55; }
+
+/* SPACE ABOVE THE h2, and a deliberate 10px departure from the sheet-7 mockup.
+   The two Exploring mockups disagree with each other: sheet 6 sets 20px above its h2
+   (.glance margin-bottom) with h2 margin-bottom 10px, while sheet 7 sets 30px (.two-col
+   and .styles) with h2 margin-bottom 14px. The port already resolved the BOTTOM half of
+   that disagreement in sheet 6's favour — the shared .v3-page h2 rule is 10px, not 14px —
+   so leaving the top half at 30px left the two sheets inconsistent in opposite directions.
+   These two rules finish the normalisation: both sheets now read 20px above / 10px below.
+   Ratified by Cai 20 Aug 2026. Buys 20px of sheet-7 headroom, which is where the page is
+   tight — p7 ran 12-13px free for types 1/7/9 against p6's 56px. */
+.v3-page .v3-tb-styles{ display:flex; gap:16px; margin-bottom:20px; }
+.v3-page .v3-tb-style{ flex:1; border:1px solid var(--v3-border); display:flex; flex-direction:column; }
+.v3-page .v3-tb-style-head{ background:#F7FBFC; border-bottom:1px solid var(--v3-border); padding:13px 16px; }
+.v3-page .v3-tb-style-lbl{ font-size:9px; font-weight:bold; color:var(--v3-cyan); text-transform:uppercase; letter-spacing:.1em; margin-bottom:6px; }
+.v3-page .v3-tb-style-name{ font-size:13.5px; font-weight:bold; color:var(--v3-navy); line-height:1.35; }
+.v3-page .v3-tb-style-body{ padding:16px 16px; }
+.v3-page .v3-tb-s-item{ display:flex; margin-bottom:11px; }
+.v3-page .v3-tb-s-item:last-child{ margin-bottom:0; }
+.v3-page .v3-tb-s-dot{ flex:0 0 auto; width:4px; height:4px; border-radius:50%; background:#A8BFCA; margin:7px 9px 0 0; }
+.v3-page .v3-tb-s-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.55; }
+
+.v3-page .v3-tb-practice{ display:flex; gap:18px; }
+.v3-page .v3-tb-pr-col{ flex:1; border:1px solid var(--v3-border); }
+.v3-page .v3-tb-pr-head{ background:var(--v3-leading-bg); padding:9px 16px; font-size:10px; font-weight:bold; color:var(--v3-grey); text-transform:uppercase; letter-spacing:.1em; }
+.v3-page .v3-tb-pr-body{ padding:16px 18px; }
+.v3-page .v3-tb-pr-item{ display:flex; margin-bottom:12px; }
+.v3-page .v3-tb-pr-item:last-child{ margin-bottom:0; }
+.v3-page .v3-tb-pr-dot{ flex:0 0 auto; width:5px; height:5px; border-radius:50%; background:var(--v3-cyan); margin:6px 10px 0 0; }
+.v3-page .v3-tb-pr-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.5; }
+
 /* ── p9 Your Stress and Security Points ───────────────────────────────────── */
 /* Ported from docs/mockup/claude_The_Peacemaker_Page_Lines_v1.html. Class names namespaced
    v3-pt/v3-band/v3-work: the mockup's bare .band collides with a DIFFERENT .band on the
@@ -2948,20 +3089,48 @@ function clientReportV3PageStyles() {
  *
  * ONE COUNT IS DELIBERATELY NOT DERIVED — see tests/lib/report_page_inventory.js.
  */
+/**
+ * PILOT SCOPE for sheets 6 and 7 — the only types that render them.
+ *
+ * ⚠️ PLACEHOLDER, and deliberately the dumbest thing that works. Sheets 6-7 are being rolled
+ * out one batch at a time (9, then 1/4/8, then the rest), and this is the third page family
+ * to need per-type gating. A general "which types are ready" registry is the right answer and
+ * is NOT being invented here: designing it against a single type would bake in the wrong
+ * shape. Revisit before the 1/4/8 batch.
+ *
+ * scripts/build_content_library.js carries the matching EXPLORE_PILOT_TYPES. Two lists that
+ * must agree is exactly the drift this project has been bitten by; collapsing them is part of
+ * that same revisit.
+ */
+const V3_EXPLORE_PILOT_TYPES = [1, 4, 7, 9];
+
 const V3_PAGE_ORDER = [
   { key: 'cover',     sheet: 1,  footer: null, chrome: 'none',  built: true, title: 'Cover' },
   { key: 'contents',  sheet: 2,  footer: null, chrome: 'blank', built: true, title: 'Contents',             eyebrow: "What's In This Report" },
   { key: 'welcome',   sheet: 3,  footer: 1,    built: true,     title: 'Welcome',                           eyebrow: 'A Note from Cai & Mo' },
   { key: 'whatis',    sheet: 4,  footer: 2,    built: true,     title: 'What Is the Enneagram?',            eyebrow: null },
   { key: 'quickref',  sheet: 5,  footer: 3,    title: 'Quick Reference',                                    eyebrow: 'Your Report at a Glance' },
-  { key: 'typeA',     sheet: 6,  footer: 4,    title: 'Exploring Your Type Hypothesis',                     eyebrow: null },
-  { key: 'typeB',     sheet: 7,  footer: 5,    title: 'Exploring Your Type Hypothesis (continued)' },
+  { key: 'typeA',     sheet: 6,  footer: 4,    built: true, pilotTypes: V3_EXPLORE_PILOT_TYPES,
+    title: 'Exploring Your Type Hypothesis',                     eyebrow: 'Exploring Your Type Hypothesis' },
+  { key: 'typeB',     sheet: 7,  footer: 5,    built: true, pilotTypes: V3_EXPLORE_PILOT_TYPES,
+    title: 'Exploring Your Type Hypothesis (continued)',         eyebrow: 'Exploring Your Type Hypothesis (continued)' },
   { key: 'wings',     sheet: 8,  footer: 6,    built: true,     title: 'Your Wings',                        eyebrow: 'Navigating the Enneagram System' },
   { key: 'lines',     sheet: 9,  footer: 7,    built: true,     title: 'Your Stress and Security Points',   eyebrow: 'Navigating the Enneagram System' },
   { key: 'instincts', sheet: 10, footer: 8,    title: 'Instincts & Subtypes',                               eyebrow: 'Navigating the Enneagram System' },
   { key: 'car',       sheet: 11, footer: 9,    title: 'Development Ideas for {nickname_plural}',            eyebrow: 'Insight to Action' },
   { key: 'thoughts',  sheet: 12, footer: 10,   built: true,     title: 'Your Thoughts',                     eyebrow: 'Questions to Explore' },
 ];
+
+/**
+ * The pages this document emits for `type`, in sheet order.
+ *
+ * `built` says a renderer function exists; `pilotTypes`, where present, narrows it to the
+ * types whose content has landed. Everything that needs to know the page list — the renderer,
+ * the render harness and the structural test — goes through here, so the three cannot drift
+ * from each other the way the four hand-maintained page counts did before PR 3-Lines.
+ */
+const v3PagesFor = (type) =>
+  V3_PAGE_ORDER.filter(p => p.built && (!p.pilotTypes || p.pilotTypes.includes(type)));
 
 const v3Page = (key) => {
   const p = V3_PAGE_ORDER.find(x => x.key === key);
@@ -2972,7 +3141,7 @@ const v3Page = (key) => {
 /** Interpolate the {token} placeholders carried by page titles and Contents descriptors. */
 function _v3Tokens(m, s) {
   const d = m.display || {};
-  return String(s || '').replace(/\{(type_word|subtype_label|nickname|nickname_plural)\}/g,
+  return String(s || '').replace(/\{(type_word_plural|type_word|subtype_label|nickname|nickname_plural)\}/g,
     (_, k) => d[k] != null ? d[k] : `{${k}}`);
 }
 
@@ -3289,6 +3458,229 @@ function _clv3Wings(m) {
 }
 
 /**
+ * Sheets 6 and 7 — "Exploring Your Type Hypothesis" and its continuation.
+ *
+ * PILOT SCOPE: types 1, 4, 7 and 9. Both functions throw rather than render if the model carries no
+ * explore_v3, and buildClientReportHTML_v3 drops both sheets for any non-pilot type, so an
+ * unauthored type cannot produce a blank page. See V3_EXPLORE_PILOT_TYPES.
+ *
+ * GEOMETRY PORTED, NOT DESIGNED. Both layouts are transcribed from the Type 9 mockups:
+ *   docs/mockup/claude_The_Peacemaker_Page_LeadingType_A_v1.html   (sheet 6)
+ *   docs/mockup/claude_The_Peacemaker_Page_LeadingType_B_v1.html   (sheet 7)
+ * The PROSE no longer comes from them — all four authored types, type 9 included, now carry
+ * content written to the measured per-zone budgets. See INTERIM_EXPLORE_V3.
+ *
+ * CLASS NAMESPACING. The mockups use bare generic names — .intro, .col, .item, .dot, .lead,
+ * .styles, .practice — and client_report_v3_styles.js explicitly owns that namespace ("Generic
+ * names (.lead, .sub, .note, .eyebrow, .page) are owned by this sheet"). Every page-specific
+ * class below is therefore prefixed `v3-ta-` (sheet 6) or `v3-tb-` (sheet 7), matching the
+ * V3_PAGE_ORDER keys. p9 hit the same collision and resolved it the same way.
+ *
+ * CHROME IS NOT PORTED. Header, rule, eyebrow, h1, h2 and footer come from the shared sheet,
+ * and `.lead` is reused with its existing modifiers rather than redefined.
+ */
+
+/**
+ * The two page-level paragraphs. Both are fully templated — only the type name varies — so
+ * they live here rather than in the content library, which carries per-type authored prose
+ * only. The audit classified them the same way (section C1: "templated, tokens only").
+ */
+const V3_TYPEA_INTRO = (m) =>
+  `Based on your responses to the questionnaire, we're presenting you with Type ${m.hero.number} - `
+  + `${m.hero.name} as the strongest hypothesis of your home base Enneagram type. We encourage you `
+  + `to hold this as a hypothesis until you've read through this report and/or have discussed it `
+  + `with your coach. Remember, you are the ultimate authority on your Enneagram type.`;
+
+const V3_TYPEB_LEAD = (m) =>
+  `The Type ${m.hero.number} ${m.display.nickname} patterns described on the previous page usually run `
+  + `in the background, like an "internal operating system". The real power of the Enneagram is `
+  + `learning how to expand beyond our default patterns. The first step is seeing how our patterns `
+  + `show up in the real world. Here are some things to look for.`;
+
+/**
+ * The at-a-glance labels. Static across all nine types; the VALUES beside them are authored
+ * content and are printed verbatim from the content library.
+ *
+ * A DELIBERATE DEPARTURE FROM THE MOCKUP, ratified by Cai 20 Aug 2026. The mockup prints
+ * type-number plurals — "What Nines Want", "Where Nines Turn Their Attention", "What Nines
+ * Tend to Avoid" — and the port reproduced them. The four p6/p7 source docs head these zones
+ * CORE DESIRE / ATTENTION GOES TO / AVOIDANCE / DRIVING EMOTION instead, which is the locked
+ * wording. The fourth label is the tell that these headings are labels and not merely zone
+ * names: "Driving Emotion" already matched what the mockup prints.
+ *
+ * NO LONGER TOKENISED. display.type_word_plural (report_prep.js) existed solely to feed the
+ * three plurals above and is now unused — left in place rather than removed, since sheets
+ * 5, 10 and 11 are unbuilt and may want it. Delete it if they don't.
+ */
+const V3_GLANCE_LABELS = [
+  'Core Desire',
+  'Attention Goes To',
+  'Avoidance',
+  'Driving Emotion',
+];
+
+const V3_PATTERN_LABELS = ['Thinking', 'Feeling', 'Behaving'];
+
+/** Sheet 6. */
+function _clv3TypeA(m) {
+  const page = v3Page('typeA');
+  const e = m.pages.v3_explore;
+  if (!e || !e.p6) {
+    throw new Error(`_clv3TypeA: type ${m.hero.number} has no explore_v3 content — `
+      + `sheets 6-7 are pilot-scoped to types [${V3_EXPLORE_PILOT_TYPES}]`);
+  }
+  const x = e.p6;
+
+  const grow = (i) => `        <div class="v3-ta-grow">
+          <div class="v3-ta-glbl">${_v3t(_v3Tokens(m, V3_GLANCE_LABELS[i]))}</div>
+          <div class="v3-ta-gval">${_v3t(x.glance[i])}</div>
+        </div>`;
+
+  // "In Your Own Words" — the one PER-CLIENT zone on this sheet. Everything else on sheets 6
+  // and 7 is per-TYPE library content, so this reads a different source: the client's own
+  // Stage-1 language, via client_words.leading_quotes on the Call #2 result.
+  //
+  // OMITTED, NOT EMPTIED, when the client has no quotes. A client whose result carries none
+  // (and every synthetic fixture that leaves client_words empty) must get no band at all
+  // rather than a cream strip with an empty italic line under a heading — the same
+  // blank-zone failure the Wings and Lines gates were added to stop. Absence is why the
+  // band shipped as a measured spike rather than as renderer code in PR 3-Explore.
+  //
+  // Multiple quotes join with an ellipsis, matching how P3 joins its 1-2 AI quotes.
+  const quotes = (e.words || []).filter(Boolean);
+  const words = quotes.length
+    ? `    <div class="v3-ta-words">
+      <div class="v3-ta-words-lbl">In Your Own Words</div>
+      <div class="v3-ta-words-q">&ldquo;${quotes.map(q => _v3t(q)).join(' &hellip; ')}&rdquo;</div>
+    </div>
+`
+    : '';
+
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule is-tight"></div>
+
+  <!-- The eyebrow and h1 sit INSIDE the flex row, as the mockup has them: the 168px wheel is
+       centred against the whole title block, not just the paragraph. Hoisting them out of the
+       row costs 53.56px of page height and moves the wheel down beside the body text alone. -->
+  <div class="v3-ta-intro">
+    <div class="v3-ta-intro-body">
+      <div class="eyebrow">${esc(page.eyebrow)}</div>
+      <h1>Type ${m.hero.number} &middot; ${esc(m.hero.name)}</h1>
+      <div class="lead is-flush">${_v3t(V3_TYPEA_INTRO(m))}</div>
+    </div>
+    <div class="v3-ta-sym">${buildEnneagramSVG({ type: m.hero.number, variant: 'client-explore' })}</div>
+  </div>
+
+  <div class="v3-ta-cm">
+    <div class="v3-ta-cm-head">
+      <div class="v3-ta-num">${m.hero.number}</div>
+      <div class="v3-ta-cm-title">Core Motivation</div>
+      <div class="v3-ta-cm-narr">${_v3t(x.core_motivation)}</div>
+    </div>
+    <div class="v3-ta-cm-cols">
+      <div class="v3-ta-cm-col"><div class="v3-ta-cm-lbl">Worldview</div><div class="v3-ta-cm-txt">${_v3t(x.worldview)}</div></div>
+      <div class="v3-ta-cm-col"><div class="v3-ta-cm-lbl">Core Belief</div><div class="v3-ta-cm-txt">${_v3t(x.core_belief)}</div></div>
+    </div>
+${words}  </div>
+
+  <div class="v3-ta-glance">
+    <div class="v3-ta-ghead">${_v3t(_v3Tokens(m, 'The {nickname} at a Glance'))}</div>
+    <div class="v3-ta-gcols">
+      <div class="v3-ta-gcol">
+${grow(0)}
+${grow(1)}
+      </div>
+      <div class="v3-ta-gcol">
+${grow(2)}
+${grow(3)}
+      </div>
+    </div>
+  </div>
+
+  <h2>${_v3t(_v3Tokens(m, `Typical Patterns of the Type ${m.hero.number} {nickname}`))}</h2>
+  <div class="v3-ta-pats">
+${V3_PATTERN_LABELS.map((lbl, i) => `    <div class="v3-ta-pat">
+      <div class="v3-ta-pat-head"><span class="v3-ta-pat-num">${i + 1}</span><span class="v3-ta-pat-lbl">${esc(lbl)}</span></div>
+      <div class="v3-ta-pat-body">${_v3t(x.patterns[i])}</div>
+    </div>`).join('\n')}
+  </div>
+
+  ${_v3Footer(page)}
+</div>`;
+}
+
+/**
+ * Sheet 7.
+ *
+ * THE THIRD STYLE CARD IS DECISION-MAKING, and its content comes from explore_v3.p7.styles[2].
+ * It is NOT type_N.center — that key holds "Coming Back to Center", a different concept
+ * belonging to another sheet. Wiring center here would ship the wrong content under a correct
+ * heading, which is why the audit called it out by name.
+ */
+const V3_STYLE_LABELS = ['Communication Style', 'Conflict Style', 'Decision-Making Style'];
+
+function _clv3TypeB(m) {
+  const page = v3Page('typeB');
+  const e = m.pages.v3_explore;
+  if (!e || !e.p7) {
+    throw new Error(`_clv3TypeB: type ${m.hero.number} has no explore_v3 content — `
+      + `sheets 6-7 are pilot-scoped to types [${V3_EXPLORE_PILOT_TYPES}]`);
+  }
+  const x = e.p7;
+
+  const col = (head, tone, items) => `    <div class="v3-tb-col">
+      <div class="v3-tb-col-head is-${tone}">${esc(head)}</div>
+      <div class="v3-tb-col-body">
+${items.map(it => `        <div class="v3-tb-item"><div class="v3-tb-dot is-${tone}"></div><div class="v3-tb-item-txt"><b>${_v3t(it.title)}</b> ${_v3t(it.body)}</div></div>`).join('\n')}
+      </div>
+    </div>`;
+
+  const styleCard = (st, i) => `    <div class="v3-tb-style">
+      <div class="v3-tb-style-head">
+        <div class="v3-tb-style-lbl">${esc(V3_STYLE_LABELS[i])}</div>
+        <div class="v3-tb-style-name">${_v3t(st.name)}</div>
+      </div>
+      <div class="v3-tb-style-body">
+${st.bullets.map(b => `        <div class="v3-tb-s-item"><div class="v3-tb-s-dot"></div><div class="v3-tb-s-txt">${_v3t(b)}</div></div>`).join('\n')}
+      </div>
+    </div>`;
+
+  const prCol = (head, items) => `    <div class="v3-tb-pr-col">
+      <div class="v3-tb-pr-head">${esc(head)}</div>
+      <div class="v3-tb-pr-body">
+${items.map(t => `        <div class="v3-tb-pr-item"><div class="v3-tb-pr-dot"></div><div class="v3-tb-pr-txt">${_v3t(t)}</div></div>`).join('\n')}
+      </div>
+    </div>`;
+
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule is-tight"></div>
+
+  <div class="eyebrow">${esc(page.eyebrow)}</div>
+  <div class="lead is-loose">${_v3t(V3_TYPEB_LEAD(m))}</div>
+
+  <div class="v3-tb-two">
+${col('At Your Best', 'best', x.best)}
+${col('Your Growing Edge', 'edge', x.edge)}
+  </div>
+
+  <h2>Communication, Conflict, and Decision-Making Styles</h2>
+  <div class="v3-tb-styles">
+${x.styles.map(styleCard).join('\n')}
+  </div>
+
+  <h2>Catching Your Patterns in the Moment</h2>
+  <div class="v3-tb-practice">
+${prCol('Signs the Pattern Is Showing Up', x.signs)}
+${prCol('Interrupting the Pattern', x.interrupt)}
+  </div>
+
+  ${_v3Footer(page)}
+</div>`;
+}
+
+/**
  * p9 "Your Stress and Security Points" — SPIKE, not finished work.
  *
  * Ported from docs/mockup/claude_The_Peacemaker_Page_Lines_v1.html to measure whether the
@@ -3350,6 +3742,26 @@ ${l.work.map((w, i) => `    <div class="v3-work-item">
 </div>`;
 }
 
+/**
+ * key -> render function, for every sheet with a `built` flag in V3_PAGE_ORDER.
+ *
+ * The document used to list its seven page calls inline. It is a map now because sheets 6-7
+ * are pilot-scoped: which pages a type emits is a property of the type, so the document body
+ * has to be computed rather than written out. Emission order is V3_PAGE_ORDER's sheet order,
+ * which is also the order the footer numbers assume.
+ */
+const V3_PAGE_BUILDERS = {
+  cover: _clv3Cover, contents: _clv3Contents, welcome: _clv3Welcome, whatis: _clv3WhatIs,
+  typeA: _clv3TypeA, typeB: _clv3TypeB, wings: _clv3Wings, lines: _clv3Lines,
+  thoughts: _clv3Thoughts,
+};
+
+const V3_PAGE_BUILDERS_ORDERED = (model) => v3PagesFor(model.hero.number).map((p) => {
+  const fn = V3_PAGE_BUILDERS[p.key];
+  if (!fn) throw new Error(`V3_PAGE_ORDER marks "${p.key}" built but no builder is registered`);
+  return fn(model);
+}).join('\n');
+
 /** v3 document root. Not called by production until cutover. */
 function buildClientReportHTML_v3(model) {
   return `<!DOCTYPE html>
@@ -3358,18 +3770,12 @@ ${partAStyles()}
 ${clientReportV3Styles()}
 ${clientReportV3PageStyles()}
 </head><body>
-${_clv3Cover(model)}
-${_clv3Contents(model)}
-${_clv3Welcome(model)}
-${_clv3WhatIs(model)}
-${_clv3Wings(model)}
-${_clv3Lines(model)}
-${_clv3Thoughts(model)}
+${V3_PAGE_BUILDERS_ORDERED(model)}
 </body></html>`;
 }
 
 module.exports = {
-  buildClientReportHTML_v3, V3_PAGE_ORDER,
+  buildClientReportHTML_v3, V3_PAGE_ORDER, v3PagesFor, V3_EXPLORE_PILOT_TYPES,
   COVER_GEO, WHATIS_GEO, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
   buildClientHTML, buildCoachHTML, buildBetaHTML, betaReportBodyHtml, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
