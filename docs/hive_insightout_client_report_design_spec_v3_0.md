@@ -408,15 +408,16 @@ authored, so waiting for all nine to exist inverts it.
 Every other band in this section assumes a writer working to a budget. This zone has no writer:
 it is the client's own verbatim language, read from `client_words.leading_quotes` off the Call #2
 result. It is the **only per-client zone on either Exploring sheet** — everything else there is
-per-type library content. The constraint therefore lives at **generation and selection time**, not
-in an authoring guideline, and this subsection exists because §6 otherwise has no concept of a zone
-whose length nobody controls.
+per-type library content. The constraint therefore lives at **generation and selection time — at
+the point the quote is chosen, before it ever reaches the renderer.** Not in an authoring
+guideline, because there is no author; and **not at render.** This subsection exists because §6
+otherwise has no concept of a zone whose length nobody controls.
 
-| Control | Value | Status |
-|---------|-------|--------|
-| Character cap, **including** quotation marks | **270** | ⚠️ **PROVISIONAL** — see below |
-| Render-time assertion | quote band renders in **3 lines** | backstop |
-| Fourth line | tolerated overflow, **not design** | — |
+| Control | Applies at | Value | Status |
+|---------|-----------|-------|--------|
+| Character cap, **including** quotation marks | **selection / generation** | **270** | ⚠️ **PROVISIONAL** — see below |
+| 3-line assertion | **render** | quote band renders in **3 lines** | backstop — **fails loudly, never truncates** |
+| Fourth line | render | tolerated overflow, **not design** | — |
 
 **270 is neither measured nor derived. It is an estimate, and the spec should say so until it is
 replaced.** It is bracketed by two real figures and sits between them:
@@ -431,27 +432,48 @@ replaced.** It is bracketed by two real figures and sits between them:
 real-prose samples until a fourth line appears, and set the cap from the measured SAFE threshold
 minus a margin. Then delete "PROVISIONAL" here and record the measured figure and its date.
 
-**Why the cap alone is insufficient, and the render assertion is not belt-and-braces.** Character
-count does not determine wrap — word shapes do. A 285-character quote of long words can take a
-fourth line where a 295-character quote of short ones does not. Any character cap is therefore a
-*heuristic* over the real constraint, and the only reliable statement about a rendered quote is
-made after rendering it. The 3-line assertion is what actually holds the page; the cap keeps the
-common case away from the boundary.
+**Why the cap alone is insufficient — and why that does not make the render assertion the
+mechanism.** Character count does not determine wrap; word shapes do. A 285-character quote of long
+words can take a fourth line where a 295-character quote of short ones does not. Any character cap
+is therefore a *heuristic* over the real constraint, which is why a render-time check is needed at
+all.
 
-**Truncation convention.** Stated here rather than left to whoever implements it. The last three
-points are design decisions and are **open for ratification**, not yet settled:
+But the render check is a **detector, not a control.** It asserts; it does not edit. Its job is to
+fail loudly so a miss is caught before the report ships — **not** to rescue an over-long quote by
+cutting it. The cap at selection time is what keeps quotes off the boundary in the first place, and
+it is the only place any shortening ever happens.
 
-1. Apply the cap to the **joined** string. Where a client has two quotes, P3 joins them with `' … '`
-   (space, U+2026, space) and this zone uses the same join, so the pair is one string for the
-   purpose of the cap.
-2. **Never truncate mid-word.** Cut at the last word boundary that keeps the total — including both
-   quotation marks and the ellipsis — at or under the cap.
-3. Append a single **U+2026**, with **no space before it**, inside the closing quotation mark.
-   Do not use three periods, and do not stack an ellipsis onto a quote that already ends in one.
-4. Where a *pair* of quotes would exceed the cap, **drop the second quote entirely rather than
-   truncating it to a fragment.** A truncated second quote reads as the client trailing off
-   mid-thought when in fact it is the layout speaking.
-5. If a **single** quote alone exceeds the cap, truncate it per 2–3. There is no shorter fallback.
+> ⚠️ **Do not build a truncator into the renderer.** The failure this guards against is a report
+> that cuts a client's sentence in half at layout time. The correct behaviour is to never select an
+> over-long quote; the correct behaviour on a miss is a **loud failure**, not a silent cut. If the
+> 3-line assertion fires, the fix belongs upstream at selection — not in the renderer.
+
+**Truncation convention.** Stated here rather than left to whoever implements it. All of it applies
+**at selection time**, per the enforcement point above — none of it describes renderer behaviour.
+
+**Every point below is tagged. Do not treat a `PROPOSED` point as spec.** `SETTLED` points are
+ratified and may be implemented as written. `PROPOSED` points are drafted, awaiting Cai and Mo, and
+**must be ratified before they are built** — they record a recommendation, not a decision.
+
+1. ✅ **SETTLED** — Apply the cap to the **joined** string. Where a client has two quotes, P3 joins
+   them with `' … '` (space, U+2026, space) and this zone uses the same join, so the pair is one
+   string for the purpose of the cap.
+2. ✅ **SETTLED** — **Never truncate mid-word.** Cut at the last word boundary that keeps the
+   total — including both quotation marks and the ellipsis — at or under the cap.
+3. 🔶 **PROPOSED — awaiting ratification.** Append a single **U+2026**, with **no space before it**,
+   inside the closing quotation mark. Do not use three periods, and do not stack an ellipsis onto a
+   quote that already ends in one.
+4. 🔶 **PROPOSED — awaiting ratification.** Where a *pair* of quotes would exceed the cap, **drop
+   the second quote entirely rather than truncating it to a fragment.** A truncated second quote
+   reads as the client trailing off mid-thought when in fact it is the layout speaking. This is an
+   editorial decision about how a client's own words are presented, not a layout one, which is why
+   it is not settled here.
+5. 🔶 **PROPOSED — awaiting ratification.** If a **single** quote alone exceeds the cap, truncate it
+   per 2–3. There is no shorter fallback.
+
+*Points 3–5 drafted 3 Sep 2026. When they are ratified, change the tag and add the date; when a
+different convention is chosen, strike these and record the decision beside them per the §3.5
+correction convention.*
 
 **Measured geometry, for anyone reasoning about the page budget.** All figures measured in the real
 renderer, not derived:
