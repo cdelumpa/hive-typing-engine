@@ -381,14 +381,42 @@ what that verification covers, so nothing was ever built.
 | Surface | Pairs | Enforcement |
 |---------|-------|-------------|
 | **p6 / p7** | `worldview` / `core_belief`; `best` / `edge` (`.v3-tb-two`); `signs` / `interrupt` (`.v3-tb-practice`) | **HARD GATE** |
-| **p8 Wings, p9 Lines** | their paired columns | **REPORT-ONLY** |
+| ~~**p8 Wings, p9 Lines**~~ | ~~their paired columns~~ | ~~**REPORT-ONLY**~~ |
 
-**Why p8/p9 are report-only rather than exempt.** Both shipped before any such check existed, so we
+~~**Why p8/p9 are report-only rather than exempt.** Both shipped before any such check existed, so we
 do not yet know whether they satisfy the rule this section already states. Gating them would turn a
 PR 3 deliverable into a retro-fix of two merged pages. Reporting them tells us the answer at no
 cost. **A clean p8/p9 result promotes the rule to document-wide.** If they turn out to fail, §6
 gets a dated correction recording that the stated rule was never met there — the pages do not get
-retrofitted inside a PR 3 gate.
+retrofitted inside a PR 3 gate.~~
+
+> **Post-lock correction — 4 Sep 2026.** **p8/p9 are out of scope for this section.** The rule
+> here now covers p6/p7's three pairs and nothing else.
+>
+> Nothing about building the five remaining types depends on measuring p8 Wings or p9 Lines. Both
+> are merged and shipped, and the report-only half was carrying a PR 3 deliverable that PR 3 does
+> not need. It is cut from the spec rather than deferred inside it, because a deferred clause with
+> no owner reads as scope on every future pass.
+>
+> **The widening path is not abandoned.** "A clean p8/p9 result promotes the rule to
+> document-wide" — the only recorded route from a two-sheet rule to a document-wide one — moves to
+> the Notion backlog card *"Define p8/p9 paired columns, then report-only matched-line-count
+> pass"*. It is recorded there, not lost here. The p8/p9 pairs were never defined in this section
+> either ("their paired columns"), which is part of why the card has to define them before anything
+> can be measured.
+>
+> **What this section does not yet say is whether p6/p7 currently passes. It does not.** Measured
+> 4 Sep 2026 on `fda83bd`, real renderer, pinned Chromium, Arial asserted: **two of the four built
+> types fail on `main` today.** Type 1 `signs`/`interrupt` renders 4/3 lines; Type 7 `best`/`edge`
+> renders 6/7. The other two pairs match on all four types.
+>
+> **Both are already fixed in source and land with the five remaining types in PR 3e** — Type 1's
+> row becomes 44/40, Type 7's line 80ch. So this records the state of what is *currently on main*,
+> with the corrections pending, not content that is still wrong.
+>
+> The gate nonetheless lands **report-only first**: a hard gate derived from the built types would
+> turn `main` red between now and 3e. It is promoted to hard once those two fixes land. That
+> sequencing is PR 3d/3e work, not a change to the rule stated above.
 
 **The rule cannot be derived from content.** Line count is a function of character count, word
 shapes **and** column width, so it requires rendering. This is the same failure mode the fit spike
@@ -510,13 +538,37 @@ withheld from re-typed renders. It is therefore the tightest case *and* the only
 - **The three CAR capacity practices (p11)** — structure is canon-derived (avoidance, resource
   points, holy idea), specific lines are not. Definitions and preambles are Cai-authored.
 - **The four debrief tips (p5)** — explicit placeholders.
-- **All Type 9 practice bullets (p7).** ⚠️ **Still open, for a changed reason.** The mockup's
+- ~~**All Type 9 practice bullets (p7).** ⚠️ **Still open, for a changed reason.** The mockup's
   Claude-authored bullets no longer ship — the Type 9 source doc replaced them, along with the
   rest of that type's p6/p7 prose (36 of its 40 strings; see §7.4). But the doc flags the
   replacement set itself as *"discussed but never explicitly locked"*, and notes it does not
   follow the Thinking / Feeling / Behaving row order the other three authored types use: rows 1
   and 2 are both Behaving, row 3 is Feeling, and nothing covers Thinking. So this entry is not
-  closed — it now describes the replacement rather than the mockup.
+  closed — it now describes the replacement rather than the mockup.~~
+
+  > **Post-lock correction — 4 Sep 2026. CLOSED.** Type 9's p7 Catching Your Patterns rows were
+  > re-authored on 4 Sep and now follow the Thinking / Feeling / Behaving order the other authored
+  > types use. Both objections in the struck text are answered: the set is locked, and the row
+  > order is correct.
+  >
+  > | # | Row | Signs the pattern is showing up | Interrupting the pattern |
+  > |---|---|---|---|
+  > | 1 | Thinking | Your opinion is formed and you're not saying it. (47) | Tell yourself your perspective matters here. (44) |
+  > | 2 | Feeling | You ignore the tension in your body. (36) | Pause, breathe, get curious about the tension. (46) |
+  > | 3 | Behaving | You're busy with everything but the hard thing. (47) | Do the uncomfortable thing first, for ten minutes. (50) |
+  >
+  > The dropped pair was *"You say 'yes' when you want to say 'no'."* / *"Make a counteroffer
+  > instead of a flat 'no'."*
+  >
+  > **This entry is the only record that the set is locked.** A "Locked 4 Sep" line was added to
+  > the source doc and then deliberately removed during cleanup, because Cai wants clean copy into
+  > the engine with no editorial notes. **Do not expect the doc to corroborate this** — a future
+  > session checking the source will find no lock marker and should not reopen the question on
+  > that basis.
+  >
+  > Counts above are as authored in the doc; per the first caution in §7.4 those printed counts run
+  > low, so measure the strings on transcription rather than trusting them. The rows are not yet in
+  > `INTERIM_EXPLORE_V3` — they land with the five remaining types in PR 3e.
 
 ### 7.3 Known content gaps
 
@@ -532,9 +584,43 @@ withheld from re-typed renders. It is therefore the tightest case *and* the only
 
 ### 7.4 Sheets 6-7 prose — source of record
 
-The p6/p7 content for types 1, 4, 7 and 9 is authored by Cai and Mo in four Google Docs
+~~The p6/p7 content for types 1, 4, 7 and 9 is authored by Cai and Mo in four Google Docs
 (`Type N — <Nickname> · p6/p7 Final Content for Review`), transcribed into `INTERIM_EXPLORE_V3`
-in `scripts/build_content_library.js`. The docs are the source; the constant is a transcription.
+in `scripts/build_content_library.js`. The docs are the source; the constant is a transcription.~~
+
+> **Post-lock correction — 4 Sep 2026.** All nine types are now authored, and the document IDs
+> are recorded here for the first time. `docs/pr_3_explore_batch.md` has stated since PR 80 that
+> "IDs are recorded in the design spec §7.4" — that was **false when written**; the section named
+> the docs by title pattern only. This entry makes it true.
+>
+> The p6/p7 content for **all nine types** is authored by Cai and Mo in nine Google Docs
+> (`Type N — <Nickname> · p6/p7 Final Content for Review`), transcribed into `INTERIM_EXPLORE_V3`
+> in `scripts/build_content_library.js`. The docs are the source; the constant is a transcription.
+>
+> **Folder** — `1AvZHg0MZUMdGorMa71REeScalVnW8spy`. Recorded so a future session can still find the
+> set if a doc is renamed or moved out of title-pattern match.
+>
+> | Type | Archetype | Document ID |
+> |---|---|---|
+> | 1 | The Improver | `1t3HmxdqbtOSXwOLBRkdQf8zWd9JrrXkx3f0ADGPwyCY` |
+> | 2 | The Giver | `16kFDHYK1tMwoiFO2-UMqYTiwblxt-FwZzqZ9pRTxMR0` |
+> | 3 | The Performer | `1nT6_Ryh5kxY5TTcTO_faDgke8Os-NRUu4LZz0tt1A7s` |
+> | 4 | The Individualist | `1bGLEdIppmc0V128HXHvvp2KpGkSnh57uCzPrYRe2PQY` |
+> | 5 | The Observer | `1amQ7h1YPumZZb6fCzYfroWvsqHQHcBc4wVCX0ynaM9c` |
+> | 6 | The Questioner | `1RBoBod9cG0HgwXjhRkl9tWKnOBRq2bWORGZtWMKl9bE` |
+> | 7 | The Enthusiast | `1k6tyZy1EwyjmBFbEdlzvhM2jRqItKHMDdWobMSCQVxA` |
+> | 8 | The Protector | `1v4WhWhr0sMhG4sDrBsHYBT7_4ntGSBmkB_ujj0GgdQs` |
+> | 9 | The Peacemaker | `1Rnw6JM-oMwwUWIRkSvEn3UxhbJzm5h0D_hct6U93BZw` |
+>
+> **Every ID was resolved against Drive before being written here** — each returns a document whose
+> title carries the type number and archetype shown in its row, all nine sit in the folder above,
+> and the folder holds exactly those nine and nothing else. The IDs reached this session as text
+> rather than being read out of Drive, so a transposition would have pointed a future ingest at the
+> wrong type's content; the check is recorded because it is the reason to trust the table.
+>
+> **Types 2, 3, 5, 6 and 8 are authored but not yet transcribed.** `INTERIM_EXPLORE_V3` carries
+> types 1, 4, 7 and 9 only. Recording an ID here states where a type's content lives, not that it
+> has shipped.
 
 **Type 9's entry is a replacement, not an update.** Sheets 6-7 originally shipped as a verbatim
 port of the two Type 9 mockups, landed with an explicit note that it carried no authorisation for
@@ -545,9 +631,36 @@ type, only the geometry source.
 Two cautions when re-transcribing:
 
 - **The per-zone character counts printed in the docs are unreliable** — low by 1 to 6 in roughly
-  half the zones, and not by a consistent offset. Measure the strings. The **budgets** beside them
+  half the zones, and not by a consistent offset. Measure the strings. ~~The **budgets** beside them
   are sound: they come from `scripts/spike/explore_fit_probe.js`, measured in the real rendered
-  page under the pinned Chromium.
+  page under the pinned Chromium.~~
+
+  > **Post-lock correction — 4 Sep 2026.** **The budgets are not sound, and this section should
+  > stop vouching for them.** They were measured, but they measure the wrong thing.
+  >
+  > `explore_fit_probe.js` grew the body of each zone while **holding the bold label fixed at its
+  > shipped length**, and never sampled a long one. A combined-character ceiling produced that way
+  > cannot express the effect label width has on line count, because the label is set in bold and
+  > costs more per character than the body it shares a box with. The ceiling is therefore only
+  > valid at whatever label length happened to be in place when it was measured.
+  >
+  > Two counterexamples, both **since fixed in source** — cited as evidence that the ceilings are
+  > wrong, not as live defects:
+  >
+  > | Zone | String | Label | Budget | Rendered |
+  > |---|---|---|---|---|
+  > | Type 1, `signs` item 3 | 52ch | — | ≤53 | **wrapped** |
+  > | Type 7, Growing Edge item 2 | 91ch | 19ch | — | **3 lines** |
+  > | Type 7, Growing Edge "Scattered Attention" | 87ch | 19ch | — | 2 lines |
+  >
+  > The two Growing Edge lines carry the **same label width** and differ by four characters, one
+  > holding at two lines and the other going to three. **The boundary sits somewhere between 87 and
+  > 91 at a 19ch label and has never been measured.**
+  >
+  > **No replacement ceiling is published here.** The empirical floors observed across four types
+  > are floors, not ceilings, and turning them into published numbers is a decision for the PR that
+  > takes the ceiling correction — not something to settle in a docs sweep. Until then: measure the
+  > render, not the character count. **This is unresolved.**
 - **Sheet 7, not sheet 6, is the tight page.** After the M2 normalisation it runs 32–52px free
   across the four authored types; sheet 6 runs 56px on Type 9 with the quote band and ~160px
   without it. Growth on p7 is what pushes the document.

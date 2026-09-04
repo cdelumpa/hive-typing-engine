@@ -14,8 +14,16 @@ pilot in `deb13f3`. This takes them to **four authored types — 1, 4, 7 and 9**
 zone the pilot could not build, and corrects two layout problems that only became visible with
 real content in place.
 
-Nine-page documents for types 1, 4, 7, 9; seven-page for the other five. All 27 v3 page-renders
-fit one sheet, exit 0.
+Nine-page documents for types 1, 4, 7, 9; seven-page for the other five. ~~All 27 v3 page-renders
+fit one sheet, exit 0.~~
+
+> **Post-lock correction — 4 Sep 2026.** **27 is wrong, in this line and in §7's verification
+> block.** The document renders **71** v3 page-renders across the nine types — 4 types x 9 pages
+> plus 5 types x 7 — and reaches **81** once sheets 6-7 are authored for all nine. *(Measured on
+> `fda83bd` by summing `v3PagesFor(t)` over types 1-9; the arithmetic above is the same figure
+> derived.)* 27 is 3 x 9, the page count of the three types this PR newly authored, which is the
+> likely origin — but the sentence it sits in is about all nine types, so it reads as the total and
+> is not one. The single-sheet and exit-0 results themselves are unaffected.
 
 ---
 
@@ -25,7 +33,17 @@ fit one sheet, exit 0.
 
 Source is four Google Docs authored by Cai and Mo (`Type N — <Nickname> · p6/p7 Final Content for
 Review`); IDs are recorded in the design spec §7.4. The docs are the source of record, the
-constant is a transcription. To avoid drift the literal was **generated** from the transcribed
+constant is a transcription.
+
+> **Post-lock correction — 4 Sep 2026.** Two notes on the sentence above, which is left standing
+> because it is an accurate record of what *this* PR transcribed.
+>
+> - **"four" is correct for this PR and no longer describes the set.** All **nine** types are now
+>   authored, in one Drive folder. This PR carried four of them; types 2, 3, 5, 6 and 8 are
+>   authored but not yet transcribed. Rewriting this to "nine" would misstate what shipped here.
+> - **"IDs are recorded in the design spec §7.4" was false when written** — §7.4 named the docs by
+>   title pattern and carried no IDs. It is true as of 4 Sep 2026: §7.4 now records the folder ID
+>   and all nine document IDs, each resolved against Drive before being written. To avoid drift the literal was **generated** from the transcribed
 data and round-tripped — 160/160 strings byte-identical — rather than hand-written twice.
 
 **Type 9's content is a REPLACEMENT, not an update.** 36 of its 40 strings differ from the
@@ -194,7 +212,7 @@ hand-maintained: they are page counts, not type lists, and do not move as types 
 node scripts/build_content_library.js     # HARD GATE GREEN
 node scripts/verify_content_library.js    # ALL PASSED
 node tests/report_pages_test.js           # 80 passed, 0 failed
-node scripts/render_client.js             # ALL PASSED — 27 v3 renders, no spill
+node scripts/render_client.js             # ALL PASSED — 71 v3 renders, no spill
 ```
 
 The content-library rebuild is **surgical**: 0 leaves removed, and all 156 added/changed leaves are
