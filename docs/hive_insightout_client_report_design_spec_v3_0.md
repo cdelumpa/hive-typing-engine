@@ -622,6 +622,48 @@ in `scripts/build_content_library.js`. The docs are the source; the constant is 
 > types 1, 4, 7 and 9 only. Recording an ID here states where a type's content lives, not that it
 > has shipped.
 
+> **Post-lock correction — 4 Sep 2026 (PR 3e).** The nine IDs above are **SUPERSEDED**. The source
+> documents were rebuilt into a format designed against `docs/audit_pr3e_source_rebuild_v2.md`, and
+> all nine types are now transcribed.
+>
+> **The superseded set is kept, not deleted.** Folder `1AvZHg0MZUMdGorMa71REeScalVnW8spy`, nine
+> documents titled `Type N — <Nickname> · p6/p7 Final Content for Review`. It is the provenance for
+> the four types transcribed in PR #80, and the correction above should stay resolvable. **Do not
+> ingest from it.**
+>
+> **Current folder** — `123a0BtPaFyhh-HbEZbRa3EN5fcg3KT8d`,
+> *"InsightOut Client Report Type Content - Updated 9/4/26"*. Titles end `· p6/p7 Content v2`.
+>
+> | Type | Archetype | Document ID |
+> |---|---|---|
+> | 1 | The Improver | `1iZdaq8h9y6q_0H7EUH4DJb99l2oib9_J9w-TfXq49MI` |
+> | 2 | The Giver | `1c5p9yQt8r2sx9wlB0r0q8dXroI3zGAfkac_4L3SAzR4` |
+> | 3 | The Performer | `1VXM-SmnYZL3-tcJDvlCxWoITmNq5qqnXzQsJU6N98Co` |
+> | 4 | The Individualist | `1JzEW7reYFeB2Iu2jf3GukKN0QBuspR_pElIrI0XqYzA` |
+> | 5 | The Observer | `1P3iDKDGib8p0eXXMJCFw05algzSKeq9zjbF67UTY7QM` |
+> | 6 | The Questioner | `1x3tnhYWxIkgb2R3svjSJrqdS1yx-Bwlx1Py1i38xqaY` |
+> | 7 | The Enthusiast | `1tkaClcJ78npfye1F7Pn6EAsEVN78lPGUG15vTWWV3wU` |
+> | 8 | The Protector | `1lx-owBlGIFbXyDeIp732TUScbEy6xHLgtc5kj7ldSgA` |
+> | 9 | The Peacemaker | `17wU25GiurExkaJJqCa4Qx-3qETTDywV1O1zUxqB9HiE` |
+>
+> All nine current IDs were resolved against Drive before being recorded, as the previous set was.
+>
+> **The format is structural, and the parser depends on it.** `#` document title, `##` section,
+> `###` zone, `####` chicklet tagline. The **second `#`** — `# END OF CONTENT — NOTHING BELOW THIS
+> LINE IS INGESTED` — is a hard stop; budgets, structure notes and Notes for review live below it
+> and are never content. Zone headings export with bold markers inside the heading text; sections do
+> not. **Zone names are not unique within a document** — Thinking / Feeling / Behaving appear under
+> both Typical Patterns and Catching Your Patterns — so the parser keys on `(section, zone)`.
+> `scripts/spike/parse_explore_docs.js` is the ingest path.
+>
+> ⚠️ **THE LIBRARY IS NOT A BYTE COPY OF THE DOCUMENTS.** The Drive export returns curly
+> apostrophes; `INTERIM_EXPLORE_V3` stores straight ones throughout, matching what the four
+> already-shipped types carried. **The transform is the one `_v3Straighten` applies at render** —
+> `’ → '`, `“ ” → "`, `… → ...` — moved to ingest time so it can be asserted rather than relied on.
+> The round-trip check compares post-transform. The documents are the source of record **modulo that
+> documented transform**, and a raw byte comparison would report up to 43 false differences on the
+> four built types alone.
+
 **Type 9's entry is a replacement, not an update.** Sheets 6-7 originally shipped as a verbatim
 port of the two Type 9 mockups, landed with an explicit note that it carried no authorisation for
 editorial re-cuts. The Type 9 source doc supersedes it — 36 of 40 strings differ. This was
@@ -661,6 +703,28 @@ Two cautions when re-transcribing:
   > are floors, not ceilings, and turning them into published numbers is a decision for the PR that
   > takes the ceiling correction — not something to settle in a docs sweep. Until then: measure the
   > render, not the character count. **This is unresolved.**
+
+  > **Post-lock correction — 4 Sep 2026 (PR 3e). Two further corrections to this entry.**
+  >
+  > **1. The 90-character chicklet-bullet budget is struck too.** It is the identical defect one
+  > zone over. Type 5's Communication bullets at 87 and 89 characters — both *inside* the 90 —
+  > each rendered a FOURTH line where every other type's held at three, and the resulting ~39px
+  > pushed sheet 7 to **1062.64px against 1056**, spilling the single-sheet contract. Struck, with
+  > **no replacement published**, on the same reasoning as the 95-char ceiling above. *(measured —
+  > `npm run verify:render`, local, pinned Chromium, Arial asserted.)*
+  >
+  > **2. The label-width rule stated above is FALSE, and is withdrawn.** This entry claimed a
+  > 91-char line with a 19-char label wraps to 3 where a 92-char line with an 8-char label holds at
+  > 2, and attributed the extra line to label width. Measured on the shipped content, the opposite
+  > occurs: Type 8's `edge[0]` at **95 chars with a 12-char label renders 2 lines**, while its
+  > `edge[2]` at **91 chars with a 9-char label renders 3** — shorter total, shorter label, more
+  > lines. The rule was generalised from a single Type 7 counterexample and stated as a mechanism;
+  > one counterexample does not establish one.
+  >
+  > **No replacement mechanism is offered, deliberately.** Line count is a function of character
+  > count, word shapes and column width *together*, and only rendering settles it. That is the same
+  > conclusion `docs/audit_pr3_wings.md` reached about the character bands, and it has now been
+  > reached three times independently. The same correction is carried in all nine source documents.
 - **Sheet 7, not sheet 6, is the tight page.** After the M2 normalisation it runs 32–52px free
   across the four authored types; sheet 6 runs 56px on Type 9 with the quote band and ~160px
   without it. Growth on p7 is what pushes the document.

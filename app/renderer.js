@@ -3681,12 +3681,15 @@ ${prCol('Interrupting the Pattern', x.interrupt)}
 }
 
 /**
- * p9 "Your Stress and Security Points" — SPIKE, not finished work.
+ * p9 "Your Stress and Security Points".
  *
- * Ported from docs/mockup/claude_The_Peacemaker_Page_Lines_v1.html to measure whether the
- * 13-zone-per-type content pattern fits before eight more types are written to it. The
- * diagram variant ('client-lines') and the geometry already shipped in PR 1; only the page
- * body is new here.
+ * Ported from docs/mockup/claude_The_Peacemaker_Page_Lines_v1.html. The diagram variant
+ * ('client-lines') and the geometry shipped in PR 1; the page body arrived with the port.
+ *
+ * NO LONGER A SPIKE. This header carried "SPIKE, not finished work" from the round that
+ * measured whether the 13-zone-per-type pattern would fit before eight more types were
+ * written to it. It did, all nine types shipped in PR #77, and the page has been live since.
+ * Corrected in PR 3e's close-out — the label outlived the question it was asking.
  *
  * The three .v3-work-lbl strings are STATIC across all nine types (ratified 13 Aug 2026):
  * Catch the shift / Notice the impact / Then choose. Only the bodies beneath them vary.

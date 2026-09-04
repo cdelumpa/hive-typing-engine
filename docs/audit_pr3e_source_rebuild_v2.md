@@ -211,6 +211,21 @@ T3 and T6 expected to fail `best`/`edge`; T8 likely; T5 uncertain; T2 borderline
 cell. **Nothing in the rebuild changes the reasoning**, and the accepted sequencing — land the five
 types with the gate report-only, flip it in a follow-up carrying the content fixes — still holds.
 
+> **Outcome, recorded 4 Sep 2026 after PR 3e rendered all nine.** The prediction was
+> **directionally right and numerically wrong**, and the next person reading it should see both.
+>
+> - **Right:** the four types that fail `best`/`edge` are exactly **T3, T5, T6, T8** — the four the
+>   character-delta table flagged. T2, called borderline on a 51ch interrupt cell, **passes**.
+> - **Wrong:** the predicted edge totals were **9**; the measured totals are **7**. In all four the
+>   mismatch is a single line in a single item — `edge[2]` renders 3 lines where everything else
+>   renders 2. The column-total skew was the right signal; the per-line estimate derived from it was
+>   too pessimistic.
+> - **Missed entirely:** the estimate said nothing about **chicklet bullets**, and that is where the
+>   only hard-gate failure came from. Type 5's sheet 7 spilled to 1062.64px because two Communication
+>   bullets *inside* their 90-char budget each rendered a fourth line. Fixed in source, re-ingested;
+>   the 90-char budget is struck in §7.4. A character-delta table over one zone pair could not have
+>   caught it — the defect was in a zone the table did not model.
+
 One thing the rebuild *does* improve: because Catching Your Patterns is now explicitly labelled
 Thinking/Feeling/Behaving, a row-order error like Type 9's cannot recur silently. That was a content
 defect the gate could never have caught, and the format now prevents it structurally.
