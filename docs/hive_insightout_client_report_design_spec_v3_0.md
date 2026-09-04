@@ -375,8 +375,9 @@ in mind across nine types.
 *Added 3 Sep 2026. This scopes the rule the table already states; it does not add one.*
 
 The "matched line counts between paired columns" rule has been in this section since the spec was
-written and has **never been enforced**. The table said "verified programmatically" without saying
-what that verification covers, so nothing was ever built.
+written and ~~has **never been enforced**~~ **is enforced as of 4 Sep 2026 (see the second
+correction below)**. The table said "verified programmatically" without saying what that
+verification covers, so nothing was ever built.
 
 | Surface | Pairs | Enforcement |
 |---------|-------|-------------|
@@ -405,18 +406,18 @@ retrofitted inside a PR 3 gate.~~
 > either ("their paired columns"), which is part of why the card has to define them before anything
 > can be measured.
 >
-> **What this section does not yet say is whether p6/p7 currently passes. It does not.** Measured
+> ~~**What this section does not yet say is whether p6/p7 currently passes. It does not.** Measured
 > 4 Sep 2026 on `fda83bd`, real renderer, pinned Chromium, Arial asserted: **two of the four built
 > types fail on `main` today.** Type 1 `signs`/`interrupt` renders 4/3 lines; Type 7 `best`/`edge`
-> renders 6/7. The other two pairs match on all four types.
+> renders 6/7. The other two pairs match on all four types.~~
 >
 > **Both are already fixed in source and land with the five remaining types in PR 3e** — Type 1's
 > row becomes 44/40, Type 7's line 80ch. So this records the state of what is *currently on main*,
 > with the corrections pending, not content that is still wrong.
 >
-> The gate nonetheless lands **report-only first**: a hard gate derived from the built types would
+> ~~The gate nonetheless lands **report-only first**: a hard gate derived from the built types would
 > turn `main` red between now and 3e. It is promoted to hard once those two fixes land. That
-> sequencing is PR 3d/3e work, not a change to the rule stated above.
+> sequencing is PR 3d/3e work, not a change to the rule stated above.~~
 
 **The rule cannot be derived from content.** Line count is a function of character count, word
 shapes **and** column width, so it requires rendering. This is the same failure mode the fit spike
@@ -425,9 +426,42 @@ validating that against shipped content failed immediately. The instrument alrea
 `scripts/spike/explore_fit_probe.js` merges `Range.getClientRects()` by top edge to produce
 per-zone line counts. Building the gate is promoting that core out of `spike/`, not new research.
 
-**Derive the gate from the four built types (1, 4, 7, 9), not nine.** The five unbuilt types have
+~~**Derive the gate from the four built types (1, 4, 7, 9), not nine.** The five unbuilt types have
 no strings to measure. The point of the check is to catch drift *while* the remaining types are
-authored, so waiting for all nine to exist inverts it.
+authored, so waiting for all nine to exist inverts it.~~
+
+> **Post-lock correction — 4 Sep 2026 (PR 3f). The gate is hard, and all nine types pass it.**
+>
+> Three statements above have stopped being true and are struck rather than deleted, so the
+> sequence stays legible: the rule was unenforced, then staged report-only against four types
+> while two of them failed, and is now enforced against nine that all pass.
+>
+> **The rule is enforced on p6/p7's three pairs — `worldview`/`core_belief`, `best`/`edge`,
+> `signs`/`interrupt` — for every type that renders those sheets.** A mismatch calls `fail()` in
+> `scripts/render_client.js` and the run exits non-zero. The scope in the table above is unchanged;
+> only the enforcement stopped being aspirational.
+>
+> **Measured, 4 Sep 2026, branch `pr-3f-gate-hard`, real renderer, pinned Chromium
+> (`Chrome/147.0.7727.57`), Arial asserted: 27 of 27 pairs match — nine types × three pairs, zero
+> mismatches, exit 0.** The four failures this section recorded are gone by two different routes:
+> Type 1's `signs`/`interrupt` and Type 7's `best`/`edge` were corrected in source and ingested in
+> PR 3e; the four `edge[2]` lines on Types 3, 5, 6 and 8 were shortened in source and ingested in
+> PR 3f. No line that already passed was touched.
+>
+> **The gate has been observed to fail.** A temporarily lengthened Type 4 `edge[1]` was rendered
+> through the same path: the pair printed `best 6 / edge 8  *** MISMATCH`, `fail()` fired, and the
+> run exited 1. The injection was then reverted and the library rebuilt from source. A gate that
+> has only ever been seen to pass is not known to work, so this is recorded as a measurement, not
+> an assurance.
+>
+> **The run still prints all 27 pairs, pass or fail.** Enforcement did not replace the report. The
+> printed table is what a content edit gets read against before it is committed, and it is the
+> reason the four `edge[2]` failures were describable as a single cause rather than four incidents.
+>
+> **The "four built types, not nine" scoping is struck because all nine are built** (PR 3e, 3 Sep
+> 2026). Its reasoning — gate what exists, so drift is caught while the rest is authored — did the
+> job it was written for and has no remaining application. This third strike goes beyond the two
+> corrections PR 3f was scoped to make; it is called out here rather than made silently.
 
 ### 6.2 The client-quote zone — "In Your Own Words" (p6)
 

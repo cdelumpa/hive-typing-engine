@@ -842,7 +842,7 @@ const INTERIM_EXPLORE_V3 = {
       edge: [
         { title: 'Over-Identification', body: '— Your hyper-focus on goals and tasks can turn you into a "human-doing".' },
         { title: 'No Room for Feelings', body: '— You often skip over how other people are feeling, leaving them unseen.' },
-        { title: 'Self-Promoting', body: '— Maintaining an image of success can sometimes be read as self-centeredness.' },
+        { title: 'Self-Promoting', body: '— The image you maintain can read as being all about you.' },
       ],
       styles: [
         {
@@ -974,7 +974,7 @@ const INTERIM_EXPLORE_V3 = {
       edge: [
         { title: 'Withholding', body: "— Keeping the drawbridge up costs you the connection you'd actually want." },
         { title: 'Living in the Mind', body: '— Understanding something is not the same thing as having lived it.' },
-        { title: 'Emotional Detachment', body: '— Not wanting to be overwhelmed can be mistaken for a lack of empathy.' },
+        { title: 'Emotional Detachment', body: '— Guarding against overwhelm can read as a lack of empathy.' },
       ],
       styles: [
         {
@@ -1040,7 +1040,7 @@ const INTERIM_EXPLORE_V3 = {
       edge: [
         { title: 'Skepticism', body: '— Your doubt makes it hard to accept that things may really be just as they appear.' },
         { title: 'Losing Trust', body: '— Once lost, especially with authority, trust is nearly impossible to earn back.' },
-        { title: 'Questioning', body: "— You tend to overplay the devil's advocate role, which can lead to people disengaging." },
+        { title: 'Questioning', body: "— Overplaying the devil's advocate makes people tune out." },
       ],
       styles: [
         {
@@ -1172,7 +1172,7 @@ const INTERIM_EXPLORE_V3 = {
       edge: [
         { title: 'Intimidating', body: '— Your intensity hits harder than you intend, causing others to tiptoe around you.' },
         { title: 'Dominating', body: '— You take control rather than risk being controlled, and others feel it.' },
-        { title: 'Demanding', body: '— You expect others to be as competent and passionate as you, with no exceptions.' },
+        { title: 'Demanding', body: '— You expect others to match your competence and drive, no exceptions.' },
       ],
       styles: [
         {
