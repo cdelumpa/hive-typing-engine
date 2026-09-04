@@ -38,14 +38,13 @@ const PAGE_INVENTORY = {
   // it fails when the constant is wrong rather than when it is inconsistent with itself.
   // Do not "tidy" it into a derivation.
   //
-  // TYPE-AWARE as of PR 3-Explore. Sheets 6-7 are pilot-scoped to the types whose p6/p7 prose
-  // has been authored, so those emit NINE pages and the rest seven. A single number can no
-  // longer express the document, and pretending otherwise would either fail the authored
-  // types or stop noticing a missing page on the others. Both entries stay hand-maintained
-  // for the reason above. Note these are PAGE COUNTS, not type lists — they do not change as
-  // types move from one bucket to the other; V3_EXPLORE_PILOT_TYPES is what moves.
-  client_v3: { 'v3-page': 7 },          // types 2, 3, 5, 6, 8 — sheets 6-7 not authored yet
-  client_v3_pilot: { 'v3-page': 9 },    // types 1, 4, 7, 9 — the two Exploring sheets included
+  // ONE BUCKET AGAIN as of PR 3e. Sheets 6-7 were pilot-scoped while their prose was authored
+  // in batches, so for a while the document was nine pages for some types and seven for
+  // others and a single number could not express it. All nine are authored now, so the
+  // seven-page bucket has no members and is removed rather than left to describe nothing.
+  // Still hand-maintained, for the reason above: this is the tripwire that fails when
+  // V3_PAGE_ORDER is wrong, and deriving it would make the suite agree with itself.
+  client_v3: { 'v3-page': 9 },          // all nine types, both Exploring sheets included
 };
 
 // Expected total page containers per kind, derived from PAGE_INVENTORY (coach 3, client 10).

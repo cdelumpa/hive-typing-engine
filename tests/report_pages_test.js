@@ -110,39 +110,31 @@ console.log('\ncountByClass token boundaries:');
       return;
     }
 
-    // The fixture is Type 9, which is the sheets 6-7 pilot type, so this render carries the
-    // NINE-page document. `client_v3` (7) is the count for every other type and is exercised
-    // by the non-pilot render below.
-    const total = countPages(html, 'client_v3_pilot');
-    assert(total === EXPECTED_PAGES.client_v3_pilot,
-      `v3: ${total} .v3-page containers for the pilot type (expected ${EXPECTED_PAGES.client_v3_pilot})`);
+    // Every type renders the NINE-page document as of PR 3e — sheets 6-7 are authored for all
+    // nine, so the two page counts collapse back to one.
+    const total = countPages(html, 'client_v3');
+    assert(total === EXPECTED_PAGES.client_v3,
+      `v3: ${total} .v3-page containers (expected ${EXPECTED_PAGES.client_v3})`);
 
-    // NON-PILOT TYPE — the other half of the pilot gate. A type with no explore_v3 content must
-    // render a SEVEN-page document with no Exploring markup at all. A blank sheet 6/7 rendering
-    // silently is the exact defect the Wings and Lines gates were added to stop, so it is
-    // asserted here rather than assumed from the renderer's filter.
+    // THE BLANK-PAGE GUARD — the mechanism changed in PR 3e, the guarantee did not.
     //
-    // The type is DERIVED, not a literal. This read type 1 until the 1/4/7 batch authored it,
-    // at which point the assertion was still true of the constant but no longer testing
-    // anything — type 1 had become a pilot type and the "non-pilot" render was a pilot render
-    // that happened to be compared against the wrong count. Picking the lowest type absent
-    // from the pilot list keeps this honest as the remaining types land.
+    // This block used to render the lowest type absent from V3_EXPLORE_PILOT_TYPES and assert
+    // it produced a seven-page document. That list is gone: sheets 6-7 are unconditional now,
+    // so there is no drop to test and no list to be absent from.
+    //
+    // What still needs asserting is the same thing it always did — a type with no content must
+    // not render the page anyway, blank. The mechanism is now a THROW in the render functions
+    // rather than a filter in v3PagesFor, so that is what is asserted, against a synthetic
+    // model. Synthetic on purpose: a real type would put this back on the shipping schedule,
+    // which is exactly what made the previous version expire.
     {
-      const nonPilot = [1, 2, 3, 4, 5, 6, 7, 8, 9].find(n => !R.V3_EXPLORE_PILOT_TYPES.includes(n));
-      assert(nonPilot != null, 'v3: no non-pilot type left — retire this block when all nine are authored');
-      const t1 = JSON.parse(JSON.stringify(apiResult));
-      t1.hypothesis.confirmed_type = nonPilot;
-      t1.hypothesis.confirmed_type_name = null;
-      const m1 = await prep.buildClientModel({ apiResult: t1, client: V3_CLIENT, coach });
-      const h1 = R.buildClientReportHTML_v3(m1);
-      const n1 = countPages(h1, 'client_v3');
-      assert(n1 === EXPECTED_PAGES.client_v3,
-        `v3: non-pilot type ${nonPilot} renders ${n1} .v3-page containers (expected ${EXPECTED_PAGES.client_v3})`);
-      // Scoped to class ATTRIBUTES: the p6/p7 rules ship in the stylesheet on every page, so
-      // a bare substring test matches the CSS and passes for the wrong reason.
-      assert(!/class="v3-ta-|class="v3-tb-/.test(h1), 'v3: a non-pilot type emits no Exploring-sheet markup');
-      assert(R.v3PagesFor(nonPilot).length === EXPECTED_PAGES.client_v3,
-        `v3: v3PagesFor(${nonPilot}) agrees with the non-pilot page count`);
+      const bare = await prep.buildClientModel({ apiResult, client: V3_CLIENT, coach });
+      delete bare.pages.v3_explore;
+      let threw = null;
+      try { R.buildClientReportHTML_v3(bare); } catch (e) { threw = e; }
+      assert(threw != null, 'v3: a model with no explore_v3 must throw, not render sheets 6-7 blank');
+      assert(/explore_v3/.test(threw.message),
+        `v3: the throw names the missing content — got "${threw.message.slice(0, 70)}"`);
     }
 
     // "IN YOUR OWN WORDS" — sheet 6's only per-client zone. Both directions are asserted,
@@ -161,7 +153,7 @@ console.log('\ncountByClass token boundaries:');
       const hw = R.buildClientReportHTML_v3(mw);
       assert(!/class="v3-ta-words"/.test(hw), 'v3: a client with no quotes gets NO band, not an empty one');
       // The rest of sheet 6 must be unaffected — the band is additive, not load-bearing.
-      assert(countPages(hw, 'client_v3_pilot') === EXPECTED_PAGES.client_v3_pilot,
+      assert(countPages(hw, 'client_v3') === EXPECTED_PAGES.client_v3,
         'v3: dropping the band leaves the page count unchanged');
       assert(/class="v3-ta-cm"/.test(hw), 'v3: dropping the band leaves the Core Motivation block intact');
     }
@@ -174,18 +166,19 @@ console.log('\ncountByClass token boundaries:');
         'v3: the content library explore_v3 object was not mutated with per-client quotes');
     }
 
-    // And the pilot half, likewise derived: every authored type must reach the nine-page
-    // document. The fixture render above only proves it for type 9.
-    for (const n of R.V3_EXPLORE_PILOT_TYPES) {
+    // ALL NINE, each actually rendered. The fixture render above proves it for type 9 only,
+    // and "every type carries sheets 6-7" is the claim PR 3e makes — so it is asserted per
+    // type rather than inferred from the list being full.
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
       const tn = JSON.parse(JSON.stringify(apiResult));
       tn.hypothesis.confirmed_type = n;
       tn.hypothesis.confirmed_type_name = null;
       const mn = await prep.buildClientModel({ apiResult: tn, client: V3_CLIENT, coach });
       const hn = R.buildClientReportHTML_v3(mn);
-      assert(countPages(hn, 'client_v3_pilot') === EXPECTED_PAGES.client_v3_pilot,
-        `v3: pilot type ${n} renders ${EXPECTED_PAGES.client_v3_pilot} .v3-page containers`);
+      assert(countPages(hn, 'client_v3') === EXPECTED_PAGES.client_v3,
+        `v3: type ${n} renders ${EXPECTED_PAGES.client_v3} .v3-page containers`);
       assert(/class="v3-ta-/.test(hn) && /class="v3-tb-/.test(hn),
-        `v3: pilot type ${n} emits both Exploring sheets`);
+        `v3: type ${n} emits both Exploring sheets`);
     }
 
     // The order table itself: sheets 1..12, contiguous; cover and contents unnumbered;

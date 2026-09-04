@@ -3089,30 +3089,15 @@ function clientReportV3PageStyles() {
  *
  * ONE COUNT IS DELIBERATELY NOT DERIVED — see tests/lib/report_page_inventory.js.
  */
-/**
- * PILOT SCOPE for sheets 6 and 7 — the only types that render them.
- *
- * ⚠️ PLACEHOLDER, and deliberately the dumbest thing that works. Sheets 6-7 are being rolled
- * out one batch at a time (9, then 1/4/8, then the rest), and this is the third page family
- * to need per-type gating. A general "which types are ready" registry is the right answer and
- * is NOT being invented here: designing it against a single type would bake in the wrong
- * shape. Revisit before the 1/4/8 batch.
- *
- * scripts/build_content_library.js carries the matching EXPLORE_PILOT_TYPES. Two lists that
- * must agree is exactly the drift this project has been bitten by; collapsing them is part of
- * that same revisit.
- */
-const V3_EXPLORE_PILOT_TYPES = [1, 4, 7, 9];
-
 const V3_PAGE_ORDER = [
   { key: 'cover',     sheet: 1,  footer: null, chrome: 'none',  built: true, title: 'Cover' },
   { key: 'contents',  sheet: 2,  footer: null, chrome: 'blank', built: true, title: 'Contents',             eyebrow: "What's In This Report" },
   { key: 'welcome',   sheet: 3,  footer: 1,    built: true,     title: 'Welcome',                           eyebrow: 'A Note from Cai & Mo' },
   { key: 'whatis',    sheet: 4,  footer: 2,    built: true,     title: 'What Is the Enneagram?',            eyebrow: null },
   { key: 'quickref',  sheet: 5,  footer: 3,    title: 'Quick Reference',                                    eyebrow: 'Your Report at a Glance' },
-  { key: 'typeA',     sheet: 6,  footer: 4,    built: true, pilotTypes: V3_EXPLORE_PILOT_TYPES,
+  { key: 'typeA',     sheet: 6,  footer: 4,    built: true,
     title: 'Exploring Your Type Hypothesis',                     eyebrow: 'Exploring Your Type Hypothesis' },
-  { key: 'typeB',     sheet: 7,  footer: 5,    built: true, pilotTypes: V3_EXPLORE_PILOT_TYPES,
+  { key: 'typeB',     sheet: 7,  footer: 5,    built: true,
     title: 'Exploring Your Type Hypothesis (continued)',         eyebrow: 'Exploring Your Type Hypothesis (continued)' },
   { key: 'wings',     sheet: 8,  footer: 6,    built: true,     title: 'Your Wings',                        eyebrow: 'Navigating the Enneagram System' },
   { key: 'lines',     sheet: 9,  footer: 7,    built: true,     title: 'Your Stress and Security Points',   eyebrow: 'Navigating the Enneagram System' },
@@ -3460,9 +3445,9 @@ function _clv3Wings(m) {
 /**
  * Sheets 6 and 7 — "Exploring Your Type Hypothesis" and its continuation.
  *
- * PILOT SCOPE: types 1, 4, 7 and 9. Both functions throw rather than render if the model carries no
- * explore_v3, and buildClientReportHTML_v3 drops both sheets for any non-pilot type, so an
- * unauthored type cannot produce a blank page. See V3_EXPLORE_PILOT_TYPES.
+ * ALL NINE TYPES as of PR 3e, unconditionally. Both functions throw rather than render if the
+ * model carries no explore_v3, so a type missing its content fails loudly instead of producing
+ * a blank page.
  *
  * GEOMETRY PORTED, NOT DESIGNED. Both layouts are transcribed from the Type 9 mockups:
  *   docs/mockup/claude_The_Peacemaker_Page_LeadingType_A_v1.html   (sheet 6)
@@ -3526,8 +3511,12 @@ function _clv3TypeA(m) {
   const page = v3Page('typeA');
   const e = m.pages.v3_explore;
   if (!e || !e.p6) {
+    // Sheets 6-7 are unconditional as of PR 3e, so this is no longer a rollout gate — it is
+    // the guard that a type missing its content FAILS LOUDLY instead of rendering the page
+    // blank, which is the defect this sequence has had to fix twice. build_content_library's
+    // validateExplore catches it first; this catches it if anything ever reaches the renderer.
     throw new Error(`_clv3TypeA: type ${m.hero.number} has no explore_v3 content — `
-      + `sheets 6-7 are pilot-scoped to types [${V3_EXPLORE_PILOT_TYPES}]`);
+      + 'sheets 6-7 require it for every type');
   }
   const x = e.p6;
 
@@ -3624,8 +3613,12 @@ function _clv3TypeB(m) {
   const page = v3Page('typeB');
   const e = m.pages.v3_explore;
   if (!e || !e.p7) {
+    // Sheets 6-7 are unconditional as of PR 3e, so this is no longer a rollout gate — it is
+    // the guard that a type missing its content FAILS LOUDLY instead of rendering the page
+    // blank, which is the defect this sequence has had to fix twice. build_content_library's
+    // validateExplore catches it first; this catches it if anything ever reaches the renderer.
     throw new Error(`_clv3TypeB: type ${m.hero.number} has no explore_v3 content — `
-      + `sheets 6-7 are pilot-scoped to types [${V3_EXPLORE_PILOT_TYPES}]`);
+      + 'sheets 6-7 require it for every type');
   }
   const x = e.p7;
 
@@ -3681,12 +3674,15 @@ ${prCol('Interrupting the Pattern', x.interrupt)}
 }
 
 /**
- * p9 "Your Stress and Security Points" — SPIKE, not finished work.
+ * p9 "Your Stress and Security Points".
  *
- * Ported from docs/mockup/claude_The_Peacemaker_Page_Lines_v1.html to measure whether the
- * 13-zone-per-type content pattern fits before eight more types are written to it. The
- * diagram variant ('client-lines') and the geometry already shipped in PR 1; only the page
- * body is new here.
+ * Ported from docs/mockup/claude_The_Peacemaker_Page_Lines_v1.html. The diagram variant
+ * ('client-lines') and the geometry shipped in PR 1; the page body arrived with the port.
+ *
+ * NO LONGER A SPIKE. This header carried "SPIKE, not finished work" from the round that
+ * measured whether the 13-zone-per-type pattern would fit before eight more types were
+ * written to it. It did, all nine types shipped in PR #77, and the page has been live since.
+ * Corrected in PR 3e's close-out — the label outlived the question it was asking.
  *
  * The three .v3-work-lbl strings are STATIC across all nine types (ratified 13 Aug 2026):
  * Catch the shift / Notice the impact / Then choose. Only the bodies beneath them vary.
@@ -3775,7 +3771,7 @@ ${V3_PAGE_BUILDERS_ORDERED(model)}
 }
 
 module.exports = {
-  buildClientReportHTML_v3, V3_PAGE_ORDER, v3PagesFor, V3_EXPLORE_PILOT_TYPES,
+  buildClientReportHTML_v3, V3_PAGE_ORDER, v3PagesFor,
   COVER_GEO, WHATIS_GEO, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
   buildClientHTML, buildCoachHTML, buildBetaHTML, betaReportBodyHtml, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
