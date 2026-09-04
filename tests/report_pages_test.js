@@ -116,31 +116,25 @@ console.log('\ncountByClass token boundaries:');
     assert(total === EXPECTED_PAGES.client_v3,
       `v3: ${total} .v3-page containers (expected ${EXPECTED_PAGES.client_v3})`);
 
-    // THE DROP MECHANISM — retired in its old form, kept in substance.
+    // THE BLANK-PAGE GUARD — the mechanism changed in PR 3e, the guarantee did not.
     //
     // This block used to render the lowest type absent from V3_EXPLORE_PILOT_TYPES and assert
-    // it produced a seven-page document with no Exploring markup. With all nine authored there
-    // is no such type, and the block's own guard fired by design:
-    //   'v3: no non-pilot type left — retire this block when all nine are authored'
+    // it produced a seven-page document. That list is gone: sheets 6-7 are unconditional now,
+    // so there is no drop to test and no list to be absent from.
     //
-    // It is NOT simply deleted. What it protected is the defect this sequence has had to fix
-    // twice — a type with no content rendering the page anyway, blank, with every gate green.
-    // validateExplore covers the build side; nothing else covers the RENDERER side. So the
-    // assertion is kept and made synthetic: a type outside the list must drop both sheets.
-    // Synthetic on purpose — a real type would put this back on the shipping schedule, which
-    // is what made the old version expire.
+    // What still needs asserting is the same thing it always did — a type with no content must
+    // not render the page anyway, blank. The mechanism is now a THROW in the render functions
+    // rather than a filter in v3PagesFor, so that is what is asserted, against a synthetic
+    // model. Synthetic on purpose: a real type would put this back on the shipping schedule,
+    // which is exactly what made the previous version expire.
     {
-      const UNAUTHORED = 99;   // not a real type, and never will be
-      assert(!R.V3_EXPLORE_PILOT_TYPES.includes(UNAUTHORED), 'v3: the synthetic type must be outside the list');
-      const dropped = R.v3PagesFor(UNAUTHORED);
-      assert(!dropped.some(p => p.key === 'typeA' || p.key === 'typeB'),
-        'v3: a type outside V3_EXPLORE_PILOT_TYPES drops both Exploring sheets');
-      assert(dropped.length === EXPECTED_PAGES.client_v3 - 2,
-        `v3: dropping both Exploring sheets leaves ${EXPECTED_PAGES.client_v3 - 2} pages, got ${dropped.length}`);
-      // And the drop is driven by `pilotTypes`, not by a coincidence of ordering.
-      const gated = R.V3_PAGE_ORDER.filter(p => p.pilotTypes);
-      assert(gated.length === 2 && gated.every(p => p.key === 'typeA' || p.key === 'typeB'),
-        'v3: exactly the two Exploring sheets carry pilotTypes');
+      const bare = await prep.buildClientModel({ apiResult, client: V3_CLIENT, coach });
+      delete bare.pages.v3_explore;
+      let threw = null;
+      try { R.buildClientReportHTML_v3(bare); } catch (e) { threw = e; }
+      assert(threw != null, 'v3: a model with no explore_v3 must throw, not render sheets 6-7 blank');
+      assert(/explore_v3/.test(threw.message),
+        `v3: the throw names the missing content — got "${threw.message.slice(0, 70)}"`);
     }
 
     // "IN YOUR OWN WORDS" — sheet 6's only per-client zone. Both directions are asserted,
@@ -175,7 +169,7 @@ console.log('\ncountByClass token boundaries:');
     // ALL NINE, each actually rendered. The fixture render above proves it for type 9 only,
     // and "every type carries sheets 6-7" is the claim PR 3e makes — so it is asserted per
     // type rather than inferred from the list being full.
-    for (const n of R.V3_EXPLORE_PILOT_TYPES) {
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
       const tn = JSON.parse(JSON.stringify(apiResult));
       tn.hypothesis.confirmed_type = n;
       tn.hypothesis.confirmed_type_name = null;

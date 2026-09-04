@@ -683,13 +683,6 @@ const INTERIM_LINES_V3 = {
 // The docx has no sections for any of these zones, so this cannot be a parseStatics() read.
 // Same contract as INTERIM_WINGS_V3 and INTERIM_LINES_V3.
 
-// Every type carries sheets 6-7 as of PR 3e. Kept as a named list rather than deleted
-// outright because validateExplore() below still asserts BOTH halves — a type in the list
-// must be complete, and a type outside it must carry nothing. That second half is what stops
-// a partially-authored type from rendering a page with visible gaps, and it is the assertion
-// this sequence has twice had to add after the fact.
-const EXPLORE_PILOT_TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-
 const INTERIM_EXPLORE_V3 = {
   1: {
     p6: {
@@ -1623,20 +1616,17 @@ function validateType(n, t) {
  * to stop. So an unauthored type must have the key ABSENT entirely, not empty and not
  * half-filled, and this asserts that rather than trusting it.
  *
- * As each further type is authored, EXPLORE_PILOT_TYPES moves and this keeps working
+ * Every type is authored, so this asserts the full zone set for all nine and keeps working
  * unchanged.
  */
 function validateExplore(n, t) {
   const P = `type_${n}`;
   const e = t.explore_v3;
 
-  if (!EXPLORE_PILOT_TYPES.includes(n)) {
-    need(e === undefined,
-      `${P}.explore_v3 present but type ${n} is not in EXPLORE_PILOT_TYPES [${EXPLORE_PILOT_TYPES}] — `
-      + 'a type either has all of sheets 6-7 or none of it');
-    return;
-  }
-  if (!e) { need(false, `${P}.explore_v3 missing (type ${n} is a pilot type)`); return; }
+  // UNCONDITIONAL as of PR 3e. There is no longer a staged subset: every type must carry the
+  // whole zone set, and a type that carries part of it fails here rather than rendering a page
+  // with visible gaps.
+  if (!e) { need(false, `${P}.explore_v3 missing — sheets 6-7 require it for every type`); return; }
 
   const arr = (v, k, len) => need(Array.isArray(v) && v.length === len && v.every(Boolean),
     `${P}.explore_v3.${k} must be exactly ${len} non-empty, got ${Array.isArray(v) ? v.length : 'none'}`);

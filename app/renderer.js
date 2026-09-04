@@ -3089,30 +3089,15 @@ function clientReportV3PageStyles() {
  *
  * ONE COUNT IS DELIBERATELY NOT DERIVED — see tests/lib/report_page_inventory.js.
  */
-/**
- * Sheets 6 and 7 render for every type as of PR 3e. The rollout that this list existed to
- * stage — type 9, then 1/4/7, then the remaining five — is complete.
- *
- * KEPT RATHER THAN DELETED, for one reason: `pilotTypes` on the two entries below is what
- * makes buildClientReportHTML_v3 drop a sheet for a type that has no content, and
- * validateExplore() in scripts/build_content_library.js asserts the same list from the other
- * side. Removing it would make an unauthored type render a page with visible gaps, which is
- * the failure this sequence has had to fix twice — once for Wings, once for Lines.
- *
- * The general "which types are ready" registry is still not invented, and no longer needs to
- * be: with all nine authored there is nothing left to stage.
- */
-const V3_EXPLORE_PILOT_TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-
 const V3_PAGE_ORDER = [
   { key: 'cover',     sheet: 1,  footer: null, chrome: 'none',  built: true, title: 'Cover' },
   { key: 'contents',  sheet: 2,  footer: null, chrome: 'blank', built: true, title: 'Contents',             eyebrow: "What's In This Report" },
   { key: 'welcome',   sheet: 3,  footer: 1,    built: true,     title: 'Welcome',                           eyebrow: 'A Note from Cai & Mo' },
   { key: 'whatis',    sheet: 4,  footer: 2,    built: true,     title: 'What Is the Enneagram?',            eyebrow: null },
   { key: 'quickref',  sheet: 5,  footer: 3,    title: 'Quick Reference',                                    eyebrow: 'Your Report at a Glance' },
-  { key: 'typeA',     sheet: 6,  footer: 4,    built: true, pilotTypes: V3_EXPLORE_PILOT_TYPES,
+  { key: 'typeA',     sheet: 6,  footer: 4,    built: true,
     title: 'Exploring Your Type Hypothesis',                     eyebrow: 'Exploring Your Type Hypothesis' },
-  { key: 'typeB',     sheet: 7,  footer: 5,    built: true, pilotTypes: V3_EXPLORE_PILOT_TYPES,
+  { key: 'typeB',     sheet: 7,  footer: 5,    built: true,
     title: 'Exploring Your Type Hypothesis (continued)',         eyebrow: 'Exploring Your Type Hypothesis (continued)' },
   { key: 'wings',     sheet: 8,  footer: 6,    built: true,     title: 'Your Wings',                        eyebrow: 'Navigating the Enneagram System' },
   { key: 'lines',     sheet: 9,  footer: 7,    built: true,     title: 'Your Stress and Security Points',   eyebrow: 'Navigating the Enneagram System' },
@@ -3460,9 +3445,9 @@ function _clv3Wings(m) {
 /**
  * Sheets 6 and 7 — "Exploring Your Type Hypothesis" and its continuation.
  *
- * ALL NINE TYPES as of PR 3e. Both functions throw rather than render if the model carries no
- * explore_v3, and buildClientReportHTML_v3 drops both sheets for any non-pilot type, so an
- * unauthored type cannot produce a blank page. See V3_EXPLORE_PILOT_TYPES.
+ * ALL NINE TYPES as of PR 3e, unconditionally. Both functions throw rather than render if the
+ * model carries no explore_v3, so a type missing its content fails loudly instead of producing
+ * a blank page.
  *
  * GEOMETRY PORTED, NOT DESIGNED. Both layouts are transcribed from the Type 9 mockups:
  *   docs/mockup/claude_The_Peacemaker_Page_LeadingType_A_v1.html   (sheet 6)
@@ -3526,8 +3511,12 @@ function _clv3TypeA(m) {
   const page = v3Page('typeA');
   const e = m.pages.v3_explore;
   if (!e || !e.p6) {
+    // Sheets 6-7 are unconditional as of PR 3e, so this is no longer a rollout gate — it is
+    // the guard that a type missing its content FAILS LOUDLY instead of rendering the page
+    // blank, which is the defect this sequence has had to fix twice. build_content_library's
+    // validateExplore catches it first; this catches it if anything ever reaches the renderer.
     throw new Error(`_clv3TypeA: type ${m.hero.number} has no explore_v3 content — `
-      + `sheets 6-7 are pilot-scoped to types [${V3_EXPLORE_PILOT_TYPES}]`);
+      + 'sheets 6-7 require it for every type');
   }
   const x = e.p6;
 
@@ -3624,8 +3613,12 @@ function _clv3TypeB(m) {
   const page = v3Page('typeB');
   const e = m.pages.v3_explore;
   if (!e || !e.p7) {
+    // Sheets 6-7 are unconditional as of PR 3e, so this is no longer a rollout gate — it is
+    // the guard that a type missing its content FAILS LOUDLY instead of rendering the page
+    // blank, which is the defect this sequence has had to fix twice. build_content_library's
+    // validateExplore catches it first; this catches it if anything ever reaches the renderer.
     throw new Error(`_clv3TypeB: type ${m.hero.number} has no explore_v3 content — `
-      + `sheets 6-7 are pilot-scoped to types [${V3_EXPLORE_PILOT_TYPES}]`);
+      + 'sheets 6-7 require it for every type');
   }
   const x = e.p7;
 
@@ -3778,7 +3771,7 @@ ${V3_PAGE_BUILDERS_ORDERED(model)}
 }
 
 module.exports = {
-  buildClientReportHTML_v3, V3_PAGE_ORDER, v3PagesFor, V3_EXPLORE_PILOT_TYPES,
+  buildClientReportHTML_v3, V3_PAGE_ORDER, v3PagesFor,
   COVER_GEO, WHATIS_GEO, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
   buildClientHTML, buildCoachHTML, buildBetaHTML, betaReportBodyHtml, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
