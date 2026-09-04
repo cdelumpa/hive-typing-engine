@@ -93,9 +93,10 @@ const REPORTS = {
     build: async (apiResult) => R.buildClientReportHTML_v3(
       await prep.buildClientModel({ apiResult, client: V3_CLIENT, coach })),
     selector: '.v3-page',
-    // PER-TYPE, not a single literal. Sheets 6-7 are pilot-scoped to type 9, so type 9 emits
-    // nine pages and every other type seven. A fixed `expected` cannot express that, and a
-    // uniform count is genuinely wrong until the rollout finishes.
+    // PER-TYPE, not a single literal. Every type emits nine pages as of PR 3e, so a fixed
+    // number would now be correct again — but deriving it from v3PagesFor is what kept this
+    // honest through a rollout where the count genuinely differed per type, and it costs
+    // nothing to keep. It also stays correct if a page family is ever staged again.
     expectedFor: (type) => R.v3PagesFor(type == null ? 9 : type).length,
     labelsFor: (type) => R.v3PagesFor(type == null ? 9 : type)
       .map(p => `P${p.sheet} ${p.title.replace(/ \(continued\)$/, ' cont')}`.slice(0, 16)),

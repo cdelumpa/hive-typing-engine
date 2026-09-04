@@ -331,9 +331,11 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       })(),
       // CLIENT REPORT v3 — sheets 6 and 7, "Exploring Your Type Hypothesis".
       //
-      // PILOT: type 9 only. `explore_v3` is ABSENT from the content library for every other
-      // type (build_content_library.js validateExplore enforces that), so this resolves to
-      // null and the renderer's pilot gate drops both sheets from the document. Deliberately
+      // ALL NINE TYPES as of PR 3e. `explore_v3` is present for every type, and
+      // validateExplore in build_content_library.js asserts that a type either carries the
+      // whole zone set or none of it — a partially-authored type fails the build rather than
+      // rendering gaps. If a type ever lacks it, this resolves to null and the renderer drops
+      // both sheets from the document rather than emitting them empty. Deliberately
       // NOT defaulted to '' / [] the way v3_wings and v3_lines are: those default so an
       // unauthored type renders an empty page, which is the failure mode this sequence has
       // twice had to fix. Here, no content means no page.

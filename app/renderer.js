@@ -3090,19 +3090,19 @@ function clientReportV3PageStyles() {
  * ONE COUNT IS DELIBERATELY NOT DERIVED — see tests/lib/report_page_inventory.js.
  */
 /**
- * PILOT SCOPE for sheets 6 and 7 — the only types that render them.
+ * Sheets 6 and 7 render for every type as of PR 3e. The rollout that this list existed to
+ * stage — type 9, then 1/4/7, then the remaining five — is complete.
  *
- * ⚠️ PLACEHOLDER, and deliberately the dumbest thing that works. Sheets 6-7 are being rolled
- * out one batch at a time (9, then 1/4/8, then the rest), and this is the third page family
- * to need per-type gating. A general "which types are ready" registry is the right answer and
- * is NOT being invented here: designing it against a single type would bake in the wrong
- * shape. Revisit before the 1/4/8 batch.
+ * KEPT RATHER THAN DELETED, for one reason: `pilotTypes` on the two entries below is what
+ * makes buildClientReportHTML_v3 drop a sheet for a type that has no content, and
+ * validateExplore() in scripts/build_content_library.js asserts the same list from the other
+ * side. Removing it would make an unauthored type render a page with visible gaps, which is
+ * the failure this sequence has had to fix twice — once for Wings, once for Lines.
  *
- * scripts/build_content_library.js carries the matching EXPLORE_PILOT_TYPES. Two lists that
- * must agree is exactly the drift this project has been bitten by; collapsing them is part of
- * that same revisit.
+ * The general "which types are ready" registry is still not invented, and no longer needs to
+ * be: with all nine authored there is nothing left to stage.
  */
-const V3_EXPLORE_PILOT_TYPES = [1, 4, 7, 9];
+const V3_EXPLORE_PILOT_TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 const V3_PAGE_ORDER = [
   { key: 'cover',     sheet: 1,  footer: null, chrome: 'none',  built: true, title: 'Cover' },
@@ -3460,7 +3460,7 @@ function _clv3Wings(m) {
 /**
  * Sheets 6 and 7 — "Exploring Your Type Hypothesis" and its continuation.
  *
- * PILOT SCOPE: types 1, 4, 7 and 9. Both functions throw rather than render if the model carries no
+ * ALL NINE TYPES as of PR 3e. Both functions throw rather than render if the model carries no
  * explore_v3, and buildClientReportHTML_v3 drops both sheets for any non-pilot type, so an
  * unauthored type cannot produce a blank page. See V3_EXPLORE_PILOT_TYPES.
  *
