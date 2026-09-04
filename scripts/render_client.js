@@ -12,7 +12,8 @@
  *   - a builder or render throwing;
  *   - wrong logical page count (client 10, coach 3);
  *   - CLIENT page spill past one physical sheet (1056px @96dpi) — the client
- *     report is a hard one-sheet-per-page contract.
+ *     report is a hard one-sheet-per-page contract;
+ *   - a §6.1 paired-column line-count mismatch on client sheet 6 or 7 (see V3_PAIRS).
  * Coach `.report-page` is min-height:1056 and flows by design, so coach spill is
  * reported for visibility but is NOT a failure.
  */
@@ -36,14 +37,22 @@ const V3_CLIENT = { first_name: 'Anders', last_name: 'Wennerstrom', organization
 /**
  * SPEC §6.1 — matched line counts between paired columns on sheets 6 and 7.
  *
- * REPORT-ONLY, DELIBERATELY. This prints and never fails, and the run exits zero whatever it
- * finds. Two of the four built types do not satisfy the rule on `main` today — Type 1's
- * signs/interrupt and Type 7's best/edge — so a hard gate would go red on arrival and block
- * every unrelated PR until PR 3e re-ingests the corrected source. Both are already fixed in the
- * Google Docs and land with the five remaining types; the gate is promoted to hard once they do.
+ * ENFORCED. A mismatch fails the run (PR 3f, 4 Sep 2026). It was report-only from PR 3d until
+ * here for one reason: four of the nine types did not satisfy the rule, all four on best/edge,
+ * all four because the third Growing Edge line rendered three lines against a two-line
+ * Strengths column. A hard gate then would have gone red on arrival and blocked every unrelated
+ * PR. Report-only bought the baseline the five new types were read against as they landed; it
+ * was never the destination. The four source lines were shortened, PR 3f re-ingested them, and
+ * all 27 pairs across nine types now match — measured, see the build report.
  *
- * Landing it now rather than with 3e is the point: it establishes the baseline the five new
- * types get read against, at the moment they are ingested, instead of after.
+ * THE RUN STILL PRINTS EVERY PAIR, pass or fail. A gate that speaks only on failure would
+ * remove the one artefact that made this rule tractable: 27 rows of measured line counts that
+ * a content edit can be read against BEFORE it is committed. Failing and reporting are separate
+ * jobs and this does both.
+ *
+ * `!r.match` covers the unmeasurable case as well as the unequal one — `measurePairs` leaves
+ * `match` false when a root selector misses, and a pair that could not be measured is not a
+ * pair that passed. The printed mark distinguishes the two.
  *
  * Columns are addressed by their own headings where the markup allows — `.v3-tb-col` carries
  * `.is-best` / `.is-edge` — rather than by sibling position. `.v3-tb-pr-col` has no such marker,
@@ -299,10 +308,10 @@ async function measureLayout(page, selector) {
         if (pages.length !== want) {
           fail(`${kind}${asType == null ? '' : ' Type ' + asType} page count ${pages.length}, expected ${want}`);
         }
-        // ── §6.1 matched line counts — REPORT-ONLY ───────────────────────────────
-        // Prints every pair for every built type, pass or fail. A run that only speaks up on
-        // failure gives PR 3e nothing to read its five new types against, which is the whole
-        // reason this lands before them. Never calls fail(); the run exits zero regardless.
+        // ── §6.1 matched line counts — ENFORCED ──────────────────────────────────
+        // Prints every pair for every built type, pass or fail, THEN fails on any that did not
+        // match. Both halves matter: the print is the artefact content edits get measured
+        // against, the fail is what stops an unmatched pair reaching a client.
         if (cfg.pairChecks && asType != null) {
           const idx = {};
           R.v3PagesFor(asType).forEach((pg, i) => { idx[pg.key] = i; });
@@ -313,6 +322,13 @@ async function measureLayout(page, selector) {
                        : r.match ? '  ok' : '  *** MISMATCH';
             console.log(`  §6.1 pair  Type ${asType}  ${r.name.padEnd(24)} `
               + `${r.aLabel} ${String(r.a).padStart(2)} / ${r.bLabel} ${String(r.b).padStart(2)}${mark}`);
+          }
+          for (const r of rows) {
+            if (r.skipped || r.match) continue;
+            fail(r.missing
+              ? `${kind} Type ${asType} §6.1 pair "${r.name}" could not be measured: selector missed ${r.missing}`
+              : `${kind} Type ${asType} §6.1 pair "${r.name}" line counts differ: `
+                + `${r.aLabel} ${r.a} / ${r.bLabel} ${r.b} — spec §6.1 requires them equal`);
           }
         }
 
