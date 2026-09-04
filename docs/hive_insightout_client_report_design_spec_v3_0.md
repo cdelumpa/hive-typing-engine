@@ -381,14 +381,37 @@ what that verification covers, so nothing was ever built.
 | Surface | Pairs | Enforcement |
 |---------|-------|-------------|
 | **p6 / p7** | `worldview` / `core_belief`; `best` / `edge` (`.v3-tb-two`); `signs` / `interrupt` (`.v3-tb-practice`) | **HARD GATE** |
-| **p8 Wings, p9 Lines** | their paired columns | **REPORT-ONLY** |
+| ~~**p8 Wings, p9 Lines**~~ | ~~their paired columns~~ | ~~**REPORT-ONLY**~~ |
 
-**Why p8/p9 are report-only rather than exempt.** Both shipped before any such check existed, so we
+~~**Why p8/p9 are report-only rather than exempt.** Both shipped before any such check existed, so we
 do not yet know whether they satisfy the rule this section already states. Gating them would turn a
 PR 3 deliverable into a retro-fix of two merged pages. Reporting them tells us the answer at no
 cost. **A clean p8/p9 result promotes the rule to document-wide.** If they turn out to fail, §6
 gets a dated correction recording that the stated rule was never met there — the pages do not get
-retrofitted inside a PR 3 gate.
+retrofitted inside a PR 3 gate.~~
+
+> **Post-lock correction — 4 Sep 2026.** **p8/p9 are out of scope for this section.** The rule
+> here now covers p6/p7's three pairs and nothing else.
+>
+> Nothing about building the five remaining types depends on measuring p8 Wings or p9 Lines. Both
+> are merged and shipped, and the report-only half was carrying a PR 3 deliverable that PR 3 does
+> not need. It is cut from the spec rather than deferred inside it, because a deferred clause with
+> no owner reads as scope on every future pass.
+>
+> **The widening path is not abandoned.** "A clean p8/p9 result promotes the rule to
+> document-wide" — the only recorded route from a two-sheet rule to a document-wide one — moves to
+> the Notion backlog card *"Define p8/p9 paired columns, then report-only matched-line-count
+> pass"*. It is recorded there, not lost here. The p8/p9 pairs were never defined in this section
+> either ("their paired columns"), which is part of why the card has to define them before anything
+> can be measured.
+>
+> **What this section does not yet say is whether p6/p7 currently passes.** Measured 4 Sep 2026 on
+> `fda83bd`, real renderer, pinned Chromium, Arial asserted: **two of the four built types already
+> fail.** Type 1 `signs`/`interrupt` renders 4/3 lines; Type 7 `best`/`edge` renders 6/7. The other
+> two pairs match on all four types. A hard gate derived from the built types would therefore turn
+> `main` red on arrival, so the gate lands **report-only first** and is promoted to hard once those
+> two strings are ruled on by Cai and Mo. That sequencing is PR 3d/3e work, not a change to the
+> rule stated above.
 
 **The rule cannot be derived from content.** Line count is a function of character count, word
 shapes **and** column width, so it requires rendering. This is the same failure mode the fit spike
@@ -532,9 +555,43 @@ withheld from re-typed renders. It is therefore the tightest case *and* the only
 
 ### 7.4 Sheets 6-7 prose — source of record
 
-The p6/p7 content for types 1, 4, 7 and 9 is authored by Cai and Mo in four Google Docs
+~~The p6/p7 content for types 1, 4, 7 and 9 is authored by Cai and Mo in four Google Docs
 (`Type N — <Nickname> · p6/p7 Final Content for Review`), transcribed into `INTERIM_EXPLORE_V3`
-in `scripts/build_content_library.js`. The docs are the source; the constant is a transcription.
+in `scripts/build_content_library.js`. The docs are the source; the constant is a transcription.~~
+
+> **Post-lock correction — 4 Sep 2026.** All nine types are now authored, and the document IDs
+> are recorded here for the first time. `docs/pr_3_explore_batch.md` has stated since PR 80 that
+> "IDs are recorded in the design spec §7.4" — that was **false when written**; the section named
+> the docs by title pattern only. This entry makes it true.
+>
+> The p6/p7 content for **all nine types** is authored by Cai and Mo in nine Google Docs
+> (`Type N — <Nickname> · p6/p7 Final Content for Review`), transcribed into `INTERIM_EXPLORE_V3`
+> in `scripts/build_content_library.js`. The docs are the source; the constant is a transcription.
+>
+> **Folder** — `1AvZHg0MZUMdGorMa71REeScalVnW8spy`. Recorded so a future session can still find the
+> set if a doc is renamed or moved out of title-pattern match.
+>
+> | Type | Archetype | Document ID |
+> |---|---|---|
+> | 1 | The Improver | `1t3HmxdqbtOSXwOLBRkdQf8zWd9JrrXkx3f0ADGPwyCY` |
+> | 2 | The Giver | `16kFDHYK1tMwoiFO2-UMqYTiwblxt-FwZzqZ9pRTxMR0` |
+> | 3 | The Performer | `1nT6_Ryh5kxY5TTcTO_faDgke8Os-NRUu4LZz0tt1A7s` |
+> | 4 | The Individualist | `1bGLEdIppmc0V128HXHvvp2KpGkSnh57uCzPrYRe2PQY` |
+> | 5 | The Observer | `1amQ7h1YPumZZb6fCzYfroWvsqHQHcBc4wVCX0ynaM9c` |
+> | 6 | The Questioner | `1RBoBod9cG0HgwXjhRkl9tWKnOBRq2bWORGZtWMKl9bE` |
+> | 7 | The Enthusiast | `1k6tyZy1EwyjmBFbEdlzvhM2jRqItKHMDdWobMSCQVxA` |
+> | 8 | The Protector | `1v4WhWhr0sMhG4sDrBsHYBT7_4ntGSBmkB_ujj0GgdQs` |
+> | 9 | The Peacemaker | `1Rnw6JM-oMwwUWIRkSvEn3UxhbJzm5h0D_hct6U93BZw` |
+>
+> **Every ID was resolved against Drive before being written here** — each returns a document whose
+> title carries the type number and archetype shown in its row, all nine sit in the folder above,
+> and the folder holds exactly those nine and nothing else. The IDs reached this session as text
+> rather than being read out of Drive, so a transposition would have pointed a future ingest at the
+> wrong type's content; the check is recorded because it is the reason to trust the table.
+>
+> **Types 2, 3, 5, 6 and 8 are authored but not yet transcribed.** `INTERIM_EXPLORE_V3` carries
+> types 1, 4, 7 and 9 only. Recording an ID here states where a type's content lives, not that it
+> has shipped.
 
 **Type 9's entry is a replacement, not an update.** Sheets 6-7 originally shipped as a verbatim
 port of the two Type 9 mockups, landed with an explicit note that it carried no authorisation for
