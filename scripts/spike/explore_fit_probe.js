@@ -32,6 +32,7 @@ const ROOT = path.resolve(__dirname, '../..');
 const R = require(path.join(ROOT, 'app/renderer.js'));
 const prep = require(path.join(ROOT, 'app/report_prep.js'));
 const bl = require(path.join(ROOT, 'app/browser_launch.js'));
+const lineMetrics = require(path.join(ROOT, 'scripts/lib/line_metrics.js'));
 
 const PAGE_PX = 1056;
 const WITH_BAND = process.argv.includes('--band');
@@ -74,22 +75,11 @@ function corpus() {
 function probe(payload) {
   const { zones, WORDS, bandSpec } = payload;
 
-  const lineRects = (n) => {
-    const rg = document.createRange();
-    rg.selectNodeContents(n);
-    const raw = [...rg.getClientRects()].filter(r => r.width > 0 && r.height > 0);
-    const m = new Map();
-    for (const r of raw) {
-      const k = Math.round(r.top * 2) / 2, c = m.get(k);
-      if (!c) m.set(k, { l: r.left, r: r.right });
-      else { c.l = Math.min(c.l, r.left); c.r = Math.max(c.r, r.right); }
-    }
-    return [...m.values()].sort((a, b) => a.top - b.top).map(v => v.r - v.l);
-  };
-  const contentBox = (n) => {
-    const cs = getComputedStyle(n);
-    return +(n.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)).toFixed(2);
-  };
+  // Both helpers now come from scripts/lib/line_metrics.js, injected before this runs, so the
+  // gate in render_client.js and this probe share one definition of "how many lines is this".
+  // lineRects there returns {top, width} objects; this probe wants widths, hence the map.
+  const lineRects = (n) => window.__lineMetrics.lineRects(n).map(r => r.width);
+  const contentBox = (n) => window.__lineMetrics.contentBox(n);
   const naturalOf = (el) => {
     const prev = el.style.minHeight; el.style.minHeight = '0px';
     const h = el.getBoundingClientRect().height; el.style.minHeight = prev;
@@ -295,6 +285,7 @@ function probe(payload) {
     await bl.assertReportFont(p);
     await p.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
     await new Promise(r => setTimeout(r, 150));
+    await lineMetrics.install(p);
     out = await p.evaluate(probe, { zones: ZONES, WORDS, pageIndex, bandSpec: WITH_BAND ? { text: BAND_TEXT } : null });
     await p.close();
   } finally { await browser.close(); }

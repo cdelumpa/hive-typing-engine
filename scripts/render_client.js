@@ -33,6 +33,46 @@ const coach = { full_name: 'Cai Delumpa', type: 5, instinct: 'SP' };
 // against it, so the name must match.
 const V3_CLIENT = { first_name: 'Anders', last_name: 'Wennerstrom', organization: 'Hive', date: 'August 2026' };
 
+/**
+ * SPEC §6.1 — matched line counts between paired columns on sheets 6 and 7.
+ *
+ * REPORT-ONLY, DELIBERATELY. This prints and never fails, and the run exits zero whatever it
+ * finds. Two of the four built types do not satisfy the rule on `main` today — Type 1's
+ * signs/interrupt and Type 7's best/edge — so a hard gate would go red on arrival and block
+ * every unrelated PR until PR 3e re-ingests the corrected source. Both are already fixed in the
+ * Google Docs and land with the five remaining types; the gate is promoted to hard once they do.
+ *
+ * Landing it now rather than with 3e is the point: it establishes the baseline the five new
+ * types get read against, at the moment they are ingested, instead of after.
+ *
+ * Columns are addressed by their own headings where the markup allows — `.v3-tb-col` carries
+ * `.is-best` / `.is-edge` — rather than by sibling position. `.v3-tb-pr-col` has no such marker,
+ * so those two are positional, and the renderer emits Signs before Interrupting (`_clv3TypeB`).
+ */
+const V3_PAIRS = [
+  { name: 'worldview / core_belief', pageKey: 'typeA',
+    a: { label: 'worldview',   root: '.v3-ta-cm-col:nth-of-type(1) .v3-ta-cm-txt' },
+    b: { label: 'core_belief', root: '.v3-ta-cm-col:nth-of-type(2) .v3-ta-cm-txt' } },
+  { name: 'best / edge', pageKey: 'typeB',
+    a: { label: 'best', root: '.v3-tb-col:has(.v3-tb-col-head.is-best)', sel: '.v3-tb-item-txt' },
+    b: { label: 'edge', root: '.v3-tb-col:has(.v3-tb-col-head.is-edge)', sel: '.v3-tb-item-txt' } },
+  { name: 'signs / interrupt', pageKey: 'typeB',
+    a: { label: 'signs',     root: '.v3-tb-pr-col:nth-of-type(1)', sel: '.v3-tb-pr-txt' },
+    b: { label: 'interrupt', root: '.v3-tb-pr-col:nth-of-type(2)', sel: '.v3-tb-pr-txt' } },
+];
+
+/**
+ * The two zones design spec §6 flagged as last-line fill outliers. Re-measured here rather
+ * than in a separate run: same browser, same page, no second launch.
+ *
+ * The standing 13.0% / 15.9% figures were taken on `deb13f3`, before the Type 9 source doc
+ * replaced 36 of that type's 40 strings, so they describe prose that no longer ships.
+ */
+const V3_FILL_ZONES = [
+  { name: 'p6 core motivation',  pageKey: 'typeA', sel: '.v3-ta-cm-narr' },
+  { name: 'p7 chicklet bullet 8', pageKey: 'typeB', sel: '.v3-tb-s-txt', nth: 7 },
+];
+
 // Per report kind: how to build it, which page containers to measure, how many to
 // expect, and whether page spill past one sheet is a failure (client only).
 // Client uses .cover (Title/TOC/Welcome), .page (P2), and .pN-page (P3–P8) — the
@@ -63,6 +103,9 @@ const REPORTS = {
     // Document order, not sheet order: PR 2 adds sheets 1-4 and 12 around the Wings page
     // PR 1 built, and sheets 5-11 land in later PRs.
     checkHyphens: true,
+    // §6.1 matched line counts + the §6 fill outliers. Report-only; see V3_PAIRS.
+    pairChecks: V3_PAIRS,
+    fillZones: V3_FILL_ZONES,
     fixtures: ['anders_sx9'],   // Type 9 / SX9 — the fixture the v3 mockups were built for
     // Render EVERY type from the one fixture, swapping confirmed_type. The per-type pages
     // fit differently per type — the canon line narratives alone range 284-351 chars — so a
@@ -81,6 +124,7 @@ const REPORTS = {
 
 // Pinned bundled Chromium via the shared launcher — same engine as production and CI.
 const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
+const lineMetrics = require(path.join(ROOT, 'scripts/lib/line_metrics.js'));
 async function launch() { return browserLaunch.launchBrowser(); }
 let fontReported = false;
 
@@ -254,6 +298,36 @@ async function measureLayout(page, selector) {
         if (pages.length !== want) {
           fail(`${kind}${asType == null ? '' : ' Type ' + asType} page count ${pages.length}, expected ${want}`);
         }
+        // ── §6.1 matched line counts — REPORT-ONLY ───────────────────────────────
+        // Prints every pair for every built type, pass or fail. A run that only speaks up on
+        // failure gives PR 3e nothing to read its five new types against, which is the whole
+        // reason this lands before them. Never calls fail(); the run exits zero regardless.
+        if (cfg.pairChecks && asType != null) {
+          const idx = {};
+          R.v3PagesFor(asType).forEach((pg, i) => { idx[pg.key] = i; });
+          const rows = await lineMetrics.measurePairs(page, idx, cfg.pairChecks);
+          for (const r of rows) {
+            if (r.skipped) continue;               // sheet not built for this type
+            const mark = r.missing ? '  ?? selector missed: ' + r.missing
+                       : r.match ? '  ok' : '  *** MISMATCH';
+            console.log(`  §6.1 pair  Type ${asType}  ${r.name.padEnd(24)} `
+              + `${r.aLabel} ${String(r.a).padStart(2)} / ${r.bLabel} ${String(r.b).padStart(2)}${mark}`);
+          }
+        }
+
+        // ── §6 last-line fill outliers — REPORT-ONLY ──────────────────────────────
+        if (cfg.fillZones && asType != null) {
+          const idx = {};
+          R.v3PagesFor(asType).forEach((pg, i) => { idx[pg.key] = i; });
+          const zs = await lineMetrics.measureZones(page, idx, cfg.fillZones);
+          for (const z of zs) {
+            if (z.skipped) continue;
+            const fill = z.fill == null ? 'n/a (single line)' : (z.fill * 100).toFixed(1) + '%';
+            console.log(`  §6 fill    Type ${asType}  ${z.name.padEnd(24)} `
+              + `${String(z.chars).padStart(3)}ch / ${z.lines}L  last-line ${fill}`);
+          }
+        }
+
         if (cfg.checkHyphens) {
           const hb = await findHyphenBreaks(page, cfg.selector);
           for (const b of hb) {
