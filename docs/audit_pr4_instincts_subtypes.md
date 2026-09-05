@@ -9,6 +9,24 @@ Every claim is tagged **[CC-MEASURED]** (read out of the repo or executed), **[C
 
 ---
 
+> ## AMENDMENT 1 — 5 Sep 2026
+>
+> Cai's governing decision on Z5 was not in the original prompt. **The mockup's three-block
+> subtype column ("Where The Energy Goes" / "The Inner Experience" / "Growing Edge") is being
+> replaced by the single narrative per subtype in Google Doc
+> `1_M7tvK1I-5bJw0JjDF4xpTRAEPgpyeWkGCQea6nH364`.** The mockup is what is being changed; the Doc is
+> the replacement content, not a parallel draft.
+>
+> **I have now read the Doc** (Drive, 5 Sep 2026) and measured all 27 rows. Findings voided by this
+> decision are struck below rather than deleted. New material: **§2.2A** (the corrected Z5 model and
+> the Doc measurements), **§2.7** (the new field name and its CMS consequences), **§4a** (scope),
+> **§7** (where I think the counterproposal is still wrong).
+>
+> Everything not struck stands. §3.1 — the gate correction — is accepted as written and is
+> unchanged.
+
+---
+
 ## 1. The numbering collision — RESOLVED, NOT AMBIGUOUS
 
 **All four names refer to the same page. PR 3's "p8" is a different page. The premise of PR 4 is
@@ -131,14 +149,18 @@ differ I say so below. [CC-JUDGMENT]
 CMS (`app/server.js:10546` — *"108 fields across 27 subtypes"* = 27 × {tagline, narrative,
 patterns, shifts}). [CC-MEASURED] PR 4 cannot repurpose them destructively.
 
-### 2.2 Where the proposal's field model is wrong — measured against the mockup
+### 2.2 The mockup's Z5 structure — measured, and now SUPERSEDED
+
+> **Amendment 1.** The three-block structure measured here is **being replaced** by one narrative
+> per subtype (§2.2A). This section is retained because it is the measured baseline the probe
+> compares against, and because the block/heading geometry is what the new shape *removes*.
+> Findings that treated the three-block model as the target are struck.
 
 I extracted every text node and every CSS rule from
 `docs/mockup/claude_The_Peacemaker_Page_Instincts_v1.html`. [CC-MEASURED]
 
-**The proposal's PER-SUBTYPE tier (§2.2: "27 rows, 5 fields each … narrative (one paragraph)") does
-not match the page.** Z5 is not one narrative per subtype. Each column carries **three separately
-labelled prose blocks** under fixed headings:
+Z5 as drawn is not one narrative per subtype. Each column carries **three separately labelled
+prose blocks** under fixed headings:
 
 | Mockup class | Field | n | chars (min–max) |
 |---|---|---|---|
@@ -150,29 +172,125 @@ labelled prose blocks** under fixed headings:
 
 All nine `.ctxt` blocks: **91–134 chars** (mean 102.8). [CC-MEASURED]
 
+**Per-column three-block totals — measured, as asked in the counterproposal §3:** [CC-MEASURED]
+
+| Column | Blocks | Prose total | Heading text |
+|---|---|---|---|
+| SP9 The Collector | 134 + 102 + 95 | **331** | 53 chars over 3 rows |
+| SO9 The Community Benefactor | 103 + 101 + 91 | **295** | 53 chars over 3 rows |
+| SX9 The Seeker | 99 + 98 + 92 | **289** | 53 chars over 3 rows |
+
+min 289 · max 331 · mean 305.0 · spread 42. The counterproposal's derived 288–331 was right to
+within one character on the low end. Heading text is identical in all three columns
+(`Where the Energy Goes` 21 + `The Inner Experience` 20 + `Growing Edge` 12 = 53), each on its own
+`.clbl` row with a 4px bottom margin, inside a `.czone` with a 14px bottom margin. [CC-MEASURED]
+
 Consequences:
 
 1. **The passion term ("Appetite") does not appear on the page.** It is not a p10 field.
-   [CC-MEASURED]
-2. **The Google Doc's 27 narratives cannot be used as drafted.** At 360–394 chars they are 3–4×
+   [CC-MEASURED] — **stands** (and is reconfirmed by the Doc, §2.2A).
+2. ~~**The Google Doc's 27 narratives cannot be used as drafted.** At 360–394 chars they are 3–4×
    a single Z5 block. They would have to be split three ways under fixed headings, which is
-   re-authoring, not ingest. [CC-DERIVED]
+   re-authoring, not ingest.~~ **VOID — Amendment 1.** The narratives are not being fitted into
+   the three-block structure; they replace it. This finding was correct about the *mockup* and
+   wrong about the *intent*, because I did not know the mockup was being changed.
 3. **The store's narratives are further still from the target: 602–762 chars, mean 693, spread
-   160, all two-paragraph.** SP9 is 677, SO5 is 695 — neither matches the prompt's stated 360 /
-   394. Split by paragraph they are 246–380 and 263–414. **No slicing of the store text reproduces
-   the Doc's 345–415 band**, so the Doc and the store are two independent bodies of prose.
-   [CC-MEASURED]
-4. Net-new authored strings for Z5: **27 × 4 = 108** (signature + three zones), of which the three
-   Type 9 subtypes exist in the mockup → **24 × 4 = 96 to author**, plus 24 signatures. This
-   matches the build plan's content-prerequisite table exactly ("27 subtypes (Type-9's 3 exist) →
-   24 to author"). [CC-DERIVED]
-5. `Growing Edge` is **derivable, not net-new, for the three that exist**: SP9's mockup text is
-   `subtype_sp9.shifts[2]` with the lead-in stripped —
-   store: *"The growing edge is noticing the numbing — the comfortable habits that quietly
-   substitute for what actually matters."* → mockup: *"Noticing the numbing: the comfortable
-   habits that quietly substitute for what actually matters."* [CC-MEASURED] Whether the other 24
-   can be derived the same way is a content question for Cai and Mo, not a build question.
-   [CC-JUDGMENT]
+   160, all two-paragraph.** SP9 is 677, SO5 is 695. Split by paragraph they are 246–380 and
+   263–414. **No slicing of the store text reproduces the Doc's 345–415 band**, so the Doc and the
+   store are two independent bodies of prose. [CC-MEASURED] — **stands, and is now load-bearing:**
+   it is the evidence that the Doc must land in a *new* field rather than overwrite `narrative`
+   (§2.7).
+4. ~~Net-new authored strings for Z5: **27 × 4 = 108** … **24 × 4 = 96 to author**, plus 24
+   signatures. This matches the build plan's content-prerequisite table exactly.~~ **VOID —
+   Amendment 1.** Corrected count in §2.2A. **The build plan's "24 to author" prerequisite is
+   therefore stale and should be struck with it.**
+5. ~~`Growing Edge` is **derivable, not net-new, for the three that exist**: SP9's mockup text is
+   `subtype_sp9.shifts[2]` with the lead-in stripped.~~ **MOOT as an authoring route — Amendment
+   1.** The derivation itself is still measured fact and is worth keeping for one reason: it shows
+   the mockup's Z5 prose was condensed *out of the v2 store*, which is corroborating evidence that
+   the Doc — measurably independent of the store (item 3) — is genuinely new content and not a
+   re-transcription. [CC-JUDGMENT]
+
+### 2.2A Z5, CORRECTED — one narrative per subtype, measured from the Doc
+
+Read from Drive on 5 Sep 2026 and parsed in full. **27/27 rows present.** [CC-MEASURED]
+
+The Doc's per-subtype header line is three `·`-delimited elements followed by a stated count:
+
+```
+SP9 · Appetite · Comfort & Routine — 360 chars
+    ^code  ^passion   ^signature
+```
+
+**Ingest hazard, name it before writing the parser:** the signature is the **third** element, not
+the second. The second is the passion term, which §2.2(1) establishes is not a page field. A
+parser that takes "the text after the first `·`" ingests the wrong string for all 27.
+[CC-JUDGMENT]
+
+**Corrected Z5 per-column field model:**
+
+| Field | Source | Status |
+|---|---|---|
+| display name — "The Collector" | `reference/hive_27_subtype_reference.md` | 27/27, **not in the Doc** (§2.3) |
+| signature — "Comfort & Routine" | Doc, 3rd header element | 27/27 [CC-MEASURED] |
+| narrative — one paragraph | Doc body | 27/27 [CC-MEASURED] |
+| passion term | — | **not a page field** |
+
+The three block headings cease to exist on p10.
+
+**Doc narrative measurements** [CC-MEASURED]:
+
+- **min 360 (SP9) · max 394 (SO5) · mean 382.7 · spread 34.** All 27 inside the stated 345–415
+  band. Exactly reproduces the figures in the prompt.
+- Words: min 53 · max 67 · mean 60.4.
+- **All 27 stated char counts are EXACT — zero delta, 27/27.** This is worth recording because it
+  is the opposite of the standing caution: §7.4 warns that the p6/p7 source docs' printed counts
+  run low. **That caution does not apply to this Doc.** Recount at ingest anyway — the counts being
+  right today is not a property of the file, and my read came through a text rendering, not the
+  raw document.
+- **Signatures: 12–25 chars, and none exceeds 25.** [CC-MEASURED] This clears the existing spec §6
+  ceiling *"How You May Experience SP/SO/SX — exactly 25 chars, fits 1 line"* without a new
+  measurement. The single 25-char case is `Belonging & Participation` (SO9) — the same string the
+  mockup carries, so it is already known to render on one line at this column width.
+- **The Doc's three Type 9 signatures match the mockup's `.cline` values exactly, 3/3**
+  (`Comfort & Routine`, `Belonging & Participation`, `Merging & Intensity`). [CC-MEASURED]
+  Independent corroboration that this Doc is the p10 source and not an unrelated artifact.
+
+**The Z5 vertical delta, for the three columns where both shapes exist** [CC-MEASURED]:
+
+| Column | Mockup 3-block prose | Doc narrative | Δ prose | Δ structure |
+|---|---|---|---|---|
+| SP9 | 331 | 360 | **+29** | −3 heading rows |
+| SO9 | 295 | 382 | **+87** | −3 heading rows |
+| SX9 | 289 | 381 | **+92** | −3 heading rows |
+
+**This is not uniform, and that matters.** SP9 gains 29 characters; SX9 gains 92. Whatever the net
+vertical effect is, it is **not the same for all three columns of a single page**, and the tallest
+column sets the row height. Only 3 of 27 can be compared this way at all — the other 24 have no
+mockup counterpart. The counterproposal is right that this must be probed and not assumed.
+[CC-JUDGMENT]
+
+**Worst case is per-type, not global — the probe needs the right nine.** All three columns render
+side by side, so the tallest of a type's triple sets the height: [CC-MEASURED]
+
+| Type | SP | SO | SX | tallest |
+|---|---|---|---|---|
+| 1 | 379 | 379 | 389 | SX1 389 |
+| 2 | 378 | 381 | 382 | SX2 382 |
+| 3 | 377 | 386 | 379 | SO3 386 |
+| 4 | 383 | 387 | 377 | SO4 387 |
+| 5 | 381 | **394** | 382 | **SO5 394** |
+| 6 | 378 | 387 | 388 | SX6 388 |
+| 7 | 389 | 389 | 383 | SP7 389 |
+| 8 | 384 | 389 | 389 | SO8 389 |
+| 9 | 360 | 382 | 381 | SO9 382 |
+
+SO5 at 394 is confirmed the global worst column, and it sits in Type 5's triple, so **probing
+Type 5 does cover the global worst case.** But note the tallest-per-type values span only
+**382–394 — a 12-character band across all nine types.** [CC-DERIVED] Unlike p6/p7, where types
+differed widely, there is no "easy" type here: if Type 5 fits, the rest almost certainly fit; if it
+does not, none do. That makes the probe cheaper to reason about, and it makes a single-type probe
+result close to conclusive — which it was not on p6/p7. [CC-JUDGMENT]
 
 ### 2.3 The 27-row join — the display names are already in the repo, twice, in agreement
 
@@ -189,8 +307,26 @@ version-controlled, complete, carries the passion and CT marker the store does n
 agrees with the store. Ingesting names from an external docx would add a third copy of a fact that
 already has two agreeing ones. [CC-JUDGMENT]
 
-I could not verify the Google Doc `1_M7tvK1I-…`: its ID appears nowhere in the repo, and I did not
-fetch it. Whether its narratives supersede the store's is **open** (§6). [CC-MEASURED]
+~~I could not verify the Google Doc `1_M7tvK1I-…`: its ID appears nowhere in the repo, and I did
+not fetch it.~~ **Amendment 1 — now read and measured (§2.2A).**
+
+**The Doc contains no display names.** I searched all 27 rows for their own display name across
+narrative, signature and passion: **zero hits.** [CC-MEASURED] So the recommendation above is no
+longer a preference between two sources — **`reference/hive_27_subtype_reference.md` is the only
+source in existence for `.cname`.** The Doc adds no third vote and cannot be a fallback.
+
+The store's 27 taglines still carry the same names and still agree 27/27, so there remain two
+agreeing sources — but per §2 of the counterproposal the store's `tagline` is v2's and is being
+left untouched, so it is a cross-check, not a supply. [CC-JUDGMENT]
+
+**One divergence to record, not to fix here.** The Doc and the reference file disagree on the
+**passion term for 18 of 27 subtypes** [CC-MEASURED] — e.g. SX9 Doc `Fusion` vs ref `Union`; SP5
+Doc `Castle` vs ref `Home`; SO5 Doc `Totem` vs ref `Symbols`; SP7 Doc `Keepers of the Castle` vs
+ref `Family`. Nine are identical. This does **not** block p10, because the passion term is not a
+page field. It matters because the reference file describes itself as *"Draft reference for
+inclusion in the Hive AI Prompt Spec"* feeding Section 4 of the Coach Prep Report — so two
+artifacts that both reach a reader disagree on 18 of 27 terms. **Own card (§5, item 7). Do not
+widen PR 4 to reconcile it.** [CC-JUDGMENT]
 
 ### 2.4 Z2 / Z3 reconciliation — the discrepancy is real, and it is an AS-IS / EDIT decision
 
@@ -347,8 +483,106 @@ truncation, and the existing render gate already catches it *if the zone is popu
 [CC-MEASURED]
 
 Mockup Z6 is 333 chars. Three SM bullets at ≤25 words each is roughly 450 chars plus three bullet
-rows of leading — comfortably more. [CC-DERIVED] That is the number 4a must settle, and per the
-prompt I am not proposing a cap here.
+rows of leading — comfortably more. [CC-DERIVED] That is the number the Z6 build must settle, and
+per the prompt I am not proposing a cap here.
+
+### 2.7 The new p10 field — name, and what it does to the CMS *(Amendment 1)*
+
+Per counterproposal §2, the Doc's narratives take a **new field on the same 27 rows**;
+`subtype_*.narrative` is v2's and stays untouched.
+
+#### Proposed name: `instincts_v3`, a nested object
+
+```
+subtype_sp9.instincts_v3 = { signature: "Comfort & Routine", narrative: "Self-Preservation Nines…" }
+```
+
+**Why this shape.** [CC-JUDGMENT], on measured precedent:
+
+- **`_v3` is the established suffix for "v3 field living beside its v2 counterpart" on the same
+  row.** Measured in the store: `type_N.wings.intro_v3`, `type_N.lines.intro_v3`,
+  `.work_lead_v3`, `.work_v3`, and `type_N.explore_v3`. [CC-MEASURED] This is the same situation.
+- **Nesting the pair mirrors `explore_v3: {p6, p7}` exactly** — one new top-level field carrying
+  page-scoped v3 content, rather than two loose siblings. [CC-MEASURED]
+- **It costs one CMS field per subtype instead of two.** The signature and narrative are authored
+  together on one Doc line and edited together; `resolveLibObject` replaces an overridden field
+  *whole* (`app/content_overrides.js:199–212`, "replaces a field WHOLE"), which is the right
+  granularity for a pair authored as a unit. [CC-MEASURED]
+- Nested values are already first-class in the editor: `patterns` is `{thinking, feeling,
+  behaving}` under a single content_key, with per-leaf budgets keyed off `path`. [CC-MEASURED]
+- **It is deletable as a unit** if the page is ever re-scoped again, which `narrative_v3` +
+  `signature` as loose siblings would not be.
+
+**Alternative considered and rejected:** `narrative_v3` + `signature` as two flat fields. It reads
+slightly more directly, but suffixes inconsistently (one field needs `_v3` to avoid the v2
+collision, the other does not), and it costs two CMS fields, two regex entries and two budget
+branches instead of one. **Rejected on consistency, not on effort.** [CC-JUDGMENT]
+
+I did **not** name it `p10_*`: §1 of this audit is an argument that page numbers on this page are
+ambiguous, and putting one in a schema key would bake the ambiguity into the data. [CC-JUDGMENT]
+
+#### Consequences for `validateSubtype`
+
+`scripts/build_content_library.js:1682`. Per §3.1 the existing `shifts` requirement **stays**.
+Add:
+
+```js
+need(st.instincts_v3 && st.instincts_v3.signature, `${P}.instincts_v3.signature empty`);
+need(st.instincts_v3 && st.instincts_v3.narrative, `${P}.instincts_v3.narrative empty`);
+```
+
+The 27/27 coverage assertion is already structural — `build_content_library.js:1742–1743` loops
+all 27 keys and calls `validateSubtype` on each, so presence is enforced for all 27 by
+construction once the field is required. [CC-MEASURED]
+
+**Where the content enters the build.** The builder reads `InsightOut_Static_Content_Library_
+Subtypes_v1_3_060726.docx`; the Doc's narratives are not in it. The established pattern for
+v3-only content is an `INTERIM_*_V3` constant in the builder, merged additively onto the
+docx-derived row — `t.explore_v3 = INTERIM_EXPLORE_V3[n]` (`build_content_library.js:1402`),
+same for `INTERIM_WINGS_V3` and `INTERIM_LINES_V3`. [CC-MEASURED] **`INTERIM_INSTINCTS_V3`, keyed
+by subtype code, merged at `build_content_library.js:1731`** (`lib['subtype_'+key] = st`) follows
+it exactly. [CC-JUDGMENT]
+
+#### Consequences for the CMS — six touchpoints, and one that does not work yet
+
+I swept every site that hardcodes the four subtype field names. There are exactly two regexes, one
+declarative array, one iteration site, one budget function and one summary string. [CC-MEASURED]
+
+| # | Site | Change | If missed |
+|---|---|---|---|
+| 1 | `CMS_SUBTYPE_FIELDS` — `server.js:9893` | add `{ field: 'instincts_v3', label: 'Instincts (v3)' }` | field never appears in the editor |
+| 2 | `cmsIsValidSubtypeKey` — `server.js:9900` | add `instincts_v3` to the alternation | **write routes reject the key**; edits silently impossible |
+| 3 | `cmsWordBudget` — `server.js:~10023` | add a branch, keyed on `path` | returns `0` — no budget shown |
+| 4 | `cmsPreviewSpec` — `server.js:13854` | see below | preview returns a 400 |
+| 5 | Summary string — `server.js:10546` | `108` → **`135`** | admin UI states a wrong denominator |
+| 6 | Comment — `server.js:9902` | "6 static + 108 subtype keys" → 135 | stale comment |
+
+Field count: **27 × 5 = 135**, up from 108. [CC-DERIVED]
+
+**Trap on #5 — do not global-replace `108`.** `server.js:10833` also reads *"108 fields across 9
+types"*. That is the **type** editor (9 types × 12 fields), an unrelated coincidence. Only
+`server.js:10546` changes. [CC-MEASURED]
+
+**#4 is the consequence that does not resolve cleanly, and I am not absorbing it.** Every entry in
+`cmsPreviewSpec` maps a content_key to a **live v2 page** — `.p6-page`, `.p7-page`, `.p5-page`.
+`instincts_v3` renders on no live page: the v3 document is built beside the live one and is not in
+production until cutover. [CC-MEASURED] So:
+
+- **Behaviour if left unmapped:** `cmsPreviewSpec` returns `undefined`, and
+  `POST /admin/content/preview` returns a clean `400 {ok:false, error:'no preview mapping for
+  key'}` (`server.js:13936–13937`). It does not crash, and it cannot corrupt anything.
+  [CC-MEASURED]
+- **But the editor renders a Preview button that now fails with an error toast** on one of the five
+  fields, which reads as a bug to whoever clicks it. [CC-JUDGMENT]
+
+**Recommendation:** leave `instincts_v3` out of `cmsPreviewSpec` until cutover, and **suppress the
+Preview control for fields with no mapping** rather than letting it fail — a one-line UI condition
+in `renderSubtypesPage`, honest about the reason. Wiring preview to the v3 renderer is a
+cutover-time job and does not belong in PR 4. [CC-JUDGMENT]
+
+**No change needed** to `resolveLibObject` (`content_overrides.js:199`) — it iterates
+`Object.keys(baseObj)`, so a new field on the row resolves overrides automatically — nor to
+`cmsArrayHeading`, since `instincts_v3` is an object of two strings, not an array. [CC-MEASURED]
 
 ---
 
@@ -360,14 +594,14 @@ all below it.
 | # | Proposal | Measured reality | What I'd do |
 |---|---|---|---|
 | 1 | "p8" throughout | `p8` is Wings (sheet 8); this page is `p10` / `instincts` | Rename in prose; use `v3-inst-` in code (`p6-`/`p8-` are taken) |
-| 2 | §2.2 PER-SUBTYPE = 5 fields, one narrative | Three labelled blocks of 91–134 chars + name + signature | 27 × 4 authored strings (96 + 24 to write) |
+| 2 | ~~§2.2 PER-SUBTYPE = 5 fields, one narrative~~ | **VOID — Amendment 1.** The one-narrative model is the decision; the mockup's three blocks are what changes | Per-column model in §2.2A; new field in §2.7 |
 | 3 | §2.2 lists a passion term as a page field | "Appetite" appears nowhere on the page | Drop it from the p10 schema |
 | 4 | §2.3 display names come from `hive_27_subtype_keywords_v5.docx` | Not in the repo. All 27 names + passions + CT markers are in `reference/hive_27_subtype_reference.md`, agreeing 27/27 with the store | Source from the repo file; do not ingest a third copy |
-| 5 | §2.3 narratives ingest from the Google Doc | Doc narratives (360–394) are 3–4× a Z5 block; store narratives (602–762) are further off. No split reproduces the Doc band | Treat Z5 as authoring against measured budgets, not ingest |
+| 5 | ~~§2.3 narratives ingest from the Google Doc~~ | **REVERSED — Amendment 1.** Ingest is correct. 27/27 read and measured; stated counts exact; signatures ≤25ch | Ingest to a new field (§2.7), recount at ingest |
 | 6 | §2.2 Z2 is "static template + type token" | The store string has no token slot and ends on a different beat | Z2 is a re-author, not a tokenisation |
 | 7 | §2.6 Z6 is "not a content-library item; something has to produce it" | Two producers exist, in two shapes, with a null path | Build to the existing field; reconcile the two shapes |
 | 8 | §2.6 "unbounded string in a fixed-height band" | `.resp` is auto-height; overflow spills the page past 1057px | Real risk, different mechanism — the existing page gate catches it |
-| 9 | §4b gate asserts **no shift zone exists** | `validateSubtype` **requires** `shifts.length >= 1`, and `subtype.shifts` renders on **live v2 p7** (`renderer.js:2347`) | See below — this is the most dangerous item |
+| 9 | §4b gate asserts **no shift zone exists** (accepted in full by the counterproposal) | `validateSubtype` **requires** `shifts.length >= 1`, and `subtype.shifts` renders on **live v2 p7** (`renderer.js:2347`) | See below — this is the most dangerous item |
 | 10 | §2.5 badges framed as a new-page choice | All three are already labelled on live v2 p6 | Decide it as a change to shipped behaviour |
 
 ### 3.1 The negative gate as specified would break the live report
@@ -387,7 +621,8 @@ But `subtype.shifts` is **live production content on a different page**:
 **D4 cut shifts *from p10*. It did not cut them from the product.** The correct enforcement is:
 
 - **Content gate (`build_content_library.js`): leave `shifts` REQUIRED.** It is v2's.
-- **Add** requirements for the new p10 fields (signature + three comparison zones, 27/27).
+- **Add** requirements for the new p10 fields — **`instincts_v3.signature` and
+  `instincts_v3.narrative`, 27/27** (§2.7; amended from "three comparison zones").
 - **Renderer gate (a test, not the content build): assert the emitted `.v3-inst-` page contains no
   shift zone and no "Leaning Into the Other Instincts" block.** That is where D4 belongs — it is a
   statement about what p10 *renders*, not about what the library *holds*.
@@ -401,6 +636,10 @@ But `subtype.shifts` is **live production content on a different page**:
   contains neither. `feasibility_report_client_report_v3.md:173` flagged this in exactly these
   terms and it was never struck. [CC-MEASURED] Strike it in the PR that builds the page, or the
   spec of record contradicts the gate.
+- **Amendment 1 adds a third stale entry, one section earlier.** Spec **§7.1 "Authored and
+  approved"** lists *"The three subtype comparison columns"* — the exact structure the Doc
+  replaces. [CC-MEASURED] Strike it in the same sweep. §7.3's *"Only the three Type 9 subtypes
+  exist"* also goes: all 27 signatures now exist in the Doc.
 - **The build plan's PR 4 pass/fail claims Z6's border is "the only orange element on the page
   except the client name in the header (§5.3)". The mockup falsifies it:** `.ctag` (Primary badge)
   is `#F68625`, `.resp` background is `#FDF3E9`, `.hhead` is `#F9E7D2`, `.hlbl` is `#C2650F`.
@@ -408,7 +647,7 @@ But `subtype.shifts` is **live production content on a different page**:
 
 ---
 
-## 4. Proposed build sequence — four builds, reordered
+## 4. Proposed build sequence — five builds
 
 The prompt's 4a–4d is close. **Keep four, but move the CI-coverage work out of 4c and to the
 front, because without it 4a measures the wrong thing and 4d cannot be verified at all.**
@@ -419,19 +658,57 @@ The single reason: **the current harness renders 9 types × 1 instinct ordering,
 badges. Every budget it produced would be a floor, not a ceiling — the exact error §7.4 records
 being made twice already.
 
-### 4a — FIXTURE AXIS (new, first)
+### 4a — FIXTURE AXIS (new, first) — scope statement
 
-Give the harness the two dimensions p10 needs and nothing else can supply.
+*Amendment 1: stated precisely enough to build from, as asked.*
 
-- A second and third instinct profile on the existing fixture — SP-primary and SO-primary — so all
-  27 subtype columns can be the highlighted one. No new client fixture needed; `buildClientModel`
-  derives the subtype from `dominant_instinct_hypothesis` + `confirmed_type`.
-- A populated `client_facing.instinct_evidence` in **both shapes** (3 SM bullets, 1 EM paragraph),
-  plus an explicit `null` case, so the empty state is a rendered case rather than an accident.
-- An exact-tie and a 2-point-gap profile as named cases.
+**Purpose.** Give `scripts/render_client.js` the two dimensions p10 needs and that nothing else in
+the harness can supply. Today it renders **9 types × 1 instinct ordering** from a fixture whose
+`client_facing` is `{}` (`tests/fixtures/anders_sx9_api_result.json`) — so a p10 probe run against
+it would measure a page with no Z6 and only SX-primary badges. [CC-MEASURED]
 
-**Lands:** fixture + harness changes only. No page. **Proves:** a render that omits Z6 now fails
-instead of passing quietly.
+**Files touched**
+- `scripts/render_client.js` — the `client_v3` config gains an instinct axis alongside `types`.
+- `tests/fixtures/` — profile and evidence variants (see below). No new *client* fixture: the
+  model derives the subtype from `dominant_instinct_hypothesis` + `confirmed_type`, so the existing
+  `anders_sx9` fixture plus overrides covers all 27. [CC-MEASURED]
+
+**The instinct axis.** Three profiles, applied the way `types` is applied today — override
+`hypothesis.instinct_score_profile` **and** `hypothesis.dominant_instinct_hypothesis` together, so
+the badge order and the selected subtype cannot disagree:
+
+| Case | `{SP, SO, SX}` | `dominant` | Exercises |
+|---|---|---|---|
+| `sp_primary` | `{84, 66, 64}` | `SP` | SP column highlighted; 9 SP subtypes |
+| `so_primary` | `{64, 84, 66}` | `SO` | SO column highlighted; 9 SO subtypes |
+| `sx_primary` | `{66, 64, 84}` | `SX` | today's fixture ordering; 9 SX subtypes |
+
+3 × 9 = **27 renders, and all 27 subtype rows become the highlighted column at least once** — which
+is what the build plan's PR 4 pass/fail already asks for and the current harness cannot deliver.
+[CC-DERIVED]
+
+**Named edge cases** (rendered, not necessarily in the 27-render matrix):
+- `exact_tie` — `{70, 70, 70}`. Records what ships today; **expected to change** once §2.5 (a) is
+  decided.
+- `near_tie` — `{66, 64, 84}` is *already* a 2-point second/third gap, so today's fixture **is** the
+  near-tie case. Name it as such rather than adding one. [CC-MEASURED]
+- `missing_profile` — `instinct_score_profile` absent. **Today this silently renders "Leading =
+  SP"** (§2.5). This case exists to pin that behaviour now and to go red when §5 item 1 is fixed.
+
+**The Z6 axis.** `client_facing.instinct_evidence` in three states, because two producers emit two
+shapes (§2.6):
+- `sm_bullets` — 3 strings, worst case from `CMS_PREVIEW_WORST_EVIDENCE` (`app/server.js:13823`).
+- `em_paragraph` — one string, the EM shape (`em_report_adapter.js:143`).
+- `null` — the `low_instinct_confidence` path, so the empty state is a **rendered case** rather
+  than the accident it is today.
+
+**Explicitly out of scope for 4a:** no p10 renderer, no content, no gate change, no badge decision,
+no fix to the silent-SP default (4d). 4a only makes those observable.
+
+**Done when:** the three instinct profiles and three evidence states render through the existing
+`client_v3` config on the pages that exist **today** (sheets 1–9, 12) with no change in output for
+the `sx_primary` + `null` combination — i.e. the current baseline is byte-identical, and the new
+axes are additive. That is the check that 4a changed the harness and not the report. [CC-JUDGMENT]
 
 ### 4b — PROBE
 
@@ -452,12 +729,21 @@ measure it, and §6's `≤52 / 53–70 / 71–88` bands were taken at the other 
 
 ### 4c — CONTENT
 
-Ingest the 27 joined rows against 4b's budgets. Names from
-`reference/hive_27_subtype_reference.md`, recounted at ingest.
+Ingest the 27 rows against 4b's budgets, into the new `instincts_v3` field (§2.7) via an
+`INTERIM_INSTINCTS_V3` constant. **Signature and narrative from the Doc** (third `·` element and
+body respectively — mind the ingest hazard in §2.2A); **display names from
+`reference/hive_27_subtype_reference.md`**, which is their only source (§2.3). `narrative`,
+`tagline`, `patterns` and `shifts` are untouched. Recount every string at ingest.
 
-**Gate, corrected per §3.1:** keep `shifts` required; add 27/27 presence for signature and the
-three comparison zones; put the D4 negative assertion in the **renderer** test, not the content
-build. **Prove each new assertion fails before trusting it** — delete a field, watch it go red.
+**Gate, corrected per §3.1:** keep `shifts` required; add 27/27 presence for
+`instincts_v3.signature` and `instincts_v3.narrative`; put the D4 negative assertion in the
+**renderer** test, not the content build.
+
+**Prove each new assertion fails before trusting it — in memory, touching no tracked file.**
+`validateSubtype` takes the row object as an argument, so the proof is to `require` the library,
+`delete` the field on a clone, call the validator and assert it throws. Same for the renderer
+assertion: build the page HTML from a model, inject a shift-shaped block, assert red. No fixture is
+edited and nothing is committed in the failing state. [CC-JUDGMENT]
 
 ### 4d — PER-CLIENT STRUCTURE
 
@@ -481,11 +767,19 @@ together and a red probe has two possible causes. I would not. [CC-JUDGMENT]
 ## 5. Adjacent — named once, each its own card. Not PR 4.
 
 1. **`instinctStack` returns "Leading = SP" for a missing or empty `instinct_score_profile`.**
-   Affects the **live** report today, not just p10. Correctness bug, own card.
+   Correctness bug, own card. **Amendment 1 — the blast radius is wider than I wrote, and it is
+   already shipping.** `static.contents[6]` renders `{subtype_label}` in the **v3 Contents page**,
+   so page 2 of the staged Type 9 report reads *"…what it means to be a One-to-One Nine."* A client
+   with a missing or empty profile therefore gets a **confident wrong subtype named on a page that
+   ships today** — not merely a latent p10 risk. [CC-MEASURED, per Cai] Same card, wider radius.
+   **Do not widen PR 4 to fix it.**
 2. **`instinct_evidence` has two producer shapes** (3 bullets vs 1 paragraph) with no contract
    reconciling them. Own card — p10 can consume both, but the contract should be settled once.
 3. **Spec §7.2's two stale p10 entries** (shift bullets, Leaning blocks) contradict ratified D4.
-   Docs card.
+   Docs card. **Amendment 1 adds a third, in §7.1:** *"The three subtype comparison columns"* is
+   listed under **Authored and approved** — and under the new Z5 model those columns are the thing
+   being replaced. [CC-MEASURED] Strike all three in the same sweep, or the spec of record
+   describes a page that is not being built.
 4. **Build plan PR 4's "only orange element" criterion is falsified by the mockup it cites.**
    §5.3 question for Cai. Docs card.
 5. **Live v2 p6 badges all three instincts** `Leading/Supporting/Growing` on a 2-point gap. If
@@ -493,29 +787,102 @@ together and a red probe has two possible causes. I would not. [CC-JUDGMENT]
 6. **`docs/mockup_file_manifest.md` records a superseded
    `claude_The_Peacemaker_Page_Subtypes_v1.html`** — the second page from when Instincts &
    Subtypes was two pages. Worth confirming nothing in the content plan still assumes two.
+7. **The Doc and `reference/hive_27_subtype_reference.md` disagree on the passion term for 18 of
+   27 subtypes** (§2.3). [CC-MEASURED] Does not block p10 — passion is not a page field — but the
+   reference file feeds Coach Prep Report guidance, so two reader-facing artifacts disagree. Own
+   card.
+8. **The build plan's PR 4 content prerequisite ("27 subtypes (Type-9's 3 exist) → 24 to author",
+   plus "two-word signature: 27 (3 exist)") is stale** under the new Z5 model — all 27 signatures
+   and narratives now exist in the Doc. Docs card, same sweep as item 3.
 
 ---
 
 ## 6. Open questions I cannot resolve from the repo
 
-1. **Does Google Doc `1_M7tvK1I-5bJw0JjDF4xpTRAEPgpyeWkGCQea6nH364` supersede the store's 27
-   narratives, or is it a parallel draft?** The ID is nowhere in the repo and I did not fetch it.
-   The two bodies are measurably independent (§2.2). If the Doc is the source of record, the store
-   rows are stale — and they are **live v2 content**, so that has consequences beyond p10.
-   Whichever it is, §7.4's convention says record the ID in the spec.
-2. **Given the Doc's narratives are the wrong shape for Z5 (§2.2), what is the Doc actually for?**
-   Possibly the v2 page, possibly a pre-D4 design. This changes whether PR 4 has a content
-   dependency at all.
+1. ~~**Does Google Doc `1_M7tvK1I-…` supersede the store's 27 narratives, or is it a parallel
+   draft?**~~ **RESOLVED — Amendment 1.** It is the p10 replacement content, and it does **not**
+   supersede the store's `narrative`, which stays as v2's. New field per §2.7. Per §7.4's
+   convention the Doc ID should be recorded in the spec when the content lands.
+2. ~~**Given the Doc's narratives are the wrong shape for Z5, what is the Doc actually for?**~~
+   **RESOLVED — Amendment 1.** The Doc is not the wrong shape; the mockup is being changed to fit
+   the Doc.
 3. **Z3 AS-IS or edited?** The build plan says AS-IS; the store text is ~40% longer than the cards
    were fitted to. 4b measures the cost; the choice is Cai's.
 4. **Z2: re-author the primer to carry a type token, or drop the token and use the store string?**
    §2.4. Not mine to pick.
-5. **Do the three Type 9 signatures and comparison zones in the mockup count as authored, or as
-   Claude-authored-pending-review?** §7.2's pattern suggests the latter. If pending, the authoring
-   job is 27, not 24.
+5. ~~**Do the three Type 9 signatures and comparison zones in the mockup count as authored, or as
+   Claude-authored-pending-review?**~~ **MOOT — Amendment 1.** The comparison zones are being
+   replaced, and all 27 signatures now come from the Doc, so nothing depends on the mockup's three
+   being ratified. The **display names** still do depend on a single unreviewed source (§2.3) —
+   that is the residue of this question, and it is item 9 below.
 6. **Badge decision (§2.5)** — reopens a build-plan line, so it needs an explicit yes or no.
 7. **Historical assessments:** I established that `dominant_instinct_hypothesis` is a late-added
    nullable column and `instinct_score_profile` is conditionally written. I could not measure
    **how many** stored assessments actually lack them — that needs a query against production,
-   which I did not run. If p10 is ever regenerated for an old assessment, item 1 in §5 decides
-   whether it renders wrong or fails loudly.
+   which I did not run. Given §5 item 1's widened radius, this now bears on a page that ships.
+8. **Does the Doc's content need Mo's sign-off before ingest, or is it already locked?** The Doc
+   carries a character-limit instruction at the top but no lock marker. §7.2's post-lock correction
+   warns that a lock line was deliberately removed from a p6/p7 source during cleanup and *"do not
+   expect the doc to corroborate this"* — so the absence of a marker proves nothing either way.
+   [CC-MEASURED] Someone who knows has to say.
+9. **Is `reference/hive_27_subtype_reference.md` ratified for the 27 display names?** It calls
+   itself a *"Draft reference"* in its own header. [CC-MEASURED] It is now the only source for
+   `.cname` (§2.3), so its status matters more than it did when it was one of two agreeing votes.
+
+---
+
+## 7. Where I think the counterproposal is still wrong *(Amendment 1)*
+
+Asked directly, so answered directly. Three things, in descending order of how much they matter.
+None of them changes the Z5 decision, which I accept. *(Lettered, not numbered — this document
+already cites spec §7.1–§7.4 and a second §7.x would be one more collision in an audit about
+collisions.)*
+
+### 7a "Signature ← Google Doc tagline" — the Doc has no field called a tagline, and the wrong segment is easy to grab
+
+Counterproposal §1 sources the signature from the *"Google Doc tagline"*. The Doc has no tagline
+field. Its header line is **three** `·`-delimited elements — `SP9 · Appetite · Comfort & Routine` —
+and the signature is the **third**. The second is the passion term, which the same §1 correctly
+excludes from the page. [CC-MEASURED]
+
+This is terminology, not a decision error, and it would be pedantic except that "tagline" is a
+**live field name on the same 27 rows** (`subtype_*.tagline`, v2's, 57–85 chars, and the place the
+display name is currently embedded). Two different things called "tagline" on one row, with an
+ingest parser being written against the Doc, is how the wrong string lands in all 27. Flagged as an
+ingest hazard in §2.2A. [CC-JUDGMENT]
+
+### 7b "This resolves your §6.2 and half of §6.1" — it resolves both, and opens two more
+
+§6.1 is fully resolved, not half: the Doc neither supersedes nor is a parallel draft — it lands in
+a new field, which is a third answer neither of my options offered. Minor.
+
+What is not minor: the decision **creates** two open questions that did not exist before, and I
+have added them as §6 items 8 and 9. The Doc carries no lock marker, and §7.2 of the spec is on
+record that a missing lock marker proves nothing on this project. And
+`reference/hive_27_subtype_reference.md` — which calls itself a *"Draft reference"* — went from
+being one of two agreeing sources for the display names to being **the only one**, because the Doc
+contains none. [CC-MEASURED] Neither blocks 4a or 4b. Both should be answered before 4c ingests.
+
+### 7c The probe reasoning is right, and I can sharpen one thing in it
+
+§3 is correct and I am not contesting it: character count does not predict line count, the net
+vertical effect is unknown, and 4b must probe the real shape. Two measured refinements:
+
+- **The delta is not uniform across the three columns of one page.** SP9 +29, SO9 +87, SX9 +92
+  (§2.2A). The tallest column sets the row height, so a probe that measures one column and
+  generalises would repeat the single-example error §7.4 records. Probe the triple.
+- **But the nine types are unusually uniform**, which is good news. Each type's tallest column
+  falls in a **12-character band, 382–394**. [CC-DERIVED] On p6/p7 the types diverged widely and a
+  single-type probe genuinely could not answer "does this page fit". Here it nearly can: Type 5
+  carries the global worst column (SO5, 394) and is only 12 characters above the mildest type.
+  **This does not license skipping the other eight** — it means a Type 5 pass is strong evidence
+  and a Type 5 failure is conclusive, which is a better position than p6/p7 was ever in.
+  [CC-JUDGMENT]
+
+### 7d Not wrong, but worth saying plainly
+
+Both of my §2.2 findings that this decision voided were **correct about the artifact and wrong
+about the intent**. I measured the mockup accurately and then reasoned about what to build from it,
+without knowing the mockup was the thing being changed. The measurement stands; the inference did
+not. That is a failure mode worth naming, because §7.4 of the spec records the same class of error
+twice — reasoning forward from an artifact whose status was not established first. [CC-JUDGMENT]
