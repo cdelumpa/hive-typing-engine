@@ -86,6 +86,20 @@ const SCRIPT_SOURCED = [
     // type_9.wings, so an unscoped walk counts it twice — once here and once in the wings
     // row above — and reports 100 where the truth is 99.
     walkTypes: ['intro_v3', 'work_lead_v3', 'work_v3', 'bullets_v3'], under: 'lines' },
+  // p10 "Instincts & Subtypes", all 27 subtypes, from INTERIM_INSTINCTS_V3 (PR 4 step 1).
+  //
+  // PURELY ADDITIVE, like the wings row and unlike the p9 replaced row: the docx has no
+  // section for a subtype header or a v3 narrative, so nothing docx-parsed stops being
+  // Word-sourced when this lands. subtype_*.{tagline,narrative,patterns,shifts} are v2's
+  // and are untouched. 27 rows x 3 leaves = 81.
+  //
+  // Counted with `walkSubtypes`, not `path`, for the reason the wings row records: these
+  // leaves live on the 27 subtype_* keys, and a `path` pinned to one of them would report
+  // 3 where the truth is 81 — the same way `type_9.wings` reported 15 against 135.
+  { path: 'subtypes_v3_instincts',
+    label: 'p10 instincts_v3, all 27 subtypes (naranjo/signature/narrative)',
+    retires: 'when the docx gains a SUBTYPE NARRATIVES section (no current plan — the source of record is a Google Doc, ID in build_content_library.js)',
+    walkSubtypes: 'instincts_v3' },
   { path: 'types_v3_lines_replaced',
     label: 'p9 narrative + resource card, all 9 types (REPLACE the docx values)',
     retires: 'if the docx p9 narratives are ever rewritten to the v3 length budget',
@@ -203,6 +217,17 @@ function buildToTemp(tmpPath) {
     // fixed path cannot express "every type", and pinning one while eight more land is how
     // this table silently stops counting. `under` restricts the walk to a sub-node so
     // `narrative` matches type_N.lines.*.narrative and not some other field of that name.
+    // `walkSubtypes` is the same idea across the 27 subtype_* keys. It needs its own
+    // branch because `walkTypes` iterates type_1..type_9 and these leaves are not there.
+    if (s.walkSubtypes) {
+      for (const inst of ['sp', 'so', 'sx']) for (let i = 1; i <= 9; i++) {
+        const st = built[`subtype_${inst}${i}`];
+        if (!st || !st[s.walkSubtypes]) continue;
+        n += countLeaves(st[s.walkSubtypes]);
+      }
+      scripted += n; rows.push({ ...s, n });
+      continue;
+    }
     if (s.walkTypes) {
       for (let i = 1; i <= 9; i++) {
         const t = built[`type_${i}`];

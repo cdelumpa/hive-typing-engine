@@ -1280,6 +1280,228 @@ const INTERIM_EXPLORE_V3 = {
   },
 };
 
+// ── p10 Instincts & Subtypes — subtype header + narrative (PR 4 step 1) ──────
+//
+// SOURCE OF RECORD: Google Doc 1_M7tvK1I-5bJw0JjDF4xpTRAEPgpyeWkGCQea6nH364
+// ("Subtype Narratives — p8 Instincts & Subtypes"), ingested BY ID, never by title —
+// a duplicate doc with an identical title once received a misdirected edit on this
+// project. Read and recounted 6 Sep 2026: 27/27 rows, and all 27 of the Doc's own
+// stated character counts are EXACT, zero delta. Note that is the OPPOSITE of the
+// standing caution in spec §7.4, where the p6/p7 source docs' printed counts run low.
+// Recount at every re-ingest anyway; the counts being right today is not a property
+// of the file.
+//
+// The docx has no section for any of this, so it cannot be a parseStatics() read.
+// Same contract as INTERIM_WINGS_V3 / INTERIM_LINES_V3 / INTERIM_EXPLORE_V3: purely
+// additive, replacing nothing. subtype_*.{tagline,narrative,patterns,shifts} are v2's
+// and are NOT touched — in particular `narrative` here is a NEW field on the same row,
+// not a rewrite of the v2 one, which stays 602-762 chars and two paragraphs.
+//
+// PARSER HAZARDS, all measured, if this is ever re-ingested:
+//   - The Doc header is THREE '·'-delimited elements: code · naranjo · signature. The
+//     signature is the THIRD. Taking "text after the first ·" ingests the naranjo term
+//     for all 27. Do not call the third element a "tagline" either — `tagline` is a
+//     live v2 field on these same rows.
+//   - Key on the '·' structure, NOT on formatting: 12 rows (types 8/9/1/2) carry a
+//     plain header and 15 (types 3-7) carry a bold one with the count outside the bold
+//     run. A formatting-keyed parser splits them 12/15.
+//   - Doc type order is 8, 9, 1, 2, 3, 4, 5, 6, 7 — not 1-9.
+//   - The trailing "Spread:" lines vary in format and are not content.
+//
+// ⚠ `naranjo` IS CLIENT-FACING. It renders on p10 in the Z5 column header, in the slot
+// the mockup gave the display nickname ("The Collector"), which does not appear on the
+// page at all. So the value below is read by clients, not just by the engine.
+//
+// ⚠ THE VALUES BELOW ARE THE DOC'S, AND A SECOND REPO ARTIFACT DISAGREES ON 18 OF 27.
+// reference/hive_27_subtype_reference.md carries a different term for 18 subtypes:
+// 10 are a distinct word (SP5 Castle/Home, SO5 Totem/Symbols, SP7 Keepers of the
+// Castle/Family, SX9 Fusion/Union, SP1 Worry/Anxiety, SO1 Non-Adaptability/
+// Inadaptability, SP2 Privilege/Entitlement, SP4 Tenacity/Dauntlessness, SP8
+// Satisfaction/Assured Survival, SO8 Solidarity/Friendship); 4 are cases where the
+// REF carries MORE and the Doc's value is one arm of it (SX2 Seduction ⊂ Seduction /
+// Aggression, SX8 Possession ⊂ Possession / Surrender, SO4 Shame ⊂ Honor / Shame, SP3
+// Security ⊂ Material Security); 3 are morphological variants of one stem (SX1 Zeal/
+// Zealousness, SX4 Competition/Competitiveness, SX5 Confidence/Confidentiality); and
+// 1 differs only by whitespace (SX6 Strength/Beauty vs Strength / Beauty).
+//
+// The Doc is authoritative for this field and the ref file is NOT a supply for it. But
+// the divergence is recorded here deliberately, because the ref file has ZERO machine
+// consumers — nothing in the repo reads reference/, and the Coach Prep Report's
+// easy_to_miss is AI-generated at runtime (app/server.js:4871), not read from it — so
+// nothing will ever fail to flag this. Reconciling the 18 is its own card; do not do it
+// here. See docs/audit_pr4_instincts_subtypes.md A2.4.
+//
+// "naranjo" names the term's provenance rather than its role, which is unusual for a
+// leaf in this library — every other one is role-descriptive. It is used because the
+// divergence above is live and client-facing, and a role name (`passion`, `display_
+// name`) would not say WHICH of the two competing term sets a value came from. If the
+// 18 are ever reconciled, revisit the name: see the audit for the caveat that the
+// Doc-is-Naranjo attribution is the project's label, not something this repo verified.
+const INTERIM_INSTINCTS_V3 = {
+  SP1: {
+    naranjo: 'Worry',
+    signature: 'Order & Security',
+    narrative:
+      'The Self-Preservation One improves their world by getting the practical details right: the home run well, finances in order, meals prepared properly. Of all Type 1 subtypes, SP1s repress anger the most, burying it under hard work and a warm front. The true perfectionist, they strive for impossibly high standards, and their inner critic keeps score of every way they fall short.',
+  },
+  SO1: {
+    naranjo: 'Non-Adaptability',
+    signature: 'Standards & Systems',
+    narrative:
+      "The Social One improves their world by holding themselves up as the perfect model of how things should be done, in their institutions, community, and causes. There's a teacher in them, certain they know the right way, and a hidden sense of superiority underneath it. Their anger rarely shows hot; it's more cool and calm, controlling and correcting with little room for pushback.",
+  },
+  SX1: {
+    naranjo: 'Zeal',
+    signature: 'Reform & Intensity',
+    narrative:
+      "The One-to-One One improves their world by reforming the people and causes around them, not by perfecting themselves. Their vision of how things should be feels obvious and true, and they feel entitled to push for it directly. Unlike the other Ones, the anger doesn't stay contained. When someone resists their efforts to improve things, it comes out as open frustration and confrontation.",
+  },
+  SP2: {
+    naranjo: 'Privilege',
+    signature: 'Charm & Care',
+    narrative:
+      'The Self-Preservation Two earns care with a warmth that can feel almost childlike, playful and personable with nearly everyone they meet. Underneath is a fear their own needs won\'t get met unless they earn it, usually through taking care of others first. All that giving can lead to a felt sense of entitlement and privilege, a sort of "after all I\'ve done for you..." attitude.',
+  },
+  SO2: {
+    naranjo: 'Ambition',
+    signature: 'Influence & Standing',
+    narrative:
+      "The Social Two earns the care of others by becoming indispensable to a group or cause they believe in. They attune to others to create a role where they're seen as influential and closely connected to important people. SO2s take great pride in the group's success, seeing themselves as integral to making it happen. This pride can lead them to overextend in pursuit of affirmation.",
+  },
+  SX2: {
+    naranjo: 'Seduction',
+    signature: 'Devotion & Intensity',
+    narrative:
+      "The One-to-One Two earns love by drawing out the best in one chosen person, changing themselves to fit what that person needs. The attention can feel seductive, even when nothing sexual is meant. Unlike the other Twos, SX2s ask directly for what they want, and can become demanding, even aggressive, when refused. Boundaries dissolve and feelings get lost inside the other person's.",
+  },
+  SP3: {
+    naranjo: 'Security',
+    signature: 'Effort & Effectiveness',
+    narrative:
+      'The Self-Preservation Three gains recognition by working hard, performing well, and delivering results. SP3s prefer to let their work speak for itself rather than actively seeking admiration. Their relentless focus on staying productive and completing tasks helps them achieve material wealth and comfort. However, it can also lead them to overwork, causing stress and burnout.',
+  },
+  SO3: {
+    naranjo: 'Prestige',
+    signature: 'Status & Success',
+    narrative:
+      'The Social Three gains recognition by skillfully navigating social and political structures, adapting their presentation to their audience in a chameleon-like way. SO3s are the most competitive Threes, and enjoy being in the spotlight and celebrated for their success. They can easily lose themselves in the pursuit of success and forget they are a person separate from their endeavors.',
+  },
+  SX3: {
+    naranjo: 'Charisma',
+    signature: 'Image & Promotion',
+    narrative:
+      "The One-to-One Three gains recognition by using their magnetic presence and physical attractiveness to transmit an image worth admiring. SX3s seek interpersonal power and impact, bonding with others deemed important to their success and making sure those people get seen. They strongly identify with others' perceptions of them and can quickly lose themselves in the performance.",
+  },
+  SP4: {
+    naranjo: 'Tenacity',
+    signature: 'Drive & Endurance',
+    narrative:
+      'The Self-Preservation Four gains wholeness by pushing through feelings of lack to go after what they want in unorthodox, creative ways. SP4s carry a sense of dauntlessness, willing to take risks and work relentlessly to feel unique and authentic. Though they may appear driven and resilient, this hides their sadness at feeling something in their lives is missing or could be better.',
+  },
+  SO4: {
+    naranjo: 'Shame',
+    signature: 'Comparison & Belonging',
+    narrative:
+      "The Social Four gains wholeness by striving to be unique in order to overcome feelings of shame for what they lack compared to others. SO4s establish themselves as the truth-teller or social critic of the group or community, calling out what's missing or what's inauthentic. Occupying this important role sets up tension between their desire for belonging and their need to be authentic.",
+  },
+  SX4: {
+    naranjo: 'Competition',
+    signature: 'Intensity & Comparison',
+    narrative:
+      'The One-to-One Four gains wholeness through seeking an intense connection to an important other, to themselves, or to a divine presence. This can lead SX4s to compete with themselves or with others to achieve an idealized experience, often sought after intensely. Though this can motivate them to personal excellence, the constant "compare-and-despair" can be self-diminishing.',
+  },
+  SP5: {
+    naranjo: 'Castle',
+    signature: 'Refuge & Reserves',
+    narrative:
+      "The Self-Preservation Five gains protection from intrusion or depletion by retreating to a private place, away from the world's demands. For SP5s, this is usually home, though some hold no attachment to a particular place, so long as it offers solace and privacy. Being self-sufficient and well-boundaried offers safety and security, but can also lead to disconnection from others.",
+  },
+  SO5: {
+    naranjo: 'Totem',
+    signature: 'Mastery & Role',
+    narrative:
+      'The Social Five gains protection from intrusion or depletion by becoming an expert in a field, then assuming a role as teacher or master, sharing that knowledge with others. This helps the SO5 maintain a sense of autonomy, with expertise serving as both a connecting point and a boundary. Their passion for seeking knowledge can lead to a life spent observing the world and not experiencing it.',
+  },
+  SX5: {
+    naranjo: 'Confidence',
+    signature: 'Trust & Compartments',
+    narrative:
+      'The One-to-One Five gains protection from intrusion or depletion by choosing a few individuals to trust, then compartmentalizing those connections. SX5s can be intensely intimate and secretive at the same time, keeping each relationship within its own established boundaries. Sometimes known as "secret agents," they keep a dossier on others while revealing little about themselves.',
+  },
+  SP6: {
+    naranjo: 'Warmth',
+    signature: 'Alliance & Safety',
+    narrative:
+      'The Self-Preservation Six gains safety and predictability by building protective alliances. SP6s bring warmth and genuine care, placing their priority on family, whether by blood or chosen. The most fearful, or "phobic," of the Type 6 subtypes, the SP6 often looks to others for signs that things are safe. This over-reliance on others can lead them to doubt their own judgment.',
+  },
+  SO6: {
+    naranjo: 'Duty',
+    signature: 'Rules & Responsibility',
+    narrative:
+      'The Social Six gains safety and predictability by taking responsibility for the safety and security of the group. Skilled organizers, SO6s are the keepers of the agenda, structure, and agreements that benefit the group and ensure its well-being. They are loyal to trusted authority figures but can turn quickly if trust is violated. Their sense of duty can become a burden when overdone.',
+  },
+  SX6: {
+    naranjo: 'Strength/Beauty',
+    signature: 'Courage & Confrontation',
+    narrative:
+      'The One-to-One Six gains safety and predictability by running straight at fear instead of away from it. Unlike the other Type 6 subtypes, SX6s trust themselves and believe that when afraid, "the best defense is a good offense." They bring willpower, boldness, and fierce conviction, much like a Type 8 Protector. However, the fear is always present, just channeled into energy and action.',
+  },
+  SP7: {
+    naranjo: 'Keepers of the Castle',
+    signature: 'Abundance & Options',
+    narrative:
+      'The Self-Preservation Seven gains freedom from pain and constraints by building an abundant life within a trusted circle of family and friends. The true "epicures" of the Type 7 subtypes, they enjoy good food, good conversation, and multiple options to keep life interesting. Their love of pleasure can lead to over-indulgence, not fully digesting one experience before moving to the next.',
+  },
+  SO7: {
+    naranjo: 'Sacrifice',
+    signature: 'Idealism & Contribution',
+    narrative:
+      'The Social Seven gains freedom from pain and constraints by accepting some limitations that keep them aligned with social norms and expectations. SO7s are typically generous, wanting to share the things they love and being of service to the group, similar to the Type 2 Giver. Their abundance of ideas and possibilities can lead them to become overextended, scattered, and spread too thin.',
+  },
+  SX7: {
+    naranjo: 'Suggestibility',
+    signature: 'Fascination & Charm',
+    narrative:
+      'The One-to-One Seven gains freedom from pain and constraints by staying up and positive, approaching life with rose-colored glasses. SX7s are easily moved by new ideas, adventures, and relationships. They are also highly persuasive, using their charm to sell anything to anyone. Their ability to pivot fast helps them stay positive, but others can see it as unfocused or uncommitted.',
+  },
+  SP8: {
+    naranjo: 'Satisfaction',
+    signature: 'Territory & Resources',
+    narrative:
+      'Self-Preservation Eights protect themselves and others by securing resources and their immediate environment. They are the strong, silent ones, preferring to lead through influence rather than by powering over others. However, when their needs or desires are threatened, SP8s channel their energy into directness and confrontation, with little to no regard for their impact on others.',
+  },
+  SO8: {
+    naranjo: 'Solidarity',
+    signature: 'Cause & Loyalty',
+    narrative:
+      'Social Eights protect themselves and others by directing their power and influence toward serving "their people" and seeking social justice. Their drive to support others softens their edges, making them look less like the classic Eight and more like a Type 2 Giver. Though the SO8 prefers not to expose vulnerability, they\'re more open to tough feedback, especially from those they trust.',
+  },
+  SX8: {
+    naranjo: 'Possession',
+    signature: 'Intensity & Connection',
+    narrative:
+      'One-to-One Eights protect themselves and others by openly wielding their power and influence to create change. They use their assertiveness and magnetism to provoke others and create disruption, making them highly effective trailblazers. When overdone, the SX8\'s drive and intensity can turn into a "my way or the highway" stance, crowding out disagreement that could improve the solution.',
+  },
+  SP9: {
+    naranjo: 'Appetite',
+    signature: 'Comfort & Routine',
+    narrative:
+      'Self-Preservation Nines find peace through physical comfort and routine. Eating, reading, and attending to their immediate environment create a sense of calm and settledness. Creature comforts become an easy retreat when life starts feeling shaky. SP9s are generally warm and welcoming, but can become irritated when others disrupt their inner and outer peace.',
+  },
+  SO9: {
+    naranjo: 'Participation',
+    signature: 'Belonging & Participation',
+    narrative:
+      'Social Nines find peace through belonging and participation. Leaning in, mediating conflict, and creating harmony bring the SO9 a sense of connection with the group. Their natural inclination to set aside their own perspective makes them highly effective facilitators. However, this can lead them to forget themselves, and over time this can leak out as stubbornness and resentment.',
+  },
+  SX9: {
+    naranjo: 'Fusion',
+    signature: 'Merging & Intensity',
+    narrative:
+      "One-to-One Nines find peace through a deep and intense connection with a significant other, an experience, or their environment. Merging with who or what they love creates a felt sense of comfort and belonging for themselves and with others. When overdone, merging can lead the SX9 to struggle with boundaries and to distinguish their partner's passions and desires from their own.",
+  },
+};
+
 // Engine source of truth (mirrors renderer TYPE_NAMES + design A6; Phase 4 centralizes into type_meta.js).
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver', 3: 'The Performer', 4: 'The Individualist',
@@ -1683,7 +1905,17 @@ function validateSubtype(key, st) {
   const P = `subtype_${key}`;
   need(st.name, `${P}.name empty`); need(st.tagline, `${P}.tagline empty`); need(st.narrative, `${P}.narrative empty`);
   for (const k of ['thinking', 'feeling', 'behaving']) need(st.patterns[k].length >= 1, `${P}.patterns.${k} empty`);
+  // shifts STAYS REQUIRED. D4 cut the shift bullets from p10 — it did NOT cut them from the
+  // product: subtype.shifts is live v2 content on p7 (report_prep.js:375 -> renderer.js:2347)
+  // and is admin-editable. Dropping this need() would let a rebuild silently empty a live
+  // page. The p10 "no shift zone" assertion is a RENDERER assertion and does not live here.
   need(st.shifts.length >= 1, `${P}.shifts empty`);
+  // p10 (PR 4 step 1). 27/27 coverage is structural: the caller loops all 27 subtype keys
+  // and calls this on each, so requiring the leaves here enforces presence for all of them.
+  const iv = st.instincts_v3;
+  need(iv && iv.naranjo, `${P}.instincts_v3.naranjo empty`);
+  need(iv && iv.signature, `${P}.instincts_v3.signature empty`);
+  need(iv && iv.narrative, `${P}.instincts_v3.narrative empty`);
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -1728,7 +1960,13 @@ function validateSubtype(key, st) {
     lib[`type_${n}`] = t;
 
     const subs = assembleSubtypes(n, subToks);
-    for (const [key, st] of Object.entries(subs)) lib[`subtype_${key}`] = st;
+    for (const [key, st] of Object.entries(subs)) {
+      // p10 (PR 4 step 1). Keyed by st.code ("SP9") — the same key the Doc uses — so a
+      // key that does not line up surfaces as a missing field in validateSubtype rather
+      // than as a silent undefined. Purely additive; nothing docx-parsed is replaced.
+      if (INTERIM_INSTINCTS_V3[st.code]) st.instincts_v3 = INTERIM_INSTINCTS_V3[st.code];
+      lib[`subtype_${key}`] = st;
+    }
   }
 
   // Coverage validation
