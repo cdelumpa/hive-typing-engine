@@ -485,7 +485,12 @@
       "The classic Eight boldness is still there — but it shows up in service of building and protecting, not in constant assertion.",
       "You may be the Eight others don't immediately recognize as one. The intensity is real; it's just more carefully managed.",
       "The circle is small by choice, not by limitation. Loyalty runs deep; entry is earned."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Satisfaction",
+      "signature": "Territory & Resources",
+      "narrative": "Self-Preservation Eights protect themselves and others by securing resources and their immediate environment. They are the strong, silent ones, preferring to lead through influence rather than by powering over others. However, when their needs or desires are threatened, SP8s channel their energy into directness and confrontation, with little to no regard for their impact on others."
+    }
   },
   "subtype_so8": {
     "code": "SO8",
@@ -513,7 +518,12 @@
       "The Eight's protective instinct becomes collective — you fight for the group, the cause, or the principle, not just for yourself.",
       "You may be the Eight who's easiest to underestimate: collaborative, friendly, principle-organized. The full force is there when the cause needs it.",
       "The personal tends to come second. The people on your short list may feel both fiercely loved and, at times, eclipsed by the mission."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Solidarity",
+      "signature": "Cause & Loyalty",
+      "narrative": "Social Eights protect themselves and others by directing their power and influence toward serving \"their people\" and seeking social justice. Their drive to support others softens their edges, making them look less like the classic Eight and more like a Type 2 Giver. Though the SO8 prefers not to expose vulnerability, they're more open to tough feedback, especially from those they trust."
+    }
   },
   "subtype_sx8": {
     "code": "SX8",
@@ -540,7 +550,12 @@
       "The Eight's intensity concentrates into connection — it's not about the group or the territory, it's about this person, right now, fully.",
       "The provocative edge isn't cruelty — it's contact. You push to find out who's actually there, not to drive people away.",
       "The growing edge is surrender: trusting that allowing yourself to be held won't cost you the strength you've built."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Possession",
+      "signature": "Intensity & Connection",
+      "narrative": "One-to-One Eights protect themselves and others by openly wielding their power and influence to create change. They use their assertiveness and magnetism to provoke others and create disruption, making them highly effective trailblazers. When overdone, the SX8's drive and intensity can turn into a \"my way or the highway\" stance, crowding out disagreement that could improve the solution."
+    }
   },
   "type_9": {
     "number": 9,
@@ -854,7 +869,12 @@
       "The peacemaking is private — you keep your own peace through comfort and routine more than by managing others.",
       "You may not look like a classic Nine at all: more self-contained, more grounded, less obviously accommodating.",
       "The growing edge is noticing the numbing — the comfortable habits that quietly substitute for what actually matters."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Appetite",
+      "signature": "Comfort & Routine",
+      "narrative": "Self-Preservation Nines find peace through physical comfort and routine. Eating, reading, and attending to their immediate environment create a sense of calm and settledness. Creature comforts become an easy retreat when life starts feeling shaky. SP9s are generally warm and welcoming, but can become irritated when others disrupt their inner and outer peace."
+    }
   },
   "subtype_so9": {
     "code": "SO9",
@@ -882,7 +902,12 @@
       "The peacemaking goes outward — you keep harmony in groups and work hard for the collective good.",
       "You can look highly social and engaged, which masks the inner uncertainty about whether you really belong.",
       "The growing edge is noticing the gap between your outward agreeableness and your inner experience of belonging."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Participation",
+      "signature": "Belonging & Participation",
+      "narrative": "Social Nines find peace through belonging and participation. Leaning in, mediating conflict, and creating harmony bring the SO9 a sense of connection with the group. Their natural inclination to set aside their own perspective makes them highly effective facilitators. However, this can lead them to forget themselves, and over time this can leak out as stubbornness and resentment."
+    }
   },
   "subtype_sx9": {
     "code": "SX9",
@@ -910,7 +935,12 @@
       "The peacemaking happens through union — you find calm by merging deeply rather than by managing conflict.",
       "You may look more intense and devoted than the classic Nine — closer to a Four or Two on the surface.",
       "The growing edge is locating yourself inside the relationship: your own priorities, distinct from the beloved's."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Fusion",
+      "signature": "Merging & Intensity",
+      "narrative": "One-to-One Nines find peace through a deep and intense connection with a significant other, an experience, or their environment. Merging with who or what they love creates a felt sense of comfort and belonging for themselves and with others. When overdone, merging can lead the SX9 to struggle with boundaries and to distinguish their partner's passions and desires from their own."
+    }
   },
   "type_1": {
     "number": 1,
@@ -1225,7 +1255,12 @@
       "The standard turns toward security and the practical world — order as a kind of safety.",
       "You may look more worried and self-contained than openly critical — the perfectionism lives inward.",
       "The growing edge is noticing the tension you carry and the resentment of holding the standard alone."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Worry",
+      "signature": "Order & Security",
+      "narrative": "The Self-Preservation One improves their world by getting the practical details right: the home run well, finances in order, meals prepared properly. Of all Type 1 subtypes, SP1s repress anger the most, burying it under hard work and a warm front. The true perfectionist, they strive for impossibly high standards, and their inner critic keeps score of every way they fall short."
+    }
   },
   "subtype_so1": {
     "code": "SO1",
@@ -1253,7 +1288,12 @@
       "The standard turns outward toward systems and society — how the group, the institution, the world should work.",
       "You may read as principled and civic-minded rather than personally critical — the reform impulse is real.",
       "The growing edge is the inadaptability: noticing how hard it is to flex around others' 'incorrect' ways."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Non-Adaptability",
+      "signature": "Standards & Systems",
+      "narrative": "The Social One improves their world by holding themselves up as the perfect model of how things should be done, in their institutions, community, and causes. There's a teacher in them, certain they know the right way, and a hidden sense of superiority underneath it. Their anger rarely shows hot; it's more cool and calm, controlling and correcting with little room for pushback."
+    }
   },
   "subtype_sx1": {
     "code": "SX1",
@@ -1281,7 +1321,12 @@
       "The standard charges outward with intensity — directed at a partner or a cause rather than held quietly inside.",
       "You may be mistaken for an Eight: forceful, confrontational, anything but the contained classic One.",
       "The growing edge is noticing where the perfecting energy turns onto others, and what it's really seeking."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Zeal",
+      "signature": "Reform & Intensity",
+      "narrative": "The One-to-One One improves their world by reforming the people and causes around them, not by perfecting themselves. Their vision of how things should be feels obvious and true, and they feel entitled to push for it directly. Unlike the other Ones, the anger doesn't stay contained. When someone resists their efforts to improve things, it comes out as open frustration and confrontation."
+    }
   },
   "type_2": {
     "number": 2,
@@ -1596,7 +1641,12 @@
       "The giving turns toward security and a close circle — care offered partly to ensure care received.",
       "You may look more childlike and endearing than the classic Two, with needs closer to the surface.",
       "The growing edge is the ledger — noticing the reciprocity the giving quietly expects."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Privilege",
+      "signature": "Charm & Care",
+      "narrative": "The Self-Preservation Two earns care with a warmth that can feel almost childlike, playful and personable with nearly everyone they meet. Underneath is a fear their own needs won't get met unless they earn it, usually through taking care of others first. All that giving can lead to a felt sense of entitlement and privilege, a sort of \"after all I've done for you...\" attitude."
+    }
   },
   "subtype_so2": {
     "code": "SO2",
@@ -1624,7 +1674,12 @@
       "The giving aims at the group — becoming essential to the collective rather than to one person.",
       "You may look ambitious and accomplished, with the Two motivation masked by visible success.",
       "The growing edge is asking whether the drive is for the achievement, or for being needed by the people in it."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Ambition",
+      "signature": "Influence & Standing",
+      "narrative": "The Social Two earns the care of others by becoming indispensable to a group or cause they believe in. They attune to others to create a role where they're seen as influential and closely connected to important people. SO2s take great pride in the group's success, seeing themselves as integral to making it happen. This pride can lead them to overextend in pursuit of affirmation."
+    }
   },
   "subtype_sx2": {
     "code": "SX2",
@@ -1652,7 +1707,12 @@
       "The giving concentrates into intense, magnetic bonds — being irresistible to chosen people.",
       "You may look more demanding or seductive than the classic quiet helper — need is closer to the surface.",
       "The growing edge is the insistence on connection: noticing where the giving becomes a claim."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Seduction",
+      "signature": "Devotion & Intensity",
+      "narrative": "The One-to-One Two earns love by drawing out the best in one chosen person, changing themselves to fit what that person needs. The attention can feel seductive, even when nothing sexual is meant. Unlike the other Twos, SX2s ask directly for what they want, and can become demanding, even aggressive, when refused. Boundaries dissolve and feelings get lost inside the other person's."
+    }
   },
   "type_3": {
     "number": 3,
@@ -1967,7 +2027,12 @@
       "The drive turns toward security and quality — success measured in reliability rather than applause.",
       "You may be mistaken for a One: hardworking, proper, uncomfortable with overt self-promotion.",
       "The growing edge is the complicated relationship to recognition — wanting it while finding display uneasy."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Security",
+      "signature": "Effort & Effectiveness",
+      "narrative": "The Self-Preservation Three gains recognition by working hard, performing well, and delivering results. SP3s prefer to let their work speak for itself rather than actively seeking admiration. Their relentless focus on staying productive and completing tasks helps them achieve material wealth and comfort. However, it can also lead them to overwork, causing stress and burnout."
+    }
   },
   "subtype_so3": {
     "code": "SO3",
@@ -1995,7 +2060,12 @@
       "The drive turns toward status and standing — success measured in influence and recognition.",
       "You may read as a natural leader, the social skill masking the image-management underneath.",
       "The growing edge is the relationship to disapproval — what happens when the group doesn't respond as expected."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Prestige",
+      "signature": "Status & Success",
+      "narrative": "The Social Three gains recognition by skillfully navigating social and political structures, adapting their presentation to their audience in a chameleon-like way. SO3s are the most competitive Threes, and enjoy being in the spotlight and celebrated for their success. They can easily lose themselves in the pursuit of success and forget they are a person separate from their endeavors."
+    }
   },
   "subtype_sx3": {
     "code": "SX3",
@@ -2023,7 +2093,12 @@
       "The drive concentrates into charisma and magnetism — being desired by the people who matter.",
       "You may be mistaken for a Two: focused on connection, winning personal attention.",
       "The growing edge is whether the interpersonal skill serves the other, or serves your own desirability."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Charisma",
+      "signature": "Image & Promotion",
+      "narrative": "The One-to-One Three gains recognition by using their magnetic presence and physical attractiveness to transmit an image worth admiring. SX3s seek interpersonal power and impact, bonding with others deemed important to their success and making sure those people get seen. They strongly identify with others' perceptions of them and can quickly lose themselves in the performance."
+    }
   },
   "type_4": {
     "number": 4,
@@ -2338,7 +2413,12 @@
       "The Four longing is met with endurance — internalized and channeled into drive rather than displayed.",
       "You may be mistaken for a Three or a Seven: resilient, active, refusing to be defeated.",
       "The growing edge is the suffering underneath the tenacity — what you're proving, and to whom."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Tenacity",
+      "signature": "Drive & Endurance",
+      "narrative": "The Self-Preservation Four gains wholeness by pushing through feelings of lack to go after what they want in unorthodox, creative ways. SP4s carry a sense of dauntlessness, willing to take risks and work relentlessly to feel unique and authentic. Though they may appear driven and resilient, this hides their sadness at feeling something in their lives is missing or could be better."
+    }
   },
   "subtype_so4": {
     "code": "SO4",
@@ -2366,7 +2446,12 @@
       "The deficiency is felt socially — through comparison and the question of where you belong.",
       "You may look like an engaged social critic rather than a melancholic Four — the shame hides in the role.",
       "The growing edge is the link between your critique and your own longing to belong and be honored."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Shame",
+      "signature": "Comparison & Belonging",
+      "narrative": "The Social Four gains wholeness by striving to be unique in order to overcome feelings of shame for what they lack compared to others. SO4s establish themselves as the truth-teller or social critic of the group or community, calling out what's missing or what's inauthentic. Occupying this important role sets up tension between their desire for belonging and their need to be authentic."
+    }
   },
   "subtype_sx4": {
     "code": "SX4",
@@ -2394,7 +2479,12 @@
       "The longing turns competitive — another's gift becomes a personal challenge to rise to.",
       "You may be mistaken for an Eight or a Three: intense, striving, confrontational rather than withdrawn.",
       "The growing edge is the active envy — noticing where comparison becomes a charge to prove and claim."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Competition",
+      "signature": "Intensity & Comparison",
+      "narrative": "The One-to-One Four gains wholeness through seeking an intense connection to an important other, to themselves, or to a divine presence. This can lead SX4s to compete with themselves or with others to achieve an idealized experience, often sought after intensely. Though this can motivate them to personal excellence, the constant \"compare-and-despair\" can be self-diminishing."
+    }
   },
   "type_5": {
     "number": 5,
@@ -2709,7 +2799,12 @@
       "The Five withdrawal turns toward home and replenishment — a protected refuge from demand.",
       "You may look more privately self-sufficient than intellectual — the energy goes into managing your world.",
       "The growing edge is noticing what replenishment requires, and what happens when you don't get it."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Castle",
+      "signature": "Refuge & Reserves",
+      "narrative": "The Self-Preservation Five gains protection from intrusion or depletion by retreating to a private place, away from the world's demands. For SP5s, this is usually home, though some hold no attachment to a particular place, so long as it offers solace and privacy. Being self-sufficient and well-boundaried offers safety and security, but can also lead to disconnection from others."
+    }
   },
   "subtype_so5": {
     "code": "SO5",
@@ -2737,7 +2832,12 @@
       "The Five engagement happens through expertise and a defined role — connection at a structured remove.",
       "You may not look withdrawn at all — competent, engaged, contributing through knowledge.",
       "The growing edge is what happens outside the role: the difference between formal engagement and open social life."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Totem",
+      "signature": "Mastery & Role",
+      "narrative": "The Social Five gains protection from intrusion or depletion by becoming an expert in a field, then assuming a role as teacher or master, sharing that knowledge with others. This helps the SO5 maintain a sense of autonomy, with expertise serving as both a connecting point and a boundary. Their passion for seeking knowledge can lead to a life spent observing the world and not experiencing it."
+    }
   },
   "subtype_sx5": {
     "code": "SX5",
@@ -2765,7 +2865,12 @@
       "The Five reserve opens selectively — intense, trusted connection with a chosen few.",
       "You may look more available and connected than the classic Five — the intensity is real.",
       "The growing edge is the compartmentalization: who gets which parts, and what stays separate."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Confidence",
+      "signature": "Trust & Compartments",
+      "narrative": "The One-to-One Five gains protection from intrusion or depletion by choosing a few individuals to trust, then compartmentalizing those connections. SX5s can be intensely intimate and secretive at the same time, keeping each relationship within its own established boundaries. Sometimes known as \"secret agents,\" they keep a dossier on others while revealing little about themselves."
+    }
   },
   "type_6": {
     "number": 6,
@@ -3080,7 +3185,12 @@
       "The Six fear is managed through warmth and alliance — safety built through trusted relationships.",
       "You may look like a warm Two, the anxiety hidden beneath the friendliness and care.",
       "The growing edge is seeing the warmth's protective function — and what happens when you don't know where you stand."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Warmth",
+      "signature": "Alliance & Safety",
+      "narrative": "The Self-Preservation Six gains safety and predictability by building protective alliances. SP6s bring warmth and genuine care, placing their priority on family, whether by blood or chosen. The most fearful, or \"phobic,\" of the Type 6 subtypes, the SP6 often looks to others for signs that things are safe. This over-reliance on others can lead them to doubt their own judgment."
+    }
   },
   "subtype_so6": {
     "code": "SO6",
@@ -3108,7 +3218,12 @@
       "The Six fear is managed through duty and structure — safety found in clear roles and rules.",
       "You may look like a dutiful One or a responsible Three, the anxiety channeled into the role.",
       "The growing edge is what happens when the rules aren't clear — and the personal feelings the duty crowds out."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Duty",
+      "signature": "Rules & Responsibility",
+      "narrative": "The Social Six gains safety and predictability by taking responsibility for the safety and security of the group. Skilled organizers, SO6s are the keepers of the agenda, structure, and agreements that benefit the group and ensure its well-being. They are loyal to trusted authority figures but can turn quickly if trust is violated. Their sense of duty can become a burden when overdone."
+    }
   },
   "subtype_sx6": {
     "code": "SX6",
@@ -3136,7 +3251,12 @@
       "The Six fear is met head-on — willpower and boldness pushing straight against the threat.",
       "You may be mistaken for an Eight: confrontational, risk-taking, seemingly without fear.",
       "The growing edge is recognizing the fear beneath the boldness — present even as you fight it."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Strength/Beauty",
+      "signature": "Courage & Confrontation",
+      "narrative": "The One-to-One Six gains safety and predictability by running straight at fear instead of away from it. Unlike the other Type 6 subtypes, SX6s trust themselves and believe that when afraid, \"the best defense is a good offense.\" They bring willpower, boldness, and fierce conviction, much like a Type 8 Protector. However, the fear is always present, just channeled into energy and action."
+    }
   },
   "type_7": {
     "number": 7,
@@ -3451,7 +3571,12 @@
       "The Seven appetite turns toward a trusted circle — abundance and pleasure in a known, secure world.",
       "You may look like the classic Seven, with a self-preserving focus on your own good life that's easy to miss.",
       "The growing edge is the preservative pull — what happens when the comfort or pleasure feels threatened."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Keepers of the Castle",
+      "signature": "Abundance & Options",
+      "narrative": "The Self-Preservation Seven gains freedom from pain and constraints by building an abundant life within a trusted circle of family and friends. The true \"epicures\" of the Type 7 subtypes, they enjoy good food, good conversation, and multiple options to keep life interesting. Their love of pleasure can lead to over-indulgence, not fully digesting one experience before moving to the next."
+    }
   },
   "subtype_so7": {
     "code": "SO7",
@@ -3479,7 +3604,12 @@
       "The Seven appetite is sublimated into a social ideal — pleasure given up in service of something larger.",
       "You may be mistaken for a Two: service-oriented, self-limiting, anything but indulgent.",
       "The growing edge is the relationship to your own pleasure — what you do purely for your own delight."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Sacrifice",
+      "signature": "Idealism & Contribution",
+      "narrative": "The Social Seven gains freedom from pain and constraints by accepting some limitations that keep them aligned with social norms and expectations. SO7s are typically generous, wanting to share the things they love and being of service to the group, similar to the Type 2 Giver. Their abundance of ideas and possibilities can lead them to become overextended, scattered, and spread too thin."
+    }
   },
   "subtype_sx7": {
     "code": "SX7",
@@ -3507,6 +3637,11 @@
       "The Seven appetite concentrates into fascination — idealized people, ideas, and adventures.",
       "You may be mistaken for a Four (in the idealizing) or an Eight (in the impulsivity), depending on the day.",
       "The growing edge is what sustains enthusiasm over time — the commitments that have actually lasted."
-    ]
+    ],
+    "instincts_v3": {
+      "naranjo": "Suggestibility",
+      "signature": "Fascination & Charm",
+      "narrative": "The One-to-One Seven gains freedom from pain and constraints by staying up and positive, approaching life with rose-colored glasses. SX7s are easily moved by new ideas, adventures, and relationships. They are also highly persuasive, using their charm to sell anything to anyone. Their ability to pivot fast helps them stay positive, but others can see it as unfocused or uncommitted."
+    }
   }
 }
