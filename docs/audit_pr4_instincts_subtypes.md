@@ -25,6 +25,18 @@ Every claim is tagged **[CC-MEASURED]** (read out of the repo or executed), **[C
 > Everything not struck stands. §3.1 — the gate correction — is accepted as written and is
 > unchanged.
 
+> ## AMENDMENT 2 — 6 Sep 2026
+>
+> Audit of the **revised build sequence** (content-first), the **Naranjo / passion-term checks**,
+> the **A/B/C fork pricing** and the **Z6 placeholders**. It is a full section at the end of this
+> document, not an edit to the body — **see [Amendment 2](#amendment-2--6-sep-2026)**.
+>
+> Findings below that Amendment 2 corrects: **§2.6**'s "roughly 450 chars" (A2.6), **§2.7**'s named
+> build-source docx (A2.7), and **§5 item 7**'s consumer claim (A2.4 iii). **§2.5**'s badge
+> recommendation and **§5 item 5** are closed by Cai's 6 Sep decision — all three badges ship, as
+> the build plan already required. **§6 items 6, 8 and 9** are closed; four new questions replace
+> them (A2.8).
+
 ---
 
 ## 1. The numbering collision — RESOLVED, NOT AMBIGUOUS
@@ -886,3 +898,545 @@ about the intent**. I measured the mockup accurately and then reasoned about wha
 without knowing the mockup was the thing being changed. The measurement stands; the inference did
 not. That is a failure mode worth naming, because §7.4 of the spec records the same class of error
 twice — reasoning forward from an artifact whose status was not established first. [CC-JUDGMENT]
+
+---
+
+# AMENDMENT 2 — 6 Sep 2026
+
+**Scope:** audit of the revised build sequence, the §3 Naranjo checks, the fork pricing and the
+Z6 placeholders. No build, no ingest, no renderer change, no gate flipped. Working tree clean
+apart from this file.
+
+**Main has not moved.** `origin/main` and local `main` are both `9285751`, and `9285751` is still
+an ancestor of this branch's HEAD. Nothing to pull. [CC-MEASURED]
+
+**The Doc was re-read by ID today** (`1_M7tvK1I-5bJw0JjDF4xpTRAEPgpyeWkGCQea6nH364`), not by
+title, and re-parsed from scratch. 27/27 rows present; the header triples and stated counts match
+what Amendment 1 recorded. Its title is *"Subtype Narratives — **p8** Instincts & Subtypes —
+Content for Review"* — it carries the §1 numbering collision in its own title, and the words
+"Content for Review" in it. [CC-MEASURED]
+
+Tags as before: **[CC-MEASURED]** read out of the repo or executed · **[CC-DERIVED]** arithmetic on
+measured values · **[CC-JUDGMENT]** my read.
+
+**Letter → number mapping**, as asked: my `4c` → **step 1**, `4a` → **step 2**, `4b` → **step 3**,
+`4d` → **step 4**, `4e` → **step 5**.
+
+---
+
+## A2.1 The re-order — ACCEPTED, with one amendment to what step 1 ingests
+
+### 2a — Orthogonal. Content-first violates nothing the fixtures-first argument was protecting
+
+My fixtures-first argument protected **the probe**, not the content. The claim was narrow: a probe
+run on today's harness measures a page with no Z6 and one badge ordering, and publishes floors as
+ceilings. The revised order keeps **fixtures (2) before probe (3)**, so that protection is intact
+and untouched. Content ingest touches `build_content_library.js`, the store and the CMS; it touches
+nothing in `scripts/render_client.js`. The two axes do not interact. [CC-JUDGMENT, on measured
+file boundaries]
+
+There is also measured precedent for content landing in the store ahead of a renderer that reads
+it. **663 of 1979 leaves in the committed library already come from `INTERIM_*` constants**,
+including **360 leaves of sheets 6–7 Exploring content for pilot types only**. [CC-MEASURED]
+Content-in-store-before-full-renderer is the established pattern on this project, not a new risk.
+
+**One thing genuinely changes, and it should be on the record.** My 4c said "ingest the 27 rows
+*against 4b's budgets*". Under 1b there are no budgets at ingest. The probe's role therefore
+changes from *producing the budgets content must meet* to *diagnosing content already committed*.
+That is a consequence of 1b, not of the re-order, and 1b accepts it — but it means step 3's output
+must not later be read as a gate the content passed. It will not be one. [CC-JUDGMENT]
+
+### 2d — One thing beyond the assertion, and it is a number nobody has
+
+`cmsWordBudget` (`app/server.js:~10023`) returns **`0`** for a key it does not recognise — no budget
+shown in the editor. Step 1 exposes `instincts_v3` in the CMS (touchpoints 1–3 of §2.7), so step 1
+must either publish a word budget for the narrative leaf or ship the field with none.
+
+A budget is a fit claim. Step 1 cannot derive one — only the probe can. So the choice is:
+
+- **(a)** publish a budget derived from the 345–415 band — a [CC-DERIVED] number shown to editors as
+  a limit, which is exactly the floors-as-ceilings move §7.4 records twice; or
+- **(b)** leave it `0` until step 3, and ship a CMS field with no budget for one step.
+
+**I would take (b).** It is honest, it is reversible, and a missing budget is visible where a wrong
+one is not. Either way, name the choice — it is currently unnamed. [CC-JUDGMENT]
+
+`cmsPreviewSpec` (§2.7 #4) is *not* a second instance of this: leaving `instincts_v3` unmapped and
+suppressing the Preview control is renderer-independent and lands cleanly at step 1. [CC-MEASURED]
+
+### 2e — Counter: keep five steps; change what step 1 ingests
+
+**Ingest the passion term at step 1 regardless of how the §3 fork is decided** — i.e. build the
+option-B *data* shape — and decide render-or-not at step 4.
+
+The reason is a measured live-path hazard, not a preference.
+
+`assertOverrideShape` (`app/content_overrides.js:159`) throws when a published override's shape no
+longer matches the library field it replaces. The deploy-order warning above it (`:117`) records
+what that throw reaches:
+
+> *"This throw reaches EVERY report render, including the dry-validate probe in `/api/submit`. A
+> mismatched row therefore fails assessment submission, not just a PDF."* [CC-MEASURED]
+
+Step 1 as proposed puts `instincts_v3` into the CMS. If the fork later resolves to **A**,
+`instincts_v3` gains a third leaf, and **any override published against the two-leaf shape becomes
+a shape mismatch on a live path.** The remedy exists (`npm run overrides:check` as a pre-deploy
+gate, retire or re-publish the rows) but the hazard is created purely by ordering. [CC-MEASURED
+mechanism; CC-JUDGMENT that the ordering creates it]
+
+Two ways to avoid it, both acceptable:
+
+- **(i) Ingest the superset shape at step 1** — `{signature, narrative, passion}`. The shape then
+  never changes; A and B differ only in whether the renderer reads the leaf. Priced in A2.5.
+- **(ii) Hold the CMS touchpoints out of step 1** and land them at step 4 once the shape is final.
+  Step 1 ships content + gate only.
+
+**I'd take (i).** The 27 values are already in the Doc, so it costs no authoring, and it settles the
+data question before the CMS can form an opinion about it.
+
+**Caveat — (i) is not neutral.** Ingesting the Doc's passion term silently resolves the 18-of-27
+divergence (A2.4) in the Doc's favour. If it is stored, the `INTERIM_INSTINCTS_V3` comment must
+record that the value is the Doc's and that `reference/hive_27_subtype_reference.md` differs on 18
+of 27 — otherwise the store becomes a *fourth* artifact and the divergence gets harder to see, not
+easier. [CC-JUDGMENT]
+
+**Five steps, not four or six.** Nothing in the revised order wants merging, and nothing in it is
+doing two jobs. My Amendment-1 objection to folding the fixture work into the probe still applies
+and is now moot anyway, since they are separate steps.
+
+---
+
+## A2.2 The renderer assertion lands at **step 4**, not step 3
+
+**Two reasons, and one trap that matters more than either.**
+
+**1. Step 3's page is a spike artifact, not the shipped renderer.** My own 4b scope says step 3
+lands *"a spike script and a measurements JSON. No content, no gate."* A negative assertion is only
+meaningful against the artifact that could actually violate it. The spike cannot emit a shift zone
+because nothing in the spike would ever produce one — it has no access to the model path that
+carries `subtype.shifts`. Asserting D4 there proves the spike author's restraint, not the
+product's. [CC-JUDGMENT]
+
+**2. The thing that could violate it is born at step 4.** `V3_PAGE_BUILDERS`
+(`app/renderer.js:3749`) has no `instincts` entry today. [CC-MEASURED] `subtype.shifts` sits on the
+same row a builder would read, and `report_prep.js:375` already feeds it to a different page
+(`renderer.js:2347`, live v2 p7). Step 4 is the first moment a real emitter holds both the page and
+the field.
+
+### The trap — name it before the assertion is written
+
+**"The emitted `v3-inst-` page contains no shift zone" passes vacuously if the page is not emitted
+at all.** Since `V3_PAGE_BUILDERS` has no `instincts` entry today, **that vacuous pass is the
+current state**: the assertion would be green right now, before the page exists. A negative gate
+that is green before the work starts is not a gate. [CC-MEASURED premise, CC-JUDGMENT conclusion]
+
+It needs a positive precondition in the same test:
+
+1. assert the `v3-inst-` page **is present** in the emitted document, then
+2. assert it carries no shift zone and no "Leaning Into the Other Instincts" block.
+
+`tests/lib/report_page_inventory.js` already asserts one-of-each-page and is the precedent for
+half (1). [CC-MEASURED]
+
+**Proof-of-failure — two red proofs, because the assertion has two halves.** In memory, touching no
+tracked file: (a) build the page HTML from a model, inject a shift-shaped block into the model,
+assert red; (b) remove the `instincts` builder entry and assert the presence half goes red. A single
+proof covering only (a) would leave the vacuous-pass hole open. [CC-JUDGMENT]
+
+**The content-library half stays at step 1, unchanged and agreed.** `validateSubtype` takes the row
+as an argument, so the proof is: `require` the library, clone a row, `delete` the field, call the
+validator, assert it throws. `shifts` stays REQUIRED. [CC-MEASURED]
+
+---
+
+## A2.3 Rework the re-order creates that has not been named
+
+Named, not priced. Five items; the first two are certain, the rest are conditional.
+
+**1. `verify_content_library.js` `SCRIPT_SOURCED` — and it fails silently.**
+Measured today, green: reproducible, `committed library == build(Word source)`, **1316/1979 leaves
+Word-canonical, 663 from `INTERIM_*` constants.** [CC-MEASURED] `INTERIM_INSTINCTS_V3` adds **54**
+leaves (2 per subtype) or **81** (3 per subtype, superset shape). The table is **printed, not
+asserted** (`verify_content_library.js:236–241`) — omitting the entry does not fail CI, it silently
+understates the Word-canonical denominator. The file's own comment names this exact failure mode:
+*"pinning one while eight more land is how this table silently stops counting."* [CC-MEASURED]
+**Work:** one `SCRIPT_SOURCED` entry with a `retires` line.
+
+**2. The ingest cannot be a JSON edit.**
+`verify_content_library.js` asserts `content_library.json == build(docx + INTERIM_*)`, it is green
+today, and the docx digest matches the committed `_meta.source_sha256` exactly
+(`3fb8e971…62175`). [CC-MEASURED] So step 1 is: edit `build_content_library.js`, rebuild, commit
+both. **A hand-edit of `content_library.json` fails CI in the PR that makes it.** *(This corrects a
+stale note I was carrying — A2.7.)*
+
+**3. CMS override masking, if step 3 forces a re-author.**
+Overrides carry **no base snapshot and no staleness detection**; `resolveLibObject` replaces a field
+WHOLE. A *same-shape* correction — new narrative text, same two leaves — produces no shape mismatch,
+so a row published between step 1 and step 3 **silently masks the corrected text**, with no warning
+and no throw. [CC-MEASURED] **Work:** if content is re-authored after step 1, audit and retire
+`instincts_v3` override rows by hand. Nothing does this automatically.
+
+**4. Shape change on a live path** — A2.1/2e above. `assertOverrideShape` throws at render, and that
+throw reaches `/api/submit`'s dry-validate probe. **Work:** `npm run overrides:check` against the
+target DB before deploying any shape change, and retire offending rows first. [CC-MEASURED]
+
+**5. A `cmsWordBudget` number must be chosen at step 1** — A2.1/2d. Either derived-and-published, or
+`0`. Both are work; neither is currently scheduled.
+
+**Fixture churn: none found.** Step 2's axes are `instinct_score_profile`,
+`dominant_instinct_hypothesis` and `client_facing.instinct_evidence`. None of them reads
+`instincts_v3`. Step 1 does not move step 2's work. [CC-MEASURED]
+
+---
+
+## A2.4 The §3 checks
+
+### (i) The full 18-of-27 divergence — Doc vs `reference/hive_27_subtype_reference.md`
+
+Re-derived from a fresh parse of both. **18 diverge, 9 identical** — matching Amendment 1's count
+exactly. [CC-MEASURED]
+
+| Code | Doc passion | ref passion | | Structural class |
+|---|---|---|---|---|
+| SP1 | Worry | Anxiety | **DIVERGE** | distinct word |
+| SO1 | Non-Adaptability | Inadaptability | **DIVERGE** | distinct word |
+| SX1 | Zeal | Zealousness | **DIVERGE** | shared stem |
+| SP2 | Privilege | Entitlement | **DIVERGE** | distinct word |
+| SO2 | Ambition | Ambition | same | — |
+| SX2 | Seduction | Seduction / Aggression | **DIVERGE** | **ref is superset** |
+| SP3 | Security | Material Security | **DIVERGE** | **ref is superset** |
+| SO3 | Prestige | Prestige | same | — |
+| SX3 | Charisma | Charisma | same | — |
+| SP4 | Tenacity | Dauntlessness / Recklessness | **DIVERGE** | distinct word |
+| SO4 | Shame | Honor / Shame | **DIVERGE** | **ref is superset** |
+| SX4 | Competition | Competitiveness | **DIVERGE** | shared stem |
+| SP5 | Castle | Home | **DIVERGE** | distinct word |
+| SO5 | Totem | Symbols | **DIVERGE** | distinct word |
+| SX5 | Confidence | Confidentiality | **DIVERGE** | shared stem |
+| SP6 | Warmth | Warmth | same | — |
+| SO6 | Duty | Duty | same | — |
+| SX6 | Strength/Beauty | Strength / Beauty | **DIVERGE** | **whitespace only** |
+| SP7 | Keepers of the Castle | Family | **DIVERGE** | distinct word |
+| SO7 | Sacrifice | Sacrifice | same | — |
+| SX7 | Suggestibility | Suggestibility | same | — |
+| SP8 | Satisfaction | Assured Survival | **DIVERGE** | distinct word |
+| SO8 | Solidarity | Friendship | **DIVERGE** | distinct word |
+| SX8 | Possession | Possession / Surrender | **DIVERGE** | **ref is superset** |
+| SP9 | Appetite | Appetite | same | — |
+| SO9 | Participation | Participation | same | — |
+| SX9 | Fusion | Union | **DIVERGE** | distinct word |
+
+Breakdown of the 18: **10 distinct word · 4 ref-is-superset · 3 shared stem · 1 whitespace-only.**
+[CC-MEASURED] This is what falsifies the "de-Naranjo'd in every case" reading — see A2.7.
+
+Doc passion terms measure **4–21 chars, mean 9.2**; the longest is SP7 `Keepers of the Castle` (21).
+Doc signatures re-measure **12–25, mean 19.0**, max still SO9 `Belonging & Participation` (25),
+unchanged from Amendment 1. [CC-MEASURED]
+
+### (ii) Is any Naranjo term stored in the content library today? **No. Nowhere, under any field.**
+
+- Subtype rows carry exactly `code, name, tagline, narrative, patterns, shifts`. **No passion field**,
+  and no field name matching `/passion|naranjo/i`. [CC-MEASURED]
+- As a standalone field **value**: **0/27** for the Doc's terms, **0/27** for the ref's. [CC-MEASURED]
+- Seven Doc terms appear *incidentally inside their own row's prose* — Worry, Charisma, Shame,
+  Castle, Warmth, Duty, Sacrifice — and **SP5's "Castle" hit is the display name "The Castle
+  Defender", not the passion.** None is a stored term. [CC-MEASURED]
+
+**So fork C is the status quo, and A and B both introduce the passion term to the store for the
+first time.** That is worth stating plainly: this is not a migration, it is an addition.
+
+### (iii) Consumers of the ref file's passion terms: **there are none**
+
+- **No code path reads `reference/` at all.** `grep -rn "reference/" app/ scripts/ tests/ spec/`
+  returns nothing. [CC-MEASURED]
+- The file is named only in prose: `README.md:45`, three `docs/` files (all about an unrelated
+  Type 6 naming fix), and my own audit. [CC-MEASURED]
+- **`easy_to_miss` — the Coach Prep Report field the ref file says it feeds — is AI-generated at
+  runtime** from a prompt instruction (`app/server.js:4871`, schema `:4995`), then rendered at
+  `renderer.js:555`. It is not read from the file. [CC-MEASURED]
+- Every ref-only passion term — `Assured Survival`, `Material Security`, `Dauntlessness`,
+  `Zealousness`, `Inadaptability`, `Competitiveness`, `Honor / Shame`, `Possession / Surrender`,
+  `Seduction / Aggression` — appears **only in the ref file itself**, nowhere else in the repo.
+  [CC-MEASURED]
+
+**This inverts my §5 item 7 a second time, and the correction is mine.** I filed that item on the
+file's own self-description — *"Draft reference for inclusion in the Hive AI Prompt Spec… gives the
+engine guidance for Section 4 of the Coach Prep Report"* — which is a statement of **intent that
+was never implemented**. The file is a leaf document with zero machine consumers. Nothing
+downstream breaks whichever way the divergence is resolved, and the card should say so rather than
+implying a reader is currently seeing the ref's terms. **Change none of them** — I have not.
+
+### Display-name sanity diff — mismatch-only, as offered
+
+**5 of 27 mismatch**, and the disagreement is not random. [CC-MEASURED]
+
+| Code | repo file **and** store tagline | project docx |
+|---|---|---|
+| SP2 | The Family Nurturer | The Nurturer |
+| SP3 | The Diligent Worker | The Company Person |
+| SX3 | The Star | The Movie Star |
+| SP7 | The Epicure | The Gourmand |
+| SX8 | The Director | The Commander |
+
+The store's 27 taglines contain the **repo file's** name **27/27** and the **project docx's** name
+**22/27**. [CC-MEASURED] Counter-type markers agree **5/5** (SX1, SP3, SP4, SX6, SO7). Nothing was
+ingested from the table. Consequences in A2.7.
+
+### One ingest hazard I did not see in Amendment 1
+
+The Doc's header lines are **not uniformly formatted**. Types 8, 9, 1 and 2 (12 rows) carry a plain
+header; types 3, 4, 5, 6 and 7 (15 rows) carry a **bold** header with the em-dash character count
+*outside* the bold run. The type order in the Doc is **8, 9, 1, 2, 3, 4, 5, 6, 7**, not 1–9, and the
+trailing "Spread:" lines vary (`Spread: 4 chars` / `Spread:4 chars` / `Spread: 21 char`).
+[CC-MEASURED] A parser keying on formatting rather than on the `·` structure splits **12/15**.
+Add this to the §2.2A ingest-hazard note; the third-element rule remains the safe one.
+
+---
+
+## A2.5 The fork, priced
+
+### Common to A and B — the data half
+
+| Item | Cost | Tag |
+|---|---|---|
+| `INTERIM_INSTINCTS_V3` gains a third leaf per row | 27 values, **already in the Doc — no authoring** | [CC-MEASURED] |
+| `validateSubtype` | +1 `need(...)` line | [CC-MEASURED] |
+| `verify_content_library.js` `SCRIPT_SOURCED` | 54 → **81** leaves | [CC-DERIVED] |
+| **CMS field count** | **UNCHANGED — 135** | [CC-MEASURED] |
+| `cmsWordBudget` | **+1 path branch** (2 → 3) | [CC-MEASURED] |
+
+**The CMS field count does not move, and that is the load-bearing number here.** `instincts_v3` is
+one top-level field regardless of how many leaves it holds; `CMS_SUBTYPE_FIELDS`
+(`server.js:9893`) and `cmsIsValidSubtypeKey` (`:9900`) both key off the top-level field name. So
+**27 × 5 = 135 under A, B and C alike** — the §2.7 figure stands unchanged, and **the passion term
+costs zero CMS fields.** [CC-MEASURED]
+
+`cmsWordBudget`'s subtype block keys off the field suffix and notes *"all leaves of a unit share
+it"*. `instincts_v3` needs a **path-branched** clause either way, because signature and narrative
+want different budgets — `static.instinct_definitions` is the precedent, branching `/^\d+\.name$/`
+against `/^\d+\.body$/`. So the branch count is **2 under B/C-shape, 3 under A**: one extra line, not
+one extra field. [CC-MEASURED]
+
+### A only — the render half
+
+- **Slot.** Under the one-narrative Z5 the column is `.cname` (display name) → `.cline` (signature)
+  → narrative. The passion is a **fourth** element, and it is a label, not prose, so it belongs in
+  the header cluster — immediately after `.cline`, or between name and signature. It does not belong
+  above the narrative. [CC-JUDGMENT]
+- **Probe column content.** +1 rendered line. Max 21 chars (SP7), mean 9.2, min 4 — comfortably one
+  line at the ~207px column width I derived for Z5. Because **all three columns gain the same one
+  line**, the delta is uniform: **+1 line box, not +3.** That is the cheapest possible vertical
+  addition — and it is still a real addition to a page whose fit is unmeasured. [CC-DERIVED]
+- **One more string on the page that the repo's other artifact disagrees with on 18 of 27.**
+  [CC-MEASURED]
+
+### B only
+
+The leaf is stored and CMS-editable but rendered nowhere: **an editor gets a field whose edits do
+nothing.** Same class of wart as the unmapped Preview control (§2.7 #4), and the same remedy — label
+it or suppress it, honestly. [CC-JUDGMENT]
+
+### C
+
+Zero cost. My original §2.2(1) finding stands, and the Doc's second header element is parsed and
+discarded at ingest.
+
+### Preference (not a finding — the fork is Cai's)
+
+**B as the step-1 data shape, with A or C decided at step 4.** It costs 27 leaves already written,
+one budget branch and zero CMS fields; it takes the fork off step 1's critical path; and it makes
+the shape final before the CMS can form an opinion about it, which is what matters per A2.3 item 4.
+Conditional on the divergence being recorded in the constant's comment. [CC-JUDGMENT]
+
+---
+
+## A2.6 The placeholders
+
+### EM nominal — the mockup's `.resp-txt`: right choice, confirmed
+
+**333 chars, 51 words, 2 sentences.** [CC-MEASURED] Confirms the prompt's 333/51 exactly. It is the
+right nominal precisely because it was authored for this fixture. Note it is **2** sentences — the
+floor of the EM producer's own "2–3 sentences" (`app/experimental_analysis.js:613`), not the middle.
+
+### EM stress — the arithmetic is right, but this is not the stress case
+
+The Claude draft measures **exactly as stated: 416 chars, 66 words, 2 sentences, +83 over nominal.**
+[CC-MEASURED] No correction to the numbers.
+
+**But there are better cases already in the repo, and they are much larger.**
+`tests/fixtures/sp4_api_result.json` and `tests/fixtures/sx7_api_result.json` each carry a real
+`instinct_personal_overlay` — the exact field `em_report_adapter.js:143` maps into
+`instinct_evidence`:
+
+| Fixture | chars | words | sentences | paragraphs |
+|---|---|---|---|---|
+| `sx7_api_result.json` | 607 | 109 | 4 | 2 |
+| **`sp4_api_result.json`** | **777** | **122** | **5** | **3** |
+
+[CC-MEASURED] `sp4` is **87% larger than the Claude draft**, and unlike it, **multi-paragraph**.
+`_toEvidenceArray` (`em_report_adapter.js:57–65`) wraps the whole string as **one** element, so Z6
+receives a single ~777-char run-on bullet.
+
+Two things follow.
+
+- **Use `sp4_api_result.json`'s overlay as the EM stress case.** It is real, production-shaped,
+  already tracked, and it answers §1b's own objection to invented filler on exactly that ground —
+  the spike method grows real prose, and this is real prose.
+- **The sentence instruction does not bound the length.** `sp4` is **5 sentences under a "2-4
+  sentences" instruction** (`app/server.js:4806`). [CC-MEASURED] So "2–3 sentences with no character
+  bound" is not a soft constraint that happens to land near 400 — the only two real samples in the
+  repo land at 607 and 777.
+
+Keep 416 if a mid-point is useful, but label it a mid-point, not a stress case. **I am not proposing
+a budget** — the real upper end still falls out of the probe, as §4 says.
+
+### SM shape — `CMS_PREVIEW_WORST_EVIDENCE` is the right choice, with one correction
+
+3 bullets: **185 / 193 / 190 chars — 27 / 29 / 28 words.** [CC-MEASURED]
+
+**All three exceed the ≤25-word cap they are meant to represent.** The producer contract is "exactly
+3 short bullets, ≤25 words each" (`server.js:4828`), and `scripts/verify_phase1_fields.js:20`
+asserts it — while the constant's own comment claims "~25 words each". As a *fixture* that is fine,
+arguably better, since it over-stresses. But **label it**, or a budget derived from it is derived
+from a shape the producer cannot legally emit. Total prose **568 chars**; a spec-conformant worst
+(3 × 25 words) is **~450**. [CC-DERIVED]
+
+**This also corrects my own §2.6**, where I wrote "roughly 450 chars" for the SM worst. 450 is the
+spec-conformant figure; the constant actually in the repo is 568.
+
+### Null shape — yes, and it is the only one of the four reachable in CI today
+
+`anders_sx9_api_result.json` has `client_facing: {}`, so `instinct_evidence` is `undefined`.
+[CC-MEASURED] Making it a rendered case rather than the accident it is today is right, and it is
+the one placeholder that needs no sourcing decision.
+
+### Ordering, with a caveat
+
+By **prose characters**: sp4 EM 777 > sx7 EM 607 > SM worst 568 > Claude draft 416 > mockup 333 >
+null 0. [CC-MEASURED] **Prose characters do not order rendered height** — SM's 568 is spread across
+three bullet rows, each with its own leading and marker, so it may well render taller than a
+607-char single paragraph. The probe measures that; do not infer it from this list. [CC-JUDGMENT]
+
+---
+
+## A2.7 Where §1–§4 is wrong
+
+Asked directly. **Yes — a third, and it is in §3, the section correcting me.** Plus a fourth in the
+same section, and three of my own.
+
+### Third: "In every case the DOC carries the Naranjo term and the REF FILE carries a plain-English substitute"
+
+True of three of the four examples cited. **Not true across the 18.** [CC-MEASURED] Four of the 18
+are not substitutions at all:
+
+- **SX6 is whitespace only** — `Strength/Beauty` vs `Strength / Beauty`. Nothing is substituted.
+- **In four cases the ref carries MORE than the Doc, and the Doc's value is a subset of the ref's:**
+  SX2 `Seduction` ⊂ `Seduction / Aggression`; SX8 `Possession` ⊂ `Possession / Surrender`;
+  SO4 `Shame` ⊂ `Honor / Shame`; SP3 `Security` ⊂ `Material Security`. Here the **ref is the fuller
+  term and the Doc is the truncation** — the opposite direction from the one the claim describes.
+- **Three are morphological variants of one stem** (SX1 Zeal/Zealousness, SX4
+  Competition/Competitiveness, SX5 Confidence/Confidentiality), where neither is plainer English
+  than the other.
+
+Only **10 of 18** have the "distinct word" shape the claim generalises from — and all four cited
+examples are drawn from those 10.
+
+**What survives, and what I would drop.** The *conclusion* is unaffected: the Doc is authoritative
+for this field and the ref file is not a supply for it. That rests on the Doc being the content of
+record, not on a theory about how the ref file was produced. **Keep the conclusion, drop the
+theory.** [CC-JUDGMENT]
+
+**What the theory would have cost if acted on:** if "the ref is de-Naranjo'd" were taken as a rule,
+the natural cleanup is to overwrite the ref's terms from the Doc — which in four cases **deletes the
+second arm of a pair the Doc never carried.** That is a live risk, not a hypothetical one, because
+the ref file has no consumers to object (A2.4 iii) and the deletion would be invisible. [CC-JUDGMENT]
+
+I am not qualified from the repo to say which of the two is Naranjo's own term — that is scholarship,
+not measurement, and I have not published a view on it. The structural finding above needs no such
+view: a whitespace difference and a ref-is-superset case are not substitutions under any reading.
+
+### Fourth: "display nicknames are SETTLED. Four attesting artifacts"
+
+The mismatch-only diff was offered as a sanity check. **It returns 5 of 27, and two of the four
+attesting artifacts attest to a different set of names than the third.** [CC-MEASURED]
+
+The repo file and the store's 27 taglines agree with each other **27/27** and disagree with the
+project docx on **5/27** — table in A2.4. I cannot check the fourth artifact; O'Hanrahan's handbook
+is not in the repo, and the prompt marks it [CLAUDE-MEASURED] for 15 of 27. **It would be worth
+knowing whether those 15 include any of these 5.**
+
+**One tiebreak I can measure: the Doc's own prose backs the repo file on SP7.** SP7's narrative reads
+*"The true 'epicures' of the Type 7 subtypes"* — repo and store say **The Epicure**, the docx says
+*The Gourmand*. SX5's narrative likewise says *"sometimes known as 'secret agents'"*, and there all
+three agree. [CC-MEASURED]
+
+**This does not reopen the decision.** The names are settled, I accept that, and my open question 9
+is closed as instructed. **The build is unaffected** — the repo file remains the supply and the store
+already agrees with it 27/27. The correction is to the *claim*: the four artifacts are not
+unanimous, and the project docx is the odd one out on five. Left unrecorded, the next person to open
+that docx re-opens this. New open question 10.
+
+### Three of my own
+
+- **§2.7 named the wrong build source.** I wrote that the builder reads
+  `InsightOut_Static_Content_Library_Subtypes_v1_3_060726.docx`. It reads
+  **`docs/step7-incoming/InsightOut_Static_Content_Library_v1_060526.docx`**, the only docx in that
+  directory. [CC-MEASURED] The `INTERIM_*` route in §2.7 is unaffected; the filename was wrong.
+- **§5 item 7 was filed on an unverified consumer claim** — A2.4(iii). The ref file has no consumers.
+  I took its self-description for an implemented path and did not check.
+- **§2.6's "roughly 450 chars" for the SM worst** — A2.6. 450 is the spec-conformant figure; the
+  constant in the repo is 568.
+
+### Not wrong, but recorded as asked
+
+**1b's provenance: not hunted, and I did not trip over it.** Nothing I read today touched the origin
+of the 345–415 band.
+
+**Mo's review.** Recorded on the standing decision, as instructed: review is **deferred** — she edits
+in the CMS before beta, not in this workstream, and content ships to beta without her review, trigger
+*"CMS update complete."* The Doc is treated as ingestable on that decision, not on a lock marker.
+Flagged here so it is on the record and correctable. Worth one note against it: the Doc's **title**
+ends *"— Content for Review"*. [CC-MEASURED] That is not a lock marker either way, and per §7.2's
+precedent I draw no inference from it — but it is the only status-shaped string the Doc carries, and
+whoever confirms the standing decision should see it.
+
+---
+
+## A2.8 Open questions — updated
+
+### Closed
+
+- ~~**6. Badge decision.**~~ **CLOSED by 1a.** All three badges. My §2.5 recommendation is rejected
+  and I accept it; the build plan's pass/fail line stands. **§5 item 5 closes with it** — v2 is
+  correct as shipped, no card.
+- ~~**8. Does the Doc need Mo's sign-off before ingest?**~~ **CLOSED** by the standing deferred-review
+  decision. Recorded in A2.7.
+- ~~**9. Is `hive_27_subtype_reference.md` ratified for the 27 display names?**~~ **CLOSED by 1a.**
+  Superseded by question 10 below, which is about a different thing — not whether the names are
+  settled, but which artifact the settlement names.
+- ~~**§5 item 7's framing**~~ — resolved by measurement, A2.4(iii). The card stays; its rationale
+  changes.
+
+### Still open, unchanged
+
+- **3. Z3 AS-IS or edited?** (§5a) · **4. Z2 token or no token?** (§5b) · **7. How many stored
+  assessments lack the instinct fields?** — still needs a production query I have not run.
+
+### New
+
+- **10. Which artifact supplies the display names, given the project docx disagrees with the repo
+  file and the store on 5 of 27?** The build is unaffected; the docx is in circulation. One line
+  settles it. [A2.7]
+- **11. The fork — A, B or C.** Priced in A2.5. My counter is that its **data** half should be
+  settled before step 1 regardless of the render half, for the override-shape reason in A2.3 item 4.
+- **12. Does step 1 publish a `cmsWordBudget` for the narrative leaf, or leave it `0` until the
+  probe?** [A2.1/2d]
+- **13. If the passion term is stored, does the store record that it is the Doc's value and that the
+  ref file differs on 18 of 27?** Otherwise the store becomes a fourth artifact. [A2.5]
+
+### Carried, unwidened
+
+**`instinctStack` has no tie-break and returns a confident "Leading = SP" for a missing or empty
+`instinct_score_profile`.** Per 1a, with all three badged this now prints a **fabricated full
+stack** rather than one wrong word, and it already names a wrong subtype on the v3 Contents page
+today. **Own card. PR 4 is not widened to fix it.** [§5 item 1, sharpened]
