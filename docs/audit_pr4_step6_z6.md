@@ -377,3 +377,378 @@ string blocker priced in.
    has never been rendered from real pipeline output — only from a hand-built wrapper.
 4. Carried: the TOC still promises two unbuilt pages; inter-zone spacing on p10 is unasserted beyond
    the four geometry properties.
+
+---
+---
+
+# Amendment 1 — response to the step 6 counterproposal
+
+**Branch:** `pr-4-step6-z6-audit`. **Fresh fetch: nothing came down**, `main` and `origin/main`
+both still `db7bd7a`. [CC-MEASURED]
+
+**Nature:** audit. No behaviour change. Every measurement below was taken in the scratchpad
+against the **shipped renderer** (`buildClientReportHTML_v3` via `buildClientModel`), touching no
+tracked file.
+
+Tags and counting basis as declared at the top of this document. Where a figure is new here and
+contradicts one above, the new one is the shipped page.
+
+---
+
+## A. LEADING WITH WHAT §2 AND §3 FORCE THAT YOU HAVE NOT SEEN
+
+Three things. The first two change where the work goes; the third changes what 6B must do.
+
+### A1. §3.3 is wrong on both halves, and the second half is a live regression
+
+**`_toEvidenceArray` is not a convergence point.** It has **exactly one call site** in the repo —
+`em_report_adapter.js:143`. It serves one writer. The four writers converge nowhere before the
+renderer: SM lands via `report_prep.js:408`, the two CMS previews are injected into the built model
+at `server.js:13998`/`:13999`, after `report_prep` has run. [CC-MEASURED]
+
+**And it is not free of v2 exposure — the `\n\n` is load-bearing somewhere else.** Its output
+reaches `server.js:2297`, which builds the coach portal's "Your Subtype" section, and
+`server.js:2326` renders that as:
+
+```js
+s.personal.split('\n\n').filter(Boolean).map(par => `<p class="cp-sec-body">${cpEsc(par)}</p>`)
+```
+
+Collapsing `\n\n` at `_toEvidenceArray` would flatten the coach's subtype section from three
+paragraphs to one wall of text — in `renderMyReport`, a surface step 6 is not supposed to touch.
+[CC-MEASURED]
+
+**And no gate would catch it.** `adaptEmToContract` has two callers, `server.js:5505` and
+`server.js:12060` — **both production routes. Nothing in the test suite or CI calls the adapter at
+all.** The coach byte-diff gate runs fixtures straight into `buildClientModel`; the adapter is not
+in its path. So the sharpest test in this PR is structurally blind to a change made in that file.
+[CC-MEASURED]
+
+**Where the join belongs instead: the p10 renderer's Z6 block**, `app/renderer.js:3866–3896`. That
+is where all four writers actually converge *for p10*, it is p10-local, and it touches no other
+page and no other product surface. It also makes p10 correct for the preview shape for free (A2,
+and §B2.3 below).
+
+### A2. The join does not make the EM case fit
+
+| sp4 overlay | rendered lines | `.v3-inst-resp` box | p10 page | |
+|---|---|---|---|---|
+| as shipped (`\n\n` intact) | 8 text / **10 slots** | 244.75px | 1131.38 | spills 75.38 |
+| **JOINED** | **7** | **186.63px** | **1073.25** | **still spills 17.25** |
+
+[CC-MEASURED] The join removes 58.12px. The value needs to lose about 96px. **A cap that actually
+removes content is still required** — the join is a precondition for measuring honestly, not a fix.
+
+### A3. The editorial pass has no mechanism, and the v2 one cannot be pointed at this field
+
+You said the EM output gets edited for tone, length and language, and that the mechanism is "the
+step before renderer.js". **The layer you mean is real and is in the right place** —
+`report_prep.js:126/207` loads `content_overrides` and resolves through `resolveLibObject` at lines
+141, 142, 219, 220 and (from 5B) 393.
+
+**It cannot reach `instinct_evidence`.** Two independent reasons, both traced:
+
+1. `resolveLibObject(overrides, topKey, baseObj)` keys on `${topKey}.${field}` — library object
+   keys (`type_4`, `subtype_sp4`, `static`). `content_overrides.content_key` is a **global
+   `TEXT PRIMARY KEY`** with no assessment dimension, so the table cannot hold a per-client value
+   by construction. [CC-MEASURED]
+2. `instinct_evidence` is not library content. It enters at `report_prep.js:408` as
+   `cf.instinct_evidence ?? null`, straight off the `apiResult`, and **no override is consulted on
+   that line or anywhere near it.** [CC-MEASURED]
+
+I searched for a per-client editor as well: every `POST /admin/*` route, every `/admin/em-lab`
+surface, the `edit_history` table (it logs profile-field edits, `db.js:191–204`), and repo-wide for
+`instinct_personal_overlay` / `core_motivation_evidence`, which appear only in the renderer, the
+server, the adapter, `experimental_analysis.js`, tests and fixtures. **I found no surface that
+edits per-client AI output.** The EM Lab regenerates by re-running the report call; it does not let
+anyone edit its result. [CC-MEASURED that I found none; **not** a certainty that none exists —
+if you can name it I will trace it.]
+
+**Why this matters to the plan, and it is the biggest single thing here:** if Z6 is edited before
+it ships, the page is exposed to *what the editor leaves*, not to what the model emits. That makes
+the cap's job "tell an editor they are over" rather than "silently cut an AI sentence in half" —
+which is mechanism **E** in §J, and I now think it is the right one.
+
+---
+
+## B. Your §2 consequences — confirmed and corrected
+
+**2.1 — confirmed, with a correction that goes further than you did.** Mechanism B is not merely
+unconstrained by the SM path; under §2 **plus** the §3 join it is **deleted**. The join produces one
+element. "Select fewer items" has nothing to select. EM-only and the join together remove B from
+the list rather than rescuing it. [CC-JUDGMENT on the reading; the one-element result is
+CC-MEASURED.]
+
+**2.2 — confirmed, with one thing carried forward.** It stops being a reconciliation between two
+shipping producers. But p10 must still *render* the multi-item shape correctly, because §2.3 is
+true — so the fix should make p10 **shape-agnostic** rather than assume one shape. A p10-local join
+does exactly that; a join at `_toEvidenceArray` would not (the previews bypass it).
+
+**2.3 — confirmed and measured.** `CMS_PREVIEW_V3_EVIDENCE` renders as **3 separate
+`.v3-inst-resp-txt` elements, 5 lines, box 159.88px**. Under a p10-local join it becomes **1
+element, 4 lines, box 128.50px** — which is what production would show. A preview whose job is to
+show an editor the real page should therefore get the join too, and does, for free, if the join is
+p10-local. [CC-MEASURED]
+
+---
+
+## C. §3.1 — PROVEN, and here is exactly how far it goes
+
+Six no-`<br>` payloads and one with `<br>`, all through the shipped renderer at Z6's 670px.
+`slots` = element height ÷ computed line-height (19.375px). [CC-MEASURED]
+
+| payload | elements | `<br>` | counted lines | slots | verdict |
+|---|---|---|---|---|---|
+| EM as shipped | 1 | **4** | 8 | **10** | **DIVERGE by 2.000** |
+| EM joined | 1 | 0 | 7 | 7 | CONVERGE |
+| CMS preview, 3 items | 3 | 0 | 5 | 5 | CONVERGE |
+| CMS preview, joined | 1 | 0 | 4 | 4 | CONVERGE |
+| sp4 real SM, 3 items | 3 | 0 | 4 | 4 | CONVERGE |
+| sp4 real SM, joined | 1 | 0 | 4 | 4 | CONVERGE |
+
+**Your belief holds.** The divergence is caused by `<br>` and by nothing else in this zone; remove
+the `<br>` and counted lines equal occupied slots exactly, in every case measured, to three
+decimals.
+
+**What it does to "any geometry mechanism must measure height" — the position narrows, it does not
+survive intact and it does not disappear.** Precisely:
+
+- **The convergence is per element.** Box height is *not* counted-lines × line-height whenever
+  there are several elements, because of `.v3-inst-resp-txt + .v3-inst-resp-txt{margin-top:6px}`.
+  Measured: the 3-item preview is 5 lines but its box is 159.88px, which is 5 × 19.375 **+ 2 × 6**
+  + 51px of chrome.
+- **Under the join there is one element, so counted lines become a faithful unit for the cap.**
+  That is a real gain: the cap can be stated and enforced in lines.
+- **The gate must still be geometric, because Z6 is not the only thing on the page.** A line cap on
+  Z6 cannot see a regression in Z3 or Z5. The page gate stays the gate.
+
+So the join changes the basis of the **cap** (lines become trustworthy) without changing the basis
+of the **gate** (the page stays measured). That split is the honest version of the position, and it
+is better than what I wrote above, which conflated the two.
+
+---
+
+## D. The arithmetic, in closed form — because it makes the cap checkable
+
+Every measured row above and below is reproduced exactly by two expressions. [CC-DERIVED from 13
+measured rows; closes on all 13 to ±0.01px]
+
+```
+Z6 box height   = 51 + 19.375 × lines + 6 × (elements − 1)
+p10 natural     = 886.63 + Z6 box height          (Z6 absent → 864.63, no box, no 22px gap)
+```
+
+Check against the awkward cases: EM as shipped = 51 + 19.375×10 = 244.75 ✓ (slots, not counted
+lines — which is precisely why `<br>` was invisible). 3-item preview = 51 + 96.875 + 12 = 159.88 ✓.
+sp4 SM 3-item = 51 + 77.5 + 12 = 140.50 ✓.
+
+### The headroom table — the artifact I think 6B should be designed against
+
+p10 natural height by Z6 line count, joined shape, measured by removing the `min-height` floor
+(the rendered page reports 1056 until it spills, which hides all headroom). Gate is
+`height > 1057`. [CC-MEASURED]
+
+| Z6 lines | box | p10 natural | headroom vs 1057 | |
+|---|---|---|---|---|
+| absent | 0 | 864.63 | 192.37 | |
+| 1 | 70.38 | 957.00 | 100.00 | |
+| 2 | 89.75 | 976.38 | 80.62 | |
+| 3 | 109.13 | 995.75 | 61.25 | |
+| 4 | 128.50 | 1015.13 | 41.87 | |
+| **5** | **147.88** | **1034.50** | **22.50** | **the decision** |
+| 6 | 167.25 | 1053.88 | 3.12 | last that fits |
+| 7 | 186.63 | 1073.25 | −16.25 | **SPILLS** |
+| 8 | 206.00 | 1092.63 | −35.63 | **SPILLS** |
+
+**This vindicates the 5-line decision numerically, and it is the first time that has been done.**
+Six lines fits with 3.12px. Five leaves 22.50px — one full line box (19.375) plus 3.125px. So
+**5 is exactly the largest cap that survives a one-line regression anywhere else on p10.** The
+margin argument was right; now it has a number.
+
+---
+
+## E. §3.4 — confirmed, measured, and one rule to leave alone
+
+A one-element array with no newlines emits **exactly one `.v3-inst-resp-txt`** — measured
+`elements=1` on every joined case. `evList.map(...)` at `renderer.js:3896` needs no change.
+[CC-MEASURED]
+
+Leave `.v3-inst-resp-txt + .v3-inst-resp-txt{margin-top:6px}` in place. It becomes dead for the
+shipping path, but it is what makes the multi-item shape render correctly if anything ever emits
+one, and deleting it would make a future multi-item payload render as a single block with no
+separation. Dead CSS that is a correct fallback is not the same as dead CSS.
+
+---
+
+## F. §5 — the preview constant re-measured under the join
+
+| `CMS_PREVIEW_V3_EVIDENCE` | elements | lines | box | page |
+|---|---|---|---|---|
+| as shipped (3 items) | 3 | 5 | 159.88 | 1056, fits |
+| **under the join** | **1** | **4** | **128.50** | 1056, fits |
+
+[CC-MEASURED] **It drops to 4 lines and stops being a 5-line canary.** Joining recovers exactly one
+line plus the two 6px margins (159.88 − 128.50 = 31.38 = 19.375 + 12.00), because each item's
+partial last line is reclaimed.
+
+**So it needs re-cutting** if it is to sit at the cap — roughly one line's worth of additional text,
+to be measured and not estimated when it is cut. Recommendation unchanged: assert it by putting it
+in the render matrix, not in a separate test.
+
+---
+
+## G. §7 — confirmed exactly, and one adjacent row that IS stale
+
+**You are right, and to the hundredth of a pixel.** The joined sp4 overlay measures **186.63px,
+7 rendered lines** — `docs/p10_fit_results.md:113` says `186.63px | 7`. The step-3 scaffold's
+collapse and the proposed join are the same operation, so the doc describes the **target** state
+correctly. **Annotation, not renumber.** [CC-MEASURED]
+
+**But the row above it is stale and needs a number changed.** The same table records `sm_bullets`
+at `173.25px | 6`; the shipped page renders that payload at **179.25px**, 6px higher, because the
+scaffold's 3px item margins collapsed to 3px per gap where the shipped rule is a non-collapsing
+`margin-top:6px` on the adjacent sibling. [CC-MEASURED] Two gaps × 3px = the whole difference.
+
+So the correction to that section is: annotate `em_paragraph` as target-state-correct, **fix
+`sm_bullets` to 179.25px**, and add the headroom table from §D — which is the thing the doc is
+missing and the thing every later fit decision on this page wants.
+
+---
+
+## H. §4 — the fixture, and why I think it should not lead
+
+### 4.1 How to get a real EM output — three options, priced
+
+**(a) Capture from production.** `assessments.api_result` holds the adapted result and
+`experimental_raw_analysis` holds the EM Analysis output (`db.js:2991–2998`); `analysis_mode`
+distinguishes rows. Requires production DB access and a PII decision — this is a real client's
+prose. **Establishes:** one genuine post-adapter shape, and if `pre_rerun_api_result` is populated
+for the row, a before/after pair. **Does not establish:** a ceiling, or anything about what an
+editor would have left.
+
+**(b) Re-run the EM Report Call locally** against a stored `experimental_raw_analysis` — the path
+`POST /admin/em-lab/report/:assessment_id` takes (`server.js:12007–12060`). Requires an API key,
+the stored analysis, and `responses_snapshot`. **Establishes:** a fresh sample from the live prompt.
+**Does not establish:** stability — it is one sample from a stochastic producer, and the same input
+run twice will not match.
+
+**(c) Reconstruct from the adapter contract.** This is what `EM_PARAGRAPH` already is, and it
+establishes nothing new. Naming it only so it is not proposed again.
+
+### 4.2 What one sample proves
+
+**Proves:** the shape survives the adapter, prep, `validateModel` and the page gate; the paragraph
+count a real overlay carries; that the pipeline emits what the contract says. **Does not prove:** a
+worst case, a distribution, or a ceiling. One sample is a sample. Given §7.4's history on this
+project, laundering it into a bound would be the same error in a new place.
+
+### 4.3 You asked whether leading with it is wrong. I think it is — for one specific reason
+
+**The cap's VALUE does not come from the producer. It comes from the page.** §D settles it: the
+page tips between 6 and 7 lines, and 5 is the largest cap with a line of margin. That is true
+whatever EM emits.
+
+What the fixture tells us is **how often the cap will bite**, and therefore what hitting it must
+do. And on that, the two real overlays already say something loud: joined, **sx7 lands at exactly
+5 lines (147.88px) and sp4 lands at 7 (186.63px, spills).** [CC-MEASURED] **One of the only two
+real samples in the repo is over the fitting limit, not merely over the cap.** So cap-hit
+behaviour is a routine path, not an edge case — which is the design fact that matters, and we
+already have it.
+
+Leading 6A with the capture also **blocks the step on an artifact outside the repo** plus the
+unresolved editor question in §A3. My proposal: keep the capture in 6A as work, but make it a
+prerequisite for **tuning** the cap and for the cap-hit UX, **not** for the cap mechanism or its
+value. If the capture cannot be obtained, 6B still lands, and the doc says the hit rate is
+unmeasured.
+
+---
+
+## J. THE REVISED PLAN
+
+### Mechanism: E, with A as the fallback
+
+**E — the cap refuses rather than trims, and says so where someone can act.**
+
+Given §2 (one shipping producer), §3 (one element), and §A3 (the content is edited by a person
+before it ships), the right behaviour on a cap hit is **not** to cut a client-facing AI sentence in
+half. It is to fail loudly and name the overage. The page gate already fails the render; the work
+is to make that failure legible at the point of editing rather than only in CI.
+
+Why E over the others, now:
+- **B is gone** (§B2.1) — one element, nothing to select.
+- **C is weaker than it was.** A producer word contract cannot bind what ships if a person edits
+  the text afterwards, and it still cannot predict lines (§3.2, and §7.4's three struck ceilings).
+- **A still has its blocker** — `buildClientReportHTML_v3` returns a string with no browser in the
+  path — and it buys a truncation nobody wants to read.
+- **E costs the least and loses no prose.**
+
+**E is contingent on §A3.** If there is no editing surface, "refuse" has no one to tell, and the
+fallback is **A** — measure and trim at render, with the string-builder blocker priced in and a
+trim rule that cuts at a sentence boundary, never mid-sentence.
+
+### 6A — one shape, one basis, one honest record
+
+| Work | Files |
+|---|---|
+| Join the Z6 payload p10-locally: collapse the array and its internal whitespace to one string before `evList` | `app/renderer.js` (Z6 block, ~3866–3896) |
+| Add `sm_bullets` and `em_paragraph` to the render matrix, **REPORT-ONLY** | `scripts/render_client.js`, `tests/fixtures/instinct_axis.js` |
+| Correct and extend the fit record: annotate `em_paragraph` as target-correct, fix `sm_bullets` 173.25 → 179.25, add the §D headroom table | `docs/p10_fit_results.md` |
+| Obtain an EM fixture if available (§H) | `tests/fixtures/` |
+
+**Report-only first is the project's own precedent, and it is load-bearing here.** Under the join
+`em_paragraph` still spills at 7 lines (§A2). If 6A enforced it, CI would be red on every branch
+between 6A and 6B — exactly the failure `V3_PAIRS` documents from PR 3d, where a gate that went red
+on arrival would have blocked every unrelated PR. Report-only in 6A, enforce in 6B, same as PR 3d →
+PR 3f.
+
+**Explicitly NOT in 6A:** any change to `em_report_adapter.js`. §A1 is why.
+
+### 6B — the cap and its gate
+
+| Work | Files |
+|---|---|
+| The cap at 5 rendered lines, as one exported constant, not a repeated literal | wherever E lands + `app/server.js` |
+| Flip the matrix states to enforcing | `scripts/render_client.js` |
+| Re-cut `CMS_PREVIEW_V3_EVIDENCE` to sit at the cap under the join, measured (§F) | `app/server.js` |
+| The §5.2 assertion: the preview constant enters the matrix as a Z6 state | `scripts/render_client.js` |
+
+### Red proofs — one per gate, each shown failing for the right reason
+
+| # | Gate | How it is proven red |
+|---|---|---|
+| 1 | the page gate sees the worst case | Land the matrix states in 6A **before** the join. Run. It must fail naming p10, predicted page **1131.38** vs 1057. If it does not go red, the matrix addition is not load-bearing — the step-5A vacuous-pass lesson. |
+| 2 | the join is doing work | With the join in, the same state must move to **1073.25 and still fail**. A join that made it pass would mean the join was doing the cap's job and the cap is untested. **This proof is why 6A is report-only:** the expected 6A state is a reported spill, not a green run. |
+| 3 | the cap is consulted | In 6B, set the cap to 6 and confirm a 6-line payload passes and a 7-line fails; set it to 5 and confirm the 6-line payload now fails. A cap that cannot be made to fail by loosening it is not being read. |
+| 4 | the preview constant is pinned | Change one word of `CMS_PREVIEW_V3_EVIDENCE` so it crosses to 6 lines and confirm the matrix goes red. |
+| 5 | the failure names itself | Assert the failure **output** contains the spill line and the page identity, not merely a non-zero exit. Step 4's `TypeError` also exited non-zero. |
+
+Green control before each.
+
+### Matrix cost
+
+28 → 30 renders, ~+4.5s CI (§4 above, unchanged). 6B's preview state makes it **31** if §5.2 lands
+as a matrix state, ~+2.25s more. [CC-DERIVED from 5A's measured rates]
+
+---
+
+## K. Out of scope, added by this amendment
+
+- **The coach portal's `\n\n` paragraph split** (`server.js:2326`) is correct and stays. Named only
+  because it is what makes `_toEvidenceArray` the wrong place for the join.
+- **Nothing in CI exercises `adaptEmToContract`.** A real coverage gap in a file two production
+  routes depend on. Its own card; step 6 must not be widened into it, but it is the reason A1's
+  regression would have shipped silently.
+- **There is no editing surface for per-client AI output** (§A3), and `content_overrides` cannot
+  become one without a schema change — its key is a global primary key. If the editorial pass is a
+  requirement, this is its own card and it is upstream of mechanism E.
+- Retiring or gating the SM Z6 path — your §8, agreed, untouched.
+- p6's unbounded "In Your Words" — your card, not widened into here.
+
+## L. Open questions
+
+1. **Where is the per-client editing surface?** I could not find one and I am not concluding it
+   does not exist. Mechanism E depends on the answer; if there is none, the plan falls back to A.
+2. **Can a production EM `api_result` be captured**, and is the PII acceptable? It sets the cap's
+   hit rate, not its value.
+3. **Does the editorial pass happen before or after `api_result` is written?** If after, the cap
+   has to be enforced on the edited text, which is a different insertion point again.
