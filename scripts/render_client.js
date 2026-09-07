@@ -23,6 +23,10 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const prep = require(path.join(ROOT, 'app/report_prep.js'));
 const R = require(path.join(ROOT, 'app/renderer.js'));
+// The instinct axis (PR 4 step 2). Defined in tests/fixtures/ so the harness and
+// tests/instinct_axis_test.js share one definition and cannot drift; this script already
+// requires fixtures from there.
+const { applyInstinct, INSTINCT_MARKUP } = require(path.join(ROOT, 'tests/fixtures/instinct_axis.js'));
 
 const PAGE_PX = 1056; // US Letter 11in @96dpi
 const OUT = path.join(ROOT, '.phase6_out');
@@ -122,6 +126,27 @@ const REPORTS = {
     // single-type run cannot answer "does this page fit". No new fixtures needed: the client
     // model derives everything from hypothesis.confirmed_type.
     types: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+    // ── The instinct axis (PR 4 step 2) ────────────────────────────────────────────────
+    //
+    // ELEVEN RENDERS, NOT TWENTY-SEVEN, and the arithmetic is the argument. Measured on
+    // main @ feb5e4f by rendering the v3 document under each profile and byte-diffing
+    // (docs/audit_pr4_step2_fixture_axis.md §2a): the instinct axis changes ONE line of
+    // 965, on the Contents page, and it does so ONLY through
+    // dominant_instinct_hypothesis -> display.subtype_label. instinct_score_profile
+    // changes nothing rendered at all.
+    //
+    // What that one line varies is not three strings but THREE MARKUP SHAPES, because
+    // _v3NoBreak (renderer.js:3176) wraps hyphenated compounds in a nowrap span:
+    // "Self-Preservation" and "One-to-One" are wrapped, "Social" is not. `null` means the
+    // fixture's own values, and anders_sx9 IS sx_primary — so the existing nine renders
+    // already cover the third shape, and TWO more renders cover the other two.
+    //
+    // A full 3 x 9 would spend eighteen extra renders to vary one string in three shapes:
+    // measured 1.409 s/render locally and ~2.19 s/render in CI, that is ~+39 s on every CI
+    // run against ~+4.4 s here, FOR THE SAME COVERAGE. The full matrix belongs at STEP 4,
+    // where p10 exists and 27 renders put all 27 subtype columns in the highlighted slot —
+    // which is what it was designed to deliver and delivers none of here.
+    instinctsFor: (type) => (type === 9 ? [null, 'sp_primary', 'so_primary'] : [null]),
   },
   coach: {
     build: async (apiResult) => R.buildCoachReportHTML(await prep.buildCoachModel({ apiResult, client, coach })),
@@ -249,7 +274,12 @@ async function measureLayout(page, selector) {
      for (const fx of (cfg.fixtures || ['sp4', 'sx7'])) {
       const fixture = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
       for (const asType of (cfg.types || [null])) {
-        const apiResult = asType == null ? fixture : (() => {
+       // The instinct axis sits INSIDE the type loop and defaults to [null] — "the fixture's
+       // own instinct values, untouched". With no instinctsFor, and for every type that
+       // returns [null], the object handed to cfg.build is exactly what it was before this
+       // axis existed, which is what makes the nine existing renders byte-identical.
+       for (const instKey of (cfg.instinctsFor ? cfg.instinctsFor(asType) : [null])) {
+        const retyped = asType == null ? fixture : (() => {
           const c = JSON.parse(JSON.stringify(fixture));
           const realType = fixture.hypothesis.confirmed_type;
           c.hypothesis.confirmed_type = asType;
@@ -268,7 +298,12 @@ async function measureLayout(page, selector) {
           if (asType !== realType) c.client_words = {};
           return c;
         })();
-        console.log(`\n=== ${fx}${asType == null ? '' : ` as Type ${asType}`} · ${kind} ===`);
+        // Applied on top of the re-typed clone, and only when a profile is named. Overrides
+        // instinct_score_profile AND dominant_instinct_hypothesis together — necessary, not
+        // stylistic: nothing in the codebase reconciles them, so overriding one would make
+        // the render itself an instance of that contradiction.
+        const apiResult = instKey == null ? retyped : applyInstinct(retyped, instKey);
+        console.log(`\n=== ${fx}${asType == null ? '' : ` as Type ${asType}`}${instKey == null ? '' : ` · ${instKey}`} · ${kind} ===`);
         let html;
         try {
           html = await cfg.build(apiResult);
@@ -276,7 +311,33 @@ async function measureLayout(page, selector) {
           fail(`${kind} build threw: ${e.message}`);
           continue;
         }
-        const tag = asType == null ? fx : `${fx}_t${asType}`;
+        // ── Done-when 2 (PR 4 step 2) ──────────────────────────────────────────────
+        // The instinct axis's only rendered effect on main is the Contents descriptor, and
+        // what it varies is a MARKUP SHAPE, not just a string: _v3NoBreak wraps hyphenated
+        // compounds in a nowrap span, so "Self-Preservation" and "One-to-One" are wrapped
+        // and "Social" is not. Assert the shape, because the span is the part a regression
+        // would silently drop while the words still read correctly.
+        //
+        // Asserted on Type 9 only — the type the fixture actually is. `null` here means the
+        // fixture's own instinct, which IS sx_primary, so the pre-existing Type 9 render
+        // covers the third shape for free and only two renders were added.
+        //
+        // The negative half matters as much as the positive: without it a change that
+        // emitted every label would pass. The three shapes are mutually exclusive on this
+        // page, and that is asserted, not assumed.
+        if (cfg.instinctsFor && asType === 9) {
+          const key = instKey || 'sx_primary';
+          const want = INSTINCT_MARKUP[key];
+          if (!html.includes(want)) {
+            fail(`${kind} type 9 · ${key}: Contents descriptor markup not found — expected ${JSON.stringify(want)}`);
+          } else {
+            const strays = Object.entries(INSTINCT_MARKUP)
+              .filter(([k, v]) => k !== key && html.includes(v)).map(([k]) => k);
+            if (strays.length) fail(`${kind} type 9 · ${key}: markup for ${strays.join(', ')} also present — the three shapes must be mutually exclusive`);
+            else console.log(`  instinct markup (${key}): ${want}`);
+          }
+        }
+        const tag = (asType == null ? fx : `${fx}_t${asType}`) + (instKey == null ? '' : `_${instKey}`);
         fs.writeFileSync(path.join(OUT, `${kind}_${tag}.html`), html);
 
         const page = await browser.newPage();
@@ -356,6 +417,7 @@ async function measureLayout(page, selector) {
         await page.pdf({ path: path.join(OUT, `${kind}_${tag}.pdf`), ...R.buildCoachPdfOptions() });
         await page.close();
         console.log(`  logical pages: ${pages.length} · estimated physical sheets: ${sheets} · wrote .phase6_out/${kind}_${tag}.pdf`);
+       }
       }
      }
     }
