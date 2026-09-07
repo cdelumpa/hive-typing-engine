@@ -752,3 +752,98 @@ as a matrix state, ~+2.25s more. [CC-DERIVED from 5A's measured rates]
    hit rate, not its value.
 3. **Does the editorial pass happen before or after `api_result` is written?** If after, the cap
    has to be enforced on the edited text, which is a different insertion point again.
+
+---
+
+# Amendment 2 — a real EM sample exists, and it corrects this document
+
+**Source:** a v2 client PDF supplied by Cai (assessment 74, Cai's own report), page 8 of the file /
+**"Page 6"** by the printed footer — the Instinct & Subtype page. Text recovered by decompressing
+the PDF content streams and mapping glyph IDs through the embedded `ToUnicode` CMaps; no PDF
+tooling is installed on this machine. **No client prose is reproduced in this document** — the
+transcription stayed in the scratchpad. [CC-MEASURED]
+
+## 1. It is EM output, and the shape proves it
+
+The `IN YOUR RESPONSES` box on that page renders **one `■` bullet carrying three sentences.** The
+three "HOW THE ONE-TO-ONE SEVEN THINKS/FEELS/BEHAVES" blocks on the same page each render three
+`■` markers, so the marker count is legible and the comparison is direct.
+
+`renderer.js:2251` maps **one array element to one `.p6-ow-bullet`**. The SM contract is *exactly 3
+bullets, ≤25 words each* (`server.js:4828`/`:4961`). One bullet of 70 words is not that. It is
+`_toEvidenceArray` wrapping a single narrative — **the EM path**. [CC-MEASURED]
+
+## 2. How that box is produced — the traced chain
+
+1. **EM Analysis Call** → `assessments.experimental_raw_analysis` (`db.js:2991`).
+2. **EM Report Call**, always Opus (`runEmReportCall`, C5), emits
+   `client_facing.instinct_personal_overlay` — contract **"2–3 sentences"**,
+   `experimental_analysis.js:613`, schema `:640`.
+3. **`adaptEmToContract`** renames it at `em_report_adapter.js:143`:
+   `instinct_personal_overlay` → `instinct_evidence`, through `_toEvidenceArray`, which wraps the
+   single string as a **one-element array**.
+4. Dry-validate, then persist to `assessments.api_result`
+   (`server.js:5505`+ or `:12060`+ / `forceWriteApiResult`).
+5. **`report_prep.js:408`** — `cf.instinct_evidence ?? null` → `pages.instinct_subtype.instinct_evidence`.
+   **No CMS override is consulted** (Amendment 1 §A3).
+6. **`renderer.js:2251`** renders each element as a `.p6-ow-bullet`; label `IN YOUR RESPONSES` at
+   `renderer.js:2296`.
+
+The one visible oddity: a single-item bullet list. The v2 box was built for SM's three bullets, so
+EM's one narrative arrives wearing a bullet marker it does not need.
+
+## 3. Measured on the shipped p10 renderer
+
+Basis as declared: whitespace-collapsed, ends-trimmed. [CC-MEASURED]
+
+| | chars | words | sentences | paragraphs | lines | box | p10 natural | |
+|---|---|---|---|---|---|---|---|---|
+| **real EM (assessment 74)** | **438** | **70** | 3 | 1 | **4** | **128.50px** | **1015.13** | fits, 41.87px headroom |
+| constructed `EM_PARAGRAPH` | 775 | 122 | 5 | 3 | 7 (10 slots as shipped) | 186.63 / 244.75 | 1073.25 / 1131.38 | **spills** |
+
+**It fits, one line under the 5-line cap, with 41.87px of headroom.** Zero `<br>` — no paragraph
+breaks in the rendered flow. [The absence of `\n\n` is **CC-INFERRED from the render**, not traced
+from the source string: text extraction does not preserve vertical gaps reliably, and I do not have
+the `api_result` row.]
+
+## 4. What this corrects in this document
+
+**§2.6 and Amendment 1 §H are wrong in one respect each, and both in Cai's favour.**
+
+- §2.6 said no EM-produced `instinct_evidence` exists. **True of the repo, false of the world** —
+  one has been shipping in client PDFs. Amendment 1 §H priced capture as blocked on production DB
+  access; **a supplied PDF is a capture route I did not list**, and it is the cheapest of the four.
+- **`EM_PARAGRAPH` is not EM output and never was.** `sp4_api_result.json` is an **SM** fixture —
+  `instinct_evidence` is 3 bullets and it carries `stress_point_narrative`, the SM field name, where
+  the EM report emits `stress_security_narratives`. So `EM_PARAGRAPH` is **SM's** overlay
+  (contract "2-4 sentences", `server.js:4956`) hand-run through a simulated adapter. The two
+  producers write that field to **different contracts**.
+- Against the one real EM sample the constructed worst case is **1.77× the characters, 1.74× the
+  words, and the only source of the `\n\n`.** **The constructed worst case is probably
+  pessimistic**, and my A2 framing leaned on it harder than one hand-built artifact deserved.
+
+**What it does not establish**, and the distinction Cai asked to hold: this is **one sample**. It is
+not a ceiling, not a distribution, and not evidence that EM never emits `\n\n` — sp4's overlay shows
+this class of producer emitting three paragraphs under a "2-4 sentences" instruction, so the `<br>`
+hazard stays real even though this sample does not show it. The `esc()` finding stands; what
+changes is how likely it is to bite.
+
+## 5. What it changes in the plan
+
+- **6A's fixture item is unblocked and much cheaper.** One real sample is obtainable from a PDF
+  Cai already holds; the `api_result` row for assessment 74 would be better still, because it
+  settles the `\n\n` question that the PDF cannot.
+- **The cap value is unaffected** — it comes from the page (Amendment 1 §D), and 5 lines stands.
+- **The hit rate looks better than Amendment 1 §H4.3 estimated.** That section read "one of the
+  only two real samples is over the fitting limit" — but both of those were SM-produced overlays.
+  On the one genuine EM sample, the cap does not bite at all.
+- **Mechanism E is unaffected and slightly better supported:** if real EM output lands at 4 lines,
+  a cap that refuses rather than truncates will fire rarely, which is exactly when refusing is
+  cheap and truncating is not worth building.
+
+## 6. Open question, sharpened
+
+Amendment 1 §L2 asked whether a production `api_result` could be captured. It now has a specific,
+small target: **the `api_result` row for assessment 74**, which would confirm or refute the
+no-`\n\n` inference in §3 and give the repo its first genuine EM fixture. Whether Cai's own report
+data becomes a committed fixture is Cai's call, not mine.
