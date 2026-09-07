@@ -30,7 +30,7 @@ if (process.env.SENDGRID_API_KEY) {
 }
 
 // Load renderer and type library
-const { buildCoachPdfOptions, HIVE_LOGO_SVG, buildClientReportHTML, betaReportBodyHtml,
+const { buildCoachPdfOptions, HIVE_LOGO_SVG, buildClientReportHTML, buildClientReportHTML_v3, betaReportBodyHtml,
         buildEnneagramSVG, CENTER_COLORS } = require('./renderer');
 const { renderClientReport, renderCoachReport } = require('./render_report');
 const { buildBetaData, BETA_QUESTION_TEXT } = require('./generate_report');
@@ -9863,7 +9863,7 @@ ${sharedModalHTML(true, isSuperAdmin)}
 // prompt editing are later PRs. Overrides are keyed "static.<field>" (matching PR2's
 // resolveLibObject('static', ...)); the value column stores JSON.stringify(value).
 
-const CMS_STATIC_FIELDS = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'wings_using', 'instinct_primer', 'instinct_definitions'];
+const CMS_STATIC_FIELDS = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'wings_using', 'instinct_primer', 'instinct_definitions', 'instinct_definitions_v3'];
 function cmsIsValidStaticKey(k) {
   return typeof k === 'string' && k.indexOf('static.') === 0 && CMS_STATIC_FIELDS.indexOf(k.slice(7)) >= 0;
 }
@@ -9877,7 +9877,11 @@ const CMS_FIELD_META = {
   'static.lines_primer':         { name: 'Lines Sidebar',        page: 'P5 — Wings & Lines' },
   'static.wings_using':          { name: 'Using Your Wings and Lines', page: 'P5 — Wings & Lines' },
   'static.instinct_primer':      { name: 'Instinct Sidebar',     page: 'P6 — Instinct & Subtype' },
-  'static.instinct_definitions': { name: 'Instinct Definitions', page: 'P6 — Instinct & Subtype' },
+  // The v2 card says so explicitly now that a v3 copy exists beside it. Without this an
+  // editor sees two cards whose names differ by three characters and has no way to know
+  // which page each one reaches. Presentation only — the raw key drives the routes.
+  'static.instinct_definitions': { name: 'Instinct Definitions (v2 — a separate v3 copy exists)', page: 'P6 — Instinct & Subtype' },
+  'static.instinct_definitions_v3': { name: 'Three Instincts (v3)', page: 'P10 — Instincts & Subtypes' },
 };
 const cmsCardId = (key) => 'card-' + key.replace(/\./g, '-');
 
@@ -9895,11 +9899,15 @@ const CMS_SUBTYPE_FIELDS = [
   { field: 'narrative', label: 'Narrative' },
   { field: 'patterns',  label: 'Patterns' },
   { field: 'shifts',    label: 'Shifts' },
+  // p10 (PR 4 step 5B). One field carrying {naranjo, signature, narrative} — nested, like
+  // `patterns`, because the three are authored together on one line of the source Doc and
+  // resolveLibObject replaces a field WHOLE, which is the right granularity for a unit.
+  { field: 'instincts_v3', label: 'Instincts (v3 · p10)' },
 ];
 function cmsIsValidSubtypeKey(k) {
-  return typeof k === 'string' && /^subtype_(sp|so|sx)[1-9]\.(tagline|narrative|patterns|shifts)$/.test(k);
+  return typeof k === 'string' && /^subtype_(sp|so|sx)[1-9]\.(tagline|narrative|patterns|shifts|instincts_v3)$/.test(k);
 }
-// Combined gate for the POST routes: 6 static + 108 subtype keys; rejects type_*.* (PR5)
+// Combined gate for the POST routes: 7 static + 135 subtype keys; rejects type_*.* (PR5)
 // and subtype_*.{code,name}.
 // Type keys (PR 5): all 12 editable type_{N} fields. Editable across the same 4 routes as
 // static/subtype now that the type editor exists.
@@ -10019,12 +10027,29 @@ function cmsBudgetFor(key, path) {
     if (/^\d+\.name$/.test(path)) return 6;
     if (/^\d+\.body$/.test(path)) return 45;
   }
+  // Same decision as instincts_v3 above, and for the same reason: no measurement supports a
+  // word budget for these, so none is published. Not a copy of the v2 branch above — that
+  // 45 was set for a different zone at a different width on a different page.
+  if (key === 'static.instinct_definitions_v3') return 0;
   // Subtype fields (PR 4a): budget keys off the field suffix (all leaves of a unit share it).
   if (/^subtype_/.test(key)) {
     if (key.endsWith('.tagline')) return 15;     // P6 name+tagline zone
     if (key.endsWith('.narrative')) return 130;  // P6 left column, 2 paragraphs
     if (key.endsWith('.patterns')) return 25;    // each T/F/B bullet (~3-line proxy)
     if (key.endsWith('.shifts')) return 25;      // each P7 "What Shifts" tip
+    // instincts_v3 (p10) DELIBERATELY HAS NO BUDGET, and the zero is written out rather
+    // than left to the fallthrough so the next person sees a decision instead of a gap.
+    //
+    // The p10 fit probe measured LINES AND PIXELS (docs/p10_fit_results.md). Converting
+    // those into a word budget is the character-count-does-not-predict-line-count error in
+    // another currency — and words are a WORSE proxy than characters, because they vary
+    // more in width. Spec §7.4 struck three ceilings produced exactly that way and left no
+    // replacement mechanism. A budget is advisory to this code and authoritative to the
+    // person reading it, so publishing one nobody measured is publishing a ceiling.
+    //
+    // 0 renders as a plain word count with no denominator, which is honest. If a budget is
+    // ever wanted it needs a measurement that supports one; the probe is not it.
+    if (key.endsWith('.instincts_v3')) return 0;
   }
   // Type fields (PR 5): budget per leaf path within each field's value (design §C8–C12 + proxy).
   if (/^type_/.test(key)) {
@@ -10543,7 +10568,7 @@ function renderSubtypesPage(overrides, req) {
 </div>
 <nav class="sidebar">${groups.join('')}</nav>
 <div class="container">
-  <div class="summary">Editing subtype content (<b>subtype_*.*</b>). Published edits go live on the next report render; drafts do not. Status — <b>${nPub}</b> published · <b>${nDraft}</b> draft · <b>${nUnmod}</b> unmodified (of 108 fields across 27 subtypes). <b>${subtypesWithPub}</b>/27 subtypes have at least one published edit.</div>
+  <div class="summary">Editing subtype content (<b>subtype_*.*</b>). Published edits go live on the next report render; drafts do not. Status — <b>${nPub}</b> published · <b>${nDraft}</b> draft · <b>${nUnmod}</b> unmodified (of 135 fields across 27 subtypes). <b>${subtypesWithPub}</b>/27 subtypes have at least one published edit.</div>
   ${cards.join('')}
 </div>
 <div id="cms-preview-modal" class="cmpv-overlay" style="display:none" onclick="if(event.target===this)cmsClosePreview()">
@@ -13826,6 +13851,28 @@ const CMS_PREVIEW_WORST_EVIDENCE = [
   'When asked about stress you emphasized withdrawing to conserve, tending to practical needs first, and restoring your baseline before re-engaging with the people and demands around you again.',
 ];
 
+// p10's Z6 filler for CMS previews. NOT the same as CMS_PREVIEW_WORST_EVIDENCE above, and
+// the difference is measured, not stylistic.
+//
+// Injecting the v2 constant into a p10 preview renders SIX lines at 179.25px and takes the
+// page to 1065.88px — it SPILLS past the 1057px gate. [CC-MEASURED, 7 Sep] An editor would
+// be shown a two-sheet page and reasonably conclude the layout was broken.
+//
+// So this is capped at the DECIDED Z6 limit of 5 rendered lines (docs/p10_fit_results.md),
+// which measures 159.88px and leaves the page at 1056. The cap is decided but not yet
+// enforced in the product — that is step 6 — and a preview should show the page as it will
+// be rather than as it currently can be.
+//
+// DERIVED, NOT AUTHORED: each bullet is the corresponding CMS_PREVIEW_WORST_EVIDENCE string
+// cut at its last clause boundary within the producer's own "<=25 words each" contract
+// (app/server.js:4828), then closed with a period. 20/18/14 words. No new prose was
+// written, and unlike a raw word-count truncation none of them ends mid-phrase.
+const CMS_PREVIEW_V3_EVIDENCE = [
+  'Across several of your responses you returned to maintaining comfort, protecting your energy, and keeping daily life steady and predictable.',
+  'You repeatedly described scanning your environment for what could go wrong and quietly securing resources ahead of time.',
+  'When asked about stress you emphasized withdrawing to conserve, tending to practical needs first.',
+];
+
 // splitWingBest / wing+line remap mirror report_prep (kept in sync manually; report_prep is
 // out of scope for this PR). Used only to overlay draft type_*.wings / type_*.lines values,
 // which report_prep transforms into wing_low/wing_high and line_stress/line_security.
@@ -13840,6 +13887,14 @@ function cmsPreviewSplitWingBest(text) {
 // apply() overlays the draft onto the already-built model at the same path report_prep populates.
 function cmsPreviewSpec(key) {
   const P6 = 'P6 — Instinct & Subtype', P5 = 'P5 — Wings & Lines';
+  const P10 = 'P10 — Instincts & Subtypes';
+  // p10's page element, and the `:has()` is load-bearing. Every page in the v3 document
+  // carries `.v3-page`, and page.$() returns the FIRST match — the cover. A bare
+  // '.v3-page' selector renders and screenshots a real, plausible page that is simply the
+  // wrong one, which an editor would read as "my edit did nothing". Caught by looking at
+  // the first preview this build produced. Chromium 105+ supports :has(); the pinned
+  // browser is well past that.
+  const P10_SEL = '.v3-page:has(.v3-inst-cmp)';
   const STATIC = {
     'static.welcome':              { page: 'P1 — Welcome',            selector: '.cover-welcome', apply: (m, v) => { Object.assign(m.pages.welcome, v); } },
     'static.primer':               { page: 'P2 — Enneagram Primer',   selector: '.page',          apply: (m, v) => { m.pages.primer = v; } },
@@ -13848,10 +13903,16 @@ function cmsPreviewSpec(key) {
     'static.wings_using':          { page: P5,                        selector: '.p5-page',       apply: (m, v) => { m.pages.wings_lines.wings_using = v; } },
     'static.instinct_primer':      { page: P6,                        selector: '.p6-page',       apply: (m, v) => { m.pages.instinct_subtype.instinct_primer = v; } },
     'static.instinct_definitions': { page: P6,                        selector: '.p6-page',       apply: (m, v) => { m.pages.instinct_subtype.instinct_definitions = v; } },
+    // p10. `doc: 'v3'` is what routes this through the v3 document builder — see
+    // cmsRenderPreviewPng. A FLAG on the entry rather than a suffix rule or a key list:
+    // the author of the next v3 field adds one property to the entry they are already
+    // writing, with no naming convention to remember and no regex to keep in step.
+    'static.instinct_definitions_v3': { page: P10, selector: P10_SEL, doc: 'v3',
+      apply: (m, v) => { m.pages.v3_instincts.definitions = v; } },
   };
   if (STATIC[key]) return { ...STATIC[key], type: 9, instinct: 'SP' };
 
-  let mm = /^subtype_(sp|so|sx)([1-9])\.(tagline|narrative|patterns|shifts)$/.exec(key);
+  let mm = /^subtype_(sp|so|sx)([1-9])\.(tagline|narrative|patterns|shifts|instincts_v3)$/.exec(key);
   if (mm) {
     const instinct = mm[1].toUpperCase(), N = +mm[2], field = mm[3];
     const SUB = {
@@ -13859,6 +13920,24 @@ function cmsPreviewSpec(key) {
       narrative: { page: P6, selector: '.p6-page', apply: (m, v) => { m.pages.instinct_subtype.subtype.narrative = v; } },
       patterns:  { page: P6, selector: '.p6-page', apply: (m, v) => { m.pages.instinct_subtype.subtype.patterns = v; } },
       shifts:    { page: 'P7 — Strengths & Growth', selector: '.p7-page', apply: (m, v) => { m.pages.strengths_challenges.shifts = v; } },
+      // p10. The edited value belongs to ONE subtype, and p10 renders all three columns of
+      // the triple — so the column is found BY INSTINCT CODE, never by index. An index
+      // would be right by luck for SP and silently wrong for SO and SX, which is precisely
+      // the plausible-looking-but-wrong preview this build exists to avoid.
+      //
+      // `instinct` here comes from the key itself (the regex above), and cmsPreviewApiResult
+      // seeds dominant_instinct_hypothesis with it, so the previewed column is also the
+      // HIGHLIGHTED one. Editing subtype_so7.instincts_v3 previews an SO-primary Type 7
+      // page with the SO column badged PRIMARY — the page that field actually appears on.
+      instincts_v3: { page: P10, selector: P10_SEL, doc: 'v3', apply: (m, v) => {
+        const col = m.pages.v3_instincts.columns.find((c) => c.instinct === instinct);
+        if (!col) throw new Error(`preview: no p10 column for instinct ${instinct}`);
+        if (v && typeof v === 'object') Object.assign(col, {
+          naranjo: v.naranjo != null ? v.naranjo : col.naranjo,
+          signature: v.signature != null ? v.signature : col.signature,
+          narrative: v.narrative != null ? v.narrative : col.narrative,
+        });
+      } },
     };
     return { ...SUB[field], type: N, instinct };
   }
@@ -13912,8 +13991,19 @@ async function cmsRenderPreviewPng(spec, value) {
   const coach = { full_name: '', type: null, instinct: null };
   const model = await reportPrep.buildClientModel({ apiResult, client, coach });
   spec.apply(model, value);
+  // Orange-box filler, so the zone is previewed at realistic size rather than absent.
+  // Two constants because the two pages are different: p6's box is the v2 one, p10's is
+  // capped at the decided 5-line limit (see CMS_PREVIEW_V3_EVIDENCE — the v2 payload spills
+  // p10 past its page gate, measured).
   if (spec.selector === '.p6-page') model.pages.instinct_subtype.instinct_evidence = CMS_PREVIEW_WORST_EVIDENCE.slice();
-  const html = buildClientReportHTML(model);
+  if (spec.doc === 'v3') model.pages.instinct_subtype.instinct_evidence = CMS_PREVIEW_V3_EVIDENCE.slice();
+
+  // WHICH DOCUMENT. Until PR 4 step 5B this only ever built the v2 report, because every
+  // previewable field lived on a v2 page. p10's two fields do not: they render only in the
+  // v3 document, and pointing them at a v2 page would show an editor their new text on the
+  // page it is explicitly NOT for — a confidently wrong preview, which is worse than an
+  // error because nothing about it looks wrong.
+  const html = spec.doc === 'v3' ? buildClientReportHTML_v3(model) : buildClientReportHTML(model);
   const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
