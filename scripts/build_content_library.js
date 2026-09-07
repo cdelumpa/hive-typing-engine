@@ -1337,6 +1337,59 @@ const INTERIM_EXPLORE_V3 = {
 // name`) would not say WHICH of the two competing term sets a value came from. If the
 // 18 are ever reconciled, revisit the name: see the audit for the caveat that the
 // Doc-is-Naranjo attribution is the project's label, not something this repo verified.
+// ── p10 "The Three Instincts" — the three instinct descriptions (PR 4 step 4) ────────
+//
+// SOURCE OF RECORD: Google Doc 15W55J9eYkwDn9WPLYXW-pArMLPKDAK7LxSyzJXqh0l4
+// ("InsightOut p10 — Static Content (Preamble + Three Instincts)"), Section B, ingested BY
+// ID — the same provenance convention INTERIM_INSTINCTS_V3 follows for the subtypes Doc.
+// Read and recounted 7 Sep 2026: 157 / 150 / 156 on the counting basis the Doc states and
+// this file uses (rendered string, whitespace collapsed, ends trimmed, markup excluded).
+// All three stated counts EXACT. Recount at every re-ingest anyway.
+//
+// Section A of that Doc is the page preamble and is UNDECIDED. It is not ingested here.
+//
+// ⚠ static.instinct_definitions IS NOT TOUCHED, AND MUST NOT BE.
+// Those three strings are LIVE v2 CONTENT: app/renderer.js:2252 renders them inside
+// _clP6Instinct on the live v2 `.p6-page`, which tests/lib/report_page_inventory.js:22
+// asserts is present in every client report. They are CMS-editable (server.js:9866) with a
+// WORKING preview mapped to `.p6-page` (server.js:13850), carry a cmsWordBudget branch
+// (server.js:10018), and are hard-gated at exactly three entries below. Editing them for
+// p10 would change what every client receiving today's report sees. So this is a NEW field
+// beside them — the same move instincts_v3 made beside the live `narrative` field.
+//
+// Rejected alternative, and it was rejected on a REPRODUCED failure rather than on taste: a
+// `body_v3` leaf added to each existing entry. That changes the SHAPE of a CMS-editable
+// field, and assertOverrideShape (app/content_overrides.js:159) throws when a published
+// override no longer carries every leaf path — "missing from the override: [].body_v3".
+// content_overrides.js:100-107 records that exact mechanism costing production a page that
+// rendered the literal word "undefined", and the deploy-order warning at :117 notes the
+// throw reaches every render including the dry-validate probe in /api/submit.
+//
+// ⚠ THIS IS THE FIRST `static.*_v3` KEY IN THE LIBRARY. Every other _v3 key sits on a type
+// or subtype row — type_N.wings.intro_v3, type_N.lines.work_v3, type_N.explore_v3,
+// subtype_*.instincts_v3. That is not an inconsistency: the convention is "a v3 field
+// beside its v2 counterpart on the same parent", and here the parent is `static` rather
+// than a row. If the preamble ever needs the same treatment it becomes
+// static.instinct_primer_v3, a second flat sibling, which stays consistent with this.
+//
+// `code` and `name` are LITERALS, deliberately, not copied from instinct_definitions. They
+// duplicate the live values so p10 can read ONE array instead of joining two by index with
+// nothing enforcing that index 0 is SP in both. The build asserts they match the v2 entries
+// (see validateStatics below), and that assertion is only meaningful because these are
+// written out here — derive them and the check compares a value with itself.
+//
+// The "FOCUSED ON" label the old bodies opened by echoing is removed at the PAGE level and
+// lands with the renderer, not with this content. Voice is deliberately third person,
+// matching the subtype narratives on the same page; see the Doc for why.
+const INTERIM_INSTINCT_DEFS_V3 = [
+  { code: 'SP', name: 'Self-Preservation',
+    body: 'Governs our need for physical well-being, material security, and safety. People who lead with SP prioritize food, shelter, warmth, health, and managing risk.' },
+  { code: 'SO', name: 'Social',
+    body: 'Governs our need for belonging, membership, and a recognized place within groups. People who lead with SO seek power and influence in a group setting.' },
+  { code: 'SX', name: 'One-to-One',
+    body: 'Governs our need for an intense bond or connection with one person at a time. People who lead with SX seek intimacy and passion in one-on-one relationships.' },
+];
+
 const INTERIM_INSTINCTS_V3 = {
   SP1: {
     naranjo: 'Worry',
@@ -1456,7 +1509,7 @@ const INTERIM_INSTINCTS_V3 = {
     naranjo: 'Sacrifice',
     signature: 'Idealism & Contribution',
     narrative:
-      'The Social Seven gains freedom from pain and constraints by accepting some limitations that keep them aligned with social norms and expectations. SO7s are typically generous, wanting to share the things they love and being of service to the group, similar to the Type 2 Giver. Their abundance of ideas and possibilities can lead them to become overextended, scattered, and spread too thin.',
+      'The Social Seven gains freedom from pain and constraints by accepting some limitations that keep them aligned with social expectations. SO7s are typically generous, wanting to share the things they love and being of service to the group, similar to the Type 2 Giver. Their abundance of ideas and options can lead them to become overextended, unfocused, and spread too thin.',
   },
   SX7: {
     naranjo: 'Suggestibility',
@@ -1943,6 +1996,11 @@ function validateSubtype(key, st) {
     const end = k + 1 < h1idx.length ? h1idx[k + 1].i : toks.length;
     if (toks[start].text === 'GLOBAL STATIC CONTENT') {
       lib.static = parseStatics(toks.slice(start + 1, end));
+      // p10 (PR 4 step 4). Purely additive: a NEW key beside instinct_definitions, which is
+      // live v2 content and is not read or written here. The docx has no section for these
+      // three strings — the source of record is a Google Doc — so this cannot be a
+      // parseStatics() read. Same contract as the INTERIM_* type/subtype constants.
+      lib.static.instinct_definitions_v3 = INTERIM_INSTINCT_DEFS_V3.map((d) => ({ ...d }));
       continue;
     }
     const m = toks[start].text.match(/^Type (\d)\s*[—–-]\s*(.+)$/);
@@ -1992,6 +2050,28 @@ function validateSubtype(key, st) {
   need(S.primer && Array.isArray(S.primer.nine_types) && S.primer.nine_types.length === 9, `static.primer.nine_types != 9 (${S.primer && S.primer.nine_types && S.primer.nine_types.length})`);
   need(S.primer && S.primer.nine_types && S.primer.nine_types.every(t => t.number >= 1 && t.number <= 9 && t.name && t.description && t.gifts), 'static.primer.nine_types rows incomplete');
   need(Array.isArray(S.instinct_definitions) && S.instinct_definitions.length === 3, `static.instinct_definitions != 3 (${S.instinct_definitions && S.instinct_definitions.length})`);
+  // p10 (PR 4 step 4). A SIBLING of the line above, not a replacement for it: that one names
+  // the v2 key explicitly and a new key is invisible to it, so the live gate is untouched.
+  // This belongs here with the explicit structural check rather than in the non-empty scalar
+  // loop above, because it is an array of three objects and not a string.
+  const v3defs = S.instinct_definitions_v3;
+  const v3shape = Array.isArray(v3defs) && v3defs.length === 3;
+  need(v3shape, `static.instinct_definitions_v3 != 3 (${v3defs && v3defs.length})`);
+  // GUARDED ON THE CHECK ABOVE, and the guard is not defensive tidiness. `need` records the
+  // failure and returns, so without it a missing or short array runs straight into
+  // `v3defs[i].code` and the build dies with a TypeError pointing at this loop — the
+  // operator sees a stack trace instead of the assertion that actually failed. Found by
+  // proving the assertion red before trusting it, which is the whole reason that is done.
+  for (let i = 0; v3shape && i < 3; i++) {
+    const d = v3defs[i], v2 = S.instinct_definitions[i];
+    need(d && d.code && d.name && d.body, `static.instinct_definitions_v3[${i}] incomplete (want {code,name,body})`);
+    // The heading fields are duplicated so p10 reads one array instead of joining two by
+    // index. These two assertions are what stop the duplicate drifting from what the live
+    // page shows, and they only mean anything because the constant writes them out as
+    // literals rather than deriving them from this very array.
+    need(d.code === v2.code, `static.instinct_definitions_v3[${i}].code "${d.code}" != v2 "${v2.code}"`);
+    need(d.name === v2.name, `static.instinct_definitions_v3[${i}].name "${d.name}" != v2 "${v2.name}"`);
+  }
 
   // v3 Contents (sheet 2) — nine entries, each naming the first sheet of its span. The
   // `start` keys are checked against V3_PAGE_ORDER by tests/report_pages_test.js; here we

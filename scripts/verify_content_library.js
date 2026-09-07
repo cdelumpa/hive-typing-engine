@@ -50,6 +50,14 @@ const SCRIPT_SOURCED = [
     retires: 'when the docx gains a WELCOME PAGE section (no current plan — raise with design)' },
   { path: 'static.wings_using', label: 'static.wings_using',
     retires: 'when the docx gains a USING YOUR WINGS AND LINES section (no current plan — raise with design)' },
+  // p10 "The Three Instincts", from INTERIM_INSTINCT_DEFS_V3 (PR 4 step 4).
+  //
+  // PURELY ADDITIVE. A new key beside static.instinct_definitions, which is live v2 content
+  // and is untouched — so no leaf stops being Word-sourced when this lands, and the
+  // Word-canonical figure must not move. 3 entries x {code, name, body} = 9.
+  { path: 'static.instinct_definitions_v3', label: 'p10 instinct descriptions (3 x code/name/body)',
+    retires: 'when the docx gains a section for the v3 instinct descriptions (no current plan — the source of record is a Google Doc, ID in build_content_library.js)' },
+
   // p8 "Your Wings", all nine types, from INTERIM_WINGS_V3.
   //
   // PURELY ADDITIVE, and that is the difference from the p9 rows below. The docx parse
