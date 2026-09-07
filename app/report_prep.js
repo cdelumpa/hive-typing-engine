@@ -366,6 +366,43 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
         return { intro: t.lines.intro_v3 || '', work_lead: t.lines.work_lead_v3 || '',
           work: t.lines.work_v3 || [], stress: mk('stress'), security: mk('security') };
       })(),
+      // ── p10 Instincts & Subtypes (PR 4 step 5A) ─────────────────────────────────────
+      //
+      // WHY THIS IS HERE AND NOT IN THE RENDERER. renderer.js has no content-library access
+      // and never has; every library read in this project goes through resolveLibObject so
+      // that published CMS overrides apply. A renderer-side read would BYPASS that, and p10
+      // would silently ignore every content override an editor publishes — which is exactly
+      // what step 5B exists to enable. So the page is fed from here, like every other v3
+      // page (v3_wings, v3_lines, v3_explore, v3_contents, v3_thoughts).
+      //
+      // All THREE subtype rows, not just the client's: p10 renders a three-column
+      // comparison, so it needs the whole triple for the hero type. Each is resolved
+      // through overrides independently.
+      //
+      // NOTE the definitions come from instinct_definitions_v3, NOT instinct_definitions.
+      // The latter is live v2 content rendered by _clP6Instinct on .p6-page; step 4 landed
+      // the v3 copy precisely so p10 does not read it.
+      //
+      // No badge ordering here, deliberately. PRIMARY/SECONDARY/TERTIARY is p10-LOCAL and
+      // is computed in the page builder from charts.instincts + display.instinct_code.
+      // instinctStack is read by live v2 p6, the coach report and the Coach Prep Report;
+      // a second ordering rule in this module would invite the wrong import.
+      v3_instincts: (() => {
+        const cols = ['sp', 'so', 'sx'].map((i) => {
+          const k = `subtype_${i}${heroN}`;
+          const row = resolveLibObject(overrides, k, lib(k));
+          const iv = row.instincts_v3 || {};
+          return {
+            instinct: i.toUpperCase(),
+            code: `${i.toUpperCase()}${heroN}`,
+            naranjo: iv.naranjo || '',
+            signature: iv.signature || '',
+            narrative: iv.narrative || '',
+          };
+        });
+        return { columns: cols, definitions: stat.instinct_definitions_v3 || [], primer: stat.instinct_primer || '' };
+      })(),
+
       instinct_subtype: {                                                                       // P6
         subtype: { name: st.name, tagline: st.tagline, narrative: st.narrative, patterns: st.patterns },
         instinct_evidence: cf.instinct_evidence ?? null,
