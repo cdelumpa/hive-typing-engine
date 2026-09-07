@@ -225,7 +225,7 @@ const REPORTS = {
     // carries a declaration, with no entry inheriting a permissive default. anders_sx9 keeps
     // `[null]` — that is the ABSENCE of the axis, not a state, and it carries no declaration.
     z6For: (fx) => (fx === 'sp4'
-      ? ['sp4_real', 'sm_bullets', 'em_paragraph', 'em_observed_max']
+      ? ['sp4_real', 'sm_bullets', 'em_paragraph', 'em_observed_max', 'cms_preview']
       : [null]),
   },
   coach: {
