@@ -170,7 +170,24 @@
         "What would working on that insight give you?",
         "What else would you like to capture?"
       ]
-    }
+    },
+    "instinct_definitions_v3": [
+      {
+        "code": "SP",
+        "name": "Self-Preservation",
+        "body": "Governs our need for physical well-being, material security, and safety. People who lead with SP prioritize food, shelter, warmth, health, and managing risk."
+      },
+      {
+        "code": "SO",
+        "name": "Social",
+        "body": "Governs our need for belonging, membership, and a recognized place within groups. People who lead with SO seek power and influence in a group setting."
+      },
+      {
+        "code": "SX",
+        "name": "One-to-One",
+        "body": "Governs our need for an intense bond or connection with one person at a time. People who lead with SX seek intimacy and passion in one-on-one relationships."
+      }
+    ]
   },
   "type_8": {
     "number": 8,
@@ -3608,7 +3625,7 @@
     "instincts_v3": {
       "naranjo": "Sacrifice",
       "signature": "Idealism & Contribution",
-      "narrative": "The Social Seven gains freedom from pain and constraints by accepting some limitations that keep them aligned with social norms and expectations. SO7s are typically generous, wanting to share the things they love and being of service to the group, similar to the Type 2 Giver. Their abundance of ideas and possibilities can lead them to become overextended, scattered, and spread too thin."
+      "narrative": "The Social Seven gains freedom from pain and constraints by accepting some limitations that keep them aligned with social expectations. SO7s are typically generous, wanting to share the things they love and being of service to the group, similar to the Type 2 Giver. Their abundance of ideas and options can lead them to become overextended, unfocused, and spread too thin."
     }
   },
   "subtype_sx7": {
