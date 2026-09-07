@@ -115,30 +115,76 @@ const SM_BULLETS_OVER_SPEC = [
   'When asked about stress you emphasized withdrawing to conserve, tending to practical needs first, and restoring your baseline before re-engaging with the people and demands around you again.',
 ];
 
-// The EM shape, verbatim from sp4_api_result.json's instinct_personal_overlay — 777 chars,
-// 122 words, 5 sentences, 3 paragraphs. Derived, not copied, so it cannot drift.
+// A SYNTHETIC HAZARD CASE. NOT EM OUTPUT — this was mislabelled until step 6 (PR 4).
 //
-// Two things a later reader needs. FIRST, this is the field em_report_adapter.js:143 maps
-// into instinct_evidence, wrapped by _toEvidenceArray as a ONE-ELEMENT array — which is why
-// it appears here as [string] and not as a string. SECOND, scripts/render_client.js NEVER
-// CALLS em_report_adapter.js: the client_v3 job goes straight to buildClientModel. So this
-// is a hand-made post-adapter artifact and it does NOT exercise the EM pipeline. It tests
-// the prep path's tolerance of a shape that pipeline can produce.
+// It is sp4's client_facing.instinct_personal_overlay, and sp4 is an SM FIXTURE: its
+// instinct_evidence is 3 bullets, and it carries stress_point_narrative where the EM report
+// emits stress_security_narratives. SM's contract for the overlay field is "2-4 sentences"
+// (server.js:4956); EM's is "2-3" (experimental_analysis.js:613). So this is one producer's
+// field hand-run through a simulation of the OTHER producer's adapter. It never came from
+// the EM pipeline, and scripts/render_client.js never calls em_report_adapter.js.
 //
-// It is also Type 4 SP prose. That has no force at step 2, because nothing renders it. From
-// STEP 3 it does: the probe's own output would carry Type 4 SP prose under a Type 9 SX
-// heading, so step 3 should run sp4 as its own fixture rather than transplanting its text.
+// KEEP IT ANYWAY, and do not treat it as a sample. It is the only artifact in the repo that
+// exercises the \n -> <br> path in renderer.js's esc(), and 3 paragraphs under a
+// "2-4 sentences" instruction is evidence that this CLASS of producer will emit paragraph
+// breaks. Production has not: zero newlines of any kind across all 19 stored rows,
+// 2026-06-15 to 2026-07-19 (PR 4 step 0). At 775 collapsed chars it is 1.77x the real
+// observed maximum — see EM_OBSERVED_MAX for that.
+//
+// 777 chars raw, 775 whitespace-collapsed, 122 words, 5 sentences, 3 paragraphs. Derived
+// from the fixture, not copied, so it cannot drift.
 const EM_PARAGRAPH = [sp4.client_facing.instinct_personal_overlay];
 
-// The four states. `null` and `absent` are listed separately and asserted to CONVERGE:
+// ─── EM_OBSERVED_MAX ─────────────────────────────────────────────────────────────────────
+// A SYNTHETIC string matched to the LONGEST instinct_personal_overlay in production.
+// The real one is NOT here and must not be: it is another client's report prose.
+//
+// WHAT IT IS MATCHED TO (real numbers; the real string was never committed anywhere):
+//   532 chars, 80 words, 0 newlines, 1-element array.
+//   Observed maximum of 17 EM assessments, 2026-06-15 to 2026-07-19; n=19 overall — the
+//   other 2 are SM, 3-element, on a path that no longer ships.
+//   Rendered on the shipped p10 Z6 at 670px: 5 lines, box 147.88px, page natural 1034.50
+//   (gate-basis headroom +22.50 against the 1057 fail threshold), last-line fill 54.65%.
+//
+// THIS SYNTHETIC: 531 chars, 83 words, 3 sentences, 0 newlines. It renders IDENTICALLY —
+// 5 lines, 147.88px, 54.65% fill — on one character MORE and three words FEWER. That is the
+// point of it: the match is a render, not a count.
+//
+// EQUIVALENCE WAS PROVEN BY RENDERING BOTH, never by comparing counts. Character equality is
+// not the test and never was: SO7 at 389 chars renders 12 lines where SO5 at 394 renders 11,
+// because line count is decided by where words break.
+//
+// -- IF YOU EDIT THIS STRING --
+// MUST PRESERVE:   rendered line count (5), box height (147.88px), last-line fill (54.65%),
+//                  absence of any \n, single-element array shape.
+// INCIDENTAL:      the words, the subject matter, which instinct it names.
+// NOT A CRITERION: character count. It is an OUTPUT of matching the render, not an input,
+//                  and pinning it would be the struck-ceiling error again.
+// NOT PRESERVED, AND DELIBERATELY NOT PINNED: the absolute last-line width (real 365.50px vs
+//                  this 364.80) and widest-line width (real 668.80 vs this 667.52). A fixture
+//                  tied to a 0.70px width fails on any font or padding change that the line
+//                  count survives. widest=668.80 was searched over 32,400 combinations and is
+//                  not reachable: that line sits 1.2px short of the 670px column and its width
+//                  is decided by which word happens to land last.
+// Measure through the FULL render path (buildClientReportHTML_v3). A DOM-swap measurement
+// diverges by ~0.04px — it is a search tool, not evidence.
+//
+// NOT A BOUND. One observed maximum over n=19 spanning five weeks is a floor for a decision,
+// not a ceiling. It is also not EM output: it is prose written to match EM output's geometry.
+const EM_OBSERVED_MAX = [
+  'Your responses point toward a strong self-preservation instinct — you tend to secure comfort and steady resources before turning your attention outward, whether that means holding to a predictable routine or quietly preparing for whatever the coming week is likely to demand. You also showed a clear social awareness, suggesting you track your standing within groups with real care. The intense one-to-one instinct appears less central in your case, which may relate to the preference you described for an even and workable rhythm.',
+];
+
+// The five states. `null` and `absent` are listed separately and asserted to CONVERGE:
 // report_prep.js:371 is `cf.instinct_evidence ?? null`, and `??` maps undefined and null to
 // the same model value, so they are one model state reached two ways — not two states.
 // anders_sx9 ships with client_facing: {}, so `absent` is the current baseline.
 const Z6_STATES = {
-  sm_bullets:   { evidence: SM_BULLETS_OVER_SPEC, expect: SM_BULLETS_OVER_SPEC },
-  em_paragraph: { evidence: EM_PARAGRAPH,         expect: EM_PARAGRAPH },
-  null:         { evidence: null,                 expect: null },
-  absent:       { evidence: undefined,            expect: null },   // client_facing: {}
+  sm_bullets:      { evidence: SM_BULLETS_OVER_SPEC, expect: SM_BULLETS_OVER_SPEC },
+  em_paragraph:    { evidence: EM_PARAGRAPH,         expect: EM_PARAGRAPH },
+  em_observed_max: { evidence: EM_OBSERVED_MAX,      expect: EM_OBSERVED_MAX },
+  null:            { evidence: null,                 expect: null },
+  absent:          { evidence: undefined,            expect: null },   // client_facing: {}
 };
 
 // Applied to an api_result clone. `absent` deletes the key rather than setting undefined,
@@ -155,5 +201,5 @@ function applyZ6(apiResult, key) {
 
 module.exports = {
   INSTINCT_PROFILES, INSTINCT_MARKUP, applyInstinct,
-  STACK_EDGE_CASES, SM_BULLETS_OVER_SPEC, EM_PARAGRAPH, Z6_STATES, applyZ6,
+  STACK_EDGE_CASES, SM_BULLETS_OVER_SPEC, EM_PARAGRAPH, EM_OBSERVED_MAX, Z6_STATES, applyZ6,
 };

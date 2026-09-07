@@ -31,7 +31,7 @@ const prep = require(path.join(ROOT, 'app/report_prep.js'));
 const base = require(path.join(ROOT, 'tests/fixtures/anders_sx9_api_result.json'));
 const {
   INSTINCT_PROFILES, applyInstinct, STACK_EDGE_CASES,
-  SM_BULLETS_OVER_SPEC, EM_PARAGRAPH, Z6_STATES, applyZ6,
+  SM_BULLETS_OVER_SPEC, EM_PARAGRAPH, EM_OBSERVED_MAX, Z6_STATES, applyZ6,
 } = require(path.join(ROOT, 'tests/fixtures/instinct_axis.js'));
 
 const CLIENT = { first_name: 'Anders', full_name: 'Anders Lindqvist', date: '6 September 2026' };
@@ -109,7 +109,7 @@ test('instinct stack: an exact tie and a missing profile both fall through to de
 
 // ── The Z6 axis ───────────────────────────────────────────────────────────────────────
 
-test('Z6: all four states build a valid model with the expected instinct_evidence shape', async () => {
+test('Z6: all five states build a valid model with the expected instinct_evidence shape', async () => {
   for (const [key, s] of Object.entries(Z6_STATES)) {
     const m = await build(applyZ6(base, key));   // buildClientModel calls validateModel itself
     assert.deepStrictEqual(m.pages.instinct_subtype.instinct_evidence, s.expect,
@@ -127,18 +127,31 @@ test('Z6: null and absent converge — they are one model state reached two ways
   assert.deepStrictEqual(a, b, 'null and absent must produce identical models');
 });
 
-test('Z6: the EM shape is one element of 777 characters and survives the prep path', async () => {
-  // Derived from sp4_api_result.json's instinct_personal_overlay — the field
-  // em_report_adapter.js:143 maps into instinct_evidence, wrapped by _toEvidenceArray as a
-  // ONE-element array. scripts/render_client.js never calls that adapter, so this is a
-  // hand-made post-adapter artifact: it exercises the prep path's tolerance of the shape,
-  // NOT the EM pipeline.
-  assert.strictEqual(EM_PARAGRAPH.length, 1, 'EM shape is a single element, not three bullets');
+test('Z6: the hazard case is one element of 777 characters and survives the prep path', async () => {
+  // NOT "the EM shape" — that label was wrong and was corrected at step 6 along with the
+  // fixture's own comment. This is sp4's instinct_personal_overlay, and sp4 is an SM
+  // fixture, so it is SM's field ("2-4 sentences") hand-run through a simulation of the EM
+  // adapter. It is kept because it is the only artifact exercising esc()'s \n -> <br> path.
+  // See EM_OBSERVED_MAX for a value matched to real EM output.
+  assert.strictEqual(EM_PARAGRAPH.length, 1, 'hazard case is a single element, not three bullets');
   assert.strictEqual(EM_PARAGRAPH[0].length, 777);
   assert.strictEqual(EM_PARAGRAPH[0].split(/\n\n+/).length, 3, 'three paragraphs');
   const m = await build(applyZ6(base, 'em_paragraph'));
   assert.strictEqual(m.pages.instinct_subtype.instinct_evidence[0].length, 777,
     'the 777-char paragraph reaches the model intact and throws nowhere');
+});
+
+test('Z6: EM_OBSERVED_MAX holds the shape half of its own preserve-contract', () => {
+  // The fixture's comment lists what a later editor MUST PRESERVE. Three of those are
+  // geometry (line count, box px, last-line fill) and are asserted by the render matrix in
+  // scripts/render_client.js, because they need a browser. The two STRUCTURAL ones are
+  // asserted here, where they cost nothing:
+  //   - single-element array shape
+  //   - absence of any \n (a newline reintroduces the <br> slots the p10 join removes)
+  // Char count is deliberately NOT asserted: the fixture matches a render, not a count, and
+  // it is 531 chars against the real 532 precisely to make that unmissable.
+  assert.strictEqual(EM_OBSERVED_MAX.length, 1, 'single-element array shape');
+  assert.strictEqual(EM_OBSERVED_MAX[0].includes('\n'), false, 'no newline of any kind');
 });
 
 test('Z6: the SM bullets are a live copy of CMS_PREVIEW_WORST_EVIDENCE, and are over-spec', async () => {
