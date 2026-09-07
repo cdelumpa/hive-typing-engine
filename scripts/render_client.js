@@ -81,6 +81,45 @@ const V3_PAIRS = [
  * The standing 13.0% / 15.9% figures were taken on `deb13f3`, before the Type 9 source doc
  * replaced 36 of that type's 40 strings, so they describe prose that no longer ships.
  */
+/**
+ * p10 GEOMETRY — the shipped page held to the page it was MEASURED as.
+ *
+ * Every figure in docs/p10_fit_results.md was taken on a scaffold at the mockup's grid,
+ * before p10 had a renderer. Step 5A's markup is not the scaffold's, so the shipped page
+ * can drift from the measured one and nothing else would notice: the fit numbers would
+ * quietly stop describing the page they are cited for.
+ *
+ * Three assertions, and two of them are the CORRECTED versions — the first drafts of both
+ * were wrong when the scaffold shipped them at step 3:
+ *
+ *  1. WIDTH via getBoundingClientRect minus padding, NOT line_metrics' contentBox.
+ *     contentBox derives from `clientWidth`, which is an INTEGER: it reports this column as
+ *     207 where the real width is 207.3281. Fine for counting lines, wrong for checking a
+ *     fractional grid against a fractional reference. The step-3 probe failed on exactly
+ *     this and the scaffold was not at fault — the ruler was.
+ *
+ *  2. THE BADGE ROW'S RESERVATION, tested by REMOVING the badge. Asserting the row is 13px
+ *     is satisfied by the badge simply being 13px tall on its own, which is a different
+ *     fact. What matters is that `min-height` holds the row open, because a renderer that
+ *     omits the badge inherits the 13px only if it does. The scaffold shipped the weak
+ *     version first and it passed with the min-height deleted.
+ *
+ *  3. INTRINSIC column height, not the card box. `.v3-inst-card` is a flex item under the
+ *     default `align-items: stretch`, so all three columns report the SAME height whatever
+ *     they hold. An assertion on the card box would be green while one column overflowed.
+ */
+const V3_GEOMETRY = {
+  pageKey: 'instincts',
+  colWidth: 207.3281,     // docs/p10_fit_results.md — .v3-inst-body content width
+  eyebrow: 13,            // .v3-inst-eyebrow min-height, the badge-row reservation
+  // Inter-zone spacing, added after the step-5A smoke render found the lead sitting flush
+  // against "The Three Instincts". The shared .v3-page .lead has no bottom margin; the
+  // geometry p10 was measured at is the mockup's, which has 16px. Column width and the
+  // eyebrow were both correct while this was wrong, so it needs its own assertion.
+  leadGap: 16,
+  tol: 0.05,
+};
+
 const V3_FILL_ZONES = [
   { name: 'p6 core motivation',  pageKey: 'typeA', sel: '.v3-ta-cm-narr' },
   { name: 'p7 chicklet bullet 8', pageKey: 'typeB', sel: '.v3-tb-s-txt', nth: 7 },
@@ -120,11 +159,20 @@ const REPORTS = {
     // §6.1 matched line counts + the §6 fill outliers. Report-only; see V3_PAIRS.
     pairChecks: V3_PAIRS,
     fillZones: V3_FILL_ZONES,
-    fixtures: ['anders_sx9'],   // Type 9 / SX9 — the fixture the v3 mockups were built for
+    geometry: V3_GEOMETRY,
+    // anders_sx9 is the fixture the v3 mockups were built for. sp4 joins at STEP 5A for
+    // coherence, not coverage: its instinct_evidence is Type 4 SP prose, which reads
+    // correctly on a Type 4 SP page and nowhere else. Transplanting it onto anders_sx9 —
+    // which the step-3 probe did — puts Type 4 prose under a Type 9 heading and anyone
+    // eyeballing the output has to be told to ignore the words.
+    fixtures: ['anders_sx9', 'sp4'],
     // Render EVERY type from the one fixture, swapping confirmed_type. The per-type pages
     // fit differently per type — the canon line narratives alone range 284-351 chars — so a
     // single-type run cannot answer "does this page fit". No new fixtures needed: the client
     // model derives everything from hypothesis.confirmed_type.
+    // PER FIXTURE. anders_sx9 sweeps all nine types; sp4 renders ONLY at its own type,
+    // because the reason it is here is that its per-client prose matches that type.
+    typesFor: (fx) => (fx === 'sp4' ? [4] : [1, 2, 3, 4, 5, 6, 7, 8, 9]),
     types: [1, 2, 3, 4, 5, 6, 7, 8, 9],
     // ── The instinct axis (PR 4 step 2) ────────────────────────────────────────────────
     //
@@ -146,7 +194,15 @@ const REPORTS = {
     // run against ~+4.4 s here, FOR THE SAME COVERAGE. The full matrix belongs at STEP 4,
     // where p10 exists and 27 renders put all 27 subtype columns in the highlighted slot —
     // which is what it was designed to deliver and delivers none of here.
-    instinctsFor: (type) => (type === 9 ? [null, 'sp_primary', 'so_primary'] : [null]),
+    // TWENTY-SEVEN now, not eleven. p10 exists as of step 5A, so the full 3 x 9 finally
+    // earns its cost: it is the only thing that puts all 27 subtype columns in the
+    // highlighted slot, which is the build plan's own PR 4 pass/fail. `null` means the
+    // fixture's own instinct values — anders_sx9 IS sx_primary, so the three cases are
+    // sx/sp/so. Measured 1.424 s/render locally, ~2.25 s in CI.
+    //
+    // sp4 takes `null` only: its own dominant is SP and its own type is 4, which is the
+    // whole point of it being here. 27 + 1 = 28.
+    instinctsFor: (fx) => (fx === 'sp4' ? [null] : [null, 'sp_primary', 'so_primary']),
   },
   coach: {
     build: async (apiResult) => R.buildCoachReportHTML(await prep.buildCoachModel({ apiResult, client, coach })),
@@ -273,12 +329,12 @@ async function measureLayout(page, selector) {
     for (const [kind, cfg] of Object.entries(REPORTS)) {
      for (const fx of (cfg.fixtures || ['sp4', 'sx7'])) {
       const fixture = require(path.join(ROOT, `tests/fixtures/${fx}_api_result.json`));
-      for (const asType of (cfg.types || [null])) {
+      for (const asType of (cfg.typesFor ? cfg.typesFor(fx) : (cfg.types || [null]))) {
        // The instinct axis sits INSIDE the type loop and defaults to [null] — "the fixture's
        // own instinct values, untouched". With no instinctsFor, and for every type that
        // returns [null], the object handed to cfg.build is exactly what it was before this
        // axis existed, which is what makes the nine existing renders byte-identical.
-       for (const instKey of (cfg.instinctsFor ? cfg.instinctsFor(asType) : [null])) {
+       for (const instKey of (cfg.instinctsFor ? cfg.instinctsFor(fx, asType) : [null])) {
         const retyped = asType == null ? fixture : (() => {
           const c = JSON.parse(JSON.stringify(fixture));
           const realType = fixture.hypothesis.confirmed_type;
@@ -325,15 +381,28 @@ async function measureLayout(page, selector) {
         // The negative half matters as much as the positive: without it a change that
         // emitted every label would pass. The three shapes are mutually exclusive on this
         // page, and that is asserted, not assumed.
-        if (cfg.instinctsFor && asType === 9) {
+        if (cfg.instinctsFor && fx === 'anders_sx9' && asType === 9) {
           const key = instKey || 'sx_primary';
           const want = INSTINCT_MARKUP[key];
-          if (!html.includes(want)) {
-            fail(`${kind} type 9 · ${key}: Contents descriptor markup not found — expected ${JSON.stringify(want)}`);
+          // SCOPED TO THE CONTENTS DESCRIPTOR, and it has to be as of step 5A.
+          //
+          // This assertion was always ABOUT that one line; until p10 existed a
+          // whole-document `includes` was unambiguous because nothing else on the document
+          // carried those strings. p10 changed that: its Z5 narratives OPEN with the same
+          // words — "Self-Preservation Nines find peace through…", "Social Nines find…" —
+          // and _v3NoBreak wraps the hyphenated ones identically, so every needle now also
+          // matches a narrative. Widening the needle would be guesswork; naming the element
+          // says what the check always meant.
+          const descs = [...html.matchAll(/<div class="v3-toc-desc">([\s\S]*?)<\/div>/g)].map((mm) => mm[1]);
+          const desc = descs.find((d) => /dominant instinct/.test(d));
+          if (!desc) {
+            fail(`${kind} type 9 · ${key}: no Contents descriptor mentioning the dominant instinct`);
+          } else if (!desc.includes(want)) {
+            fail(`${kind} type 9 · ${key}: Contents descriptor markup not found — expected ${JSON.stringify(want)} in ${JSON.stringify(desc)}`);
           } else {
             const strays = Object.entries(INSTINCT_MARKUP)
-              .filter(([k, v]) => k !== key && html.includes(v)).map(([k]) => k);
-            if (strays.length) fail(`${kind} type 9 · ${key}: markup for ${strays.join(', ')} also present — the three shapes must be mutually exclusive`);
+              .filter(([k, v]) => k !== key && desc.includes(v)).map(([k]) => k);
+            if (strays.length) fail(`${kind} type 9 · ${key}: markup for ${strays.join(', ')} also in the Contents descriptor — the three shapes must be mutually exclusive`);
             else console.log(`  instinct markup (${key}): ${want}`);
           }
         }
@@ -394,6 +463,61 @@ async function measureLayout(page, selector) {
         }
 
         // ── §6 last-line fill outliers — REPORT-ONLY ──────────────────────────────
+        if (cfg.geometry) {
+          const g = cfg.geometry;
+          const idxOf = Object.fromEntries(R.v3PagesFor(asType == null ? 9 : asType).map((p2, i) => [p2.key, i]));
+          const got = await page.evaluate((pi) => {
+            const pages = [...document.querySelectorAll('.v3-page')];
+            const el = pages[pi];
+            if (!el) return { missing: true };
+            const body = el.querySelector('.v3-inst-body');
+            const eb = el.querySelector('.v3-inst-eyebrow');
+            if (!body || !eb) return { missing: true };
+            const cs = getComputedStyle(body);
+            const w = +(body.getBoundingClientRect().width
+              - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)).toFixed(4);
+            // Reservation, tested not inferred: pull the badge and re-read.
+            const tag = eb.querySelector('.v3-inst-tag');
+            const html = tag ? tag.outerHTML : null;
+            if (tag) tag.remove();
+            const noBadge = +eb.getBoundingClientRect().height.toFixed(2);
+            if (html) eb.insertAdjacentHTML('beforeend', html);
+            // Intrinsic, not the stretched card box.
+            const intrinsic = [...el.querySelectorAll('.v3-inst-card')].map((c) => {
+              const head = c.querySelector('.v3-inst-head').getBoundingClientRect().height;
+              const b = c.querySelector('.v3-inst-body'), bc = getComputedStyle(b);
+              let inner = 0;
+              for (const kid of b.children) {
+                const k = getComputedStyle(kid);
+                inner += kid.getBoundingClientRect().height + parseFloat(k.marginTop) + parseFloat(k.marginBottom);
+              }
+              return +(head + parseFloat(bc.paddingTop) + inner + parseFloat(bc.paddingBottom)).toFixed(2);
+            });
+            const lead = el.querySelector('.v3-inst-lead');
+            const leadGap = lead ? +parseFloat(getComputedStyle(lead).marginBottom).toFixed(2) : null;
+            return { w, leadGap, eyebrow: +eb.getBoundingClientRect().height.toFixed(2), noBadge, intrinsic,
+                     cardBox: +el.querySelector('.v3-inst-card').getBoundingClientRect().height.toFixed(2) };
+          }, idxOf[g.pageKey]);
+          if (got.missing) {
+            fail(`${kind}${asType == null ? '' : ' Type ' + asType}: p10 geometry — page or .v3-inst-body/.v3-inst-eyebrow not found`);
+          } else {
+            if (Math.abs(got.w - g.colWidth) > g.tol) {
+              fail(`${kind} Type ${asType}: p10 column content width ${got.w} != ${g.colWidth} — the SHIPPED page has drifted from docs/p10_fit_results.md`);
+            }
+            if (Math.abs(got.eyebrow - g.eyebrow) > g.tol) {
+              fail(`${kind} Type ${asType}: p10 .v3-inst-eyebrow ${got.eyebrow} != ${g.eyebrow}`);
+            }
+            if (got.leadGap == null || Math.abs(got.leadGap - g.leadGap) > g.tol) {
+              fail(`${kind} Type ${asType}: p10 lead bottom margin ${got.leadGap} != ${g.leadGap} — the zone spacing has drifted from the measured geometry`);
+            }
+            if (Math.abs(got.noBadge - g.eyebrow) > g.tol) {
+              fail(`${kind} Type ${asType}: p10 badge row WITHOUT its badge is ${got.noBadge}, not ${g.eyebrow} — min-height is not reserving it`);
+            }
+            const tallest = Math.max(...got.intrinsic);
+            console.log(`  p10 geometry: col ${got.w}px · lead-gap ${got.leadGap}px · eyebrow ${got.eyebrow}/${got.noBadge}px · intrinsic ${got.intrinsic.join('/')} (tallest ${tallest}, card box ${got.cardBox})`);
+          }
+        }
+
         if (cfg.fillZones && asType != null) {
           const idx = {};
           R.v3PagesFor(asType).forEach((pg, i) => { idx[pg.key] = i; });

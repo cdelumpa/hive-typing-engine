@@ -223,6 +223,84 @@ console.log('\ncountByClass token boundaries:');
     assert(model.pages.v3_contents.every(e => order.some(p => p.key === e.start)),
       'v3: every contents entry names a real V3_PAGE_ORDER key');
 
+    // ── p10 Instincts & Subtypes — D4's negative gate, in TWO halves (PR 4 step 5A) ──
+    //
+    // WHY THE PRESENCE HALF EXISTS. "the emitted page contains no shift zone" passed
+    // VACUOUSLY for the whole of PR 4 — green from the first audit onward — because
+    // V3_PAGE_BUILDERS had no `instincts` entry and nothing was emitted to contain
+    // anything. A negative assertion that is green before the work starts is not a gate.
+    // So: assert the page IS there, then assert what it does not carry.
+    //
+    // WHY THE ABSENCE HALF IS WORTH ASSERTING. D4 cut the shift bullets and the "Leaning
+    // Into the Other Instincts" blocks FROM p10 — it did not cut them from the product.
+    // subtype.shifts is live v2 content on p7 (report_prep -> renderer.js:2347) and it sits
+    // on the very row this page reads. Rendering it here is a one-line mistake.
+    {
+      const p10 = html.match(/<div class="v3-page">(?:(?!<div class="v3-page">)[\s\S])*?v3-inst-cmp[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/);
+      assert(/class="v3-inst-cmp"/.test(html), 'v3: p10 IS emitted — the .v3-inst-cmp comparison unit is present');
+      assert(/class="v3-inst-card"|class="v3-inst-card is-yours"/.test(html), 'v3: p10 emits subtype columns');
+      assert((html.match(/class="v3-inst-card/g) || []).length === 3, 'v3: p10 emits exactly three subtype columns');
+
+      // The absence half, scoped to the page rather than the document: p7 legitimately
+      // carries shift content, so a whole-document check would be asserting the wrong thing.
+      // `class="v3-inst-cmp"` with the quote, NOT the bare token: the stylesheet in <head>
+      // carries `.v3-inst-cmp{…}`, so a bare match finds the head and every assertion below
+      // then runs against CSS instead of the page.
+      const pages = html.split('<div class="v3-page">');
+      const p10html = pages.find((x) => x.includes('class="v3-inst-cmp"')) || '';
+      assert(p10html.length > 0, 'v3: p10 page body located for the absence check');
+      assert(!/shift/i.test(p10html), 'v3: p10 emits NO shift zone (D4 cut it from this page, not from p7)');
+      assert(!/Leaning Into/i.test(p10html), 'v3: p10 emits no "Leaning Into the Other Instincts" block');
+
+      // The Naranjo substitution: the display nickname appears nowhere on p10.
+      assert(!/The Collector|The Community Benefactor|The Seeker/.test(p10html),
+        'v3: p10 carries the Naranjo name, not the display nickname');
+      assert(/class="v3-inst-name">Appetite</.test(p10html), 'v3: p10 renders the Naranjo name in the column head');
+
+      // Z3 reads the v3-only field, and the FOCUSED ON row is gone.
+      assert(/Governs our need/.test(p10html), 'v3: p10 Z3 renders instinct_definitions_v3, not the live v2 strings');
+      assert(!/Focused On/i.test(p10html), 'v3: p10 has no FOCUSED ON label row');
+      assert(!/Focused on safety, comfort/.test(p10html), 'v3: p10 does NOT render the live v2 instinct_definitions bodies');
+
+      // Z6's label.
+      assert(!/In Your Responses/i.test(p10html), 'v3: p10 does not use the old "In Your Responses" label');
+    }
+
+    // ── The NULL-dominant case is UNREACHABLE, and that is what is asserted ───────────
+    //
+    // p10 sources PRIMARY from dominant_instinct_hypothesis, which is a late-added nullable
+    // column, so the obvious worry is a pre-migration row leaving the badge without a
+    // source. Measured: it cannot happen, for two reasons in series.
+    //
+    //   1. A null dominant alone falls back to confirmed_instinct (report_prep.js), so the
+    //      model still resolves a real instinct and p10 renders normally.
+    //   2. With BOTH null, buildClientModel THROWS before any page is built — subtypeKey('')
+    //      yields "subtype_9", which is not a library key.
+    //
+    // So there is no state in which p10 receives a model with no instinct, and designing a
+    // rendering for one would be designing for the unreachable. This asserts the throw
+    // instead: the day someone adds a fallback that makes it renderable, this goes red and
+    // p10's missing case becomes a decision rather than a surprise.
+    {
+      const bothNull = JSON.parse(JSON.stringify(apiResult));
+      bothNull.hypothesis.dominant_instinct_hypothesis = null;
+      bothNull.hypothesis.confirmed_instinct = null;
+      let threw = null;
+      try { await prep.buildClientModel({ apiResult: bothNull, client: V3_CLIENT, coach }); }
+      catch (e) { threw = e; }
+      assert(threw != null,
+        'v3: an assessment with no instinct at all must THROW in buildClientModel, not reach p10');
+
+      // And a null dominant ALONE must still render, via the documented fallback.
+      const domOnly = JSON.parse(JSON.stringify(apiResult));
+      domOnly.hypothesis.dominant_instinct_hypothesis = null;
+      const fallbackModel = await prep.buildClientModel({ apiResult: domOnly, client: V3_CLIENT, coach });
+      assert(fallbackModel.display.instinct_code === 'SX',
+        'v3: a null dominant_instinct_hypothesis falls back to confirmed_instinct');
+      assert(/class="v3-inst-cmp"/.test(R.buildClientReportHTML_v3(fallbackModel)),
+        'v3: p10 still renders when dominant_instinct_hypothesis is null');
+    }
+
     // Tokens (brief v2.0 section 12.4). nickname/nickname_plural must exist and be applied:
     // the contents page prints "Development Ideas for Peacemakers", never the raw template.
     assert(model.display.nickname === 'Peacemaker', `v3: display.nickname = ${model.display.nickname} (expected Peacemaker)`);
@@ -245,7 +323,30 @@ console.log('\ncountByClass token boundaries:');
       `v3: ${headers.length} page headers (expected ${withChrome.length}; the cover has none)`);
     const code = `${model.display.instinct_code}${model.hero.number}`;   // "SX9"
     assert(headers.every(h => !h.includes(code)), `v3: no page header carries the subtype code (${code})`);
-    assert(!html.includes(code), `v3: the subtype code (${code}) appears nowhere in the ${builtPages.length} built sheets`);
+    // NARROWED FROM DOCUMENT-WIDE TO CHROME AT PR 4 STEP 5A. Deliberately not deleted, and
+    // the reasoning is written down because this guard exists to stop exactly the kind of
+    // change I am making to it.
+    //
+    // It used to assert `!html.includes(code)` across the whole document. That was correct
+    // while no page carried a subtype code, and it is now unsatisfiable for TWO independent
+    // reasons, neither of which is a regression:
+    //
+    //   1. p10 identifies its three comparison columns as SP9 / SO9 / SX9 in their eyebrow,
+    //      which is how the mockup itself distinguishes them. That is content — it tells
+    //      the reader which column they are in — not chrome.
+    //   2. THE COMMITTED NARRATIVES NAME THEIR OWN CODES. SX9's reads "…merging can lead
+    //      the SX9 to struggle with boundaries…". That is Cai's prose, in the store since
+    //      step 1, and no renderer change can or should alter it.
+    //
+    // Reason 2 alone makes the document-wide form impossible to satisfy, so keeping it would
+    // mean deleting the check entirely. Instead it is scoped to what the comment above says
+    // it protects: five mockups printing "· SX9" in the PAGE HEADER, and TOC_v2's CLIENT
+    // STRIP. Both are still asserted — headers on the line above, the Contents strip here —
+    // and the guard trips exactly as before for anyone restoring either.
+    const tocChrome = (html.match(/<div class="v3-toc-(?:prep|lbl|name|sub)">[\s\S]*?<\/div>/g) || []).join('');
+    assert(tocChrome.length > 0, 'v3: the Contents client strip was located for the subtype-code check');
+    assert(!tocChrome.includes(code),
+      `v3: the Contents client strip carries no subtype code (${code})`);
     // The derivation stays in the model even though PR 2 stops consuming it — sheet 5 needs it.
     assert(model.display.instinct_code === 'SX', 'v3: display.instinct_code is still derived for sheet 5');
 

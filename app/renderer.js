@@ -3060,6 +3060,62 @@ function clientReportV3PageStyles() {
 .v3-page .v3-work-item{ flex:1; }
 .v3-page .v3-work-lbl{ font-size:9px; font-weight:bold; color:var(--v3-cyan); text-transform:uppercase; letter-spacing:.1em; margin-bottom:6px; }
 .v3-page .v3-work-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.5; }
+
+/* ── p10 Instincts & Subtypes (PR 4 step 5A) ───────────────────────────────────────
+   GEOMETRY OF RECORD: docs/p10_fit_results.md, measured on a scaffold at the mockup's
+   grid. The numbers that matter and are ASSERTED in scripts/render_client.js:
+     .v3-inst-body content width  207.33px   (page 710 content, unit -2 border,
+                                              3 cards, 2 x 1px border-left, -28px padding)
+     .v3-inst-eyebrow min-height   13px      RESERVES the badge row whether or not a badge
+                                              renders. Drop it and every column reads short.
+   The three cards are flex:1 1 0%, so column width comes from the container and NOT from
+   content — verified by emptying every column and re-measuring. They also STRETCH to equal
+   height, which is why the fit probe measures intrinsic height rather than the card box.
+   Separation between columns is border-left:1px, NOT a gap. Do not add one. */
+/* p10-LOCAL lead spacing. The shared .v3-page .lead carries NO bottom margin — sheet 9
+   wraps it in .v3-intro-body and spaces it there — but the geometry p10 was measured at is
+   the mockup's, whose .lead has margin-bottom:16px. Without this the "The Three Instincts"
+   heading sits flush against the lead's last line, which the step-5A smoke render caught
+   and the column/eyebrow assertions did not. Scoped so no other sheet moves. */
+.v3-page .v3-inst-lead{ margin-bottom:16px; }
+.v3-page .v3-inst-defs{ display:flex; gap:16px; margin-bottom:16px; }
+.v3-page .v3-inst-dcard{ flex:1; border:1px solid var(--v3-border); display:flex; flex-direction:column; }
+.v3-page .v3-inst-dhead{ background:var(--v3-leading-bg); padding:10px 14px; display:flex; align-items:baseline; gap:8px; }
+.v3-page .v3-inst-dcode{ font-size:13px; font-weight:bold; color:var(--v3-cyan); letter-spacing:.04em; }
+.v3-page .v3-inst-dname{ font-size:13px; font-weight:bold; color:var(--v3-navy); }
+.v3-page .v3-inst-dbody{ padding:12px 14px; flex:1; }
+.v3-page .v3-inst-dtxt{ font-size:12.5px; color:var(--v3-navy); line-height:1.5; }
+
+.v3-page .v3-inst-unit{ border:1px solid var(--v3-border); }
+.v3-page .v3-inst-banner{ background:var(--v3-subtype-bg); padding:12px 20px; display:flex; align-items:center; gap:16px; }
+.v3-page .v3-inst-badge{ flex:0 0 auto; width:52px; height:52px; border-radius:50%; background:#fff;
+  border:2px solid var(--v3-cyan); display:flex; align-items:center; justify-content:center;
+  font-size:14px; font-weight:bold; color:var(--v3-navy); letter-spacing:.02em; }
+.v3-page .v3-inst-blbl{ font-size:9px; font-weight:bold; color:var(--v3-subtype-label); text-transform:uppercase; letter-spacing:.1em; margin-bottom:3px; }
+.v3-page .v3-inst-bname{ font-size:17px; font-weight:bold; color:var(--v3-navy); margin-bottom:3px; }
+.v3-page .v3-inst-btag{ font-size:12.5px; color:var(--v3-soft-navy); font-style:italic; }
+
+.v3-page .v3-inst-cmp{ display:flex; border-top:1px solid var(--v3-border); }
+.v3-page .v3-inst-card{ flex:1 1 0%; display:flex; flex-direction:column; }
+.v3-page .v3-inst-card + .v3-inst-card{ border-left:1px solid var(--v3-border); }
+.v3-page .v3-inst-head{ background:var(--v3-panel); border-bottom:1px solid var(--v3-border); padding:11px 14px; }
+.v3-page .v3-inst-eyebrow{ font-size:8.5px; font-weight:bold; color:var(--v3-grey); text-transform:uppercase;
+  letter-spacing:.09em; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; min-height:13px; }
+.v3-page .v3-inst-tag{ background:var(--v3-orange); color:#fff; font-size:8px; padding:2px 6px; border-radius:2px; letter-spacing:.08em; }
+.v3-page .v3-inst-tag.is-rank{ background:var(--v3-border); color:var(--v3-grey); }
+.v3-page .v3-inst-name{ font-size:14px; font-weight:bold; color:var(--v3-navy); margin-bottom:2px; }
+.v3-page .v3-inst-sig{ font-size:11.5px; color:var(--v3-soft-navy); font-style:italic; line-height:1.35; }
+.v3-page .v3-inst-body{ padding:16px 14px; flex:1; }
+.v3-page .v3-inst-txt{ font-size:12px; color:var(--v3-navy); line-height:1.45; }
+
+/* Auto-height by design: an over-long box spills the page past the 1057px gate rather than
+   clipping, which is the failure the render check catches. Z6 is UNCAPPED at 5A; the cap
+   (5 rendered lines, docs/p10_fit_results.md) lands at step 6. */
+.v3-page .v3-inst-resp{ border:1px solid var(--v3-border); background:var(--v3-evidence-bg);
+  border-left:3px solid var(--v3-orange); padding:16px 18px; margin-top:22px; }
+.v3-page .v3-inst-resp-lbl{ font-size:9px; font-weight:bold; color:var(--v3-subtype-label); text-transform:uppercase; letter-spacing:.1em; margin-bottom:7px; }
+.v3-page .v3-inst-resp-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.55; }
+.v3-page .v3-inst-resp-txt + .v3-inst-resp-txt{ margin-top:6px; }
 </style>`;
 }
 
@@ -3101,7 +3157,7 @@ const V3_PAGE_ORDER = [
     title: 'Exploring Your Type Hypothesis (continued)',         eyebrow: 'Exploring Your Type Hypothesis (continued)' },
   { key: 'wings',     sheet: 8,  footer: 6,    built: true,     title: 'Your Wings',                        eyebrow: 'Navigating the Enneagram System' },
   { key: 'lines',     sheet: 9,  footer: 7,    built: true,     title: 'Your Stress and Security Points',   eyebrow: 'Navigating the Enneagram System' },
-  { key: 'instincts', sheet: 10, footer: 8,    title: 'Instincts & Subtypes',                               eyebrow: 'Navigating the Enneagram System' },
+  { key: 'instincts', sheet: 10, footer: 8,    built: true,     title: 'Instincts & Subtypes',              eyebrow: 'Navigating the Enneagram System' },
   { key: 'car',       sheet: 11, footer: 9,    title: 'Development Ideas for {nickname_plural}',            eyebrow: 'Insight to Action' },
   { key: 'thoughts',  sheet: 12, footer: 10,   built: true,     title: 'Your Thoughts',                     eyebrow: 'Questions to Explore' },
 ];
@@ -3739,6 +3795,112 @@ ${l.work.map((w, i) => `    <div class="v3-work-item">
 }
 
 /**
+ * p10 "Instincts & Subtypes" — sheet 10, printed page 8.
+ *
+ * GEOMETRY OF RECORD: docs/p10_fit_results.md. Every zone below was measured on a scaffold
+ * at the mockup's grid before this page existed, and scripts/render_client.js asserts the
+ * shipped page still matches — column content width 207.33px and the badge row's 13px
+ * reservation. If those assertions fail, THIS PAGE has drifted from the measurements, and
+ * the numbers in that document no longer describe it.
+ *
+ * NAMESPACE `v3-inst-`. `p6-` and `p8-` are both taken by the LIVE v2 client renderer —
+ * .p6-page is _clP6Instinct, the v2 instincts page, and it owns the whole p6-* namespace.
+ * Naming anything here p6- or p8- would collide with a page that ships today.
+ *
+ * WHAT THIS PAGE DOES NOT RENDER, and it is asserted in tests/report_pages_test.js:
+ * no shift-bullet zone and no "Leaning Into the Other Instincts" block. D4 cut both FROM
+ * p10 — it did not cut them from the product: subtype.shifts is live v2 content on p7
+ * (report_prep.js -> renderer.js:2347). They are on the same row this page reads, which is
+ * what makes the omission worth asserting rather than assuming.
+ *
+ * THE NARANJO NAME REPLACES THE DISPLAY NICKNAME. "The Collector" appears nowhere on this
+ * page: .v3-inst-name carries `Appetite`, and the Z4 banner's tagline carries
+ * `Appetite · Comfort & Routine`. That is a substitution, not an addition — measured at
+ * zero additional line boxes, and all 27 naranjo values occupy exactly one line at 14px
+ * bold in a 207.33px column.
+ */
+function _clv3Instincts(m) {
+  const page = v3Page('instincts');
+  const iz = m.pages.v3_instincts;
+
+  // ── BADGES, p10-LOCAL ──────────────────────────────────────────────────────────────
+  // PRIMARY follows dominant_instinct_hypothesis (via display.instinct_code); SECONDARY
+  // and TERTIARY follow instinct_score_profile descending. Computed HERE, from data
+  // already on the model, and NOT from instinctStack — that helper is read by live v2 p6
+  // (renderer.js:2254), the coach report and the Coach Prep Report, and it labels
+  // Leading/Supporting/Growing by score alone with no dominant input. Two ordering rules in
+  // one module is how the wrong one gets imported.
+  //
+  // A null dominant does not reach here: report_prep falls back to confirmed_instinct, and
+  // with both null buildClientModel throws before any page is built. Asserted in
+  // tests/report_pages_test.js rather than defended against.
+  const dom = String(m.display.instinct_code || '').toUpperCase();
+  const rank = (() => {
+    const score = Object.fromEntries((m.charts.instincts || []).map((b) => [b.code, b.score]));
+    const rest = ['SP', 'SO', 'SX'].filter((c) => c !== dom)
+      .sort((a, b) => (score[b] || 0) - (score[a] || 0));
+    return { [dom]: 'Primary', [rest[0]]: 'Secondary', [rest[1]]: 'Tertiary' };
+  })();
+
+  const you = iz.columns.find((c) => c.instinct === dom) || iz.columns[0];
+
+  const card = (c) => `
+    <div class="v3-inst-card${c.instinct === dom ? ' is-yours' : ''}">
+      <div class="v3-inst-head">
+        <div class="v3-inst-eyebrow"><span>${esc(c.code)}</span><span class="v3-inst-tag${c.instinct === dom ? '' : ' is-rank'}">${esc(rank[c.instinct] || '')}</span></div>
+        <div class="v3-inst-name">${_v3t(c.naranjo)}</div>
+        <div class="v3-inst-sig">${_v3t(c.signature)}</div>
+      </div>
+      <div class="v3-inst-body"><div class="v3-inst-txt">${_v3t(c.narrative)}</div></div>
+    </div>`;
+
+  // Z3. The FOCUSED ON label row is deliberately absent: the old bodies opened by echoing
+  // it, and the new ones open with "Governs", reading as a continuation of the heading.
+  // Removing the row is worth 16.00px, measured independently of the text change.
+  const def = (d) => `
+    <div class="v3-inst-dcard">
+      <div class="v3-inst-dhead"><span class="v3-inst-dcode">${esc(d.code)}</span><span class="v3-inst-dname">${esc(d.name)}</span></div>
+      <div class="v3-inst-dbody"><div class="v3-inst-dtxt">${_v3t(d.body)}</div></div>
+    </div>`;
+
+  const evidence = m.pages.instinct_subtype.instinct_evidence;
+  const evList = Array.isArray(evidence) ? evidence.filter(Boolean) : (evidence ? [evidence] : []);
+
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule is-loose"></div>
+
+  <div class="eyebrow">${esc(page.eyebrow)}</div>
+  <h1>${_v3t(_v3Tokens(m, page.title))}</h1>
+  <div class="lead v3-inst-lead">${_v3t(iz.primer)}</div>
+
+  <h2>The Three Instincts</h2>
+  <div class="v3-inst-defs">${iz.definitions.map(def).join('')}
+  </div>
+
+  <div class="v3-inst-unit">
+    <div class="v3-inst-banner">
+      <div class="v3-inst-badge">${esc(dom)}&middot;${esc(String(m.hero.number))}</div>
+      <div>
+        <div class="v3-inst-blbl">Your Subtype</div>
+        <div class="v3-inst-bname">The ${esc(m.display.instinct_label)} ${esc(m.display.type_word)}</div>
+        <div class="v3-inst-btag">${_v3t(you.naranjo)} &middot; ${_v3t(you.signature)}</div>
+      </div>
+    </div>
+    <div class="v3-inst-cmp">${iz.columns.map(card).join('')}
+    </div>
+  </div>
+${evList.length ? `
+  <div class="v3-inst-resp">
+    <div class="v3-inst-resp-lbl">In Your Words</div>
+${evList.map((b) => `    <div class="v3-inst-resp-txt">${_v3t(b)}</div>`).join('\n')}
+  </div>` : ''}
+
+  ${_v3Footer(page)}
+</div>`;
+}
+
+/**
  * key -> render function, for every sheet with a `built` flag in V3_PAGE_ORDER.
  *
  * The document used to list its seven page calls inline. It is a map now because sheets 6-7
@@ -3749,7 +3911,7 @@ ${l.work.map((w, i) => `    <div class="v3-work-item">
 const V3_PAGE_BUILDERS = {
   cover: _clv3Cover, contents: _clv3Contents, welcome: _clv3Welcome, whatis: _clv3WhatIs,
   typeA: _clv3TypeA, typeB: _clv3TypeB, wings: _clv3Wings, lines: _clv3Lines,
-  thoughts: _clv3Thoughts,
+  instincts: _clv3Instincts, thoughts: _clv3Thoughts,
 };
 
 const V3_PAGE_BUILDERS_ORDERED = (model) => v3PagesFor(model.hero.number).map((p) => {
