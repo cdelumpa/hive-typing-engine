@@ -31,7 +31,8 @@ const prep = require(path.join(ROOT, 'app/report_prep.js'));
 const base = require(path.join(ROOT, 'tests/fixtures/anders_sx9_api_result.json'));
 const {
   INSTINCT_PROFILES, applyInstinct, STACK_EDGE_CASES,
-  SM_BULLETS_OVER_SPEC, EM_PARAGRAPH, EM_OBSERVED_MAX, Z6_STATES, applyZ6,
+  SM_BULLETS_OVER_SPEC, EM_PARAGRAPH, EM_OBSERVED_MAX,
+  CMS_PREVIEW_V3_COPY, Z6_CAP_LINES, Z6_STATES, applyZ6,
 } = require(path.join(ROOT, 'tests/fixtures/instinct_axis.js'));
 
 const CLIENT = { first_name: 'Anders', full_name: 'Anders Lindqvist', date: '6 September 2026' };
@@ -109,7 +110,7 @@ test('instinct stack: an exact tie and a missing profile both fall through to de
 
 // ── The Z6 axis ───────────────────────────────────────────────────────────────────────
 
-test('Z6: all five states build a valid model with the expected instinct_evidence shape', async () => {
+test('Z6: every state builds a valid model with the expected instinct_evidence shape', async () => {
   for (const [key, s] of Object.entries(Z6_STATES)) {
     const m = await build(applyZ6(base, key));   // buildClientModel calls validateModel itself
     assert.deepStrictEqual(m.pages.instinct_subtype.instinct_evidence, s.expect,
@@ -139,6 +140,41 @@ test('Z6: the hazard case is one element of 777 characters and survives the prep
   const m = await build(applyZ6(base, 'em_paragraph'));
   assert.strictEqual(m.pages.instinct_subtype.instinct_evidence[0].length, 777,
     'the 777-char paragraph reaches the model intact and throws nowhere');
+});
+
+test('Z6: CMS_PREVIEW_V3_COPY is a live copy of CMS_PREVIEW_V3_EVIDENCE', () => {
+  // SELF-POLICING COPY, on the precedent SM_BULLETS_OVER_SPEC set below: app/server.js exports
+  // nothing and requiring it would boot the application, so the value is duplicated in
+  // instinct_axis.js and this asserts the copy still matches the source by reading server.js
+  // as text. The copy exists so the render matrix can evaluate the CMS preview constant.
+  const src = fs.readFileSync(path.join(ROOT, 'app/server.js'), 'utf8');
+  for (const b of CMS_PREVIEW_V3_COPY) {
+    assert.ok(src.includes(b),
+      'CMS_PREVIEW_V3_COPY has drifted from CMS_PREVIEW_V3_EVIDENCE (app/server.js:13870) — re-copy it');
+  }
+});
+
+test('Z6: the cap and the per-state declarations agree', () => {
+  // COHERENCE, not geometry. The rendered line counts are asserted by the render matrix in
+  // scripts/render_client.js, which needs a browser. What is checked here is that the
+  // declaration TABLE cannot contradict itself:
+  //   - every named state declares BOTH fields, with no default;
+  //   - a state declared to fit does not also claim more lines than the cap allows;
+  //   - a state claiming more lines than the cap allows IS declared to spill.
+  // The second and third are the two ways a table could quietly disagree with Z6_CAP_LINES
+  // while every individual entry looked reasonable.
+  assert.strictEqual(Z6_CAP_LINES, 5, 'the cap is five rendered lines');
+  for (const [key, s] of Object.entries(Z6_STATES)) {
+    assert.strictEqual(typeof s.capLines, 'number', `${key}: capLines must be declared`);
+    assert.ok(s.page === 'fits' || s.page === 'spills', `${key}: page must be 'fits' or 'spills'`);
+    if (s.page === 'fits') {
+      assert.ok(s.capLines <= Z6_CAP_LINES,
+        `${key}: declared page 'fits' at ${s.capLines} lines, over the ${Z6_CAP_LINES}-line cap`);
+    } else {
+      assert.ok(s.capLines > Z6_CAP_LINES,
+        `${key}: declared page 'spills' at ${s.capLines} lines, within the ${Z6_CAP_LINES}-line cap`);
+    }
+  }
 });
 
 test('Z6: EM_OBSERVED_MAX holds the shape half of its own preserve-contract', () => {
