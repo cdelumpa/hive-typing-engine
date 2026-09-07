@@ -3863,8 +3863,38 @@ function _clv3Instincts(m) {
       <div class="v3-inst-dbody"><div class="v3-inst-dtxt">${_v3t(d.body)}</div></div>
     </div>`;
 
+  // Z6 "In Your Words" — ONE CONTIGUOUS PARAGRAPH, whatever shape the producer sent.
+  //
+  // Two producers write this field and they disagree at the RECORD level, not in formatting.
+  // SM Call #2 emits three evidence bullets; the EM Report Call emits ONE narrative that
+  // em_report_adapter.js:143 wraps as a one-element array. Production is EM-only, so the
+  // shipping shape is the single narrative — but the two CMS preview injections
+  // (server.js:13998/:13999) put a three-item array into the built model, so p10 still has to
+  // render both correctly. Joining here makes the page shape-agnostic instead of assuming one.
+  //
+  // WHY THE WHITESPACE COLLAPSE IS PART OF THE JOIN, not a separate tidy: esc() ends with
+  // .replace(/\n/g, '<br>'), so a multi-paragraph value's breaks become <br> tags that add
+  // blank line SLOTS. Those slots are invisible to a Range-based line counter, which reports
+  // the lines carrying text and not the ones that are empty — measured at 8 counted against 10
+  // occupied. 6B's cap is stated in rendered lines, and a line count is only a valid unit once
+  // the zone cannot contain a <br>. This is what makes it one.
+  //
+  // WHY HERE AND NOT UPSTREAM — both alternatives were traced and both are wrong:
+  //   - em_report_adapter.js's _toEvidenceArray has exactly ONE call site and serves ONE of
+  //     the four writers, so it is not the choke point it looks like.
+  //   - report_prep.js:408 feeds server.js:2297, and server.js:2326 splits that value on \n\n
+  //     to build the coach portal's paragraphs. Collapsing there would flatten the coach's
+  //     subtype section into one block — and NOTHING IN CI CALLS adaptEmToContract, so the
+  //     coach byte-diff would not have caught it.
+  // This site is p10-local: nothing else reads it, and p6 (renderer.js:2251) is untouched.
+  //
+  // Production has never sent a newline — zero across all 19 stored rows, 2026-06-15 to
+  // 2026-07-19 — so the <br> half of this is DEFENSIVE. The join is corrective for the two
+  // things above, which do not depend on that.
   const evidence = m.pages.instinct_subtype.instinct_evidence;
-  const evList = Array.isArray(evidence) ? evidence.filter(Boolean) : (evidence ? [evidence] : []);
+  const evParts = Array.isArray(evidence) ? evidence.filter(Boolean) : (evidence ? [evidence] : []);
+  const evJoined = evParts.join(' ').replace(/\s+/g, ' ').trim();
+  const evList = evJoined ? [evJoined] : [];
 
   return `<div class="v3-page">
   ${_v3Header(m)}
