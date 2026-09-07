@@ -91,6 +91,24 @@ const Z3_NEW = [
     body: 'Governs our need for an intense bond or connection with one person at a time. People who lead with SX seek intimacy and passion in one-on-one relationships.' },
 ];
 
+/**
+ * SO7 — REVISED NARRATIVE. SCAFFOLD CONTENT ONLY; NOT COMMITTED TO THE STORE.
+ *
+ * Cai's revision, 7 Sep 2026, rendered here to be measured. Same boundary as Z3_NEW: step 3
+ * is a measurement instrument and touches no content. The store change is its own build.
+ *
+ * ⚠ AND IT IS NOT A LENGTH PROBLEM, WHICH IS THE WHOLE POINT. Measured last round: SO5 is
+ * 394 chars and renders 11 lines; SO7 is 389 and renders 12. SO7 is FIVE CHARACTERS SHORTER
+ * than a column that fits and still costs a line. It loses the line to WHERE ITS WORDS
+ * BREAK, not to how much text it holds. So -16 characters may drop the line or may do
+ * nothing, and only the render says which. Nothing here reasons from the character count.
+ *
+ * Three edits against the committed 389: "social norms and expectations" -> "social
+ * expectations"; "ideas and possibilities" -> "ideas and options"; "scattered" ->
+ * "unfocused" (a wash at 9 characters each).
+ */
+const SO7_REVISED = 'The Social Seven gains freedom from pain and constraints by accepting some limitations that keep them aligned with social expectations. SO7s are typically generous, wanting to share the things they love and being of service to the group, similar to the Type 2 Giver. Their abundance of ideas and options can lead them to become overextended, unfocused, and spread too thin.';
+
 const PAGE_PX = 1056;                 // .page min-height; the 1057 gate is one past it
 const PAGE_CONTENT_PX = 976;          // 1056 less 40px top and bottom padding [measured]
 const GRID_W = 207.33;                // .ccard content width on the mockup [measured]
@@ -151,7 +169,7 @@ function z6Html(state) {
  * must badge SP, or the page contradicts itself in the way the sp4 switch exists to stop.
  * The measurement renders use SX, the v3 fixture's own dominant.
  */
-function scaffold(typeN, z6State, dom = 'SX', z3Variant = 'new_nolabel') {
+function scaffold(typeN, z6State, dom = 'SX', z3Variant = 'new_nolabel', so7 = 'revised') {
   // 'store_label'   — what ships today: store bodies under a FOCUSED ON row (the baseline)
   // 'store_nolabel' — store bodies, label row removed   -> isolates the LABEL saving
   // 'new_label'     — new bodies, label row kept        -> isolates the TEXT saving
@@ -168,13 +186,16 @@ function scaffold(typeN, z6State, dom = 'SX', z3Variant = 'new_nolabel') {
 
   const cards = rows.map(({ i, st }) => {
     const iv = st.instincts_v3;
+    // The SO7 swap is a SCAFFOLD OVERRIDE. The store is untouched; `so7: 'committed'`
+    // renders what actually ships, which is what the before/after comparison needs.
+    const narrative = (so7 === 'revised' && st.code === 'SO7') ? SO7_REVISED : iv.narrative;
     return `<div class="ccard${i === dom ? ' yours' : ''}">
     <div class="chead">
       <div class="ceyebrow"><span>${esc(i)}${typeN}</span><span class="ctag${i === dom ? '' : ' rank'}">${badge[i]}</span></div>
       <div class="cname">${esc(iv.naranjo)}</div>
       <div class="cline">${esc(iv.signature)}</div>
     </div>
-    <div class="cbody"><div class="czone"><div class="ctxt">${esc(iv.narrative)}</div></div></div>
+    <div class="cbody"><div class="czone"><div class="ctxt">${esc(narrative)}</div></div></div>
   </div>`;
   }).join('\n  ');
 
@@ -261,6 +282,10 @@ const MEASURE = () => {
       narrWidth: L.contentBox(txt),
       nameText: nameEl.textContent,
       nameLines: L.lineCount(nameEl),
+      // Last-line fill as a fraction of the WIDEST rendered line in the same zone. This is
+      // the fragility number: a column that fits at 97% fill gives the line straight back
+      // the moment anyone edits a word in it.
+      lastLineFill: L.lastLineFill(txt),
       sigLines: L.lineCount(c.querySelector('.cline')),
       eyebrowH: box(c.querySelector('.ceyebrow')),
       headH: box(c.querySelector('.chead')),
@@ -378,6 +403,43 @@ const Z6_STUDY = (targets) => {
     out[t] = readout();
   }
   return out;
+};
+
+/**
+ * WHERE THE LINES ACTUALLY BREAK, read off the render.
+ *
+ * Walks the text node word by word with a Range, takes each word's rect top, and groups
+ * words that share a top into a line. That is the same merge-by-top-edge rule
+ * line_metrics uses to count lines, so the grouping here and the count there cannot
+ * disagree. Reports each line's text and its width as a fraction of the widest line, so a
+ * line that is nearly full is visible as such.
+ */
+const BREAKS = (sel) => {
+  const el = document.querySelector(sel);
+  const node = el.firstChild;
+  const text = node.textContent;
+  const rg = document.createRange();
+  const lines = new Map();
+  let i = 0;
+  while (i < text.length) {
+    let j = i;
+    while (j < text.length && !/\s/.test(text[j])) j++;
+    if (j > i) {
+      rg.setStart(node, i); rg.setEnd(node, j);
+      const r = rg.getBoundingClientRect();
+      const k = Math.round(r.top * 2) / 2;
+      if (!lines.has(k)) lines.set(k, { top: k, words: [], l: r.left, r: r.right });
+      const L = lines.get(k);
+      L.words.push(text.slice(i, j));
+      L.l = Math.min(L.l, r.left); L.r = Math.max(L.r, r.right);
+    }
+    i = j;
+    while (i < text.length && /\s/.test(text[i])) i++;
+  }
+  const out = [...lines.values()].sort((a, b) => a.top - b.top)
+    .map((L) => ({ text: L.words.join(' '), w: +(L.r - L.l).toFixed(2) }));
+  const widest = Math.max(...out.map((o) => o.w));
+  return out.map((o, n) => ({ n: n + 1, text: o.text, w: o.w, fill: +(o.w / widest).toFixed(4) }));
 };
 
 /** All 27 naranjo values at 14px bold in the real column, in one pass. */
@@ -500,6 +562,34 @@ function assertGrid(g, where) {
   console.log(`  (worst by CHARACTER COUNT would have been: ${byChars[0]} at ${byChars[1].chars} chars — ${byChars[0] === worstZ6[0] ? 'same answer here, but not derivable from chars' : 'A DIFFERENT ANSWER'})\n`);
 
   // ── 1 + 3 + 4 + 6. Per type. ────────────────────────────────────────────────────────
+  // ── SO7 BEFORE AND AFTER ────────────────────────────────────────────────────────────
+  console.log('── SO7 · committed vs revised — width 207.33px, intrinsic height ──');
+  console.log('   NOT A LENGTH COMPARISON. SO5 is 394 chars at 11 lines; SO7 is 389 at 12.');
+  console.log('   SO7 is 5 characters SHORTER than a column that fits and still costs a line.\n');
+  const so7 = {};
+  for (const v of ['committed', 'revised']) {
+    const p = await render(browser, scaffold(7, worstZ6[0], 'SX', 'new_nolabel', v));
+    const m = await p.evaluate(MEASURE);
+    assertGrid(m.grid, `so7/${v}`);
+    const c = m.cards.find((x) => x.code === 'SO7');
+    const brk = await p.evaluate(BREAKS, '.ccard:nth-of-type(2) .ctxt');
+    await p.close();
+    so7[v] = { ...c, breaks: brk };
+    console.log(`  ${v.padEnd(10)} ${String(c.narrChars).padStart(3)} chars · ${c.narrLines} lines · intrinsic ${c.intrinsic}px · last-line fill ${(c.lastLineFill * 100).toFixed(1)}%`);
+  }
+  results.so7 = so7;
+  const dChars = so7.revised.narrChars - so7.committed.narrChars;
+  const dLines = so7.revised.narrLines - so7.committed.narrLines;
+  console.log(`  delta: ${dChars} chars, ${dLines} line(s), ${(so7.revised.intrinsic - so7.committed.intrinsic).toFixed(2)}px`);
+  console.log(`  recount vs stated 373: ${so7.revised.narrChars}${so7.revised.narrChars === 373 ? ' — EXACT' : ' — DELTA ' + (so7.revised.narrChars - 373)}`);
+  console.log(`  ${dLines < 0 ? 'THE REVISION DROPS THE LINE.' : 'THE REVISION DOES NOT DROP THE LINE — see the break positions below.'}\n`);
+
+  for (const v of ['committed', 'revised']) {
+    console.log(`  SO7 ${v} — where the lines break (fill = width as a fraction of the widest line):`);
+    so7[v].breaks.forEach((b) => console.log(`    ${String(b.n).padStart(2)}  ${(b.fill * 100).toFixed(1).padStart(5)}%  ${b.text}`));
+    console.log('');
+  }
+
   console.log('── MEASUREMENT 1 · Z5 columns — INTRINSIC height and lines, width 207.33px ──');
   console.log('   (card box is reported too, to show the flex-stretch it hides)\n');
   const composites = [];
@@ -514,8 +604,41 @@ function assertGrid(g, where) {
     console.log(`  Type ${t}: ${cells}   | card box ${m.cards[0].cardBox} (all three) | TALLEST ${tallest.code}`);
     await p.close();
   }
+  console.log('\n  LAST-LINE FILL of each type\'s tallest column — the fragility number.');
+  console.log('  Nine separate figures, not "~297.81/11L": a column that fits at 97% fill');
+  console.log('  gives the line back the moment anyone edits a word in it.\n');
+  for (const { t, tallest, m } of composites) {
+    const f = tallest.lastLineFill;
+    // With nine columns tied at the top, "the tallest" is whichever the reduce reached
+    // first, so its fill alone would be an accident. The fragility-relevant column is the
+    // one in that triple whose last line is FULLEST — the nearest to gaining a line.
+    const tiedTallest = m.cards.filter((c) => Math.abs(c.intrinsic - tallest.intrinsic) < 0.01);
+    const fullest = tiedTallest.reduce((a, b) => ((b.lastLineFill || 0) > (a.lastLineFill || 0) ? b : a));
+    const flag = fullest.lastLineFill >= 0.90 ? '   <-- FRAGILE' : (fullest.lastLineFill >= 0.80 ? '   <-- tight' : '');
+    console.log(`   Type ${t}  tallest ${tallest.code.padEnd(4)} ${String(tallest.intrinsic).padStart(6)}px/${tallest.narrLines}L fill ${(f * 100).toFixed(1).padStart(5)}%`
+      + `   |  fullest of ${tiedTallest.length} tied: ${fullest.code} at ${(fullest.lastLineFill * 100).toFixed(1)}%${flag}`);
+  }
+  {
+    // Across all 27, not just the nine tallest: the columns nearest to gaining a line.
+    const all = composites.flatMap((c) => c.m.cards).filter((c) => c.lastLineFill != null);
+    const rank = [...all].sort((a, b) => b.lastLineFill - a.lastLineFill);
+    console.log(`\n  MOST FRAGILE COLUMNS ACROSS ALL 27 — highest last-line fill, i.e. least room`);
+    console.log('  before a further line appears:');
+    rank.slice(0, 5).forEach((c) => console.log(`    ${c.code.padEnd(4)} ${(c.lastLineFill * 100).toFixed(1).padStart(5)}%  ${c.narrLines}L  ${c.narrChars} chars`));
+    console.log(`    (lowest: ${rank[rank.length - 1].code} at ${(rank[rank.length - 1].lastLineFill * 100).toFixed(1)}%)`);
+  }
+
   const globalWorst = composites.reduce((a, b) => (b.tallest.intrinsic > a.tallest.intrinsic ? b : a));
   console.log(`\n  GLOBAL WORST Z5 COLUMN: ${globalWorst.tallest.code} at ${globalWorst.tallest.intrinsic}px / ${globalWorst.tallest.narrLines} lines (${globalWorst.tallest.narrChars} chars)`);
+  {
+    // If SO7 is no longer the constraint, something else is. Found by rendering, not
+    // assumed — the character-worst and the render-worst have already been shown to differ.
+    const ranked = composites.map((c) => c.tallest).sort((a, b) => b.intrinsic - a.intrinsic);
+    const tied = ranked.filter((c) => Math.abs(c.intrinsic - ranked[0].intrinsic) < 0.01);
+    console.log(`  ${globalWorst.tallest.code === 'SO7' ? 'SO7 IS STILL THE CONSTRAINT.' : 'SO7 IS NO LONGER THE CONSTRAINT.'}`
+      + ` ${tied.length > 1 ? `${tied.length} columns tie at the top: ${tied.map((c) => c.code).join(', ')}` : `The single worst is ${ranked[0].code}`}.`);
+    console.log(`  Next three by rendered height: ${ranked.slice(0, 3).map((c) => `${c.code} ${c.intrinsic}px/${c.narrLines}L (${c.narrChars}ch)`).join(' · ')}`);
+  }
   const charWorst = composites.flatMap((c) => c.m.cards).reduce((a, b) => (b.narrChars > a.narrChars ? b : a));
   console.log(`  By CHARACTER COUNT the worst would have been ${charWorst.code} (${charWorst.narrChars} chars, ${charWorst.narrLines} lines) — ${charWorst.code === globalWorst.tallest.code ? 'same column' : 'A DIFFERENT COLUMN'}`);
 
@@ -678,9 +801,18 @@ function assertGrid(g, where) {
 
   // ── The smoke render: sp4's own type, so the EM prose matches the page ──────────────
   {
-    // Type 4 AND SP — sp4_api_result.json is confirmed_type 4, dominant SP. Both halves
-    // matter: the type makes the subtype columns right, the dominant makes the badge and
-    // the Z4 banner agree with the overlay's own words.
+    // TYPE 7 — the constrained type, and the one the SO7 revision is for. The dominant is
+    // SO so the highlighted column IS the revised one. Note the Z6 overlay is sp4's, so its
+    // prose does not match a Type 7 page; that is a known and stated limitation of having
+    // one real EM sample, and it does not affect any measurement. The Type 4 / SP render
+    // stays alongside it as the coherent one.
+    for (const [tag, t, d] of [['t7_so', 7, 'SO'], ['t4_em', 4, 'SP']]) {
+      const h = scaffold(t, 'em_paragraph', d);
+      fs.writeFileSync(path.join(OUT, `p10_probe_scaffold_${tag}.html`), h);
+      const pp = await render(browser, h);
+      await pp.screenshot({ path: path.join(OUT, `p10_probe_scaffold_${tag}.png`), fullPage: true });
+      await pp.close();
+    }
     const html = scaffold(4, 'em_paragraph', 'SP');
     fs.writeFileSync(path.join(OUT, 'p10_probe_scaffold_t4_em.html'), html);
     const p = await render(browser, html);
