@@ -26,7 +26,7 @@ const R = require(path.join(ROOT, 'app/renderer.js'));
 // The instinct axis (PR 4 step 2). Defined in tests/fixtures/ so the harness and
 // tests/instinct_axis_test.js share one definition and cannot drift; this script already
 // requires fixtures from there.
-const { applyInstinct, INSTINCT_MARKUP } = require(path.join(ROOT, 'tests/fixtures/instinct_axis.js'));
+const { applyInstinct, INSTINCT_MARKUP, applyZ6 } = require(path.join(ROOT, 'tests/fixtures/instinct_axis.js'));
 
 const PAGE_PX = 1056; // US Letter 11in @96dpi
 const OUT = path.join(ROOT, '.phase6_out');
@@ -203,6 +203,25 @@ const REPORTS = {
     // sp4 takes `null` only: its own dominant is SP and its own type is 4, which is the
     // whole point of it being here. 27 + 1 = 28.
     instinctsFor: (fx) => (fx === 'sp4' ? [null] : [null, 'sp_primary', 'so_primary']),
+
+    // ── The Z6 axis (PR 4 step 6A) ────────────────────────────────────────────────────
+    // Z6 is p10's "In Your Words" band, fed by client_facing.instinct_evidence. Until this
+    // axis existed the page gate had only ever seen sp4's own 3-bullet SM evidence, which
+    // fits; the synthetic worst cases lived in tests/fixtures/instinct_axis.js and were
+    // model-level only, so NOTHING RENDERED THEM.
+    //
+    // sp4 ONLY, and that is not a shortcut. anders_sx9 ships `client_facing: {}`, so its 27
+    // renders carry no Z6 box at all and `[null]` keeps them byte-identical — the same
+    // reasoning instinctsFor uses. Putting four Z6 states on 27 renders would multiply the
+    // matrix to 108 to re-measure one band that does not vary with type or instinct.
+    // 27 + 4 = 31.
+    //
+    // `null` is sp4's own real evidence, not an empty state — the fixture's untouched
+    // 3-bullet SM value, which is what shipped before this axis and is the control the other
+    // three are read against.
+    z6For: (fx) => (fx === 'sp4'
+      ? [null, 'sm_bullets', 'em_paragraph', 'em_observed_max']
+      : [null]),
   },
   coach: {
     build: async (apiResult) => R.buildCoachReportHTML(await prep.buildCoachModel({ apiResult, client, coach })),
@@ -358,8 +377,13 @@ async function measureLayout(page, selector) {
         // instinct_score_profile AND dominant_instinct_hypothesis together — necessary, not
         // stylistic: nothing in the codebase reconciles them, so overriding one would make
         // the render itself an instance of that contradiction.
-        const apiResult = instKey == null ? retyped : applyInstinct(retyped, instKey);
-        console.log(`\n=== ${fx}${asType == null ? '' : ` as Type ${asType}`}${instKey == null ? '' : ` · ${instKey}`} · ${kind} ===`);
+        const withInstinct = instKey == null ? retyped : applyInstinct(retyped, instKey);
+       for (const z6Key of (cfg.z6For ? cfg.z6For(fx, asType) : [null])) {
+        // Z6 sits INSIDE the instinct loop and defaults to [null] — "the fixture's own
+        // instinct_evidence, untouched" — so every render that existed before this axis is
+        // unchanged by it.
+        const apiResult = z6Key == null ? withInstinct : applyZ6(withInstinct, z6Key);
+        console.log(`\n=== ${fx}${asType == null ? '' : ` as Type ${asType}`}${instKey == null ? '' : ` · ${instKey}`}${z6Key == null ? '' : ` · Z6:${z6Key}`} · ${kind} ===`);
         let html;
         try {
           html = await cfg.build(apiResult);
@@ -406,7 +430,8 @@ async function measureLayout(page, selector) {
             else console.log(`  instinct markup (${key}): ${want}`);
           }
         }
-        const tag = (asType == null ? fx : `${fx}_t${asType}`) + (instKey == null ? '' : `_${instKey}`);
+        const tag = (asType == null ? fx : `${fx}_t${asType}`) + (instKey == null ? '' : `_${instKey}`)
+                  + (z6Key == null ? '' : `_z6-${z6Key}`);
         fs.writeFileSync(path.join(OUT, `${kind}_${tag}.html`), html);
 
         const page = await browser.newPage();
@@ -430,8 +455,27 @@ async function measureLayout(page, selector) {
           const LBL = cfg.labelsFor ? cfg.labelsFor(asType) : cfg.labels;
           console.log(`  ${(LBL[p.index] || 'page ' + p.index).padEnd(16)} ${p.height}px  ` +
                       `stack ${p.natural.toFixed(2)}px  ${room}${spill}`);
+          // REPORT-ONLY EXEMPTION FOR THE Z6 AXIS (PR 4 step 6A).
+          //
+          // enforceSheet is a property of the CONFIG, not of the render, so without this the
+          // page gate enforces the synthetic Z6 states too — and two of them spill by design.
+          // That would take the whole matrix red on every branch until 6B lands the cap,
+          // which is the exact failure V3_PAIRS documents from PR 3d: a gate that goes red on
+          // arrival blocks every unrelated PR. Report-only in 6A, enforcing in 6B, same as
+          // PR 3d -> PR 3f.
+          //
+          // NARROW BY CONSTRUCTION: only `z6Key != null` is exempt. The 28 renders that
+          // existed before this axis all carry z6Key == null and are enforced exactly as
+          // before, sp4's own real evidence included. The exemption cannot mask a regression
+          // in anything that was already covered.
+          //
+          // The spill is still PRINTED above, with its height and headroom. Failing and
+          // reporting are separate jobs and this still does the second one.
+          const z6Exempt = z6Key != null;
           if (cfg.enforceSheet && p.height > PAGE_PX + 1) {
-            fail(`${kind}${asType == null ? '' : ' Type ' + asType} ${(cfg.labelsFor ? cfg.labelsFor(asType) : cfg.labels)[p.index] || 'page ' + p.index} spills to ${p.sheets} sheets (${p.height}px > ${PAGE_PX}px)`);
+            const msg = `${kind}${asType == null ? '' : ' Type ' + asType} ${(cfg.labelsFor ? cfg.labelsFor(asType) : cfg.labels)[p.index] || 'page ' + p.index} spills to ${p.sheets} sheets (${p.height}px > ${PAGE_PX}px)`;
+            if (z6Exempt) console.log(`  REPORT-ONLY (Z6:${z6Key}, cap lands at 6B) — would fail: ${msg}`);
+            else fail(msg);
           }
         }
         const want = cfg.expectedFor ? cfg.expectedFor(asType) : cfg.expected;
@@ -538,9 +582,49 @@ async function measureLayout(page, selector) {
           }
           if (!hb.length) console.log('  hyphenation: no word split across lines');
         }
+        // ── Z6 geometry — REPORT-ONLY (PR 4 step 6A) ──────────────────────────────────
+        // Printed for every render carrying a Z6 axis, pass or fail. REPORT-ONLY IS
+        // DELIBERATE and follows the PR 3d -> 3f precedent: the joined em_paragraph case
+        // still spills at 1073.25px, so enforcing here would go red on every branch until
+        // 6B lands the cap. Report-only buys the measured baseline that 6B's cap is read
+        // against, exactly as V3_PAIRS did for the §6.1 line-count rule.
+        //
+        // The page gate above already reports and enforces the PAGE total. This block adds
+        // the ZONE's own numbers — line count, box height, element count, <br> count and
+        // last-line fill — because 6B's cap is stated in rendered lines, and a line count is
+        // only a valid unit once the zone is a single element with no <br>. Element and <br>
+        // counts are printed for exactly that reason: they are the preconditions, not decor.
+        if (cfg.z6For) {
+          await lineMetrics.install(page);
+          const z6 = await page.evaluate(() => {
+            const L = window.__lineMetrics;
+            const p10 = [...document.querySelectorAll('.v3-page')].find((el) => el.querySelector('.v3-inst-cmp'));
+            if (!p10) return null;
+            const box = p10.querySelector('.v3-inst-resp');
+            if (!box) return { absent: true };
+            const els = [...p10.querySelectorAll('.v3-inst-resp-txt')];
+            const last = els[els.length - 1];
+            const fill = last ? L.lastLineFill(last) : null;
+            return {
+              els: els.length,
+              brs: els.reduce((a, t) => a + t.querySelectorAll('br').length, 0),
+              lines: els.reduce((a, t) => a + L.lineCount(t), 0),
+              fill: fill == null ? null : +(fill * 100).toFixed(2),
+              box: +box.getBoundingClientRect().height.toFixed(2),
+            };
+          });
+          if (z6 && z6.absent) {
+            console.log(`  ${'Z6 band'.padEnd(16)} no box — instinct_evidence is null or absent`);
+          } else if (z6) {
+            console.log(`  ${'Z6 band'.padEnd(16)} ${z6.lines} lines  box ${z6.box}px  ` +
+                        `${z6.els} element(s)  ${z6.brs} <br>  ` +
+                        `last-line fill ${z6.fill == null ? 'n/a (single line)' : z6.fill + '%'}`);
+          }
+        }
         await page.pdf({ path: path.join(OUT, `${kind}_${tag}.pdf`), ...R.buildCoachPdfOptions() });
         await page.close();
         console.log(`  logical pages: ${pages.length} · estimated physical sheets: ${sheets} · wrote .phase6_out/${kind}_${tag}.pdf`);
+       }
        }
       }
      }

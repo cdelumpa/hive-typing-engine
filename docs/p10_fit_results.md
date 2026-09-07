@@ -109,8 +109,24 @@ Lowest is SP2 at 21.2%.
 
 | State | box | lines | blocks | chars |
 |---|---|---|---|---|
-| `sm_bullets` | 173.25px | 6 | 3 | 568 |
+| `sm_bullets` | 179.25px | 6 | 3 | 568 |
 | **`em_paragraph`** | **186.63px** | **7** | 1 | 775 |
+
+**Both rows re-measured on the SHIPPED renderer at step 6A (PR 4).** [CC-MEASURED]
+
+`em_paragraph`'s **186.63px is correct and stays** — but only as a description of the page after
+step 6A's join. The step-3 scaffold collapsed this value's paragraph breaks to spaces before
+rendering, which is exactly what the p10-local join now does, so the two agree. **Before the join
+the shipped page rendered it at 244.75px**, because `renderer.js`'s `esc()` converts `\n` to
+`<br>` and its two `\n\n` became four `<br>` — two blank line slots. It occupied **10 line slots
+while a Range-based counter reported 8**, since such a counter sees only the slots carrying text.
+`51 + 19.375 × 10 = 244.75` closes exactly.
+
+`sm_bullets` was recorded here as **173.25px and measures 179.25px shipped.** The scaffold's
+adjacent 3px block margins collapsed to 3px per gap where the shipped rule is a non-collapsing
+`margin-top:6px` on the adjacent sibling; two gaps account for the whole 6.00px. **Corrected in the
+table above.** After the join this state renders as one element at **147.88px / 5 lines**, because
+joining reclaims each item's partial last line and both 6px gaps.
 | `null` | 0 | 0 | 0 | 0 |
 | `absent` | 0 | 0 | 0 | 0 |
 
@@ -263,6 +279,44 @@ line boundaries for measurement only; no replacement prose was authored and noth
 
 All nine types are identical at every line count, because Z5 is level across all nine.
 
+> **Measured on the shipped renderer at step 6A, this table runs 6.00px optimistic at every row.
+> See §7b.** §7 is left as measured — it was honest in its own context and overwriting it would
+> destroy the step-3 record.
+
+### 7b. The same table, measured on the shipped renderer
+
+§7 was measured on the step-3 probe — a scaffold built from the mockup's CSS. **The shipped p10
+runs 6.00px tighter at every Z6 line count.** Both are against the 976px content box; p10's padding
+is 40px top and bottom, `box-sizing: border-box`, confirmed by measurement. Z6 is the joined
+single-element shape that ships as of step 6A. [CC-MEASURED, step 6A]
+
+| Z6 lines | §7 (step-3 scaffold) | shipped renderer | delta |
+|---|---|---|---|
+| 4 | +46.88px | **+40.88px** | −6.00 |
+| **5** | **+27.50px** | **+21.50px** | −6.00 |
+| 6 | +8.13px | **+2.13px** | −6.00 |
+| 7 | −11.25px | **−17.25px** | −6.00 |
+
+**Headroom basis, because two are in circulation on this page and they differ by 1px.** The figures
+above are `976 − content height`, which equals `1056 − page natural height` and is what
+`scripts/render_client.js` prints. **The page gate fails above 1057**, so gate-basis headroom is
+1px larger — at 5 lines, +22.50px rather than +21.50px. Both are correct; neither is
+interchangeable with the other.
+
+**The offset does not vary by type.** Measured across all 27 `anders_sx9` renders in the step-6A
+matrix, p10's stack with Z6 absent is **864.63px for every one of the nine types** — zero variance,
+which independently confirms §7's "Z5 is level across all nine" on the shipped renderer rather than
+the scaffold. §6's nine composite rows are likewise identical to each other. **So the offset is
+6.00px for all nine types and this stays one table**, not nine. [CC-MEASURED, step 6A, at no extra
+render cost — the 27 renders already existed]
+
+**The offset is constant along BOTH axes — line count and type — so it is not in Z6 and not in Z5.**
+It is elsewhere in the page stack and **it has not been isolated.** Recorded rather than guessed at.
+Every composite figure in §6 carries it. One lead for whoever picks it up, and it is arithmetic on
+a component that was not measured separately, so treat it as **not traced**: §6 lists Z5 at 297.81
+where the shipped `.v3-inst-unit` measures 376.81 including its banner, and §6's Z4 (the banner)
+is listed at 76 — leaving 300.81 against 297.81, a 3.00px difference in one zone.
+
 ---
 
 ## 8. The decision these numbers produced
@@ -276,6 +330,13 @@ The reasoning, recorded so it can be revisited rather than re-derived:
 
 - At **5 lines** every type sits at **+27.50px**. That absorbs a **one-line content regression
   anywhere on the page** — one Z5 line is 17.39px, one Z6 line is 19.37px — and still fits.
+
+  > **Corrected at step 6A: the shipped figure is +21.50px, not +27.50px** (§7b). **The decision
+  > survives and the reasoning is unchanged** — 21.50px still absorbs a Z6 line at 19.375px and a
+  > Z5 line at 17.39px. **The margin behind it is a quarter of what this bullet assumed:** against
+  > a Z6-line regression the remainder is **+2.13px, not +8.13px**, and against the Z5-line
+  > regression this argument was actually made on it is **+4.11px, not +10.11px**. Still positive,
+  > and much thinner than it reads here. [CC-MEASURED, step 6A]
 - At **6 lines** every type sits at **+8.13px**, which is less than one line of anything. It fits
   today and stops fitting the first time any column gains a line.
 - §1's fragility table says that is not hypothetical: **SX3 sits at 95.4% last-line fill**, and
@@ -289,7 +350,83 @@ rests on are measured]
 width, and it is not a rule about `client_words` on sheet 6 — which shares the *label* "In Your
 Words" and is a different field, page and producer.
 
-Implementation lands at **step 5**, with both producer shapes reconciled against it. Neither
-producer respects its own current spec: the EM sample is 5 sentences under a "2–4 sentences"
-instruction, and `CMS_PREVIEW_WORST_EVIDENCE` runs 27/29/28 words against a "≤25 words each"
-contract.
+Implementation lands at **step 6B**, not step 5. [Corrected at step 6A.] Step 5 built the page;
+step 6A joined the zone into one paragraph so that a cap can be *stated* in rendered lines; the cap
+itself and its gate land at 6B.
+
+Neither producer respects its own current spec, and `CMS_PREVIEW_WORST_EVIDENCE` runs 27/29/28
+words against a "≤25 words each" contract.
+
+**One correction to how that sentence used to read.** It cited "the EM sample" at 5 sentences under
+a "2–4 sentences" instruction. **That value is not an EM sample.** It is sp4's
+`instinct_personal_overlay`, and sp4 is an **SM** fixture — 3-bullet `instinct_evidence`, and
+`stress_point_narrative` where the EM report emits `stress_security_narratives`. SM's contract for
+that field is "2-4 sentences" (`server.js:4956`); EM's is "2-3" (`experimental_analysis.js:613`).
+So it is one producer's field measured against the other producer's spec. Real EM output is
+recorded in §9: 17 rows, every one of them 2 or 3 sentences, maximum 532 characters. The fixture
+carrying that value is labelled a **synthetic hazard case** as of step 6A, not a sample.
+
+---
+
+## 9. The production population — what the cap is actually sized against
+
+Executed against production Postgres, 7 Sep 2026, over `client_facing.instinct_personal_overlay`
+on every stored assessment carrying an `api_result`. [CC-MEASURED — run by Cai; not independently
+verified from this repo, which cannot reach that database.]
+
+**NUMBERS ONLY. No client prose is recorded here or anywhere in this repo**, and no id is attached
+to any content. The strings were read for measurement and discarded.
+
+**Counting basis.** Elements joined with a single space, then whitespace-collapsed and trimmed.
+Newlines counted on the **raw** joined string, before collapsing — collapsing would destroy the
+thing being measured. Sentences are terminal-punctuation counts (`.` `!` `?`), which is a
+**ceiling**: a sentence ending `."` is counted once, and a decimal point would be counted as a
+sentence end.
+
+### Shape — every row with an `api_result`, no exceptions
+
+| shape | rows | producer |
+|---|---|---|
+| array, 1 item | **17** | EM |
+| array, 3 items | **2** | SM |
+| null / absent / non-array | **0** | — |
+
+**`report_prep.js:408`'s `?? null` has never fired in production.** The fallback exists, is
+asserted by `tests/instinct_axis_test.js`, and has never been reached by a real row.
+
+### Distribution
+
+| | n | min | median | mean | p95 | max |
+|---|---|---|---|---|---|---|
+| all rows | 19 | 308 | — | 442 | 511.3 | **532** |
+| **EM only** | **17** | 348 | 456 | 450.7 | — | **532** |
+
+Max words **80**. EM spread **184**. **Every EM row is 2 or 3 sentences — never more.**
+
+### Newlines
+
+**Zero rows contain a newline of any kind**, and therefore zero contain a paragraph break, across
+all 19 rows spanning **2026-06-15 to 2026-07-19**. This is why step 6A's join is described as
+*corrective* for preview fidelity and for the cap's measurement basis, and merely *defensive*
+against the `<br>` hazard.
+
+### What the maximum renders as
+
+The 532-char maximum renders on the shipped p10 Z6 at **5 rendered lines, box 147.88px, page
+natural 1034.50px** — **+21.50px** of headroom on this page's basis, **+22.50px** gate-basis.
+[CC-MEASURED, step 6A]
+
+**So the observed maximum sits exactly ON the 5-line cap, and the page's limit is exactly one line
+above it.** The cap accommodates the entire observed population and has no slack above it.
+
+`tests/fixtures/instinct_axis.js`'s `EM_OBSERVED_MAX` is a **synthetic** matched to that render —
+531 chars and 83 words against the real 532 and 80, rendering identically. The real string is not
+in this repo.
+
+### The caveat, which is not a formality
+
+**n=19, of which 17 are the shipping producer, over five weeks.** A compact distribution — p95
+511.3 against a 532 max is a 20.7-char right tail — at that sample size is a **floor for a
+decision, not a bound.** Nothing here establishes a ceiling, and the cap is justified by the page
+(§7b) rather than by this table. What this table establishes is how often the cap will bite: on the
+observed population, never.
