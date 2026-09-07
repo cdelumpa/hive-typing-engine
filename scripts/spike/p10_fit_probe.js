@@ -57,6 +57,40 @@ const MOCKUP = path.join(ROOT, 'docs/mockup/claude_The_Peacemaker_Page_Instincts
 const OUT = path.join(ROOT, '.phase6_out');
 fs.mkdirSync(OUT, { recursive: true });
 
+/**
+ * Z3 — THE NEW INSTINCT DEFINITIONS. SCAFFOLD CONTENT ONLY; NOT COMMITTED TO THE STORE.
+ *
+ * Locked by Cai 7 Sep 2026 and rendered here to be measured. Step 3 is a measurement
+ * instrument and touches no content, so these live in the probe and nowhere else. The
+ * store change is its own build.
+ *
+ * ⚠ AND IT CANNOT BE AN EDIT IN PLACE WHEN IT COMES. `static.instinct_definitions` is
+ * LIVE v2 CONTENT — `_clP6Instinct` (app/renderer.js:2247) renders these three strings at
+ * :2252 on the live v2 `.p6-page`, which `tests/lib/report_page_inventory.js:22` asserts is
+ * present in every client report. It is CMS-editable (server.js:9866) with a WORKING
+ * preview mapped to `.p6-page` (server.js:13850). Editing the three strings for p10 would
+ * change what shipped v2 clients see. This is the `subtype_*.narrative` trap in a different
+ * guise, and the answer is the same one step 1 used: a v3-only field beside them, not an
+ * edit in place.
+ *
+ * VOICE IS DELIBERATE. Third person, matching Z5's narratives. The old bodies were second
+ * person ("your place within a community"), which told an SP-dominant reader that a
+ * community was THEIR place while describing the Social instinct. Do not "fix" it.
+ *
+ * The FOCUSED ON label row goes with them. The old bodies opened by echoing it — "Focused
+ * on safety, comfort…" directly under a label reading FOCUSED ON — which is part of why
+ * they ran long. These open with "Governs", reading as a continuation of the card heading.
+ * The card heading itself (code chip + name) is unchanged.
+ */
+const Z3_NEW = [
+  { code: 'SP', name: 'Self-Preservation',
+    body: 'Governs our need for physical well-being, material security, and safety. People who lead with SP prioritize food, shelter, warmth, health, and managing risk.' },
+  { code: 'SO', name: 'Social',
+    body: 'Governs our need for belonging, membership, and a recognized place within groups. People who lead with SO seek power and influence in a group setting.' },
+  { code: 'SX', name: 'One-to-One',
+    body: 'Governs our need for an intense bond or connection with one person at a time. People who lead with SX seek intimacy and passion in one-on-one relationships.' },
+];
+
 const PAGE_PX = 1056;                 // .page min-height; the 1057 gate is one past it
 const PAGE_CONTENT_PX = 976;          // 1056 less 40px top and bottom padding [measured]
 const GRID_W = 207.33;                // .ccard content width on the mockup [measured]
@@ -90,7 +124,12 @@ function mockupCss() {
  */
 const SM_BULLET_MARGIN = 3;
 function z6Html(state) {
-  const LBL = '<div class="resp-lbl">In Your Responses</div>';
+  // "IN YOUR WORDS" (Cai, 7 Sep) — p6 and p10 align on one label.
+  // ⚠ THE LABELS ALIGN, THE FIELDS DO NOT. p10's "In Your Words" is instinct_evidence
+  // (this zone). p6's is client_words — a different zone, a different page, a different
+  // producer, and the one carrying the PR 7 budget problem. Aligning the labels makes them
+  // easier to conflate, not harder. p6's own label change is not step 3's work.
+  const LBL = '<div class="resp-lbl">In Your Words</div>';
   if (state === 'null' || state === 'absent') return '';        // the live guard drops the box
   if (state === 'em_paragraph') return `<div class="resp">${LBL}<div class="resp-txt">${esc(EM_PARAGRAPH[0].replace(/\n\n+/g, ' '))}</div></div>`;
   if (state === 'sm_bullets') {
@@ -112,8 +151,14 @@ function z6Html(state) {
  * must badge SP, or the page contradicts itself in the way the sp4 switch exists to stop.
  * The measurement renders use SX, the v3 fixture's own dominant.
  */
-function scaffold(typeN, z6State, dom = 'SX') {
-  const defs = lib.static.instinct_definitions;
+function scaffold(typeN, z6State, dom = 'SX', z3Variant = 'new_nolabel') {
+  // 'store_label'   — what ships today: store bodies under a FOCUSED ON row (the baseline)
+  // 'store_nolabel' — store bodies, label row removed   -> isolates the LABEL saving
+  // 'new_label'     — new bodies, label row kept        -> isolates the TEXT saving
+  // 'new_nolabel'   — both changes, and the configuration the composites use
+  const useNew = z3Variant.startsWith('new');
+  const showLabel = z3Variant.endsWith('_label');
+  const defs = useNew ? Z3_NEW : lib.static.instinct_definitions;
   const rows = INSTINCTS.map((i) => ({ i, st: lib[`subtype_${i.toLowerCase()}${typeN}`] }));
   const domRow = rows.find((r) => r.i === dom);
   // PRIMARY follows `dom`; the other two take the remaining ranks in declaration order.
@@ -135,7 +180,7 @@ function scaffold(typeN, z6State, dom = 'SX') {
 
   const icards = defs.map((d) => `<div class="icard">
     <div class="ihead"><span class="icode">${esc(d.code)}</span><span class="iname">${esc(d.name)}</span></div>
-    <div class="ibody"><div class="ilbl">Focused On</div><div class="itxt">${esc(d.body)}</div></div>
+    <div class="ibody">${showLabel ? '<div class="ilbl">Focused On</div>' : ''}<div class="itxt">${esc(d.body)}</div></div>
   </div>`).join('\n  ');
 
   const domIv = domRow.st.instincts_v3;
@@ -284,6 +329,57 @@ const MEASURE = () => {
   };
 };
 
+/**
+ * THE Z6 SHORTENING STUDY, run inside the page.
+ *
+ * Shortens by REMOVING RENDERED LINES and re-measuring, never by a character target — a
+ * character target derived from this table would be the struck-ceiling error, and the
+ * whole point of measuring lines is that characters do not predict them.
+ *
+ * The existing real samples are TRUNCATED AT LINE BOUNDARIES FOR MEASUREMENT ONLY. No
+ * replacement prose is authored: trailing words are dropped from the last block until the
+ * rendered line count falls by one, which is the cheapest honest way to ask "what does this
+ * zone look like one line shorter". The resulting strings are not content and are not kept.
+ *
+ * SM loses height more slowly than EM per line removed, because three bullets carry three
+ * rows of leading and inter-bullet margin that survive until a whole bullet goes. Both
+ * rates are reported.
+ *
+ * Returns headroom at each target line count, measured from the live page after each cut.
+ */
+const Z6_STUDY = (targets) => {
+  const L = window.__lineMetrics;
+  const n = (x) => +x.toFixed(2);
+  const resp = document.querySelector('.resp');
+  const blocks = [...document.querySelectorAll('.resp-txt')];
+  const page = document.querySelector('.page');
+  const foot = document.querySelector('.page-footer');
+  const total = () => blocks.reduce((a, b) => a + L.lineCount(b), 0);
+  const readout = () => {
+    const pageH = n(page.getBoundingClientRect().height);
+    const gap = n(foot.getBoundingClientRect().top - resp.getBoundingClientRect().bottom);
+    const spill = Math.max(0, pageH - 1056);
+    return { lines: total(), boxH: n(resp.getBoundingClientRect().height), pageH,
+             headroom: n(spill > 0 ? -spill : gap) };
+  };
+  const out = {};
+  // Trailing words come off the LAST non-empty block first, so a three-bullet shape loses
+  // its final bullet before its first — the order an editor would cut in.
+  const dropWord = () => {
+    for (let i = blocks.length - 1; i >= 0; i--) {
+      const w = blocks[i].textContent.trim().split(/\s+/);
+      if (w.length > 1) { blocks[i].textContent = w.slice(0, -1).join(' '); return true; }
+    }
+    return false;
+  };
+  for (const t of targets) {
+    let guard = 4000;
+    while (total() > t && guard-- > 0) { if (!dropWord()) break; }
+    out[t] = readout();
+  }
+  return out;
+};
+
 /** All 27 naranjo values at 14px bold in the real column, in one pass. */
 const MEASURE_CNAME = (vals, w) => {
   const L = window.__lineMetrics;
@@ -372,14 +468,29 @@ function assertGrid(g, where) {
   }
 
   // ── 2. Z6 — all four states. Type-independent, so measured once. ────────────────────
-  console.log('── MEASUREMENT 2 · Z6 "In Your Responses" — four states, width 670px ──');
+  console.log('── MEASUREMENT 2 · Z6 "In Your Words" — four states, width 670px ──');
   for (const state of ['sm_bullets', 'em_paragraph', 'null', 'absent']) {
     const p = await render(browser, scaffold(9, state));
     const m = await p.evaluate(MEASURE);
     assertGrid(m.grid, `Z6/${state}`);
     results.z6[state] = m.z6 ? { ...m.z6 } : { boxH: 0, lines: 0, blocks: 0, chars: 0 };
     const z = results.z6[state];
-    const extra = state === 'sm_bullets' ? `  [inter-bullet spacing contributes ${(SM_BULLET_MARGIN * 2 * (z.blocks - 1)).toFixed(2)}px — SCAFFOLD ASSUMPTION]` : '';
+    // MEASURED, not computed. An earlier version of this line multiplied the margin by two
+    // per gap and reported 12.00px; adjacent block margins COLLAPSE, so the real figure is
+    // half that. Measure the box with the margins zeroed and take the difference.
+    let extra = '';
+    if (state === 'sm_bullets') {
+      const zeroed = await p.evaluate(() => {
+        const els = [...document.querySelectorAll('.p10-sm-bullet')];
+        const before = document.querySelector('.resp').getBoundingClientRect().height;
+        els.forEach((e) => { e.style.margin = '0'; });
+        const after = document.querySelector('.resp').getBoundingClientRect().height;
+        els.forEach((e) => { e.style.margin = ''; });
+        return +(before - after).toFixed(2);
+      });
+      z.interBullet = zeroed;
+      extra = `  [inter-bullet spacing contributes ${zeroed.toFixed(2)}px MEASURED (margins collapse) — SCAFFOLD ASSUMPTION]`;
+    }
     console.log(`  ${state.padEnd(13)} box ${String(z.boxH).padStart(7)}px · ${String(z.lines).padStart(2)} lines · ${z.blocks} block(s) · ${String(z.chars).padStart(3)} chars${extra}`);
     await p.close();
   }
@@ -409,10 +520,30 @@ function assertGrid(g, where) {
   console.log(`  By CHARACTER COUNT the worst would have been ${charWorst.code} (${charWorst.narrChars} chars, ${charWorst.narrLines} lines) — ${charWorst.code === globalWorst.tallest.code ? 'same column' : 'A DIFFERENT COLUMN'}`);
 
   const one = composites[0].m;
-  console.log('\n── MEASUREMENT 3 · Z3 instinct definitions AS-IS — width 196px ──');
-  console.log(`   mockup baseline: 4 lines / 75px per .itxt, .icard 152px`);
-  one.z3.itxt.forEach((x, i) => console.log(`  ${['SP','SO','SX'][i]}: ${String(x.lines)} lines · ${x.h}px · ${x.chars} chars · width ${x.w}`));
-  console.log(`  .icard ${one.z3.icardH}px  ·  .inst row ${one.z3.instH}px`);
+  console.log('\n── MEASUREMENT 3 · Z3 instinct definitions — width 196px ──');
+  console.log('   TWO MECHANISMS, TWO NUMBERS. Removing the FOCUSED ON row is structural — it');
+  console.log('   happens whatever the characters do. Shortening the bodies is not. Measured');
+  console.log('   separately so neither is credited with the other\'s saving.\n');
+  const z3v = {};
+  for (const v of ['store_label', 'store_nolabel', 'new_label', 'new_nolabel']) {
+    const p = await render(browser, scaffold(9, 'em_paragraph', 'SX', v));
+    const m = await p.evaluate(MEASURE);
+    assertGrid(m.grid, `z3/${v}`);
+    z3v[v] = m.z3;
+    const lines = m.z3.itxt.map((x) => x.lines).join('/');
+    const chars = m.z3.itxt.map((x) => x.chars).join('/');
+    console.log(`  ${v.padEnd(14)} row ${String(m.z3.instH).padStart(7)}px · card ${String(m.z3.icardH).padStart(7)}px · ${lines} lines · ${chars} chars`);
+    await p.close();
+  }
+  results.z3Variants = z3v;
+  const labelSaving = +(z3v.store_label.instH - z3v.store_nolabel.instH).toFixed(2);
+  const textSaving  = +(z3v.store_nolabel.instH - z3v.new_nolabel.instH).toFixed(2);
+  const totalSaving = +(z3v.store_label.instH - z3v.new_nolabel.instH).toFixed(2);
+  console.log(`\n  LABEL ROW removed       : ${labelSaving}px   (structural — independent of the text)`);
+  console.log(`  TEXT shortened          : ${textSaving}px   (185/185/200 chars -> ${Z3_NEW.map((d) => d.body.length).join('/')})`);
+  console.log(`  TOTAL Z3 recovery       : ${totalSaving}px   (row ${z3v.store_label.instH} -> ${z3v.new_nolabel.instH})`);
+  console.log(`  cross-check: ${labelSaving} + ${textSaving} = ${(labelSaving + textSaving).toFixed(2)} vs measured total ${totalSaving}`);
+  console.log(`  new-string recount at 196px, basis as stated: ${z3v.new_nolabel.itxt.map((x) => x.chars).join(' / ')} chars (stated 157 / 150 / 156)`);
 
   console.log('\n── MEASUREMENT 4 · Z2 instinct_primer AS-IS — width 710px ──');
   console.log(`  ${one.z2.lines} lines · ${one.z2.h}px · ${one.z2.chars} chars · width ${one.z2.w}`);
@@ -453,7 +584,7 @@ function assertGrid(g, where) {
     const d = (a, b) => `${b - a >= 0 ? '+' : ''}${(b - a).toFixed(2)}`;
     console.log('\n  ZONE DELTAS vs the mockup as it ships (worst type, worst Z6):');
     console.log(`    Z2 lead     ${String(mk.z2.h).padStart(7)} -> ${String(w.z2.h).padStart(7)}   ${d(mk.z2.h, w.z2.h)}px  (${mk.z2.lines}L -> ${w.z2.lines}L)`);
-    console.log(`    Z3 inst row ${String(mk.z3.instH).padStart(7)} -> ${String(w.z3.instH).padStart(7)}   ${d(mk.z3.instH, w.z3.instH)}px  (store text AS-IS, ${mk.z3.itxt[0].lines}L -> ${w.z3.itxt[0].lines}L per card)`);
+    console.log(`    Z3 inst row ${String(mk.z3.instH).padStart(7)} -> ${String(w.z3.instH).padStart(7)}   ${d(mk.z3.instH, w.z3.instH)}px  (NEW text, FOCUSED ON row dropped; ${mk.z3.itxt[0].lines}L -> ${w.z3.itxt[0].lines}L per card)`);
     console.log(`    Z4 banner   ${String(mk.z4H).padStart(7)} -> ${String(w.z4H).padStart(7)}   ${d(mk.z4H, w.z4H)}px`);
     const mkZ5 = Math.max(...mk.cards.map((c) => c.intrinsic));
     console.log(`    Z5 tallest  ${String(mkZ5).padStart(7)} -> ${String(globalWorst.tallest.intrinsic).padStart(7)}   ${d(mkZ5, globalWorst.tallest.intrinsic)}px  (3 labelled blocks -> one narrative)`);
@@ -476,6 +607,73 @@ function assertGrid(g, where) {
       console.log(`   ${t}   | ${d.toFixed(2)}px | Z5 ${Math.ceil(d / z5line)} line(s) off ${tallest.code} (@${z5line}px/line)`
         + (z6line ? `, or Z6 ${Math.ceil(d / z6line)} line(s) (@${z6line}px/line)` : ''));
     }
+  }
+
+  // ── THE Z6 SHORTENING STUDY ─────────────────────────────────────────────────────────
+  {
+    const worstLines = worstZ6[1].lines;
+    const targets = [worstLines, worstLines - 1, worstLines - 2, worstLines - 3];
+    console.log(`\n── THE Z6 SHORTENING STUDY — headroom as a function of Z6 LINE COUNT ──`);
+    console.log(`   Nine types down, Z6 line count across. Worst shape is ${worstZ6[0]} at ${worstLines} lines.`);
+    console.log('   New Z3 in place. Each cell is headroom in px against the 976px content box,');
+    console.log('   at that type\'s tallest Z5 triple. Real samples truncated at line boundaries');
+    console.log('   FOR MEASUREMENT ONLY — no replacement prose is authored, and nothing is kept.\n');
+    const hdr = targets.map((t) => `${t}L`.padStart(9)).join('');
+    console.log(`  Type | tallest Z5     |${hdr}`);
+    console.log(`  -----|----------------|${'-'.repeat(9 * targets.length)}`);
+    const study = {};
+    for (const { t, tallest } of composites) {
+      const p = await render(browser, scaffold(t, worstZ6[0]));
+      const r = await p.evaluate(Z6_STUDY, targets);
+      await p.close();
+      study[t] = r;
+      const cells = targets.map((k) => {
+        const h = r[k].headroom;
+        return `${h >= 0 ? '+' : ''}${h.toFixed(1)}`.padStart(9);
+      }).join('');
+      console.log(`   ${t}   | ${tallest.code} ${String(tallest.intrinsic).padStart(6)}/${tallest.narrLines}L |${cells}`);
+    }
+    results.z6Study = study;
+    // How many lines must Z6 give back for EVERY type to be positive?
+    let need = null;
+    for (const k of targets) if (need === null && composites.every(({ t }) => study[t][k].headroom >= 0)) need = k;
+    console.log('');
+    if (need === null) {
+      console.log(`  NO TESTED LINE COUNT MAKES ALL NINE POSITIVE. At ${targets[targets.length - 1]} lines the worst type is still`);
+      const w = composites.reduce((a, b) => (study[a.t][targets[targets.length - 1]].headroom < study[b.t][targets[targets.length - 1]].headroom ? a : b));
+      console.log(`  Type ${w.t} at ${study[w.t][targets[targets.length - 1]].headroom}px. Read the remaining deficit off the table.`);
+    } else {
+      console.log(`  ALL NINE TYPES ARE POSITIVE AT Z6 = ${need} LINES — ${worstLines - need} line(s) back from the worst shape.`);
+      const tight = composites.reduce((a, b) => (study[a.t][need].headroom < study[b.t][need].headroom ? a : b));
+      console.log(`  Tightest at that count: Type ${tight.t} with ${study[tight.t][need].headroom}px to spare.`);
+    }
+    console.log('\n  No cap is proposed here. The margin is Cai\'s to set once he can see the table,');
+    console.log('  and the cap follows from that at step 5.');
+
+    // Per-line cost of each producer shape, measured rather than assumed.
+    console.log('\n  PER-LINE COST BY PRODUCER SHAPE — measured, and it corrects an expectation:');
+    const rates = {};
+    for (const state of ['em_paragraph', 'sm_bullets']) {
+      const p = await render(browser, scaffold(9, state));
+      const base = results.z6[state].lines;
+      const targets = [];
+      for (let k = base; k >= 3; k--) targets.push(k);
+      const r = await p.evaluate(Z6_STUDY, targets);
+      await p.close();
+      rates[state] = r;
+      const steps = targets.slice(1).map((k) => `${k}L ${r[k].boxH}px (-${(r[k + 1].boxH - r[k].boxH).toFixed(2)})`).join(' -> ');
+      console.log(`    ${state.padEnd(13)} ${base}L ${r[base].boxH}px -> ${steps}`);
+    }
+    console.log('');
+    console.log('    Both shapes shed 19.37-19.38px per line — ONE LINE BOX at 12.5px x 1.55.');
+    console.log('    The expectation was that SM sheds less because three bullets carry three rows');
+    console.log('    of leading and inter-bullet margin. MEASURED, IT DOES NOT, and the reason is');
+    console.log('    that those rows survive: removing a line from inside a bullet removes a line');
+    console.log('    box and nothing else. The rates would only diverge when a WHOLE BULLET goes,');
+    console.log('    and SM cannot reach that point by shortening — with 3 bullets it bottoms out');
+    console.log(`    at 3 rendered lines (measured ${rates.sm_bullets[3] ? rates.sm_bullets[3].boxH + 'px' : 'n/a'}), one line each, and going below that`);
+    console.log('    means emitting fewer than 3 bullets, which is a PRODUCER CONTRACT change');
+    console.log('    (app/server.js:4828 says "exactly 3"), not a shortening.');
   }
 
   // ── The smoke render: sp4's own type, so the EM prose matches the page ──────────────
