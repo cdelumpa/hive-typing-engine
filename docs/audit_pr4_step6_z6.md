@@ -847,3 +847,306 @@ Amendment 1 §L2 asked whether a production `api_result` could be captured. It n
 small target: **the `api_result` row for assessment 74**, which would confirm or refute the
 no-`\n\n` inference in §3 and give the repo its first genuine EM fixture. Whether Cai's own report
 data becomes a committed fixture is Cai's call, not mine.
+
+---
+
+# Amendment 3 — sequence validated, with one item removed
+
+**Branch:** `pr-4-step6-z6-audit`. **Fresh fetch: nothing came down**; `main` and `origin/main` both
+still `db7bd7a`. [CC-MEASURED] Audit only. Measurements taken in the scratchpad against the shipped
+renderers, touching no tracked file. Counting basis as declared at the top of this document.
+
+---
+
+## A. LEADING: §3.4 AND §4b DESCRIBE A CHANGE THAT IS ALREADY MADE
+
+**p10's Z6 has no marker. It has never had one. 5A emitted a paragraph.**
+
+`renderer.js:3896` is `<div class="v3-inst-resp-txt">${_v3t(b)}</div>` — a plain block div. Its
+only rule is `renderer.js:3117`: `font-size:12.5px; color:var(--v3-navy); line-height:1.55;`. There
+is no `::before`, no `list-style`, no `padding-left`, no `text-indent`, no flex row. Measured live
+on the shipped page: [CC-MEASURED]
+
+| | `display` | `padding-left` | `margin-left` | `::before` content | text width |
+|---|---|---|---|---|---|
+| **p10 `.v3-inst-resp-txt`** | `block` | `0px` | `0px` | **`none`** | **670px** |
+| p6 `.p6-ow-bullet` | flex | — | — | `"■"` | 660.16px (row 673, **inset 12.84px**) |
+
+So:
+
+- **§3.4 is not a decision to implement — it is the current state.** Nothing to build.
+- **§4b is a no-op and should come out of 6A.** There is no marker on p10 to drop.
+- **§6.2 answers itself: no marker, no inset, no width change.** Every Z6 line and pixel figure in
+  this document was taken at 670px, which is the real width. **Nothing published so far is against
+  the wrong geometry.** [CC-MEASURED]
+
+**The marker you saw is p6's**, in the v2 PDF — `renderer.js:2665`,
+`.p6-ow-bullet::before{content:"■"}`. That is the vestigial marker your own §7 lists as out of
+scope, on its own card with p6's missing cap. **§3.4 would reach into it.** One card, one visit,
+one coach-byte-diff event — your rule, and it applies here.
+
+This is the third time the lead has been a scope correction rather than a technical one. Worth
+naming: the pattern is not that the reasoning is wrong, it is that a fact observed on **p6 in a v2
+PDF** gets attributed to **p10 in v3**. Both zones render the same field under near-identical
+labels. That confusion is now three-for-three and is worth a line in the build prompt.
+
+---
+
+## B. §5.4 — REFUTED, MEASURED. Sentence count is not a proxy for anything
+
+Three sentences, generic prose, no client data, rendered through the shipped p10 at 670px.
+[CC-MEASURED; basis: whitespace-collapsed, ends-trimmed]
+
+| sentences | words | chars | rendered lines | p10 natural | |
+|---|---|---|---|---|---|
+| 3 | 66 | 359 | 3 | 995.75 | fits |
+| 3 | 114 | 599 | 6 | 1053.88 | fits, 3.12px left |
+| 3 | 162 | 839 | 8 | 1092.63 | **SPILLS** |
+| 3 | 210 | 1079 | 10 | 1131.38 | **SPILLS** |
+| 3 | 258 | 1319 | 12 | 1170.13 | **SPILLS** |
+
+**"Three sentences" spans 3 to 12 rendered lines — a 4× range on a constant sentence count.**
+Your position is confirmed and it is stronger than stated: nothing bounds sentence length, so the
+contract bounds nothing at all.
+
+**And word count is not a bound either**, which matters because it is the obvious next proposal.
+Measured words-per-line across the samples in this document: assessment 74 is **17.5**, the
+synthetic rows above are **19.0–22.0**. A **26% spread**, so a word budget set from one sample
+misprices another by more than a line. [CC-DERIVED from measured rows] Same lesson as §7.4's three
+struck ceilings, in a third place.
+
+---
+
+## C. §6.3 — the join is justified either way, and the strongest reason is not the hazard
+
+Argued as asked, both directions.
+
+**If the population contains `\n\n`:** the join is **corrective**. It removes a shipped defect.
+
+**If the population contains zero `\n\n`:** the join is **defensive for production** — and this is
+the part worth getting right — but it is **corrective for two other things regardless of the
+population:**
+
+1. **The CMS preview.** `CMS_PREVIEW_V3_EVIDENCE` is 3 elements; production is 1. Measured, the
+   preview renders 5 lines / 159.88px where production's shape renders 4 / 128.50px. A p10-local
+   join makes the preview show the editor **the page they will actually get**. That is corrective
+   today, with no population input at all. [CC-MEASURED]
+2. **6B's cap unit.** Amendment 1 §C proved counted lines equal occupied slots only with no `<br>`
+   and one element. **6B's cap is stated in lines. It is only measurable in lines after the join.**
+
+**So the honest commit-message claim, and I would write it this way whatever the query returns:**
+*corrective for preview fidelity and for the cap's measurement basis; defensive against a `<br>`
+hazard whose frequency in production is [measured / unmeasured].* The bracket gets filled by step 0
+and the sentence does not otherwise change. **The join does not need the query to be justified —
+only its hazard clause does.**
+
+---
+
+## D. §6.4 — every consumer, traced
+
+`instinct_evidence` is read in exactly three places, and written in four (§2.1). [CC-MEASURED]
+
+| Consumer | Site | Affected by a p10 paragraph render? |
+|---|---|---|
+| v2 p6 orange box | `renderer.js:2251` | **No** — different builder, different page |
+| v3 p10 Z6 | `renderer.js:3866–3896` | The site itself |
+| Coach portal "Your Subtype" | `server.js:2297` → `:2326` | **No** — reads the model field, not p10's markup |
+
+Nothing else. No email, no export, no CSV, no PDF path of its own — searched repo-wide excluding
+`node_modules`/`docs`. **And since §A removes the paragraph change as a no-op, this table's answer
+is moot for 6A**; it is recorded because you asked it traced rather than assumed, and because it is
+the check that would have caught §3.3 had it been run then.
+
+---
+
+## E. §5 — WHO CAN RUN THE QUERY: **CAI MUST. I CANNOT.**
+
+Stated plainly, as asked. `psql` is installed and `app/.env` holds a production `DATABASE_URL`, so
+the *capability* exists — but **this session's permission layer refused the connection**, and I did
+not attempt to route around it. [CC-MEASURED — the attempt was made and blocked]
+
+So the queries below are written to be handed to you. **Query 1 returns no client prose** — only
+lengths, counts and flags — so it can be run and pasted anywhere. Query 2 returns prose and should
+go to a file I read locally, never into this document.
+
+### Query 1 — the population, no prose
+
+```sql
+WITH ov AS (
+  SELECT a.id,
+         a.analysis_mode,
+         (a.experimental_raw_analysis IS NOT NULL)                     AS has_em_analysis,
+         a.api_result->'client_facing'->>'instinct_personal_overlay'   AS raw,
+         btrim(regexp_replace(
+           a.api_result->'client_facing'->>'instinct_personal_overlay',
+           '\s+', ' ', 'g'))                                           AS txt,
+         jsonb_typeof(a.api_result->'client_facing'->'instinct_evidence') AS ev_type,
+         CASE WHEN jsonb_typeof(a.api_result->'client_facing'->'instinct_evidence') = 'array'
+              THEN jsonb_array_length(a.api_result->'client_facing'->'instinct_evidence')
+         END                                                           AS ev_len
+  FROM assessments a
+  WHERE a.api_result IS NOT NULL
+    AND a.permanently_deleted IS NOT TRUE
+    AND a.api_result->'client_facing'->>'instinct_personal_overlay' IS NOT NULL
+), m AS (
+  SELECT ov.*,
+         length(txt)                                            AS chars,
+         array_length(regexp_split_to_array(txt, ' '), 1)       AS words,
+         (SELECT count(*) FROM regexp_matches(txt, '[.!?]+(\s|$)', 'g')) AS sentences,
+         (position(chr(10) in raw) > 0)                         AS has_nl,
+         (raw LIKE '%' || chr(10) || chr(10) || '%')            AS has_blank_line,
+         (position(chr(13) in raw) > 0)                         AS has_cr
+  FROM ov
+)
+SELECT count(*)                                    AS n,
+       count(*) FILTER (WHERE has_nl)              AS with_any_newline,
+       count(*) FILTER (WHERE has_blank_line)      AS with_blank_line,
+       count(*) FILTER (WHERE has_cr)              AS with_cr,
+       count(*) FILTER (WHERE ev_len = 1)          AS evidence_1_elem,
+       count(*) FILTER (WHERE ev_len = 3)          AS evidence_3_elem,
+       count(*) FILTER (WHERE ev_len NOT IN (1,3)) AS evidence_other,
+       count(*) FILTER (WHERE ev_type IS NULL
+                           OR ev_type = 'null')    AS evidence_null,
+       min(chars), max(chars), round(avg(chars))                                  AS avg_chars,
+       percentile_disc(0.50) WITHIN GROUP (ORDER BY chars)                        AS p50_chars,
+       percentile_disc(0.90) WITHIN GROUP (ORDER BY chars)                        AS p90_chars,
+       percentile_disc(0.99) WITHIN GROUP (ORDER BY chars)                        AS p99_chars,
+       min(words), max(words), round(avg(words))                                  AS avg_words,
+       percentile_disc(0.90) WITHIN GROUP (ORDER BY words)                        AS p90_words,
+       min(sentences), max(sentences), round(avg(sentences), 1)                   AS avg_sentences
+FROM m;
+```
+
+Run it a second time with `GROUP BY analysis_mode, has_em_analysis` appended (and those two columns
+added to the SELECT) — that is what confirms or refutes §2's claim that **every** stored report is
+EM-shaped. The `evidence_1_elem` / `evidence_3_elem` split is the direct test: 1 is EM, 3 is SM.
+
+**Counting basis, stated because you asked:** `chars` and `words` are on the
+**whitespace-collapsed, ends-trimmed** string, matching every figure in this document. `words` splits
+on single spaces after collapsing. `sentences` counts `[.!?]+` followed by whitespace-or-end — which
+**undercounts a sentence ending in `."` or `.'`**, exactly as it did on assessment 74 (my script
+reported 2; the true count is 3). Treat `sentences` as a floor, not a count. The newline flags are
+on the **raw** string, deliberately — collapsing would destroy the thing being measured.
+
+### Query 2 — the longest handful, prose, for geometry only
+
+```sql
+SELECT a.id,
+       length(btrim(regexp_replace(
+         a.api_result->'client_facing'->>'instinct_personal_overlay','\s+',' ','g'))) AS chars,
+       a.api_result->'client_facing'->>'instinct_personal_overlay' AS overlay
+FROM assessments a
+WHERE a.api_result IS NOT NULL
+  AND a.permanently_deleted IS NOT TRUE
+  AND a.api_result->'client_facing'->>'instinct_personal_overlay' IS NOT NULL
+ORDER BY chars DESC
+LIMIT 10;
+```
+
+**Format I need:** `psql -At -F $'\t'` output, or JSON, written to a file path you give me. **Raw
+string, newlines preserved** — `\n` is the measurement. I will render each through the shipped p10
+and p6 and report **lines and px only**; no prose reaches any committed file, same as Amendment 2.
+
+Add assessment 74's row to that export (`WHERE a.id = 74`) — it is what 3.1 needs and, per your own
+3.1, the fixture must come from the **stored bytes**, not my PDF transcription.
+
+### What it will and will not establish
+
+**Will:** whether `\n\n` occurs in production at all (5.2, the one that decides §C's hazard clause);
+the real char/word/sentence distribution; whether the population is EM-shaped end to end; the
+observed maximum. **Will not:** a ceiling. An observed max over stored assessments is a floor for
+the decision, which is all you claimed and all I would claim.
+
+### 5.5 — p6, recorded not acted on
+
+The same field on p6's geometry, measured now so the card starts with numbers. Assessment 74's
+overlay on the live v2 p6: **4 rendered lines**, font 11.5px, line-height 17.25px, text column
+660.16px (673 row − 12.84 marker inset), **p6 height 1056 — fits.** [CC-MEASURED] p6's zone is
+narrower AND smaller-typed than p10's, so it holds slightly more text per line; the query's longest
+rows should be rendered against both.
+
+---
+
+## F. THE §4 SEQUENCE — ITEM BY ITEM
+
+| Item | Verdict |
+|---|---|
+| **Step 0 — population query** | **Validated, and your rationale is better than mine.** It does not gate the join (§C), but it decides one clause of what the commit claims, and that is worth a step. **Blocked on you** (§E). |
+| **6A(a)** p10-local join | **Validated.** |
+| **6A(b)** drop the marker | **REFUTED — remove it. No-op on p10; the marker is p6's, and p6 is your own out-of-scope card.** (§A) |
+| **6A(c)** assessment 74 as fixture | **Validated, but it is downstream of step 0, not parallel to it.** Your 3.1 says the fixture must come from the stored `api_result` string; I only have a PDF transcription. **It cannot land until Query 2 runs.** If step 0 slips, 6A ships without it and 6B gets it. |
+| **6A(d)** fit-doc corrections | **Validated.** |
+| **6A(e)** matrix states report-only | **Validated**, with a caveat on how it is red-proven (§G). |
+| **6B** | **Validated**, including writing down the reusable part — PR 5 and PR 6 will face this and the headroom method (Amendment 1 §D) is the transferable artifact, not the 5-line number. |
+
+**On your (b)/(c) rationale — "both change the geometry 6B measures against."** Correct as a
+principle, and it is why (c) is right to be early. But (b) changes no geometry, because there is no
+marker (§A). Your reasoning was sound; the premise was not.
+
+**One thing I would add to 6A that is on neither list:** **relabel `EM_PARAGRAPH`** (your 3.3). It
+lives in `tests/fixtures/instinct_axis.js`, whose comment block currently asserts a provenance that
+Amendment 2 disproved. 6A already edits the matrix that consumes it, and leaving a file claiming
+false provenance while editing the file next to it is how the `cmsWordBudget` error propagated
+through four documents.
+
+---
+
+## G. THE 6A BUILD PLAN
+
+**Files: three, plus a fourth only if step 0 has run.**
+
+| # | File | Change |
+|---|---|---|
+| 1 | `tests/fixtures/instinct_axis.js` | Relabel `EM_PARAGRAPH` as a **synthetic hazard case**, not EM output. Add assessment 74's overlay as a separate labelled export *(only with step 0)*. |
+| 2 | `app/renderer.js` | The p10-local join in the Z6 block (~3866–3896). **Nothing else in this file.** |
+| 3 | `scripts/render_client.js` | Add `sm_bullets` + `em_paragraph` Z6 states, **report-only**. |
+| 4 | `docs/p10_fit_results.md` | Annotate `em_paragraph` as target-correct; fix `sm_bullets` 173.25 → **179.25**; add the Amendment 1 §D headroom table. |
+
+**Order, and it is load-bearing:**
+
+**3 before 2.** The matrix states must exist and be *observed spilling* before the join lands,
+because that observation is red-proof #1 and it is unrepeatable afterwards — once the join is in,
+`em_paragraph` reports 1073.25 instead of 1131.38 and the pre-join number can never be taken again.
+Then **2**, then re-run and record the new number. Then **1** and **4**, which touch nothing the
+renders depend on.
+
+### Done-when evidence
+
+1. The matrix prints Z6 rows for both states, pre-join, with `em_paragraph` at **page 1131.38** and
+   `sm_bullets` at **1065.88** — both flagged as spills, run still green because report-only.
+2. Post-join, the same rows read **1073.25** and **1056**. `sm_bullets` **stops spilling** — that is
+   the join's corrective effect on a multi-element payload, visible in the run output.
+3. `em_paragraph` **still spills at 1073.25**. **A green run here would mean the join did the cap's
+   job and 6B is untested.** This is the expected, intended end state of 6A.
+4. Coach HTML byte-identical, both fixtures. Mandatory — `renderer.js` is touched.
+5. `npm test`, `verify:render`, `verify_content_library`, transparency, diagrams all green.
+
+### Red proofs — one per assertion, each shown failing for the right reason
+
+| # | Assertion | How it is proven red, against a green control |
+|---|---|---|
+| 1 | the matrix states reach the gate | **Before** the join, in a scratch copy, flip the Z6 rows to enforcing. The run must fail **naming p10** at 1131.38 > 1057. A report-only gate cannot be proven by running it — it never fails — so it is proven by showing it *would*. This is the only way to red-prove a report-only gate and it must happen before item 2 lands. |
+| 2 | the join is doing work | Post-join, the same scratch enforcement must fail at **1073.25**, not pass. Pass = the join is silently acting as the cap. |
+| 3 | the join actually joins | Feed a two-element payload with `\n\n` in each. Assert **one** `.v3-inst-resp-txt` and **zero** `<br>` in p10's markup. Red-prove by reverting the join and observing 2 elements / 4 `<br>`. |
+| 4 | the join is p10-local | Assert p6's markup for the same payload is **unchanged** — still one `.p6-ow-bullet` per element, `<br>` intact. Red-prove by moving the join to `report_prep.js` and observing p6 change. **This is the assertion that would have caught §3.3.** |
+| 5 | the doc numbers are the shipped ones | Re-measure `sm_bullets` on the shipped page and confirm **179.25**, not the recorded 173.25. Red-prove by asserting 173.25 and watching it fail. |
+
+**Green control before each.** And per step 4's lesson: assert on the failure **output** — the spill
+line and the page identity — not merely a non-zero exit, because a `TypeError` also exits non-zero.
+
+### Not in 6A, explicitly
+
+The cap. Enforcement. `CMS_PREVIEW_V3_EVIDENCE`'s re-cut. `em_report_adapter.js`. p6 — its marker
+and its missing cap. Anything in your §7.
+
+---
+
+## H. Carried, and one thing added to Amendment 1's list
+
+**Capture routes for production reality** (Amendment 1 §H4.1) now has a fourth, permanently:
+**(d) a shipped artifact the operator already holds** — a client PDF, an email, an export. It was
+the cheapest route to the truth on this step and it was not on the list. [Your note, recorded as
+asked.]
+
+**Open, unchanged:** whether an editing surface for per-client AI output exists (Amendment 1 §L1).
+Mechanism E in 6B depends on it, and 6A does not.
