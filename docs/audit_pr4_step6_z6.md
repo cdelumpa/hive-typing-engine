@@ -1442,3 +1442,424 @@ lever. A production runtime guard (§A). Everything in your §7 of the previous 
 - Whether an editing surface for per-client AI output exists (Amendment 1 §L1) — **still open, and
   §A makes it matter more**: it is the difference between E being actionable and E being a hard
   failure.
+
+---
+
+# Amendment 5 — the 6A build plan in full
+
+**Branch:** `pr-4-step6-z6-audit`. **Fresh fetch: nothing came down**; `main` and `origin/main` both
+still `db7bd7a`. [CC-MEASURED] Audit only.
+
+**On item (d):** Amendment 4 §H is the skeleton. It is not enough to write a build prompt from —
+this replaces it. Where the two disagree, this wins.
+
+**§5 below is predictions by design.** Every figure in it is tagged [CC-PREDICTED] and every one was
+measured in the scratchpad against the shipped renderer before being written down, so a divergence
+in the build report is a finding about the build, not about the prediction.
+
+---
+
+## A. LEADING: 6A(d) IS BIGGER THAN I SCOPED IT, AND ONE PIECE OF IT IS NOT YET ISOLATED
+
+`docs/p10_fit_results.md` **already has** a headroom-by-Z6-line-count table — §7, lines 250–266. I
+proposed "add the Amendment 1 §D headroom table" without having read it. It is there, and **its
+numbers disagree with the shipped page.** [CC-MEASURED]
+
+| Z6 lines | doc §7 says | shipped page | delta |
+|---|---|---|---|
+| 4 | +46.88px | **+40.88** | −6.00 |
+| **5** | **+27.50px** | **+21.50** | **−6.00** |
+| 6 | +8.13px | **+2.13** | −6.00 |
+| 7 | −11.25px | **−17.25** | −6.00 |
+
+Both are against the **976px content box** — I confirmed the basis by measuring it: p10's padding is
+40px top and bottom, `box-sizing: border-box`, and at 5 joined Z6 lines the content height is
+954.50, giving 976 − 954.50 = **+21.50**. [CC-MEASURED]
+
+**The offset is exactly 6.00px and it is constant at every line count. Therefore it is not in Z6** —
+a Z6-local cause would scale with the line count. It is somewhere else in the page stack, and the
+step-3 probe was a scaffold built from the mockup's CSS rather than the shipped renderer.
+**I have not isolated which element accounts for it, and I am not going to guess.**
+
+**Three consequences for the build:**
+
+1. **§8's decision rationale cites `+27.50px` at 5 lines. On the shipped page that reads `+21.50`.**
+2. **The decision survives.** 21.50px is still more than one Z6 line (19.375px) and more than one Z5
+   line (17.39px), so "5 lines absorbs a one-line regression anywhere on the page" remains true —
+   with 2.125px to spare rather than 8.125px. **The margin is a quarter of what §8 believed.**
+3. **6A(d) must not overwrite §7.** That table was honestly measured in its own context and
+   overwriting it destroys the step-3 record. It gets a shipped-measured table **alongside**, with
+   both bases stated and the unisolated 6.00px named as open.
+
+**Isolating the 6.00px is not 6A work** — it is a measurement task across Z2/Z3/Z5/header/lead
+against the scaffold, and it changes no code. I would give it its own card. It matters because
+every composite figure in §6 of that doc carries the same offset.
+
+---
+
+## B. §1 — FILES AND SITES
+
+| # | File | Site | Shared surface? |
+|---|---|---|---|
+| 1 | `app/renderer.js` | `_clv3Instincts`, **lines 3866–3867** (`const evidence` / `const evList`). The join lands in `evList`'s construction. `:3896` (`evList.map`) is **unchanged**. | **YES — shared file.** But `_clv3Instincts` is registered only in `V3_PAGE_BUILDERS` (`:3914`) and reached only from `buildClientReportHTML_v3`. `buildCoachReportHTML` (`:1778`) and the live-v2 `buildClientReportHTML` never call it. |
+| 2 | `scripts/render_client.js` | `:29` (import), `:205` (beside `instinctsFor`), `:337` (the loop nest) | CI harness. No product surface. |
+| 3 | `tests/fixtures/instinct_axis.js` | `:131` (`EM_PARAGRAPH` + its comment block at `:118–130`), `:137` (`Z6_STATES`), `:156` (`module.exports`) | Test fixture. |
+| 4 | `docs/p10_fit_results.md` | `:112` (sm_bullets row), `:113` (em_paragraph row), a new subsection after `:266` | Documentation. |
+
+### Expected coach byte-diff: **NO MOVEMENT.** [CC-PREDICTED]
+
+Stated as a prediction with its reason, not an expectation. The only product-code edit is inside
+`_clv3Instincts`, a function unreachable from `buildCoachModel`/`buildCoachReportHTML`. If the coach
+HTML moves by one byte, **the join has escaped its function and the build stops** — that is not a
+diff to explain, it is red proof #4 firing for real.
+
+### Also predicted: the live v2 client report does not move either.
+
+`renderer.js:2251` (p6's `.p6-ow-bullet` map) is untouched. The `client` config renders sp4 and sx7
+through `buildClientReportHTML`; both should be byte-identical. [CC-PREDICTED]
+
+---
+
+## C. §2 — LANDING ORDER, WITH WHAT IS UNREPEATABLE AT EACH STEP
+
+The rule you gave — *what is observable only here and therefore lost if it slips* — applied to every
+step, not just the first.
+
+**Step 1 — `scripts/render_client.js`: add the Z6 axis, report-only. Commit.**
+*Unrepeatable:* the **pre-join renders of every Z6 state**. Once step 2 lands, `em_paragraph` reads
+1073.25 forever and 1131.38 can never be taken again from the shipped renderer. `sm_bullets`' 1065.88
+likewise. **These two numbers are the entire evidence that the join does anything**, and they exist
+only in this window.
+
+**Step 2 — red proof #1, in a scratch copy, discarded.**
+*Unrepeatable:* proving the report-only gate **would** fail. A report-only gate never fails, so the
+only moment it can be shown failing for the right reason is while the payload still spills and
+before the join removes the spill. After step 3 this proof is unavailable for `sm_bullets` entirely,
+because it stops spilling.
+
+**Step 3 — `app/renderer.js`: the join. Commit.**
+*Unrepeatable:* nothing. This is the one reversible step, which is why it goes after the two that
+are not.
+
+**Step 4 — re-run the matrix, record the post-join numbers. Coach byte-diff here.**
+*Unrepeatable:* the **first** coach byte-diff after a `renderer.js` edit. If it moves, it must be
+caught before anything else lands on top of it; a later diff cannot tell you which of two edits
+moved it.
+
+**Step 5 — `tests/fixtures/instinct_axis.js`: relabel `EM_PARAGRAPH`, add `EM_OBSERVED_MAX`. Commit.**
+*Unrepeatable:* nothing — but it must come **after** step 3, because `EM_OBSERVED_MAX`'s
+preserve-note claims a render (5 lines / 147.88px / 54.65%) that has to be true of the **joined**
+renderer, which is what the fixture will be read against forever.
+
+**Step 6 — `docs/p10_fit_results.md`. Commit.**
+*Unrepeatable:* nothing. Documentation last, so it records what the code actually did rather than
+what it was meant to do. This is the step-3 lesson — the fit doc is the record every later decision
+rests on, and it should be written from the run output, not from the plan.
+
+**Why not fold steps 1+2 or 5+6:** step 2 produces no artifact (it is a discarded scratch run), and
+folding step 1 into step 3 destroys the pre-join window, which is the whole argument.
+
+---
+
+## D. §3 — DONE-WHEN, PER ITEM. The artifact, not the intention
+
+| Item | Done when |
+|---|---|
+| **6A(e) matrix report-only** | The `verify:render` run output contains four new Z6 rows under `client_v3 / sp4`, printed pass or fail, with `em_paragraph` and `sm_bullets` both carrying a spill marker and **the run still exiting 0**. Artifact: the run output, pasted into the build report. |
+| **6A(a) join** | The same run, post-join, shows `sm_bullets` **without** a spill marker and `em_paragraph` **still with one**. Artifact: the two run outputs side by side, which is the before/after diff the whole step turns on. |
+| **6A(c) synthetic fixture** | `EM_OBSERVED_MAX` appears in the matrix at **5 lines / 147.88px / page 1056 / fill 54.65%**, and those four numbers are **identical pre- and post-join**. Artifact: the two run outputs showing no movement on that row — the join's no-op proof on real-shaped input. |
+| **`EM_PARAGRAPH` relabel** | `git diff` on `tests/fixtures/instinct_axis.js` shows the comment block at `:118–130` no longer asserts EM provenance and names it a synthetic hazard case. Artifact: the diff. |
+| **6A(d) fit-doc** | `git diff` on `docs/p10_fit_results.md` shows `:112` at 179.25, `:113` annotated, and a new shipped-basis subsection. Artifact: the diff. **Plus** a line in the build report stating the 6.00px offset is recorded and unisolated. |
+| **the whole pass** | Coach HTML byte-identical both fixtures; live-v2 client byte-identical both fixtures; `npm test`, `verify:render`, `verify_content_library`, transparency, diagrams all green. |
+
+---
+
+## E. §4 — THE FIVE RED PROOFS, AS MECHANISMS
+
+Green control first in every case: run the assertion against unmodified code and see it pass, then
+break the thing it guards and see it fail with the right message.
+
+### #1 — the matrix states reach the page gate
+**Asserts:** a spilling Z6 payload fails the run naming p10.
+**Mechanism:** before the join, in a scratch copy of `render_client.js`, change the Z6 rows from
+report-only to enforcing. Run.
+**Right-reason failure:** the output contains the spill line naming p10 **and the number 1131.38**.
+A failure that names a different page, or exits non-zero without that line, is a different bug —
+step 4's `TypeError` also exited non-zero.
+**Green control:** the same scratch run with `em_paragraph` replaced by `em_observed_max`, which
+must pass.
+
+### #2 — the join is doing work, not the cap's job
+**Asserts:** the join reduces the spill without removing it.
+**Mechanism:** post-join, re-run the same scratch enforcement.
+**Right-reason failure:** it must **still fail**, at **1073.25**. A pass here means the join is
+silently acting as the cap and 6B would be testing nothing.
+**Green control:** `sm_bullets`, which must flip from failing to passing across the same change —
+one payload moves, the other does not, and that asymmetry is the proof.
+
+### #3 — the join actually joins
+**Asserts:** any array shape becomes one element with no `<br>`.
+**Mechanism:** a two-element payload with `\n\n` inside each element, rendered through
+`buildClientReportHTML_v3`. Count `.v3-inst-resp-txt` elements and `<br>` tags in the emitted HTML.
+**Right-reason failure:** revert the join; the same payload must yield **2 elements and 4 `<br>`**.
+Assert both numbers, not just the element count — the element count alone would pass on a change
+that concatenated without collapsing newlines.
+**Green control:** with the join, **1 element and 0 `<br>`**.
+
+### #4 — THE p6-MARKUP-UNCHANGED ASSERTION *(this is the one)*
+**Asserts:** the join is confined to p10 and has not moved into a shared path.
+
+**Mechanism, concretely — this is what you asked to see rather than be told:**
+1. Take one `api_result` and build **two** models from it: the v2 client model and the v3 client
+   model, from the same fixture.
+2. Render **both** documents: `buildClientReportHTML(m2)` and `buildClientReportHTML_v3(m3)`.
+3. From the v2 HTML, extract every `<div class="p6-ow-bullet">…</div>` — the substring, not a count.
+4. Assert, against a payload of **three elements each containing `\n\n`**:
+   - v2 yields **3** `.p6-ow-bullet` blocks, and their concatenated HTML contains **6 `<br>` tags**
+     (two per element), i.e. **the newlines survive on p6**;
+   - v3 yields **1** `.v3-inst-resp-txt` and **0 `<br>`**.
+5. The assertion is the **pair**. Either half alone is satisfiable by a broken change.
+
+**Right-reason failure:** move the join up to `report_prep.js:408` and re-run. The v2 half must go
+red — 3 blocks with **0** `<br>`, because the newlines were collapsed before either renderer saw
+them. **That is the §3.3 coach-portal regression, reproduced as a test failure**, and it is red for
+exactly the reason that regression would have been shipped.
+**Green control:** the join in `_clv3Instincts`; both halves pass.
+
+**Why the pair and not a coach-HTML diff:** the coach byte-diff would also catch a
+`report_prep.js` join — but only because the coach portal happens to read that field. This
+assertion catches it at the layer where it is *wrong*, states why in its own failure message, and
+does not depend on a second product surface noticing.
+
+### #5 — the synthetic still matches what it claims
+**Asserts:** `EM_OBSERVED_MAX` renders 5 lines / 147.88px / fill 54.65%.
+**Mechanism:** measure **through the full render path**, never by DOM swap. The fast search used in
+this audit set `textContent` directly and diverged from the real `_v3t` → `_v3Straighten` → `esc` →
+`_v3NoBreak` path by **0.04px** on the winning string. That is a search tool; it is not evidence.
+**Right-reason failure:** append one word to the synthetic; `fill` must move off 54.65%.
+**Green control:** the committed string.
+
+### #6 — the doc numbers are the shipped ones
+**Asserts:** `sm_bullets` measures 179.25px, not the recorded 173.25.
+**Mechanism:** re-measure on the shipped renderer as part of the matrix run.
+**Right-reason failure:** assert 173.25 and watch it fail by exactly 6.00px.
+**Green control:** 179.25.
+
+*(Six, not five. #6 was in the Amendment 4 list; I am not dropping it to make the count match.)*
+
+---
+
+## F. §5 — PREDICTIONS, COMMITTED IN ADVANCE
+
+**All [CC-PREDICTED]**, each measured in the scratchpad against the shipped renderer before being
+written here. Basis: whitespace-collapsed chars; `box` is `.v3-inst-resp`; `page` is the rendered
+`.v3-page`; spill is `> 1057`.
+
+| Z6 state | | elements | `<br>` | lines | box | page | |
+|---|---|---|---|---|---|---|---|
+| `null` (sp4's own SM evidence) | before | 3 | 0 | 4 | 140.50 | 1056 | fits |
+| | **after** | **1** | 0 | 4 | **128.50** | **1056** | fits |
+| `sm_bullets` | before | 3 | 0 | 6 | 179.25 | **1065.88** | **SPILL +9.88** |
+| | **after** | **1** | 0 | **5** | **147.88** | **1056** | **fits** |
+| `em_paragraph` | before | 1 | **4** | 8 *(10 slots)* | 244.75 | **1131.38** | **SPILL +75.38** |
+| | **after** | 1 | **0** | **7** | **186.63** | **1073.25** | **STILL SPILLS +17.25** |
+| `em_observed_max` | before | 1 | 0 | 5 | 147.88 | 1056 | fits |
+| | **after** | 1 | 0 | **5** | **147.88** | **1056** | **unchanged — the no-op proof** |
+
+**Matrix count: 28 → 31.** Not 30 — Amendment 1 said +2 before the synthetic existed. The Z6 axis
+returns `[null]` for `anders_sx9`, keeping its **27** renders byte-identical, and
+`[null, 'sm_bullets', 'em_paragraph', 'em_observed_max']` for `sp4`, taking it from 1 to 4.
+27 + 4 = 31. [CC-DERIVED from the loop nest at `render_client.js:330–337`]
+
+**CI time: +3 renders.** At 5A's measured 1.424 s/render local → **+4.3s local**; at the ~2.25 s/render
+CI rate derived at 5A → **~+6.8s CI**. [CC-DERIVED]
+
+**Renders whose output changes: exactly one of the 28.** `sp4`'s existing p10 — its real SM evidence
+is three elements and the join makes it one, so its Z6 box goes 140.50 → 128.50 and its page
+**natural** height 1027.13 → 1015.13. Its **rendered** page total stays **1056**, so the matrix's
+height column will not move. The other 27 are `anders_sx9`, which ships `client_facing: {}` — no Z6
+box at all, no change. [CC-PREDICTED]
+
+**If any of these comes in different, that is a finding.** The two I would watch hardest:
+`em_observed_max` moving at all (it would mean the join is not a no-op on single-element input), and
+`sp4`'s rendered total moving off 1056 (it would mean the page was closer to a boundary than
+measured).
+
+---
+
+## G. §6 — THE FIT-DOC EDITS, VERBATIM
+
+### Edit 1 — line 112, the `sm_bullets` row
+
+Replace:
+```
+| `sm_bullets` | 173.25px | 6 | 3 | 568 |
+```
+with:
+```
+| `sm_bullets` | 179.25px | 6 | 3 | 568 |
+```
+
+### Edit 2 — line 113, the `em_paragraph` annotation
+
+Replace:
+```
+| **`em_paragraph`** | **186.63px** | **7** | 1 | 775 |
+```
+with:
+```
+| **`em_paragraph`** | **186.63px** | **7** | 1 | 775 |
+
+**Both rows re-checked on the shipped renderer at step 6.** `em_paragraph`'s 186.63px is correct
+and remains so: the step-3 scaffold collapsed the value's paragraph breaks to spaces before
+rendering, which is exactly what the p10-local join now does, so this row describes the shipped
+page. `sm_bullets` was 173.25px here and measures **179.25px** shipped — the scaffold's adjacent
+3px block margins collapsed to 3px per gap where the shipped rule is a non-collapsing
+`margin-top:6px` on the adjacent sibling, and two gaps account for the whole 6.00px. Corrected
+above. [CC-MEASURED, step 6]
+
+**A caveat this table did not carry:** as shipped before the join, `em_paragraph` occupies **10
+line slots, not 7** — `esc()` converts its two `\n\n` into four `<br>`, and a Range-based line
+counter reports only the 8 slots carrying text. Box 244.75px, page 1131.38. The 186.63px figure is
+the **post-join** height. [CC-MEASURED, step 6]
+```
+
+### Edit 3 — a new subsection after line 266 (after §7's "All nine types are identical…")
+
+```
+### 7b. The same table, measured on the shipped renderer
+
+§7 above was measured on the step-3 probe — a scaffold built from the mockup's CSS. The shipped
+p10 runs **6.00px tighter at every Z6 line count.** Both are against the 976px content box; p10's
+padding is 40px top and bottom, `box-sizing: border-box`. [CC-MEASURED, step 6]
+
+| Z6 lines | §7 (step-3 scaffold) | shipped renderer | delta |
+|---|---|---|---|
+| 4 | +46.88px | **+40.88px** | −6.00 |
+| **5** | **+27.50px** | **+21.50px** | −6.00 |
+| 6 | +8.13px | **+2.13px** | −6.00 |
+| 7 | −11.25px | **−17.25px** | −6.00 |
+
+**The offset is constant across all four rows, so it is not in Z6** — a Z6-local cause would scale
+with the line count. It is elsewhere in the page stack and **it has not been isolated.** Recorded
+rather than guessed at. Every composite figure in §6 above carries the same offset.
+
+**§8's decision is unaffected; its number is not.** §8 reasons from "+27.50px at 5 lines"; the
+shipped figure is **+21.50px**. That is still more than one Z6 line (19.375px) and more than one Z5
+line (17.39px), so "5 lines absorbs a one-line regression anywhere on the page" holds — with
+**2.125px** to spare rather than 8.125px. The margin is a quarter of what §8 believed. The decision
+stands; the comfort behind it was overstated.
+```
+
+### Edit 4 — the step 0 population record
+
+**It lands in this doc**, as a new §9 after §8, because §8 is where the cap's justification lives
+and the population is now half of that justification. **Numbers only, no prose, no ids attached to
+content** (§7.5). Text as in Amendment 4 §G of the audit: the 17/2/0 shape split, n=19 min 308 /
+mean 442 / p95 511.3 / max 532, EM-only min 348 / median 456 / mean 450.7 / max 532, sentences 2–3,
+**zero newlines of any kind across all 19 rows, 2026-06-15 → 2026-07-19**, and the caveat that a
+compact distribution at n=19 is a floor for a decision and not a bound.
+
+**Also recorded there:** the observed maximum renders at **5 lines**, exactly the cap, with
+**+21.50px** of page headroom — one line. And `report_prep.js:408`'s `?? null` has never fired in
+production.
+
+---
+
+## H. §7 — THE FIXTURE FILE
+
+**Where:** `tests/fixtures/instinct_axis.js`, beside `EM_PARAGRAPH` (`:131`).
+**The string** (synthetic, safe to commit):
+
+```
+Your responses point toward a strong self-preservation instinct — you tend to secure comfort and steady resources before turning your attention outward, whether that means holding to a predictable routine or quietly preparing for whatever the coming week is likely to demand. You also showed a clear social awareness, suggesting you track your standing within groups with real care. The intense one-to-one instinct appears less central in your case, which may relate to the preference you described for an even and workable rhythm.
+```
+
+**Name:** `EM_OBSERVED_MAX`. Exported at `:156`; added to `Z6_STATES` (`:137`) as
+`em_observed_max: { evidence: EM_OBSERVED_MAX, expect: EM_OBSERVED_MAX }`.
+**Shape:** a one-element array, matching every other Z6 state.
+
+### The comment block, verbatim
+
+```
+// ─── EM_OBSERVED_MAX ─────────────────────────────────────────────────────────
+// A SYNTHETIC string matched to the LONGEST instinct_personal_overlay in production.
+// The real one is not here and must not be: it is another client's report prose.
+//
+// WHAT IT IS MATCHED TO (real numbers; the string itself was never committed):
+//   532 chars, 80 words, 0 newlines, 1-element array.
+//   Observed maximum of 17 EM assessments, 2026-06-15 to 2026-07-19; n=19 overall
+//   (the other 2 are SM, 3-element, on a path that no longer ships).
+//   Rendered on the shipped p10 Z6 at 670px: 5 lines, box 147.88px,
+//   page natural 1034.50, last-line fill 54.65%.
+//
+// THIS SYNTHETIC: 531 chars, 83 words, 3 sentences, 0 newlines. It renders
+// IDENTICALLY — 5 lines, 147.88px, 54.65% fill — on one character MORE and three
+// words FEWER. That is the point: the match is a render, not a count.
+//
+// EQUIVALENCE WAS PROVEN BY RENDERING BOTH, not by comparing counts. Character
+// equality is not the test and never was — SO7 at 389 chars renders 12 lines
+// where SO5 at 394 renders 11, because line count is decided by where words break.
+//
+// ── IF YOU EDIT THIS STRING ──
+// MUST PRESERVE:  rendered line count (5), box height (147.88px), last-line fill
+//                 (54.65%), absence of any \n, single-element array shape.
+// INCIDENTAL:     the words, the subject matter, which instinct it describes.
+// NOT A CRITERION: character count. It is an OUTPUT of matching the render, not
+//                 an input, and pinning it would be the struck-ceiling error again.
+// Measure through the FULL render path (buildClientReportHTML_v3). A DOM-swap
+// measurement diverges by ~0.04px and is a search tool, not evidence.
+//
+// NOT A BOUND. It is one observed maximum over n=19 spanning five weeks — a floor
+// for a decision, not a ceiling. It is also not EM output: it is prose written to
+// match EM output's geometry.
+```
+
+### And the `EM_PARAGRAPH` relabel, verbatim
+
+The comment block at `:118–130` currently asserts EM provenance. Replace its opening with:
+
+```
+// A SYNTHETIC HAZARD CASE. NOT EM OUTPUT — this was mislabelled until step 6.
+// It is sp4's client_facing.instinct_personal_overlay, which is SM-produced (sp4 is
+// an SM fixture: 3-bullet instinct_evidence, and stress_point_narrative where the EM
+// report emits stress_security_narratives). SM's contract for that field is "2-4
+// sentences"; EM's is "2-3" (experimental_analysis.js:613). So this is one producer's
+// field hand-run through a simulation of the other producer's adapter.
+//
+// KEEP IT ANYWAY. It is the only artifact in the repo exercising the \n -> <br> path
+// in esc(), and 3 paragraphs under a "2-4 sentences" instruction shows this class of
+// producer will emit paragraph breaks. Production has not: zero newlines across 19
+// rows, 2026-06-15 to 2026-07-19. So it is a hazard case, not a sample — and at 775
+// chars it is 1.77x the real observed maximum. See EM_OBSERVED_MAX for that.
+```
+
+---
+
+## I. §8 — THE BOUNDARY
+
+**6A does NOT:**
+
+- introduce a cap, a limit, or any enforcement — the matrix states are **report-only**;
+- re-cut `CMS_PREVIEW_V3_EVIDENCE` (it drops to 4 lines under the join and stops being a 5-line
+  canary — **that is 6B**, and 6A will leave it visibly wrong);
+- touch `app/em_report_adapter.js`, `app/server.js`, or `app/report_prep.js`;
+- touch p6 — not its marker, not its missing cap;
+- touch the EM Report Call's prompt (the producer lever);
+- add a production runtime guard;
+- isolate the 6.00px scaffold offset (§A) — recorded, not chased;
+- commit any client prose, any real overlay string, or assessment 74 in any form.
+
+### Confirmed: the production-gate finding changes 6A's scope by nothing.
+
+You are right and I will say why rather than just agree. 6A's four edits are a renderer function
+reachable only from the v3 builder, a CI harness, a test fixture and a document. **None of them is
+in a production path at all** — `render_client.js` is reached only through `npm run verify:render`.
+The absence of a production height gate is a fact about a code path 6A does not enter. It changes
+**6B's** scope, by making the cap a CI regression gate rather than a runtime behaviour, and it
+opens the detection-first card you have scoped. It does not reach back into 6A.
+
+**One thing it does change: what the 6A build report is entitled to claim.** 6A must not say the
+join "protects clients from a spill". It does not — nothing does. It says the join makes the
+preview match production, makes lines a valid unit for 6B's cap, and removes a `<br>` hazard not
+observed in 19 production rows over five weeks.
