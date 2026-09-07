@@ -1150,3 +1150,295 @@ asked.]
 
 **Open, unchanged:** whether an editing surface for per-client AI output exists (Amendment 1 §L1).
 Mechanism E in 6B depends on it, and 6A does not.
+
+---
+
+# Amendment 4 — step 0 results, id 64 rendered, and a synthetic that matches it
+
+**Branch:** `pr-4-step6-z6-audit`. **Fresh fetch: nothing came down**; `main` and `origin/main` both
+still `db7bd7a`. [CC-MEASURED] Audit only.
+
+**No client prose appears in this document.** The real id 64 string was rendered in the scratchpad
+and **deleted after measurement** — verified gone. Its *numbers* are recorded, per §7.5.
+
+---
+
+## A. LEADING: PRODUCTION HAS NO PAGE-HEIGHT GATE, SO MECHANISM E HAS NOWHERE TO FIRE
+
+Nothing in your prompt is wrong. This is a fact neither of us had, and it shrinks the mechanism
+question rather than answering it.
+
+**`app/generate_report.js:588` is `await page.pdf({ path: outPath, ...pdfOptions })` and that is
+the whole of it.** No height check, no spill guard, no `PAGE_PX`, no `enforceSheet` — the strings
+do not appear in `generate_report.js` or `render_report.js` at all. **`scripts/render_client.js` is
+a CI harness**, reachable only through `npm run verify:render`; no production path requires it.
+[CC-MEASURED]
+
+So the page gate we have been calling "the gate" **guards fixtures, not clients**. A client report
+that spills has never been stopped by anything, on any page, including today's p6.
+
+**What this does to mechanism E:** "refuse and report" cannot extend an existing production check,
+because there is none. Implementing E at runtime would mean *introducing* a height check into
+client PDF generation — and when it fired, the client's report would fail to generate, with no
+editing surface to fix it (Amendment 1 §L1, still open). That is a worse outcome than the overflow.
+
+**Therefore 6B's cap should be scoped as a CI-enforced contract over fixtures and the preview
+constant — a regression gate — and a production runtime guard is its own card.** That is a smaller
+6B than either of us has been describing, and I think it is the correct one.
+
+---
+
+## B. §6a — id 64 RENDERED THROUGH THE SHIPPED p10 Z6
+
+[CC-MEASURED. Basis: whitespace-collapsed, ends-trimmed. Rendered at Z6's measured 670px.]
+
+| | value |
+|---|---|
+| collapsed chars / words / newlines | **532 / 80 / 0** — confirms §3 exactly |
+| **rendered lines** | **5** |
+| `.v3-inst-resp` box | **147.88px** |
+| p10 natural height | **1034.50** |
+| **last-line fill** | **54.65%** |
+| last line width | 365.50px of a 668.80px widest line |
+| line widths | 627.7 · 668.8 · 609.4 · 659.8 · 365.5 |
+| `<br>` count | 0 |
+| **verdict** | **FITS. Headroom 22.50px against the 1057 gate.** |
+
+**Your derivation was right, and it should still not be trusted.** §3 predicted 4.86 lines from a
+438→4 anchor and called for a render anyway. It landed on 5. Char→line scaling was correct *this
+time*; §5.4 above shows the same arithmetic spanning 3 to 12 lines on a fixed sentence count. The
+prediction being right does not make the method sound, and the label you put on it was the right
+label.
+
+## C. §6b — it is AT the cap, exactly, and the cap has zero slack above the population
+
+**5 lines is the cap. The observed maximum is 5 lines.** So:
+
+- **The cap accommodates the entire observed population.** All 19 stored rows fit. Mechanism E
+  would have fired **zero times** in the five weeks 2026-06-15 → 2026-07-19.
+- **And there is no margin above the observed maximum.** 22.50px of headroom is exactly one line
+  box (19.375px) plus 3.125px. **The next line breaches the page.** The cap is not a comfortable
+  bound over this population — it *is* the population's maximum, and the page's limit is one line
+  above it.
+
+That is the design fact you wanted before the build, and it is sharper than "at the cap or over
+it": **there is exactly one line of room between the longest thing production has ever emitted and
+a spilled client report, and nothing in production is watching it.**
+
+**What it does to 6B:** the cap stays at 5 — it is now justified twice, by the page (Amendment 1
+§D) and by the population. But its *job* is a regression gate, not a limiter. It exists so that a
+producer change, a prompt edit, or a content edit that pushes past 5 lines goes red in CI **before**
+it ships. Given §A, that is the only place it can go red at all.
+
+## D. §6c — the producer-side lever: E is right either way, and the lever makes 6B *smaller*
+
+**It does not change the mechanism.** Three reasons:
+
+1. **The lever cannot bound the tail.** It changes prompt text, and §2.5 established that prompt
+   text is not enforced by anything. It moves the mean; it does not create a limit.
+2. **It does not touch the 17 stored rows.** Any report regenerated from stored output keeps its
+   current length.
+3. **A cap that rarely fires is exactly the case where E beats A.** A trimmer is permanent renderer
+   complexity that, on this population, would execute **never** — and the one time it did, it would
+   silently damage client prose. E's cost when it never fires is zero.
+
+**The lever makes 6B more comfortable, not less.** §4.3 puts the definitional clause at ~96 chars
+on 8 of 14 rows — about one rendered line at this width — and says the longest rows carry it. If
+that clause goes, id 64 very likely drops from 5 lines to 4, and the population moves a full line
+clear of the cap. That converts §C's zero-slack finding into one line of slack. **I would support
+that card on those grounds alone**, separately from the vocabulary and dangling-connective fixes,
+which are content-quality arguments I have no standing to price.
+
+**The one thing that would flip me to A:** if the population routinely exceeded the cap, refusing
+would be an operational burden and trimming would win. The data says the opposite.
+
+**§4.1/§4.2 noted, not actioned:** eight renderings of one instinct name across 14 rows, and
+"Sexual" in 7 of 14 on a page whose other two zones use "One-to-One" and Naranjo names. That is a
+controlled-vocabulary problem on a shipping producer. Its own card, as you said. I record only that
+it is **not** a length problem and the lever addresses two different things at once.
+
+**§4.4 — the defect class, not the string:** id 50 opens with a dangling connective, a sentence
+fragment referring to an antecedent that does not exist in a standalone box. Shipped to a client.
+Recorded as a class; the sentence is not reproduced here.
+
+---
+
+## E. §7.2 — THE SYNTHETIC, AND THE PROOF
+
+### The procedure I actually ran
+
+**(a)** Rendered the real id 64. Numbers in §B. **(b)** Authored a synthetic on a deliberately
+different subject — a different dominant instinct, different examples, no individual
+characterization. **(c)** Proved equivalence **by rendering both**, never by comparing counts.
+**(d)** The real string is deleted; only the synthetic below survives.
+
+**Method note, and it matters for 6A.** The candidate search set `textContent` directly and
+measured, which scans ~270,000 combinations quickly. **That is an approximation, not the render** —
+the real path goes through `_v3t` → `_v3Straighten` → `esc` → `_v3NoBreak`. Measured divergence
+between the two on the winning string: **widest line 667.48 by DOM swap vs 667.52 through the full
+path, 0.04px.** Small, but real. **Every figure below is from the full render path.** Any 6A
+assertion must measure the same way; a DOM-swap measurement is a search tool, not evidence.
+
+### The result
+
+| metric | real id 64 | synthetic | |
+|---|---|---|---|
+| **rendered lines** | 5 | **5** | **match** |
+| **box px** | 147.88 | **147.88** | **match** |
+| **last-line fill** | 54.65% | **54.65%** | **match** |
+| p10 natural | 1034.50 | **1034.50** | match |
+| `<br>` count | 0 | **0** | match |
+| array shape | 1 element | **1 element** | match |
+| — *not in the criterion* — | | | |
+| last line width | 365.50px | 364.80px | −0.70px |
+| widest line | 668.80px | 667.52px | −1.28px |
+| collapsed chars | 532 | **531** | −1 |
+| words | 80 | **83** | +3 |
+
+**Every criterion you named in 7.2(c) matches exactly.** I did not relax it.
+
+**What I could not match, stated plainly per 7.8:** the two *absolute* widths. I tried — a
+two-dimensional search over 32,400 opening × tail combinations targeting `widest = 668.80` exactly
+returned **zero** hits, and a diagnostic over 720 openings showed the achievable widest values
+cluster around it (669.16, 669.13, 667.77, 667.27 …) **without containing it.** That is expected
+rather than a failure of effort: the widest line is a near-full line, 1.2px short of the 670px
+column, and its exact width is decided by which word happens to land last. [CC-MEASURED]
+
+**This is not a near miss in the sense 7.8 warns about.** It does not render one line short — it
+renders the same line count, the same box height, the same page total, and the same last-line fill
+to the hundredth of a percent. The residual is on two metrics that are *inputs to* fill, not the
+fill itself. **If you want absolute widths matched too, say so and I will widen the vocabulary
+pool** — but I would argue against it: pinning a fixture to a 0.7px last-line width would make it
+fail on any future font or padding change that the line count survives, which is the opposite of
+what the fixture is for.
+
+### The synthetic
+
+```
+Your responses point toward a strong self-preservation instinct — you tend to secure comfort and steady resources before turning your attention outward, whether that means holding to a predictable routine or quietly preparing for whatever the coming week is likely to demand. You also showed a clear social awareness, suggesting you track your standing within groups with real care. The intense one-to-one instinct appears less central in your case, which may relate to the preference you described for an even and workable rhythm.
+```
+
+531 chars, 83 words, 3 sentences, 0 newlines. [CC-MEASURED, basis as declared]
+
+**And it makes your 7.3 point empirically:** it renders identically to a string with **one more
+character and three fewer words.** Character count is an output of matching the render, exactly as
+you wrote it, and this is that claim measured rather than asserted.
+
+## F. §7.7 — the typical-case fixture: **NO. Drop it.**
+
+Assessment 74 at 438 chars sits near the EM median (456). A typical-case fixture would be a second
+synthetic of the same structural shape — **one element, no newlines, EM-produced** — differing from
+the max-case only in length.
+
+**It exercises no distinct code path.** The join, the `<br>` absence, the single-element render and
+the line-counting basis are all identical at 4 lines and 5. It costs a render in the matrix and a
+second synthetic to keep in step, and it would catch nothing the max case misses.
+
+**What the typical case is actually good for is the record**, and §2's population figures — median
+456, mean 450.7, min 348, max 532, n=17 — already carry it into the committed doc without a fixture.
+
+**One future exception, named so it is not lost:** if a cap ever becomes a *runtime* behaviour, a
+below-cap fixture proving the cap does **not** fire on ordinary input becomes a real job. That
+belongs with that work.
+
+---
+
+## G. THE POPULATION RECORD — numbers commit, prose does not (§7.5)
+
+Executed by Cai directly against production Postgres, 7 Sep 2026. Basis: elements joined with a
+single space, then whitespace-collapsed and trimmed; newlines counted on the **raw** joined string
+before collapsing; sentences are terminal-punctuation counts (`.` `!` `?`), a **ceiling**.
+[Reported to me; not independently verified — I cannot reach the database, Amendment 3 §E.]
+
+**Shape — every row carrying an `api_result`, no exceptions:**
+
+| shape | rows | producer |
+|---|---|---|
+| array, 1 item | **17** | EM |
+| array, 3 items | **2** (ids 40, 48) | SM |
+| null / absent / non-array | **0** | — |
+
+**`report_prep.js:408`'s `?? null` has never fired in production.**
+
+**Population, all 19 rows:** n 19 · min 308 · mean 442 · p95 511.3 · **max 532** · max words 80 ·
+**rows with any newline 0** · **rows with paragraph breaks 0**.
+
+**EM only, 17 rows:** min 348 · median 456 · mean 450.7 · max 532 · spread 184 · **sentences are 2
+or 3 in every row, never more.**
+
+**The hazard clause is now determinable: `\n\n` has never occurred**, nor has any newline, across
+19 rows spanning 2026-06-15 → 2026-07-19. So the 6A commit message says: *corrective for preview
+fidelity and for the cap's measurement basis; defensive against a `<br>` hazard **not observed in
+19 production rows over five weeks**.* That sentence is now writable.
+
+**Caveat, recorded as asked:** p95 511.3 against max 532 is a 20.7-char right tail — a compact
+distribution, and the producer is consistent. **It is still n=19 and it is still a floor for a
+decision, not a bound.** Two of the 19 are SM rows on a retired path; the EM evidence is n=17.
+
+---
+
+## H. THE 6A BUILD PLAN
+
+**Step 0 is done, so 6A(c) is unblocked** — the fixture is the synthetic from §E, not assessment 74.
+
+### Files — four
+
+| # | File | Change |
+|---|---|---|
+| 1 | `tests/fixtures/instinct_axis.js` | (i) Relabel `EM_PARAGRAPH` as a **synthetic hazard case**, not EM output — it is SM's overlay on a different contract, hand-run through a simulated adapter (Amendment 2). (ii) Add the §E synthetic as `EM_OBSERVED_MAX`, with the §7.3 preserve/incidental note and the §7.4 provenance label. |
+| 2 | `app/renderer.js` | The p10-local join in the Z6 block (~3866–3896). **Nothing else in this file.** |
+| 3 | `scripts/render_client.js` | Add Z6 states `sm_bullets`, `em_paragraph`, `em_observed_max` — **report-only**. |
+| 4 | `docs/p10_fit_results.md` | Annotate `em_paragraph` as target-state-correct; fix `sm_bullets` **173.25 → 179.25**; add the Amendment 1 §D headroom table and the §G population record. |
+
+### Order — load-bearing
+
+**3 before 2.** The pre-join observation of `em_paragraph` at **1131.38** is unrepeatable: once the
+join lands it reads 1073.25 forever. Land the matrix states, record both numbers, then join, then
+re-record. Then 1 and 4, which touch nothing the renders depend on.
+
+### Done-when evidence
+
+1. Pre-join, the matrix prints `em_paragraph` **1131.38** and `sm_bullets` **1065.88**, both flagged
+   as spills, run green because report-only.
+2. Post-join, the same rows read **1073.25** and **1056**. `sm_bullets` **stops spilling** — the
+   join's corrective effect on a multi-element payload, visible in the run output.
+3. `em_paragraph` **still spills at 1073.25.** A green run here would mean the join did the cap's
+   job and 6B is untested.
+4. `em_observed_max` renders **5 lines / 147.88px / page 1034.50 / fill 54.65%** — unchanged by the
+   join, because it has one element and no newlines. **This is the join's no-op proof on real-shaped
+   input.**
+5. Coach HTML byte-identical, both fixtures. **Mandatory** — `renderer.js` is touched.
+6. `npm test`, `verify:render`, `verify_content_library`, transparency, diagrams, coach — all green.
+
+### Red proofs — each shown failing for the right reason, green control first
+
+| # | Assertion | Red-proof method |
+|---|---|---|
+| 1 | the matrix states reach the gate | **Before** the join, in a scratch copy, flip the Z6 rows to enforcing. The run must fail **naming p10** at 1131.38 > 1057. A report-only gate never fails, so it is proven by showing it *would* — and this is only possible before item 2 lands. |
+| 2 | the join is doing work | Post-join, the same scratch enforcement must **still fail at 1073.25**. A pass means the join is silently acting as the cap. |
+| 3 | the join actually joins | Feed a two-element payload with `\n\n` in each element. Assert **one** `.v3-inst-resp-txt` and **zero** `<br>`. Red-prove by reverting the join: 2 elements, 4 `<br>`. |
+| 4 | the join is p10-local | Assert p6's markup for the same payload is **unchanged** — one `.p6-ow-bullet` per element, `<br>` intact. Red-prove by moving the join to `report_prep.js` and observing p6 change. **This is the assertion that would have caught the §3.3 coach-portal regression.** |
+| 5 | the synthetic still matches what it claims | Assert `em_observed_max` renders 5 lines / 147.88px / fill 54.65%. Red-prove by adding one word and watching fill move. **Measure through the full render path, never by DOM swap** (§E method note). |
+| 6 | the doc numbers are the shipped ones | Re-measure `sm_bullets`; confirm **179.25**, not the recorded 173.25. Red-prove by asserting 173.25 and watching it fail. |
+
+Per step 4's lesson, assert on the failure **output** — the spill line and the page identity — not
+merely a non-zero exit, because a `TypeError` also exits non-zero.
+
+### Not in 6A
+
+The cap. Enforcement. `CMS_PREVIEW_V3_EVIDENCE`'s re-cut. `em_report_adapter.js`. p6. The producer
+lever. A production runtime guard (§A). Everything in your §7 of the previous prompt.
+
+---
+
+## I. Carried forward
+
+- **No production page-height guard, on any page, for any client** (§A). The largest thing this
+  step has surfaced and it is out of scope. **Own card, and I would argue it gates beta** alongside
+  the two you already named.
+- The producer-side lever (§4) — own card; I support it on length grounds as well as content.
+- Controlled vocabulary on `instinct_personal_overlay` (§4.1/4.2) — own card.
+- The dangling-connective defect class (§4.4) — own card.
+- Whether an editing surface for per-client AI output exists (Amendment 1 §L1) — **still open, and
+  §A makes it matter more**: it is the difference between E being actionable and E being a hard
+  failure.
