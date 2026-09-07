@@ -202,9 +202,7 @@ const Z6_CAP_LINES = 5;
 // caught it. A separate assertion can drift from the cap it references; a render cannot
 // drift from the page it renders.
 const CMS_PREVIEW_V3_COPY = [
-  'Across several of your responses you returned to maintaining comfort, protecting your energy, and keeping daily life steady and predictable.',
-  'You repeatedly described scanning your environment for what could go wrong and quietly securing resources ahead of time.',
-  'When asked about stress you emphasized withdrawing to conserve, tending to practical needs first.',
+  'Across several of your responses you returned to maintaining comfort, protecting your energy, and keeping daily life steady and predictable. You repeatedly described scanning your environment for what could go wrong and quietly securing resources ahead of time. When asked about stress you emphasized withdrawing to conserve, tending to practical needs first. Taken together these responses point toward a steady, self-protective focus that shapes where your attention goes first and what you make sure of before anything else.',
 ];
 
 // The seven states. `null` and `absent` are listed separately and asserted to CONVERGE:
