@@ -246,6 +246,36 @@ const rectsOverlap = (a, b) =>
     console.log(`  ${RING_PAIRS.length} configurations measured · minimum edge clearance ${worst.toFixed(2)}px (${worstAt2})`);
     console.log(`  node-count failures ${nodeCountBad} · banned opacity constructs ${banned} · #F68625 hits ${orange}`);
 
+    // ── THE COLLIDED RECORD: ONE RING, NO ALTERNATE, AND IT MUST NOT THROW ────────────
+    //
+    // call2_stamp.js can ship a record with confirmed_type === alternate_candidate: its Defect #3
+    // guard flags the collision for admin review and deliberately does NOT hard-stop, "the client
+    // still gets a report". buildClientModel builds it — CLIENT_SPEC requires alternate.number to
+    // be present, never to differ — so step 6 will hand this figure two equal node numbers.
+    // Reachable on the em_only production path, not just the SM fallback.
+    //
+    // Asserted because an earlier version of this branch THREW on it, which would have turned a
+    // record the engine ships into a client report that fails to generate.
+    {
+      let svg;
+      try {
+        svg = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 9, scores: SWEEP_SCORES });
+      } catch (e) {
+        fail(`collided record (leading === alternate): buildEnneagramSVG THREW — "${e.message}". `
+           + `call2_stamp.js ships these deliberately; the figure must degrade, not hard-stop`);
+        svg = null;
+      }
+      if (svg) {
+        const rings = (svg.match(/<circle[^>]*r="27"/g) || []).length;
+        const dashed = (svg.match(/stroke-dasharray/g) || []).length;
+        const alt = /<text[^>]*>ALTERNATE</.test(svg);
+        if (rings !== 1) fail(`collided record: ${rings} rings drawn, expected exactly 1 (the leading)`);
+        if (dashed !== 0) fail(`collided record: ${dashed} dashed ring(s) drawn, expected 0`);
+        if (alt) fail('collided record: an ALTERNATE label was drawn for a type that is also the leading');
+        if (rings === 1 && !dashed && !alt) console.log('  collided record: one ring, no ALTERNATE, no throw ✓');
+      }
+    }
+
     // B10 — SCORE INDEPENDENCE. Two renders with different score vectors must differ ONLY in
     // fills. Geometry could not previously depend on scores because they could not reach the
     // builder; Build 2 breaks that property deliberately, so the claim is re-established as a

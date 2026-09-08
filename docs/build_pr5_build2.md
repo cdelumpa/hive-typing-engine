@@ -258,3 +258,95 @@ label sits slightly further below node 5 than the mockup draws it. That is the c
 holds for all 72 rather than for the one pair the mockup contains — and for mid-height nodes
 (3, 6, 7) the label is ~90px from its node, associated by horizontal position alone. It reads
 correctly on the sheet, but it is a design choice worth seeing rather than inheriting.
+
+---
+
+## 5. Pre-merge trace — the sweep's tiles are not evidence of reachability
+
+Read-only question, answered against the code. It found one thing, fixed below.
+
+### 5.1 What the sweep is `[MEASURED]`
+
+**Ring positions varied against a fixed score profile, and nothing more.** The generator says so:
+`RING_PAIRS` is every `leading × alternate` pair, and its comment reads *"Scores are NOT swept
+here: they change fills only."* There is no reachability claim anywhere in it. **Cai is right, and
+reading a reachability claim off a parameter sweep was my error** — the combinations present in a
+sweep are a property of the loop, not of the data.
+
+### 5.2 Is the combination reachable? **Yes — but not the tile-6×3 shape** `[MEASURED]`
+
+Traced through the production stamper. A stage-4 REDIRECT (Call #1 ranks 9 first, 6 second; the
+model confirms 6, `redirect_from_type` 9):
+
+| | |
+|---|---|
+| `confirmed_type` → `hero.number` → LEADING ring | **6** |
+| `alternate_candidate` → `alternate.number` → dashed ring | **9** |
+| `charts.types` ranked | T9:91 **T6:83** T5:74 T1:52 T3:47 T2:44 T7:38 T4:35 T8:31 |
+
+**The LEADING ring lands on fill rank 2 of 9, and the darkest node carries the DASHED ring.** So the
+chain holds — but the picture is not tile 6×3, where the leading ring sits on the *palest* node and
+the darkest is *unringed*. On a redirect the two rings sit on the top two fills, swapped. **My read
+of the tile was wrong in its specifics as well as its method.**
+
+### 5.3 Bug, or correct-but-unexplained? `[JUDGMENT]` **Correct, and it needs no context.**
+
+The page states: this client's type is 6, and 9 is worth exploring. Both true. The ramp states: the
+engine's coherence scored 9 highest. Also true. A redirect *is* the engine confirming against its
+own ranking on stage-4 evidence, and the figure showing the alternate darker than the leading is a
+faithful picture of that — arguably the most informative thing on the sheet for such a client.
+
+The locked caption already carries the meaning without asserting rank: *"Type 6 is your leading
+hypothesis. Type 9 is the alternate worth exploring with your coach."* Nothing is false and nothing
+needs adding. **Not a bug, and not a blocker.**
+
+### 5.4 What §5 actually turned up — and it is a real defect I introduced `[MEASURED]`
+
+Chasing question 5 — *does the new throw fire on a redirect?* — the answer for a redirect is **no**:
+`hero.number` 6 and `alternate.number` 9 differ. **But there is a path where they do not.**
+
+`call2_stamp.js`'s Defect #3 guard fires whenever `confirmed_type === alternate_candidate`. When it
+cannot recover a distinct alternate it sets `collision_flag`, raises an `engine_collision` flag for
+admin review, and **ships** — its comment is explicit: *"Never pass a collided result through
+silently — **but do not hard-stop: the client still gets a report**."* `buildClientModel` then
+builds it without complaint: `CLIENT_SPEC` requires `alternate.number` to be **present**, never to
+**differ**.
+
+Measured end to end: `hero.number === alternate.number === 6`, model builds, and
+**`buildEnneagramSVG` THREW** — `"leading and alternate are both type 6"`.
+
+**That converts a record the engine deliberately ships into a client report that fails to generate
+at all.** And it is reachable on the **em_only production path**, not only the SM fallback: both
+fields come from EM there, and the guard fires whenever it emits one type for both, redirect or not
+— confirmed by running the stamper in `em_only` with `stage4_outcome: 'CONFIRMED'`.
+
+`[JUDGMENT]` **The refusal was right; the hard stop was wrong.** A diagram builder should not
+override an explicit, documented engine decision about whether a client gets a report. **Now it
+degrades**: when the two collide the alternate is dropped — one ring, no dashed ring, no ALTERNATE
+label. On such a record the alternate is not a distinct hypothesis, so that is the honest render,
+and the coach already has the flag.
+
+Asserted, and red-proven both ways:
+
+| Red control | Failure |
+|---|---|
+| restore the throw | `buildEnneagramSVG THREW … the figure must degrade, not hard-stop` |
+| keep the dashed ring on the shared node | `1 dashed ring(s) drawn, expected 0` **and** `an ALTERNATE label was drawn for a type that is also the leading` |
+
+### 5.5 Is the prevention asserted or incidental?
+
+**It was incidental, and that is now closed at the diagram.** Nothing between the stamper and the
+renderer required the two to differ — not `CLIENT_SPEC`, not `nodesFor`, not the tests. The only
+thing standing between a collided record and a broken document was that **sheet 5 does not exist
+yet**, which is the "not prevented, merely not yet possible" state this project keeps finding on the
+wrong side of.
+
+`[JUDGMENT]` **Step 6 still wants its own assertion** — that a collided record renders a complete
+document rather than throwing — because the diagram is only one of the places that could hard-stop
+on it. Recorded here rather than left to be rediscovered.
+
+### 5.6 Does this block the merge? **No.**
+
+Build 2 renders what it is passed, and now degrades rather than hard-stopping on the one input that
+the engine can legitimately produce. All seven gates green, B11 still 81/81 byte-identical. The
+step-6 assertion in §5.5 is the follow-up, not a blocker.

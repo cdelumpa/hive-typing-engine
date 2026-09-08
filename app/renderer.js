@@ -1301,19 +1301,31 @@ function buildEnneagramSVG({ type, variant, leading, alternate, scores }) {
     if (!SVG_TYPE_META[leading]) {
       throw new Error(`buildEnneagramSVG: variant "client-quickref" needs a valid leading type, got ${leading}`);
     }
-    // TWO RINGS ON ONE NODE IS REFUSED HERE, not left to the page. Under hero.number sourcing
-    // they should never collide — but "should never" is what the redirect-collision card is
-    // about, and that collision is the case where they did. A dashed ring stacked on a solid one
-    // reads as a rendering artefact rather than as the data defect it would be.
-    if (alternate != null && alternate === leading) {
-      throw new Error(`buildEnneagramSVG: client-quickref leading and alternate are both type ${leading} `
-        + `— the two rings would collide; the caller must resolve this before rendering`);
-    }
+    // TWO RINGS ON ONE NODE: THE ALTERNATE IS DROPPED, NOT THROWN.
+    //
+    // An earlier version of this branch THREW here, and tracing it before the merge showed the
+    // throw was wrong — not the refusal, the hard stop. call2_stamp.js's Defect #3 guard ends:
+    // "Never pass a collided result through silently — but do not hard-stop: the client still
+    // gets a report." When it cannot recover a distinct alternate it sets collision_flag, raises
+    // an engine_collision flag for admin review, and SHIPS. buildClientModel then builds a model
+    // with hero.number === alternate.number quite happily — CLIENT_SPEC requires alternate.number
+    // to be PRESENT, never to DIFFER.
+    //
+    // So a throw here would convert a record the engine deliberately ships into a client report
+    // that fails to generate at all. Reachable on the PRODUCTION path, not merely the SM
+    // fallback: in em_only both fields come from EM, and the guard fires whenever it emits one
+    // type for both, with or without a redirect.
+    //
+    // Dropping the alternate is the honest render: on such a record the alternate is not a
+    // distinct hypothesis, so the figure shows one ring and no ALTERNATE label. The coach
+    // already has the flag. A dashed ring stacked on a solid one would state a second hypothesis
+    // that the data does not contain.
+    const altN = (alternate != null && alternate !== leading) ? alternate : null;
 
     let nodes = '';
     for (const k of Object.keys(N)) {
       const i = +k, [x, y] = N[i];
-      const isLead = i === leading, isAlt = i === alternate;
+      const isLead = i === leading, isAlt = i === altN;
       if (isLead || isAlt) {
         nodes += `<circle cx="${x}" cy="${y}" r="${C.ringR}" fill="none" stroke="#00B2D9" `
                + `stroke-width="${isLead ? 2.4 : 1.6}"${isAlt ? ' stroke-dasharray="4,3"' : ''}/>`;
@@ -1363,7 +1375,7 @@ function buildEnneagramSVG({ type, variant, leading, alternate, scores }) {
       const [x, y] = N[i];
       return { text, x, up: y < C.cy, w: wide(text) };
     };
-    const marks = [place(leading, 'LEADING'), place(alternate, 'ALTERNATE')].filter(Boolean);
+    const marks = [place(leading, 'LEADING'), place(altN, 'ALTERNATE')].filter(Boolean);
     // TWO LABELS ON ONE RAIL CAN COLLIDE — adjacent nodes are ~36px apart in x while the labels
     // run 45-59px wide. Push them apart symmetrically when they would overlap; the gate's
     // label-vs-label check is what proves the nudge is enough.
@@ -1385,7 +1397,7 @@ function buildEnneagramSVG({ type, variant, leading, alternate, scores }) {
     // The legend ramp. Both gradient stops are OPAQUE — they terminate on the underlying colour
     // rather than on `transparent`, which is the construct spec §3.2 names as the cause of the
     // cover rendering PINK in one viewer.
-    const gid = `qr-ramp-${leading}-${alternate == null ? 'x' : alternate}`;
+    const gid = `qr-ramp-${leading}-${altN == null ? 'x' : altN}`;
     const defs = `<defs><linearGradient id="${gid}">`
       + `<stop offset="0%" stop-color="${rampFill(0)}"/><stop offset="100%" stop-color="${rampFill(100)}"/>`
       + `</linearGradient></defs>`;
