@@ -4144,7 +4144,7 @@ module.exports = {
   // matching them to the canonical centres CLIENT_ANGLES + the geometry constant produce —
   // not by radius, and not by an attribute the builder puts on itself. Export only; the
   // emitted SVG is unchanged.
-  COVER_GEO, WHATIS_GEO, CLIENT_GEO, QUICKREF_GEO, rampFill, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
+  COVER_GEO, WHATIS_GEO, CLIENT_GEO, QUICKREF_GEO, EXPLORE_GEO, rampFill, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
   buildClientHTML, buildCoachHTML, buildBetaHTML, betaReportBodyHtml, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
   buildCoachReportHTML, buildCoachPdfOptions, COACH_CLARIFICATION_QUESTIONS,

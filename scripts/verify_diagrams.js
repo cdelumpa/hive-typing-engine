@@ -253,8 +253,20 @@ const rectsOverlap = (a, b) =>
   // angle CLIENT_ANGLES specifies, and both flow sequences in the canonical direction.
   console.log('\nStructural check — label-free v3 wheels:');
   {
-    const { CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON, COVER_GEO, WHATIS_GEO } = R;
-    for (const [variant, GEO, type] of [['client-cover', COVER_GEO, 9], ['client-whatis', WHATIS_GEO, null]]) {
+    const { CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON, COVER_GEO, WHATIS_GEO, EXPLORE_GEO } = R;
+    // client-explore (sheet 6) RIDES ALONG — [DECISION — Cai, 8 Sep 2026]. STRUCTURAL BLOCK
+    // ONLY, not VARIANTS: it emits ZERO non-numeral labels (measured), so the label-vs-node and
+    // label-vs-label checks would have nothing to test there. What it was missing is THIS check
+    // — it was the last v3 wheel with no structural assertion of any kind, and the defect class
+    // is the one the design spec's §4.3 records as having actually happened: a mockup that
+    // shipped MIRRORED and MISSING NODE 2.
+    //
+    // Note its home node is r=16 and its others 12.5, so the retired `r <= 20` filter would have
+    // included them — the plan's premise that this rode along with the filter fix was wrong, and
+    // it is in on its own merit instead.
+    for (const [variant, GEO, type, webLines] of [['client-cover', COVER_GEO, 9, true],
+                                                  ['client-whatis', WHATIS_GEO, null, true],
+                                                  ['client-explore', EXPLORE_GEO, 9, false]]) {
       const svg = R.buildEnneagramSVG({ variant, type });
 
       // Canonical node centres, from the same angle table the renderer uses.
@@ -274,7 +286,12 @@ const rectsOverlap = (a, b) =>
       }
       for (const t of numerals) {
         const [ex, ey] = centre[t.n];
-        const off = Math.hypot(t.x - ex, t.y - (ey + GEO.fs * 0.37));
+        // client-explore grows its HOME numeral (homeFs 15 against fs 12) — design spec §4.4 row
+        // M4, ported as drawn. The baseline offset is fs * 0.37, so the home numeral's expected y
+        // differs from the other eight and comparing both against GEO.fs reports a real, correct
+        // figure as a 1.2px rotation. Use the size the renderer actually applied.
+        const fs = (GEO.homeFs && t.n === type) ? GEO.homeFs : GEO.fs;
+        const off = Math.hypot(t.x - ex, t.y - (ey + fs * 0.37));
         if (off > 1) fail(`${variant}: numeral ${t.n} is ${off.toFixed(1)}px from its CLIENT_ANGLES position — wheel mirrored or rotated?`);
       }
 
@@ -294,12 +311,18 @@ const rectsOverlap = (a, b) =>
         return hit ? +hit[0] : '?';
       };
       const traced = polys.map(p => p.map(nodeAt).join('→'));
-      for (const [label, want] of [['triangle', CLIENT_TRIANGLE.join('→')], ['hexad', CLIENT_HEXAGON.join('→')]]) {
+      // WEB LINES ARE NOT UNIVERSAL. client-explore draws the ring and the nine nodes only —
+      // the mockup omits the triangle and hexad rather than drawing them faintly, and EXPLORE_GEO
+      // records that ("It carries NO web lines"). Asserting sequences there would demand markup
+      // the design deliberately does not emit. The flag is per-variant so the omission is a
+      // stated property rather than a silently skipped check.
+      for (const [label, want] of (webLines ? [['triangle', CLIENT_TRIANGLE.join('→')], ['hexad', CLIENT_HEXAGON.join('→')]] : [])) {
         if (!traced.includes(want)) {
           fail(`${variant}: ${label} sequence ${want} not found; traced ${JSON.stringify(traced)}`);
         }
       }
-      console.log(`  ${variant.padEnd(14)} 9/9 nodes · angles OK · ${traced.length} sequence(s): ${traced.join('  ')}`);
+      console.log(`  ${variant.padEnd(14)} 9/9 nodes · angles OK · `
+        + (webLines ? `${traced.length} sequence(s): ${traced.join('  ')}` : 'no web lines by design'));
     }
   }
 
