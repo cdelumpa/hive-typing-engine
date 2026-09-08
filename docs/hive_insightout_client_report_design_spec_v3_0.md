@@ -248,14 +248,43 @@ Both must be fixed before `buildEnneagramSVG()` renders arrows anywhere.
 
 ### 4.3 v3 mockup is unreliable as a source
 
-The v3 client report mockup has been wrong about client data twice:
+~~The v3 client report mockup has been wrong about client data twice:~~
 
-- Its Enneagram figure is mirrored (counterclockwise numbering) and **missing node 2** entirely,
-  which also makes the interior lines wrong.
-- It labels Anders **SP9** throughout, including the TOC. The coach report gives SP 66 / SO 64 /
-  **SX 84**, and the production client report says One-to-One Nine.
+- ~~Its Enneagram figure is mirrored (counterclockwise numbering) and **missing node 2** entirely,
+  which also makes the interior lines wrong.~~
+- ~~It labels Anders **SP9** throughout, including the TOC. The coach report gives SP 66 / SO 64 /
+  **SX 84**, and the production client report says One-to-One Nine.~~
 
-Anything sourced from v3 must be verified against the coach report or production output.
+~~Anything sourced from v3 must be verified against the coach report or production output.~~
+
+> **Post-lock correction — 8 Sep 2026. THIS SECTION DESCRIBES AN EARLIER DRAFT, NOT THE TRACKED
+> REFERENCE IMPLEMENTATION.** Both charges above are **false of
+> `docs/mockup/claude_The_Peacemaker_Page_AtAGlance_v1.html`**, the sheet-5 file this section's
+> warning is most likely to be read against. Confirmed on the HTML, not on the rendered PDF, since
+> node positions are literal attributes there (PR 5 audit §6.3):
+>
+> - **Nine nodes, node 2 present, clockwise.** Node 2 is at `cx=283.4 cy=131.8`; the sequence from
+>   9 at the top runs **9-1-2-3-4-5-6-7-8**, matching `CLIENT_ANGLES`. Twelve `<circle>` elements:
+>   the outer ring at r=105, nine nodes at r=21, two decorative rings at r=27.
+> - **SX, not SP9.** The instinct panel marks the `SX` row `.irow.pri` with rank `Primary`; bar
+>   widths are 66 / 64 / 84, matching the coach report's SP 66 / SO 64 / SX 84. The subtype panel
+>   reads "The One-to-One Nine".
+>
+> As written, this section warns against the exact file PR 5 must port from. **Scope it to whatever
+> earlier draft it was written against, and do not apply it to the twelve tracked mockups.**
+>
+> **Two cautions about that file remain true and are not withdrawn:**
+>
+> 1. **Its client scores are synthetic.** `docs/mockup_file_manifest.md` lists Anders at
+>    9:90 · 5:85 · 1:75 · 8:55 · 3:50 · 2:48 · 7:42 · 4:40 · 6:35. The tracked fixture
+>    `anders_sx9_api_result.json` has **91 · 83 · 74 · 52 · 47 · 44 · 38 · 35 · 31** — same
+>    ordering, different numbers. The mockup's `fill-opacity` values were computed from numbers
+>    that are not in the fixture, so a port with real data will not reproduce them, and that is
+>    not a regression.
+> 2. **Its SVG violates §3.2.** `fill-opacity` on all nine heat-map nodes plus a `stop-opacity`
+>    gradient. Measured through the pinned Chromium with `verify_transparency.js`'s own scanner:
+>    **1 transparency group, 1 soft mask, 8 non-opaque alphas.** The gate catches it; the SVG must
+>    be re-expressed as opaque solids on white before it ships.
 
 ### 4.4 Deliberate departures from the mockup (sheets 6 and 7)
 
@@ -318,9 +347,24 @@ are page-local and should be reviewed during the CSS consolidation — several a
 
 **Blue-grey means the framework. Orange means the client.**
 
-Orange appears in exactly four places: the client's name in every page header, the cover
-identifier, the subtype identifier and column, and the "In Your Responses" block. A client can find
-what is about *them* without reading. This must not be diluted.
+Orange appears in exactly ~~four~~ **five** places: the client's name in every page header, the
+cover identifier, the subtype identifier and column, the "In Your Responses" block, and **the p5
+instinct bars**. A client can find what is about *them* without reading. This must not be diluted.
+
+> **Post-lock correction — 8 Sep 2026. THE ENUMERATION WAS INCOMPLETE; THE RULE IS UNCHANGED.**
+> [DECISION — Cai, 8 Sep 2026] The Quick Reference instinct bars are a fifth place orange appears
+> — `#F68625` on the primary bar, `#F5D2AC` on the other two. **Orange still means the client**,
+> and these bars are the client's own instinct scores, so the principle holds; the list was written
+> before p5 existed and simply did not contain them. This amends the count, not the rule.
+>
+> The subtype panel's header (`#F9E7D2` / `#C2650F`) needs no new entry — it is already covered by
+> "the subtype identifier and column".
+>
+> **Nothing asserts this rule today** (PR 5 audit §7.5): `grep -rn "F68625" scripts/ tests/`
+> returns zero hits, and the only colour gate in the repo is `verify_coach_baseline.js`'s
+> normalised **coach** PDF hash, which does not cover client pages. If an assertion is wanted, the
+> durable one is scoped to the figure — **no `#F68625` inside the heat-map SVG** — which catches a
+> ramp built by copy-pasting the instinct bar's fill and leaves the legitimate bar usage alone.
 
 ---
 
@@ -571,7 +615,14 @@ withheld from re-typed renders. It is therefore the tightest case *and* the only
 - **The two "Leaning Into the Other Instincts" blocks (p10)** — rewritten for SX.
 - **The three CAR capacity practices (p11)** — structure is canon-derived (avoidance, resource
   points, holy idea), specific lines are not. Definitions and preambles are Cai-authored.
-- **The four debrief tips (p5)** — explicit placeholders.
+- ~~**The four debrief tips (p5)** — explicit placeholders.~~
+
+  > **Post-lock correction — 8 Sep 2026. CLOSED.** [DECISION — Cai, 8 Sep 2026] **The mockup copy
+  > is final.** The four tips ship as rendered in
+  > `docs/mockup/claude_The_Peacemaker_Page_AtAGlance_v1.html:151-156`, including the reworded
+  > "Ask about the alternate" (see §7.3). They are not placeholders and are not to be re-authored.
+  > Measured on the tracked mockup: all four render **2 lines** in the `.ttxt` box at 329px,
+  > `.tcol` intrinsic height 87px.
 - ~~**All Type 9 practice bullets (p7).** ⚠️ **Still open, for a changed reason.** The mockup's
   Claude-authored bullets no longer ship — the Type 9 source doc replaced them, along with the
   rest of that type's p6/p7 prose (36 of its 40 strings; see §7.4). But the doc flags the
@@ -610,11 +661,39 @@ withheld from re-typed renders. It is therefore the tightest case *and* the only
   gated to the authored set by `V3_EXPLORE_PILOT_TYPES` (`app/renderer.js`) and
   `EXPLORE_PILOT_TYPES` (`scripts/build_content_library.js`) — two lists that must agree, flagged
   in both files for collapse when the remaining five land.
-- The subtype signature (`Merging & Intensity`) is a new three-part naming convention: formal name,
-  nickname, two-word signature. Only the three Type 9 subtypes exist.
-- One "In Your Responses" bullet on p5 — "Ask about the alternate" — only makes sense when a second
+- ~~The subtype signature (`Merging & Intensity`) is a new three-part naming convention: formal name,
+  nickname, two-word signature. Only the three Type 9 subtypes exist.~~
+
+  > **Post-lock correction — 8 Sep 2026. CLOSED — ALL 27 EXIST.** The three-part convention is
+  > complete and landed in PR 4. Counted in `app/content/content_library.json`, not inferred
+  > (PR 5 audit §3.2): formal name (`subtype_*.name`) **27/27**; nickname (`subtype_*.tagline`
+  > prefix) **27/27**; two-word signature (`subtype_*.instincts_v3.signature`) **27/27**. The
+  > narrative that accompanies them is likewise **27/27**. Spot values: SO1 `Non-Adaptability ·
+  > Standards & Systems`, SP7 `Keepers of the Castle · Abundance & Options`, SX9 `Fusion ·
+  > Merging & Intensity`.
+  >
+  > This is **not a content blocker** for any page that reads naranjo and signature, which is what
+  > the sentence above was being used to argue.
+- ~~One "In Your Responses" bullet on p5 — "Ask about the alternate" — only makes sense when a second
   pattern scored close. As global static content it needs to hold for a client whose leading type is
-  20 points clear, or become conditional.
+  20 points clear, or become conditional.~~
+
+  > **Post-lock correction — 8 Sep 2026. CLOSED, AND THE SENTENCE MISNAMED THE ZONE.** Two errors,
+  > corrected together.
+  >
+  > **The zone.** "Ask about the alternate" is one of the **four debrief tips** on p5, not an "In
+  > Your Responses" bullet. "In Your Responses" is the `#FDF3E9` evidence block with a 3px
+  > `#F68625` left border defined in §5.2, and it **does not appear on p5 at all** — a reader
+  > following this sentence would go looking for a zone that is not on the page.
+  >
+  > **The conditionality.** [DECISION — Cai, 8 Sep 2026] The tip is **always included, with no
+  > conditional display logic**, and its copy is final (see §7.2). It no longer needs to hold as a
+  > claim about closeness, because the alternate caption beside it no longer makes one — the locked
+  > caption reads "Type {alternate} is the alternate worth exploring with your coach", which
+  > asserts only that the alternate is the alternate. It therefore holds at any gap, including the
+  > 20-points-clear case this bullet was written about.
+  >
+  > With this, **p5 carries no conditional content in any zone.**
 
 ### 7.4 Sheets 6-7 prose — source of record
 
