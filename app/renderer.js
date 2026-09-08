@@ -1100,11 +1100,32 @@ const QUICKREF_GEO = { vw: 360, vh: 348, cx: 180, cy: 157, r: 105, rNode: 21, ri
 // node at full cyan and one at 0.10 whatever their spread, so a flat 48-52 profile would render
 // pixel-identical to a 31-91 one.
 const RAMP_BASE = [0, 178, 217];            // #00B2D9
-function rampFill(score) {
-  const t = 0.10 + 0.90 * (Math.max(0, Math.min(100, Number(score) || 0)) / 100);
+
+/**
+ * THE NINE FIXED STEPS — position 1 darkest, position 9 palest.
+ *
+ * [DECISION — Cai, 8 Sep 2026] Fills are assigned BY POSITION in a verdict-first order, not by
+ * score. The figure is for effect, not data reporting: it draws the client to their two
+ * candidates and conveys that all nine are available. It does not claim magnitude, so it cannot
+ * misstate it — which is what score-shading did, by making the picture's most prominent feature
+ * depend on a field the rings do not come from.
+ *
+ * DERIVED FROM THE SCORE FORMULA IT REPLACES, so the endpoints are byte-identical to the four
+ * values PR 5 Build 2's B9 verified: t runs linearly 1.00 -> 0.10 across nine steps, and
+ * position 1 is #00B2D9 (B9's score-100 fill) and position 9 is #E6F7FB (B9's score-0 fill).
+ * The old formula was t = 0.10 + 0.90 x score/100; this is the same lerp from white toward the
+ * cyan token, sampled at nine fixed points instead of continuously.
+ */
+const RANK_FILL = Array.from({ length: 9 }, (_, i) => {
+  const t = 1.00 - i * (0.90 / 8);
   const ch = (c) => Math.round(255 + t * (c - 255)).toString(16).padStart(2, '0');
   return `#${ch(RAMP_BASE[0])}${ch(RAMP_BASE[1])}${ch(RAMP_BASE[2])}`.toUpperCase();
-}
+});
+/** Fill for a 1-based position. Out-of-range clamps rather than throwing: the caller has
+ *  already been through validateModel's positionsOneToNine, so this is a floor, not a check. */
+const rankFill = (position) => RANK_FILL[Math.max(0, Math.min(8, (Number(position) || 1) - 1))];
+/** The ramp's two ends, for the legend gradient. Named so the legend cannot drift from the nodes. */
+const RAMP_MIN = RANK_FILL[8], RAMP_MAX = RANK_FILL[0];
 
 /**
  * Sheet 6 "Exploring Your Type Hypothesis" — the small in-line wheel.
@@ -1297,7 +1318,10 @@ function buildEnneagramSVG({ type, variant, leading, alternate, scores }) {
     // leading ring from it would draw both rings on one node and none on the client's own type.
     const C = QUICKREF_GEO;
     const N = _wheelNodes(C);
-    const byType = Object.fromEntries((scores || []).map((r) => [r.type, r.score]));
+    // POSITION, not score. charts.types carries `position` from report_prep's typeRamp, where
+    // position 1 is hero.number and position 2 is alternate.number — the same two fields the
+    // rings read, so the darkest node and the solid ring cannot disagree.
+    const posOf = Object.fromEntries((scores || []).map((r) => [r.type, r.position]));
     if (!SVG_TYPE_META[leading]) {
       throw new Error(`buildEnneagramSVG: variant "client-quickref" needs a valid leading type, got ${leading}`);
     }
@@ -1330,11 +1354,12 @@ function buildEnneagramSVG({ type, variant, leading, alternate, scores }) {
         nodes += `<circle cx="${x}" cy="${y}" r="${C.ringR}" fill="none" stroke="#00B2D9" `
                + `stroke-width="${isLead ? 2.4 : 1.6}"${isAlt ? ' stroke-dasharray="4,3"' : ''}/>`;
       }
-      const fill = rampFill(byType[i]);
+      const fill = rankFill(posOf[i]);
       // Numeral contrast follows the ramp, not the ring: white once the fill is dark enough to
-      // carry it. The threshold is on t, so it moves with the formula rather than with a
-      // hand-picked score.
-      const dark = (0.10 + 0.90 * ((byType[i] || 0) / 100)) >= 0.62;
+      // carry it. Positions 1-4 clear the old t >= 0.62 threshold (position 4 is t = 0.6625,
+      // position 5 is 0.5500), so the boundary is unmoved from the score formula — it is the
+      // same cutoff expressed in the units the fills now use.
+      const dark = (posOf[i] || 9) <= 4;
       nodes += `<circle cx="${x}" cy="${y}" r="${C.rNode}" fill="${fill}" stroke="#C8D0D9" stroke-width="1"/>`
              + `<text x="${x}" y="${(y + C.fs * 0.37).toFixed(1)}" text-anchor="middle" font-family="Arial" `
              + `font-size="${C.fs}" font-weight="bold" fill="${dark ? '#FFFFFF' : '#4A5568'}">${i}</text>`;
@@ -1394,15 +1419,32 @@ function buildEnneagramSVG({ type, variant, leading, alternate, scores }) {
            + `letter-spacing="1">${m.text}</text>`;
     }).join('');
 
-    // The legend ramp. Both gradient stops are OPAQUE — they terminate on the underlying colour
-    // rather than on `transparent`, which is the construct spec §3.2 names as the cause of the
-    // cover rendering PINK in one viewer.
-    const gid = `qr-ramp-${leading}-${altN == null ? 'x' : altN}`;
-    const defs = `<defs><linearGradient id="${gid}">`
-      + `<stop offset="0%" stop-color="${rampFill(0)}"/><stop offset="100%" stop-color="${rampFill(100)}"/>`
-      + `</linearGradient></defs>`;
+    // ── THE LEGEND: NINE BLOCKS, NOT A GRADIENT ───────────────────────────────────────
+    //
+    // [DECISION — Cai, 8 Sep 2026] The nodes are nine discrete steps, so the legend is too. A
+    // continuous bar said "a continuum" beside a figure that had stopped claiming one — the two
+    // halves of the same sheet reading differently.
+    //
+    // IT READS RANK_FILL, THE SAME TABLE THE NODES DO. That is the drift this closes: with a
+    // gradient, the legend's two stops and the nodes' nine steps were separate expressions of
+    // one ramp and could diverge silently. B9 now asserts the legend's fills ARE the table, in
+    // order, so they cannot.
+    //
+    // PALEST LEFT, DARKEST RIGHT — RANK_FILL reversed — because the captions run "Less like you"
+    // to "More like you" and position 1 is the most like you. Unchanged from the gradient's
+    // direction, which ran RAMP_MIN at 0% to RAMP_MAX at 100%.
+    //
+    // NO <defs> AND NO GRADIENT AT ALL, so the emitted PDF carries one fewer shading object:
+    // measured 1 -> 0 by verify_transparency.js's scanner. Nine flat fills cannot produce a
+    // transparency group by any path, which is a stronger position than an opaque gradient.
+    const GAP = 2;
+    const blockW = (C.rampW - GAP * 8) / 9;
+    const legendBlocks = RANK_FILL.slice().reverse().map((fill, i) =>
+      `<rect x="${(C.rampX + i * (blockW + GAP)).toFixed(2)}" y="${C.rampY}" `
+      + `width="${blockW.toFixed(2)}" height="${C.rampH}" fill="${fill}"/>`).join('');
+    const defs = '';
     const capY = C.rampY + C.rampH + 13;
-    const legend = `<rect x="${C.rampX}" y="${C.rampY}" width="${C.rampW}" height="${C.rampH}" rx="3" fill="url(#${gid})"/>`
+    const legend = legendBlocks
       + `<text x="${C.rampX}" y="${capY}" font-family="Arial" font-size="${C.capFs}" fill="#6B7785">Less like you</text>`
       + `<text x="${C.rampX + C.rampW}" y="${capY}" text-anchor="end" font-family="Arial" font-size="${C.capFs}" fill="#6B7785">More like you</text>`;
 
@@ -4162,7 +4204,7 @@ module.exports = {
   // matching them to the canonical centres CLIENT_ANGLES + the geometry constant produce —
   // not by radius, and not by an attribute the builder puts on itself. Export only; the
   // emitted SVG is unchanged.
-  COVER_GEO, WHATIS_GEO, CLIENT_GEO, QUICKREF_GEO, EXPLORE_GEO, rampFill, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
+  COVER_GEO, WHATIS_GEO, CLIENT_GEO, QUICKREF_GEO, EXPLORE_GEO, RANK_FILL, rankFill, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
   buildClientHTML, buildCoachHTML, buildBetaHTML, betaReportBodyHtml, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
   buildCoachReportHTML, buildCoachPdfOptions, COACH_CLARIFICATION_QUESTIONS,
