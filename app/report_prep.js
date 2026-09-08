@@ -59,6 +59,29 @@ const centerFill = (n) => CENTER_FILL[TYPE_META[n].center];
 function typeBars(call1_ranking) {
   return (call1_ranking || []).map(r => ({ type: r.type, score: Math.round(r.score), color: centerFill(r.type) }));
 }
+/**
+ * The client heat map's nine node values — sheet 5 (PR 5).
+ *
+ * A SIBLING OF typeBars, NOT AN OVERLOAD OF IT. typeBars colours every bar by CENTRE for the
+ * coach's chart; the client figure is a single cyan ramp and has no centre semantics at all.
+ * Merging them would put two chart-shaping rules behind one name, which is the hazard
+ * renderer.js's instinctRanks comment describes for ordering rules.
+ *
+ * ROUNDS, and that is load-bearing rather than cosmetic. call1_ranking is AI-emitted
+ * (`<0-100>`; in em_only it is EM's em_ranking) and nothing constrains it to integers, while
+ * validateModel's ints0to100 check requires Number.isInteger. Without the round, one
+ * fractional score from the model would throw inside buildClientModel and the client report
+ * would fail to generate. typeBars has always rounded, which is why the coach path has never
+ * seen it.
+ *
+ * DOES NOT SORT. The ramp is a lookup by type, and the two rings are placed from
+ * hero.number and alternate.number — never from this array's ordering. Sorting here would
+ * invite a page builder to read position 1 as "the leading type", which is exactly the
+ * coupling that makes a REDIRECT render both rings on one node.
+ */
+function typeRamp(call1_ranking) {
+  return (call1_ranking || []).map(r => ({ type: r.type, score: Math.round(r.score) }));
+}
 function instinctBars(profile) {
   return ['SP', 'SO', 'SX'].map(code => ({ code, score: Math.round((profile && profile[code]) || 0) }));
 }
@@ -258,7 +281,7 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
     alternate: nameNode(altN),
     confidence: { label: confidenceLabel(h.confidence_level), near_tie: nearTie(h.call1_ranking) },
     svg: { type: { variant: 'type', type: heroN }, base: { variant: 'base' }, wings: { variant: 'wings-lines', type: heroN } },
-    charts: { instincts: instinctBars(h.instinct_score_profile) },
+    charts: { types: typeRamp(h.call1_ranking), instincts: instinctBars(h.instinct_score_profile) },
     instinct_stack: instinctStack(h.instinct_score_profile),
     pages: {
       welcome: { greeting_name: client.first_name || '',
@@ -297,6 +320,13 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
         quote: cw.leading_quotes || [],
         comparison_rows: t.comparison,                                                           // leading column (unchanged)
         alternate: { number: altN, name: TYPE_NAMES[altN], comparison: alt.comparison },         // P3: alternate column (EXISTING content)
+        // Sheet 5's ALTERNATE hypothesis block. The v3 second-person motivation, from the
+        // ALTERNATE type's library entry — `alt`, resolved at :218 — not the hero's. p6 reads
+        // the hero's copy of this same field via pages.v3_explore.p6; sheet 5 is the first
+        // page that needs the alternate's, and it is the only v3 page that renders the
+        // alternate at all. Optional-chained: `explore_v3` is present for all nine types
+        // today, and a `??  null` here would hide a regression that CLIENT_SPEC should catch.
+        alternate_core_motivation: (alt.explore_v3 && alt.explore_v3.p6 && alt.explore_v3.p6.core_motivation) || null,
         discriminator: (apiResult.coach_report && apiResult.coach_report.section6 && apiResult.coach_report.section6.pushes_back && apiResult.coach_report.section6.pushes_back.key_distinction) || '',
       },
       patterns: { thinking: t.patterns.thinking, feeling: t.patterns.feeling, behaving: t.patterns.behaving, inquiry_lines: t.inquiry_lines }, // P4
@@ -436,6 +466,27 @@ function validateModel(model, spec) {
     if (!Array.isArray(v) || v.length === 0) missing.push(`${p} (non-empty array)`);
   }
   if (missing.length) throw new Error(`validateModel: missing/invalid required fields:\n  - ${missing.join('\n  - ')}`);
+  // Exactly nine entries, one per type 1-9, no repeats and no strays.
+  for (const p of spec.ninePerType || []) {
+    const types = (getPath(model, p) || []).map(r => r.type);
+    const want = [1, 2, 3, 4, 5, 6, 7, 8, 9].join(',');
+    const got = [...types].sort((a, b) => a - b).join(',');
+    if (got !== want) {
+      throw new Error(`validateModel: ${p} must carry one entry per type 1-9; got `
+        + `${types.length} [${types.join(', ')}]`);
+    }
+  }
+  // Every type named here must have a node in charts.types, or sheet 5 has a ring with
+  // nowhere to draw it. Runs before ints0to100 so a MISSING node is reported as a missing
+  // node rather than as a score-range failure on a shorter array.
+  for (const p of spec.nodesFor || []) {
+    const n = getPath(model, p);
+    const types = (getPath(model, 'charts.types') || []).map(r => r.type);
+    if (!types.includes(n)) {
+      throw new Error(`validateModel: ${p} is ${n}, which has no node in charts.types `
+        + `[${types.join(', ')}] — sheet 5 would have a ring with nowhere to draw it`);
+    }
+  }
   for (const p of spec.ints0to100 || []) {
     const arr = getPath(model, p) || [];
     for (const item of arr) {
@@ -482,10 +533,31 @@ const CLIENT_SPEC = {
     'pages.application.conflict', 'pages.application.center',
     'pages.welcome.subhead', 'pages.welcome.callout',                               // PR-2b structured welcome (body stays unread)
   ],
-  nonEmptyArrays: ['charts.instincts', 'instinct_stack', 'pages.patterns.inquiry_lines',
+  nonEmptyArrays: ['charts.types', 'charts.instincts', 'instinct_stack', 'pages.patterns.inquiry_lines',
     'pages.strengths_challenges.strengths', 'pages.strengths_challenges.challenges',
     'pages.welcome.letters'],
-  ints0to100: ['charts.instincts'],
+  ints0to100: ['charts.types', 'charts.instincts'],
+  // ── SHEET 5's OWN INVARIANTS (PR 5 Build 1) ──────────────────────────────────────────
+  //
+  // WHY NOT `leading_candidate`. The plan (§22.4d, A5) asserted leading_candidate and
+  // alternate_candidate were both present, written when the LEADING ring read
+  // leading_candidate. Cai's 8 Sep decision moved that ring to hero.number, so
+  // leading_candidate is no longer read by any client page — and it was never ON the client
+  // model in the first place (report_prep.js:159 puts it on the COACH model only). Asserting
+  // it here would be a category error: this validator checks model paths, and that is an
+  // api_result field. Its integrity is a coach-model concern and stays there.
+  //
+  // WHAT REPLACES IT IS STRICTLY STRONGER. The ring needs a NODE, not a scalar. Checking that
+  // charts.types actually contains hero.number and alternate.number tests the invariant the
+  // page depends on, and catches a short or mis-typed call1_ranking — which the CMS preview
+  // stub emitted for a year at two entries — where a scalar presence check would not.
+  nodesFor: ['hero.number', 'alternate.number'],
+  // NINE, EXACTLY, AND ONE PER TYPE. `nonEmptyArrays` was not enough and the red-proof is why:
+  // a TWO-entry call1_ranking — the shape app/server.js:13985's CMS preview stub emits —
+  // satisfied every other check on this list, because the stub's two entries happen to be the
+  // hero and the alternate, so even nodesFor passed. It would have rendered a heat map with
+  // two of nine nodes and a green build.
+  ninePerType: ['charts.types'],
 };
 
 module.exports = {
