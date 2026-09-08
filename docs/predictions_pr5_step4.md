@@ -140,7 +140,7 @@ to reproduce exactly.
 ## C — SO8 quote normalisation
 
 **Honesty about what is and is not a prediction here.** SO8 was already measured in both quote forms
-in pass 1, as the §26.3 sensitivity check — straight 307.69 px, curly 307.14 px. C1.1 through C1.4
+in pass 1, as the §26.3 sensitivity check in `docs/audit_pr5_quickref.md` — straight 307.69 px, curly 307.14 px. C1.1 through C1.4
 below therefore **restate a prior measurement; they are retrodictions, not predictions, and are not
 scored.** The genuinely unmeasured quantities are the two glyph advances, C1.5 and C1.6, predicted
 from Arial's metrics table and not from any render.
@@ -166,7 +166,7 @@ and less than that in the shipping form, and it is a rewrite, not a note.
 |---|---|---|
 | D1.1 | Is Synthetic B still load-bearing? | **No — not for anything in the shipping set.** Its referent line no longer exists. |
 | D1.2 | A new Synthetic C, matched on the render to the new m-setting line (SO6 line 1, 235.81 px), is achievable within **1.00 px** on the constraining line | **achievable** |
-| D2.1 | §26.4's `compartmentalizing` finding | Restated in the past tense as the reason m **was** 41 on 8 Sep. Not deleted — it is the evidence for the ceiling's conditionality, which is unchanged. |
+| D2.1 | §26.4's `compartmentalizing` finding in `docs/audit_pr5_quickref.md` | Restated in the past tense as the reason m **was** 41 on 8 Sep. Not deleted — it is the evidence for the ceiling's conditionality, which is unchanged. |
 | D3.1 | `verify_coach_baseline.js` applies to this amendment | **No.** Docs-only. |
 | D3.2 | If run on this Mac | **HALF-RESULT** — PDF half skips off-Linux. |
 | D3.3 | Files this branch touches at merge | **2**, both `.md`, both under `docs/`. Non-`.md`: **0**. |

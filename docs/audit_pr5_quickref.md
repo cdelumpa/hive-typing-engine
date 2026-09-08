@@ -2348,7 +2348,7 @@ testing something the local run does not.
 
 ---
 
-# 26. Step 4 — the 27 subtype summaries, measured
+## 26. Step 4 — the 27 subtype summaries, measured
 
 > **⚠ SUPERSEDED IN PART BY §27 (amendment, same day).** SX5 was revised after this section was
 > written and the word that set `m = 41` is gone from the shipping set. **`m` is now 44 and the
@@ -2376,7 +2376,7 @@ returns nothing.
 > finding unverifiable while the conclusion it supports — that the ceiling is conditional on word
 > width — is still live.
 
-## 26.1 What is wrong with the ask — read this before the numbers
+### 26.1 What is wrong with the ask — read this before the numbers
 
 **① The premise that some of the 27 fail is false. Zero of them render at 4 or more lines.** The
 step-4 brief asked for the table sorted descending "so the failures are at the top." There are no
@@ -2419,7 +2419,7 @@ ordered pairs of the 27, no string renders on more lines than a longer string. I
 a property of this sample, not a law — a single wide word can invert it — so the OBSERVED CEILING
 below is quoted with that check attached rather than left implicit.
 
-## 26.2 M1 — the box
+### 26.2 M1 — the box
 
 Chromium 147.0.7727.57 (pinned, bundled, via `app/browser_launch.js`), viewport 816 × 1056,
 `emulateMediaType('print')`, `document.fonts.ready` awaited.
@@ -2445,7 +2445,7 @@ repeat ÷ 20, in a `white-space:pre` span inheriting `.stxt`'s font:
 |---|---|---|---|---|---|---|---|---|
 | 11.7984 | 10.4133 | 10.4133 | 9.0273 | 9.7234 | 8.3375 | 6.9523 | 3.4734 | 2.7773 |
 
-## 26.3 M2 — the 27
+### 26.3 M2 — the 27
 
 Sorted by line count descending, then char count descending.
 
@@ -2508,7 +2508,7 @@ widest line is the widest in the whole set at 307.69 px in a 308.00 px box, **0.
 if the authoring doc's punctuation normalisation ever changes that line's characters, SO8 is the
 string that wraps first.
 
-## 26.4 M3 — chars per line
+### 26.4 M3 — chars per line
 
 **Average basis** — chars ÷ lines, per string, as M3 specifies. `[AGGREGATE]` over 27 strings:
 
@@ -2549,7 +2549,7 @@ anywhere in the 27. Next widest at that time: `attractiveness` 77.13 px, `indisp
 capacity than any other property of the copy**, and it is the one thing authors can control without
 counting characters. §27.B measures the same effect at a smaller magnitude in the corrected set.
 
-## 26.5 M4 — the ceilings
+### 26.5 M4 — the ceilings
 
 | Ceiling | Value | Label | Basis, and exactly what it licenses |
 |---|---|---|---|
@@ -2571,7 +2571,7 @@ the change is legible: the ceiling was 123, the render-first band held six strin
 of the 27 exceed the 102-char figure and every one of them fits. Character count does not predict
 line count; it only bounds it.
 
-## 26.6 M5 — the caveat, and what the page build must re-confirm
+### 26.6 M5 — the caveat, and what the page build must re-confirm
 
 **`_clv3QuickRef` does not exist on `main`.** `[MEASURED]` — the `_clv3*` builders in
 `app/renderer.js` are Contents, Cover, Instincts, Lines, Thoughts, TypeA, TypeB, Welcome, WhatIs,
@@ -2613,7 +2613,7 @@ trusted.
    the string with the least slack. If the CMS normalises curly to straight on ingest, SO8 goes from
    0.86 px of slack to 0.31 px on a box whose width is itself unconfirmed.
 
-## 26.7 Committed synthetics — render-matched, no client prose
+### 26.7 Committed synthetics — render-matched, no client prose
 
 Two strings are committed here so a future gate can assert the worst cases without client copy in
 the repo. **They are machine-generated word sequences selected for their rendered geometry. They
@@ -2652,7 +2652,7 @@ and a near-match on the others, and is reported as such rather than as an exact 
 reproduces the mechanism: `counterbalancing` renders at a width that strands line 2 the same way
 `compartmentalizing` does.
 
-## 26.8 The coach byte-diff
+### 26.8 The coach byte-diff
 
 **`verify_coach_baseline.js` does not apply to this pass.** `[MEASURED]` — the branch diff against
 `main` is `docs/` only; no `.js`, no fixture, no baseline, no template. The gate's subject is the
@@ -2664,7 +2664,7 @@ skipped on every fixture — `normalized PDF hash SKIPPED (platform is darwin, n
 the embedded fonts differ from production. The HTML half was byte-identical on every fixture. The
 PDF half runs on CI, on Linux, and only that run is a full result.
 
-## 26.9 Predictions versus measurement
+### 26.9 Predictions versus measurement
 
 Predictions are at `6acef77`, `docs/predictions_pr5_step4.md`. **11 of 20 hit, 9 missed.** The
 misses are listed as findings, not corrected in the predictions file.
@@ -2709,7 +2709,7 @@ and it is why 123 and not 102 is the number to hand the authors.
 
 ---
 
-# 27. Step 4 amendment — revised SX5, recomputed ceiling, quote normalisation
+## 27. Step 4 amendment — revised SX5, recomputed ceiling, quote normalisation
 
 **Branch** `pr5-step4-subtype-measure`, base `90640b8`, amended from `db7e0d0`. Amendment
 predictions committed first at **`587547f`** (`docs/predictions_pr5_step4.md`, second section),
@@ -2720,7 +2720,7 @@ Box re-asserted at the head of this pass, because everything below divides by it
 Arial resolved with the advance probe at **2378.80859375** against the constant 2378.81
 (Δ 0.0014 px), 12.5 px / 18.75 px. `[MEASURED]`, same basis as §26.2. Nothing moved.
 
-## 27.0 What is wrong — and one thing that is not
+### 27.0 What is wrong — and one thing that is not
 
 **① The brief names `individuals` as the longest word in the revised SX5. It is *co*-longest.**
 `connections` is also 11 characters. `[MEASURED]` — `split(/\s+/)`, character length per token.
@@ -2745,7 +2745,7 @@ looks and is stated as such.** 22 of 22 scored items hit, most to within 0.04 px
 Arial advance widths by hand before rendering. Predicting a system you have already characterised is
 not the same test as predicting one you have not. The pass-1 misses were the informative ones.
 
-## 27.A — Revised SX5
+### 27.A — Revised SX5
 
 `[MEASURED]`, same bases as §26.3 — lines by merged `Range.getClientRects()`, chars by
 `replace(/\s+/g,' ').trim().length`, per-line chars by one `Range` per character index with
@@ -2764,7 +2764,7 @@ break-collapsed spaces counted on neither line.
 Line 1 is byte-identical to the pre-revision string's line 1 and renders identically at 271.23 px —
 the revision changed nothing before character 50.
 
-### A2 — break type per line
+#### 27.A2 — break type per line
 
 `[MEASURED]`. Break type is determined two ways and they agree. Structurally, a line is *full* iff
 it is not the last line. Mechanically, the next word is measured against the space remaining:
@@ -2787,12 +2787,12 @@ reproduced the rendered per-line character counts for **all 27 strings with zero
 line box. Every *width* quoted in §27 is the rendered value; the simulation is used only for "which
 word forced this break", where a 0.17 px bias against a 33–72 px margin cannot change the answer.
 
-## 27.B — `m` and the ceiling, recomputed
+### 27.B — `m` and the ceiling, recomputed
 
 Over the corrected 27 — 26 unchanged, SX5 revised. 40 full lines, unchanged in count (the revised
 SX5 still contributes exactly 2).
 
-### B1 — the new minimum full line
+#### 27.B1 — the new minimum full line
 
 **`m` = 44 characters** `[MEASURED]`, and **it is a genuine tie.** `m` is defined in characters, so
 two lines set it:
@@ -2818,7 +2818,7 @@ fell because `compartmentalizing` was 35.2 %, half again as wide. **A ceiling th
 because one word left one sentence is exactly the conditionality §26.1 ③ warned about, now
 demonstrated rather than argued.**
 
-### B2 — the ceiling
+#### 27.B2 — the ceiling
 
 | | value | label | basis |
 |---|---|---|---|
@@ -2832,7 +2832,7 @@ demonstrated rather than argued.**
 widest word stays under `responsibility`'s 72.27 px*. It is not a limit: SO5 at 161 characters fits
 in 3 lines with 7.83 px to spare.
 
-### B3 — who is above the ceiling now
+#### 27.B3 — who is above the ceiling now
 
 **Two strings, and the band does not empty.** `[MEASURED]`
 
@@ -2854,7 +2854,7 @@ Note the word-length guidance tightened from "about 16" to "about 14" even thoug
 loosened. Those move in opposite directions on purpose — the ceiling rose *because* the longest word
 got shorter, so the advice that keeps it there has to be stricter, not looser.
 
-### B4 — monotonicity
+#### 27.B4 — monotonicity
 
 **0 violations across all 351 ordered pairs.** `[MEASURED]`, re-run in full.
 
@@ -2873,13 +2873,13 @@ renders at 3 lines, so no pair could invert.
 `[AGGREGATE]` corrected set: **1 line: 2 · 2 lines: 10 · 3 lines: 15 · 4+ lines: 0**, 67 rendered
 lines over **2868** characters (was 2878; SX5 shed 10).
 
-## 27.C — SO8 quote normalisation
+### 27.C — SO8 quote normalisation
 
-### C2 first, as the brief asks
+#### 27.C2 first, as the brief asks
 
 **Neither form wraps to 4 lines. Both render at exactly 3.** `[MEASURED]`
 
-### C1 — the two forms
+#### 27.C1 — the two forms
 
 `[MEASURED]`. Both strings are 126 characters and break 55 · 54 · 15. Only line 2 differs — it is the
 line carrying both quote glyphs, which the equal-and-doubled delta confirms independently.
@@ -2914,14 +2914,14 @@ rule.** SP5 is the string with a single quote; §26.3 measured it at 278.91 px s
 curly — the same reversal, 29.09 px of slack either way, so it does not matter there. It would matter
 on a string with SO8's margins.
 
-### C3 — added to §26.6
+#### 27.C3 — added to §26.6
 
 Item 6 has been added to §26.6's list of what the page build must confirm, with the numbers stated
 inline so that section is checkable without opening this one.
 
-## 27.D — housekeeping
+### 27.D — housekeeping
 
-### D1 — Synthetic B
+#### 27.D1 — Synthetic B
 
 **Synthetic B is no longer load-bearing for any shipping string.** Its referent — the 41-character,
 218.19 px line — does not exist in the corrected set.
@@ -2933,7 +2933,7 @@ fall to 218.19 px and that `m` **can** be 41, when an 18-character word follows.
 produces a full line as narrow as Synthetic B's, the ceiling is 123 again, not 132.* Reframed, not
 deleted; §26.7 is marked accordingly.
 
-### D2 — Synthetic C, the fixture for the current `m`
+#### 27.D2 — Synthetic C, the fixture for the current `m`
 
 New, committed here. Matched on the **render** to **SO6**, whose line 1 is the pixel-narrowest of the
 two lines that set `m = 44`. Machine-generated word sequence, no meaning, not copy:
@@ -2955,7 +2955,7 @@ a coincidence of the search landing on it, not a criterion — the criterion is 
 The three synthetics now cover: **A** the tightest 3-line fit, **B** the adversarial narrow line that
 sets a lower ceiling, **C** the narrow line that sets the current one.
 
-### D3 — the coach byte-diff
+#### 27.D3 — the coach byte-diff
 
 **`verify_coach_baseline.js` does not apply to this amendment**, for the same reason as §26.8 — the
 branch diff against `main` is `docs/` only, **0 non-`.md` paths** `[MEASURED]`, and the gate's
@@ -2966,7 +2966,7 @@ Run again as a control: **`COACH BASELINE: ALL PASSED — HTML only (PDF half sk
 `normalized PDF hash SKIPPED (platform is darwin, not linux)`. The HTML half was byte-identical on
 every fixture. Only the Linux CI run is a full result.
 
-## 27.E — Predictions versus measurement
+### 27.E — Predictions versus measurement
 
 Predictions at **`587547f`**. **22 of 22 scored items hit.** Two items were declared unscoreable in
 the predictions file itself (C1.1–C1.4, retrodictions of a pass-1 measurement) and are excluded
