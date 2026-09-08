@@ -36,7 +36,10 @@ def check(path):
     # lookbehind missed qualifiers that sit earlier in the same sentence ("Its §20 …",
     # "that document's §1.1 … §1.2 …"), which reported correct prose as dangling.
     # Heading lines are titles, not references, and are skipped.
-    QUAL = re.compile(r'audit|Spec |spec\b|\.md|design spec|that document|Its `§|its `§')
+    # A reference is CROSS-DOCUMENT when its line names the document it points into.
+    # "prompt" is one: build and audit prompts are documents this repo's docs cite by
+    # section, and omitting it reported correctly-qualified prose as dangling.
+    QUAL = re.compile(r'audit|Spec |spec\b|prompt|\.md|design spec|that document|Its `§|its `§')
     intra=[]; cross=0
     for line in body:
         if line.startswith('#'): continue

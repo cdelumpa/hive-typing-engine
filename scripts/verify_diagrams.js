@@ -31,10 +31,63 @@ const R = require(path.join(ROOT, 'app/renderer.js'));
 const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
 
 const MIN_EDGE_CLEARANCE = 5;   // px, spec section 3.5
+// Legibility floor between two labels on the same rail — a DIFFERENT requirement from the
+// non-overlap the spec's §3.5 gate asserts, and one that check cannot express.
+const MIN_LABEL_SEP = 12;
 const VARIANTS = ['client-wings', 'client-lines'];
+
+// ── client-quickref: 72 RING CONFIGURATIONS, NOT NINE TYPES ────────────────────────────────
+// The two rings are PARAMETERS (design spec v3.0 §8.4) — step 6 passes hero.number and
+// alternate.number — so what varies geometrically is every LEADING x ALTERNATE pair, each
+// placing the two labels at different node positions. 9 x 8 = 72. Scores are NOT swept here:
+// they change fills only, and a fill cannot clip a label. That claim is itself asserted, as the
+// score-independence check further down, rather than assumed.
+const RING_PAIRS = [];
+for (let lead = 1; lead <= 9; lead++) {
+  for (let alt = 1; alt <= 9; alt++) if (alt !== lead) RING_PAIRS.push([lead, alt]);
+}
+// A representative profile for the sweep — the tracked anders_sx9 call1_ranking, TYPE-MAPPED.
+// The score MULTISET is the fixture's; so is the mapping, which matters for anyone reading a
+// rendered sweep: the sorted list assigned to types 1..9 in order puts the highest score on
+// type 1 and the lowest on type 9, so a LEADING ring on node 9 sits on the palest node. That
+// is confusing to look at and was caught on a contact sheet rather than by any gate — geometry
+// does not depend on scores (asserted below), so nothing here could have failed.
+const SWEEP_SCORES = [
+  { type: 9, score: 91 }, { type: 5, score: 83 }, { type: 1, score: 74 },
+  { type: 8, score: 52 }, { type: 3, score: 47 }, { type: 2, score: 44 },
+  { type: 7, score: 38 }, { type: 4, score: 35 }, { type: 6, score: 31 },
+];
 
 let failed = false;
 const fail = (m) => { failed = true; console.log(`  *** FAIL — ${m}`); };
+// Per-variant geometry, so nodes can be located rather than guessed at.
+const GEOM = { 'client-wings': R.CLIENT_GEO, 'client-lines': R.CLIENT_GEO,
+  'client-quickref': R.QUICKREF_GEO };
+
+/** Canonical node centres for a geometry, from the same angle table the renderer uses. */
+function nodeCentres(GEO) {
+  return Object.fromEntries(Object.entries(R.CLIENT_ANGLES).map(([n, deg]) => {
+    const rad = deg * Math.PI / 180;
+    return [n, [GEO.cx + GEO.r * Math.cos(rad), GEO.cy + GEO.r * Math.sin(rad)]];
+  }));
+}
+
+/**
+ * One box per canonical node position, sized to the LARGEST circle sitting there.
+ * Returns [] rather than throwing when a geometry is unknown, so the count assertion at the
+ * call site reports it as 0-of-9 by name instead of aborting the run.
+ */
+function nodeBoxes(circles, GEO) {
+  if (!GEO) return [];
+  const centres = nodeCentres(GEO);
+  const out = [];
+  for (const [, [ex, ey]] of Object.entries(centres)) {
+    const here = circles.filter(c => Math.hypot(c.cx - ex, c.cy - ey) < 1);
+    if (here.length) out.push({ cx: ex, cy: ey, r: Math.max(...here.map(c => c.r)) });
+  }
+  return out;
+}
+
 const rectsOverlap = (a, b) =>
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
@@ -66,8 +119,37 @@ const rectsOverlap = (a, b) =>
 
         const id = `${variant.replace('client-', '').toUpperCase()} T${type}`;
 
-        // Labels are the text elements outside the node circles (node numbers sit inside).
-        const nodeCircles = geo.circles.filter(c => c.r <= 20);
+        // ── WHICH CIRCLES ARE NODES ────────────────────────────────────────────────────
+        //
+        // BY POSITION, against the canonical centres. Nodes were previously selected by
+        // `r <= 20`, a heuristic tuned to this pair's radii (11/13/15 against a 95 ring). It is
+        // ALREADY WRONG for a shipped variant — client-cover's nodes are r=23, so it returns 0
+        // of 10 there — and it returns 0 of 12 for client-quickref (nodes 21, rings 27, circle
+        // 105). A filter that returns nothing makes the label-vs-node check below PASS BY
+        // TESTING NOTHING.
+        //
+        // client-cover's vacuum is LATENT, not live: VARIANTS did not include it, and the
+        // structural block at the foot of this file runs no overlap or clearance test. Matching
+        // by position removes the latency rather than leaving it for whoever adds it.
+        //
+        // WHY POSITION AND NOT AN ATTRIBUTE. A `data-node` marker was written first and
+        // discarded: it changed the emitted markup on five shipped v3 variants (45 of 81
+        // renders, measured), and it is weaker — a circle drawn in the WRONG PLACE but tagged
+        // as a node would pass. Matching against CLIENT_ANGLES + the geometry constant asserts
+        // the circle is where the node belongs, and emits nothing. This is the same technique
+        // the structural block at the foot of this file already uses.
+        //
+        // ONE BOX PER POSITION, SIZED TO THE LARGEST CIRCLE THERE. client-quickref draws a ring
+        // concentric with its leading and alternate nodes, so two positions carry two circles.
+        // A label must clear the ring, not merely the node, so the conservative radius is right.
+        const nodeCircles = nodeBoxes(geo.circles, GEOM[variant]);
+
+        // NON-VACUITY. Without this, the fix above reintroduces the same vacuum at the next
+        // geometry change. Asserting the COUNT is what makes the label-vs-node test meaningful.
+        if (nodeCircles.length !== 9) {
+          fail(`${variant} T${type}: ${nodeCircles.length} circles sit at canonical node `
+             + `positions, expected 9 — the label-vs-node check below would test nothing`);
+        }
         const isNodeNumber = (t) => /^\d$/.test(t.s.trim());
 
         for (const t of geo.texts) {
@@ -96,6 +178,119 @@ const rectsOverlap = (a, b) =>
       }
     }
     await page.close();
+
+  // ── client-quickref — 72 ring configurations (PR 5 Build 2) ────────────────
+  console.log('\nQuick Reference heat map — 72 ring configurations:');
+  {
+    const qpage = await browser.newPage();
+    let worst = Infinity, worstAt2 = '', nodeCountBad = 0, orange = 0, banned = 0;
+    const BANNED = /fill-opacity|stop-opacity|\sopacity\s*=|rgba\(|\btransparent\b|oklch\(|#[0-9a-fA-F]{8}\b/;
+    for (const [lead, alt] of RING_PAIRS) {
+      const svg = R.buildEnneagramSVG({ variant: 'client-quickref', leading: lead, alternate: alt, scores: SWEEP_SCORES });
+
+      // B6 — no transparency construct in the emitted markup. Cheap, and it catches the thing at
+      // authoring time rather than after a render.
+      const m = svg.match(BANNED);
+      if (m) { banned++; fail(`quickref ${lead}x${alt}: banned opacity construct "${m[0]}" in the emitted SVG`); }
+      // B8 — PER-VARIANT, not blanket. client-cover legitimately carries #F68625: the cover's
+      // home node is the sole client marker on a sheet with no page header (spec §5.3, and
+      // renderer.js documents it at the emitter). A blanket check would turn CI red on shipped,
+      // correct work. Orange on THIS figure would be the ramp borrowing the instinct bars' fill.
+      if (svg.includes('#F68625')) { orange++; fail(`quickref ${lead}x${alt}: #F68625 (client orange) inside the heat map — the ramp must stay cyan (spec §5.3)`); }
+
+      await qpage.setContent(`<!doctype html><body style="margin:0;background:#FFFFFF">${svg}</body>`, { waitUntil: 'load' });
+      const geo = await qpage.evaluate(() => {
+        const svgEl = document.querySelector('svg');
+        const vb = svgEl.viewBox.baseVal;
+        return {
+          vw: vb.width, vh: vb.height,
+          texts: [...svgEl.querySelectorAll('text')].map(t => { const b = t.getBBox();
+            return { s: t.textContent, x: b.x, y: b.y, w: b.width, h: b.height }; }),
+          circles: [...svgEl.querySelectorAll('circle')].map(c => ({
+            cx: +c.getAttribute('cx'), cy: +c.getAttribute('cy'), r: +c.getAttribute('r') })),
+        };
+      });
+      const id = `QUICKREF ${lead}x${alt}`;
+      const boxes = nodeBoxes(geo.circles, R.QUICKREF_GEO);
+      if (boxes.length !== 9) { nodeCountBad++; fail(`${id}: ${boxes.length} circles at canonical node positions, expected 9`); }
+      const isNodeNumber = (t) => /^\d$/.test(t.s.trim());
+      for (const t of geo.texts) {
+        const clear = Math.min(t.x, t.y, geo.vw - (t.x + t.w), geo.vh - (t.y + t.h));
+        if (clear < worst) { worst = clear; worstAt2 = `${id} "${t.s}"`; }
+        if (clear < MIN_EDGE_CLEARANCE) fail(`${id}: label "${t.s}" clearance ${clear.toFixed(2)}px < ${MIN_EDGE_CLEARANCE}px`);
+        if (isNodeNumber(t)) continue;
+        for (const c of boxes) {
+          const box = { x: c.cx - c.r, y: c.cy - c.r, w: c.r * 2, h: c.r * 2 };
+          if (rectsOverlap(t, box)) fail(`${id}: label "${t.s}" overlaps the node at (${c.cx.toFixed(1)}, ${c.cy.toFixed(1)})`);
+        }
+      }
+      const labels = geo.texts.filter(t => !isNodeNumber(t));
+      for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) {
+        if (rectsOverlap(labels[i], labels[j])) fail(`${id}: labels "${labels[i].s}" and "${labels[j].s}" overlap`);
+      }
+      // ── LEGIBILITY, WHICH IS NOT NON-OVERLAP (added after a contact-sheet review) ──────
+      // Two labels sharing a rail passed the overlap check above at a 2.49px gap on eight of
+      // the 72 pairs, and at 8.5px they read as ONE WORD — "LEADINGALTERNATE". Non-overlap and
+      // legibility are different requirements and the first does not imply the second. This
+      // asserts the second. Same-rail is a y match; different rails cannot crowd each other.
+      for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) {
+        const [A, B] = labels[i].x <= labels[j].x ? [labels[i], labels[j]] : [labels[j], labels[i]];
+        if (Math.abs(A.y - B.y) > 1) continue;
+        const gap = B.x - (A.x + A.w);
+        if (gap < MIN_LABEL_SEP) {
+          fail(`${id}: labels "${A.s}" and "${B.s}" share a rail with only ${gap.toFixed(2)}px `
+             + `between them (min ${MIN_LABEL_SEP}) — they read as one word`);
+        }
+      }
+    }
+    console.log(`  ${RING_PAIRS.length} configurations measured · minimum edge clearance ${worst.toFixed(2)}px (${worstAt2})`);
+    console.log(`  node-count failures ${nodeCountBad} · banned opacity constructs ${banned} · #F68625 hits ${orange}`);
+
+    // ── THE COLLIDED RECORD: ONE RING, NO ALTERNATE, AND IT MUST NOT THROW ────────────
+    //
+    // call2_stamp.js can ship a record with confirmed_type === alternate_candidate: its Defect #3
+    // guard flags the collision for admin review and deliberately does NOT hard-stop, "the client
+    // still gets a report". buildClientModel builds it — CLIENT_SPEC requires alternate.number to
+    // be present, never to differ — so step 6 will hand this figure two equal node numbers.
+    // Reachable on the em_only production path, not just the SM fallback.
+    //
+    // Asserted because an earlier version of this branch THREW on it, which would have turned a
+    // record the engine ships into a client report that fails to generate.
+    {
+      let svg;
+      try {
+        svg = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 9, scores: SWEEP_SCORES });
+      } catch (e) {
+        fail(`collided record (leading === alternate): buildEnneagramSVG THREW — "${e.message}". `
+           + `call2_stamp.js ships these deliberately; the figure must degrade, not hard-stop`);
+        svg = null;
+      }
+      if (svg) {
+        const rings = (svg.match(/<circle[^>]*r="27"/g) || []).length;
+        const dashed = (svg.match(/stroke-dasharray/g) || []).length;
+        const alt = /<text[^>]*>ALTERNATE</.test(svg);
+        if (rings !== 1) fail(`collided record: ${rings} rings drawn, expected exactly 1 (the leading)`);
+        if (dashed !== 0) fail(`collided record: ${dashed} dashed ring(s) drawn, expected 0`);
+        if (alt) fail('collided record: an ALTERNATE label was drawn for a type that is also the leading');
+        if (rings === 1 && !dashed && !alt) console.log('  collided record: one ring, no ALTERNATE, no throw ✓');
+      }
+    }
+
+    // B10 — SCORE INDEPENDENCE. Two renders with different score vectors must differ ONLY in
+    // fills. Geometry could not previously depend on scores because they could not reach the
+    // builder; Build 2 breaks that property deliberately, so the claim is re-established as a
+    // gate rather than inherited.
+    const strip = (svg) => svg.replace(/fill="#[0-9A-F]{6}"/g, 'fill="X"')
+                              .replace(/stop-color="#[0-9A-F]{6}"/g, 'stop-color="X"');
+    const flat = [1,2,3,4,5,6,7,8,9].map(t => ({ type: t, score: 50 }));
+    const a = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 5, scores: SWEEP_SCORES });
+    const b = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 5, scores: flat });
+    if (a === b) fail('score-independence: two different score vectors produced identical SVG — the ramp is not reading scores');
+    else if (strip(a) !== strip(b)) fail('score-independence: two score vectors differ OUTSIDE fill — a position or label depends on a score');
+    else console.log('  score independence: differs in fills only ✓');
+    await qpage.close();
+  }
+
   } finally {
     await browser.close();
   }
@@ -112,8 +307,20 @@ const rectsOverlap = (a, b) =>
   // angle CLIENT_ANGLES specifies, and both flow sequences in the canonical direction.
   console.log('\nStructural check — label-free v3 wheels:');
   {
-    const { CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON, COVER_GEO, WHATIS_GEO } = R;
-    for (const [variant, GEO, type] of [['client-cover', COVER_GEO, 9], ['client-whatis', WHATIS_GEO, null]]) {
+    const { CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON, COVER_GEO, WHATIS_GEO, EXPLORE_GEO } = R;
+    // client-explore (sheet 6) RIDES ALONG — [DECISION — Cai, 8 Sep 2026]. STRUCTURAL BLOCK
+    // ONLY, not VARIANTS: it emits ZERO non-numeral labels (measured), so the label-vs-node and
+    // label-vs-label checks would have nothing to test there. What it was missing is THIS check
+    // — it was the last v3 wheel with no structural assertion of any kind, and the defect class
+    // is the one the design spec's §4.3 records as having actually happened: a mockup that
+    // shipped MIRRORED and MISSING NODE 2.
+    //
+    // Note its home node is r=16 and its others 12.5, so the retired `r <= 20` filter would have
+    // included them — the plan's premise that this rode along with the filter fix was wrong, and
+    // it is in on its own merit instead.
+    for (const [variant, GEO, type, webLines] of [['client-cover', COVER_GEO, 9, true],
+                                                  ['client-whatis', WHATIS_GEO, null, true],
+                                                  ['client-explore', EXPLORE_GEO, 9, false]]) {
       const svg = R.buildEnneagramSVG({ variant, type });
 
       // Canonical node centres, from the same angle table the renderer uses.
@@ -133,7 +340,12 @@ const rectsOverlap = (a, b) =>
       }
       for (const t of numerals) {
         const [ex, ey] = centre[t.n];
-        const off = Math.hypot(t.x - ex, t.y - (ey + GEO.fs * 0.37));
+        // client-explore grows its HOME numeral (homeFs 15 against fs 12) — design spec §4.4 row
+        // M4, ported as drawn. The baseline offset is fs * 0.37, so the home numeral's expected y
+        // differs from the other eight and comparing both against GEO.fs reports a real, correct
+        // figure as a 1.2px rotation. Use the size the renderer actually applied.
+        const fs = (GEO.homeFs && t.n === type) ? GEO.homeFs : GEO.fs;
+        const off = Math.hypot(t.x - ex, t.y - (ey + fs * 0.37));
         if (off > 1) fail(`${variant}: numeral ${t.n} is ${off.toFixed(1)}px from its CLIENT_ANGLES position — wheel mirrored or rotated?`);
       }
 
@@ -153,12 +365,18 @@ const rectsOverlap = (a, b) =>
         return hit ? +hit[0] : '?';
       };
       const traced = polys.map(p => p.map(nodeAt).join('→'));
-      for (const [label, want] of [['triangle', CLIENT_TRIANGLE.join('→')], ['hexad', CLIENT_HEXAGON.join('→')]]) {
+      // WEB LINES ARE NOT UNIVERSAL. client-explore draws the ring and the nine nodes only —
+      // the mockup omits the triangle and hexad rather than drawing them faintly, and EXPLORE_GEO
+      // records that ("It carries NO web lines"). Asserting sequences there would demand markup
+      // the design deliberately does not emit. The flag is per-variant so the omission is a
+      // stated property rather than a silently skipped check.
+      for (const [label, want] of (webLines ? [['triangle', CLIENT_TRIANGLE.join('→')], ['hexad', CLIENT_HEXAGON.join('→')]] : [])) {
         if (!traced.includes(want)) {
           fail(`${variant}: ${label} sequence ${want} not found; traced ${JSON.stringify(traced)}`);
         }
       }
-      console.log(`  ${variant.padEnd(14)} 9/9 nodes · angles OK · ${traced.length} sequence(s): ${traced.join('  ')}`);
+      console.log(`  ${variant.padEnd(14)} 9/9 nodes · angles OK · `
+        + (webLines ? `${traced.length} sequence(s): ${traced.join('  ')}` : 'no web lines by design'));
     }
   }
 

@@ -842,9 +842,18 @@ Three findings:
 
 ### 7.3 Ringed node, dashed node, ramp legend — **all new** `[MEASURED]`
 
-`buildEnneagramSVG` has five variants: `base`, `type`, `my-report`, `wings-lines` (v2), and four v3
+~~`buildEnneagramSVG` has five variants: `base`, `type`, `my-report`, `wings-lines` (v2), and four v3
 ones — `client-cover` (`COVER_GEO`), `client-whatis` (`WHATIS_GEO`), `client-explore`
-(`EXPLORE_GEO`), `client-wings`/`client-lines` (`CLIENT_GEO`). **None supports any of the three.**
+(`EXPLORE_GEO`), `client-wings`/`client-lines` (`CLIENT_GEO`).~~ **None supports any of the three.**
+
+> **Post-lock correction — 8 Sep 2026. NINE, NOT FIVE.** The list above is right and the count is
+> wrong — it says "five" and then names four v2 plus four v3 groups. Enumerated by calling the
+> function `[MEASURED]`: **`base`, `type`, `my-report`, `wings-lines`, `client-cover`,
+> `client-whatis`, `client-explore`, `client-wings`, `client-lines`** — nine accepted, and an
+> unknown variant throws. **PR 5 Build 2 makes it ten**, adding `client-quickref`.
+>
+> The sentence the strikethrough leaves standing — none of them supports a ringed node, a dashed
+> node or a ramp legend — was and is correct.
 
 | p5 feature | Nearest existing | Gap |
 |---|---|---|
@@ -1865,11 +1874,22 @@ Answered from the file list, not from memory:
 | File | Build 1 | Build 2 |
 |---|---|---|
 | `app/report_prep.js` | ✅ `charts.types`, alternate motivation, `validateModel` | — |
-| **`app/renderer.js`** | **✅ `instinctRanks` extraction, ~:3838** | **✅ `QUICKREF_GEO` ~:1087, new variant ~:1233** |
+| **`app/renderer.js`** | **✅ `instinctRanks` extraction, ~:3838** | **✅ `QUICKREF_GEO` ~:1087, new variant ~:1233, and the SIGNATURE WIDENING** |
 | `scripts/render_client.js` | ✅ the retype fix, :362-377 | — |
 | `app/server.js` | ✅ `cmsPreviewApiResult`, :13985 | — |
 | `tests/report_pages_test.js` | ✅ model-shape assertions | — |
 | `scripts/verify_diagrams.js` | — | ✅ variant + the `r <= 20` filter fix |
+| `scripts/verify_transparency.js` | — | ✅ **the standalone-SVG scan** — added 8 Sep, see below |
+
+> **Post-lock correction — 8 Sep 2026. THIS TABLE OMITTED `verify_transparency.js`.** Build 2 must
+> touch it, and the reason is structural rather than incidental: that gate renders the **whole v3
+> document**, and `quickref` has no `built: true` until step 6 — so **the strongest gate in the repo
+> cannot see the figure Build 2 produces.** Deferring to step 6 would be the PR 4 failure exactly, a
+> renderer assertion passing vacuously because the page did not exist. `buildEnneagramSVG` is a pure
+> function taking no page context, so Build 2 scans its output standalone, with the tracked mockup's
+> own heat-map SVG as the positive control at 1 group / 1 mask / 8 alphas. Also corrected in the row
+> above: the Build 2 column did not name the **signature widening**, which is the change that made
+> B11 load-bearing.
 
 **One file in common, and it is not a conflict, for two reasons.** First, Cai's 1.2 sequences them
 — Build 1 lands before Build 2 is written — so there is no parallel edit to merge. Second, the two
