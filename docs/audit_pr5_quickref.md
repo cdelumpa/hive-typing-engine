@@ -1166,4 +1166,18 @@ in this prompt have drifted elsewhere; this one has not.
 
 ## 12. Commits
 
-Enumerated at the end of the run, with SHAs. No push, no PR, no merge, no branch deletion.
+Enumerated at the end of the run. No push, no PR, no merge, no branch deletion.
+
+| # | SHA | Message |
+|---|---|---|
+| 1 | `8ec97e7` | PR 5 audit: Quick Reference (sheet 5 / footer 3) — this document |
+| 2 | *this commit* | PR 5 audit: record the commit set in §12 |
+
+**One commit of substance.** The second exists only because a commit cannot record its own SHA —
+amending it to insert one just produces a new SHA and a stale table, which is what happened on the
+first attempt. Commit 2's SHA is reported in the build response and is readable from
+`git log --oneline main..HEAD`; it is deliberately not written here.
+
+Branch `pr-5-quickref-audit`, off `main @ f385c9a`. `git diff main...HEAD --stat` touches
+`docs/audit_pr5_quickref.md` and nothing else — no code and no content changed, as the prompt
+required.
