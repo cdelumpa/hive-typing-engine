@@ -230,26 +230,40 @@ const Z6_STATES = {
   // sp4's own untouched evidence: 3 SM bullets, joined to one paragraph by the p10 renderer.
   // A live reference, so it cannot drift from the fixture.
   sp4_real:        { evidence: sp4.client_facing.instinct_evidence,
-                     expect:   sp4.client_facing.instinct_evidence, capLines: 4, page: 'fits' },
+                     expect:   sp4.client_facing.instinct_evidence, capLines: 4, page: 'fits',
+                     renderedInMatrix: true },
   sm_bullets:      { evidence: SM_BULLETS_OVER_SPEC, expect: SM_BULLETS_OVER_SPEC,
-                     capLines: 5, page: 'fits' },
+                     capLines: 5, page: 'fits', renderedInMatrix: true },
   // DECLARED TO SPILL. 7 rendered lines against a cap of 5, 1073.25px against a 1057px gate.
   // This is the synthetic hazard case and it is SUPPOSED to exceed; the run is green when it
   // does and red when it does not. Shortening it so it fits fails the matrix, which is the
   // thing an exemption could never do.
   em_paragraph:    { evidence: EM_PARAGRAPH,         expect: EM_PARAGRAPH,
-                     capLines: 7, page: 'spills' },
+                     capLines: 7, page: 'spills', renderedInMatrix: true },
   em_observed_max: { evidence: EM_OBSERVED_MAX,      expect: EM_OBSERVED_MAX,
-                     capLines: 5, page: 'fits' },
+                     capLines: 5, page: 'fits', renderedInMatrix: true },
   // THE CANARY, and read this before concluding the preview is broken.
   // This state and em_observed_max both sit at 5 lines / 21.50px of headroom, so they are the
   // FIRST THINGS THAT GO RED ON ANY p10 GROWTH — a taller Z3 definition, a longer Z5
   // narrative, an extra line anywhere on the page. A red here usually means THE PAGE GREW,
   // not that the preview constant is wrong. Check the page's other zones before touching it.
   cms_preview:     { evidence: CMS_PREVIEW_V3_COPY,  expect: CMS_PREVIEW_V3_COPY,
-                     capLines: 5, page: 'fits' },
-  null:            { evidence: null,                 expect: null, capLines: 0, page: 'fits' },
-  absent:          { evidence: undefined,            expect: null, capLines: 0, page: 'fits' },
+                     capLines: 5, page: 'fits', renderedInMatrix: true },
+  // NOT RENDERED BY THE MATRIX, and that is what renderedInMatrix says.
+  //
+  // z6For (scripts/render_client.js) names five states; these two are not among them. Their
+  // capLines/page are checked for COHERENCE against Z6_CAP_LINES by instinct_axis_test.js and
+  // are NEVER compared against an actual render. `capLines: 0` is true — neither state emits a
+  // Z6 box at all — but nothing observes it, and a declaration nothing observes is precisely
+  // the failure class this table exists to prevent. Saying so is the point of the flag.
+  //
+  // The flag is not decoration: render_client.js fails if a state marked false is ever
+  // evaluated, so adding one of these to z6For without updating the flag goes red rather than
+  // silently making this comment untrue.
+  null:            { evidence: null,                 expect: null, capLines: 0, page: 'fits',
+                     renderedInMatrix: false },
+  absent:          { evidence: undefined,            expect: null, capLines: 0, page: 'fits',
+                     renderedInMatrix: false },
 };
 
 // Applied to an api_result clone. `absent` deletes the key rather than setting undefined,

@@ -639,6 +639,12 @@ async function measureLayout(page, selector) {
             if (!decl || typeof decl.capLines !== 'number' || (decl.page !== 'fits' && decl.page !== 'spills')) {
               fail(`Z6 state "${z6Key}" is missing its capLines/page declaration — every state ` +
                    `named in z6For must declare both (tests/fixtures/instinct_axis.js)`);
+            } else if (decl.renderedInMatrix === false) {
+              // Keeps the label honest. A state marked "not rendered by the matrix" that IS
+              // being rendered means the flag has gone stale — the comment on it would be
+              // silently untrue, which is the thing the flag was added to prevent.
+              fail(`Z6 state "${z6Key}" is marked renderedInMatrix: false but the matrix just ` +
+                   `rendered it — update the flag in tests/fixtures/instinct_axis.js`);
             } else if (!p10) {
               fail(`Z6 state "${z6Key}": could not locate the p10 page to judge (index ${z6PageIndex})`);
             } else {

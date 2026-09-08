@@ -167,6 +167,11 @@ test('Z6: the cap and the per-state declarations agree', () => {
   for (const [key, s] of Object.entries(Z6_STATES)) {
     assert.strictEqual(typeof s.capLines, 'number', `${key}: capLines must be declared`);
     assert.ok(s.page === 'fits' || s.page === 'spills', `${key}: page must be 'fits' or 'spills'`);
+    // Also with no default: a state must say whether the matrix actually renders it. A
+    // declaration nothing observes is not a weaker assertion, it is a false one, and this is
+    // what keeps the distinction visible in the table rather than only in a comment.
+    assert.strictEqual(typeof s.renderedInMatrix, 'boolean',
+      `${key}: renderedInMatrix must be declared true or false`);
     if (s.page === 'fits') {
       assert.ok(s.capLines <= Z6_CAP_LINES,
         `${key}: declared page 'fits' at ${s.capLines} lines, over the ${Z6_CAP_LINES}-line cap`);
