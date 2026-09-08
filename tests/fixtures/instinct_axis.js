@@ -175,16 +175,95 @@ const EM_OBSERVED_MAX = [
   'Your responses point toward a strong self-preservation instinct — you tend to secure comfort and steady resources before turning your attention outward, whether that means holding to a predictable routine or quietly preparing for whatever the coming week is likely to demand. You also showed a clear social awareness, suggesting you track your standing within groups with real care. The intense one-to-one instinct appears less central in your case, which may relate to the preference you described for an even and workable rhythm.',
 ];
 
-// The five states. `null` and `absent` are listed separately and asserted to CONVERGE:
+// ─── THE Z6 CAP ──────────────────────────────────────────────────────────────────────────
+// Five rendered lines. The decision is Cai's (7 Sep 2026) and its reasoning is recorded in
+// docs/p10_fit_results.md §8; the geometry it rests on is §7b there.
+//
+// ONE CONSTANT, imported by scripts/render_client.js, so the number is not repeated. It is a
+// LINE COUNT and not a character count, on purpose: character count does not predict line
+// count, and this project has struck three character ceilings for exactly that reason.
+//
+// WHAT IT IS. A CI regression gate. It exists so that a producer change, a prompt edit or a
+// content edit that pushes Z6 past five rendered lines goes red in CI before it ships.
+// WHAT IT IS NOT. Protection for a client. Nothing in the production path measures page
+// height — app/generate_report.js:588 is a bare page.pdf() call, and render_client.js is a
+// CI harness reached only through `npm run verify:render`.
+const Z6_CAP_LINES = 5;
+
+// ─── CMS_PREVIEW_V3_COPY ─────────────────────────────────────────────────────────────────
+// SELF-POLICING COPY of CMS_PREVIEW_V3_EVIDENCE (app/server.js:13870), on the precedent
+// SM_BULLETS_OVER_SPEC already sets: app/server.js exports nothing and requiring it would
+// boot the application, so the value is duplicated here and a test asserts the copy still
+// matches the source BY READING server.js AS TEXT.
+//
+// It is here so the render matrix evaluates the CMS preview constant on every run. 5B
+// introduced that constant with a 5-line figure nothing checked, and it has already drifted
+// once: step 6A's join silently took it from 5 lines to 4, and only a manual re-measure
+// caught it. A separate assertion can drift from the cap it references; a render cannot
+// drift from the page it renders.
+const CMS_PREVIEW_V3_COPY = [
+  'Across several of your responses you returned to maintaining comfort, protecting your energy, and keeping daily life steady and predictable. You repeatedly described scanning your environment for what could go wrong and quietly securing resources ahead of time. When asked about stress you emphasized withdrawing to conserve, tending to practical needs first. Taken together these responses point toward a steady, self-protective focus that shapes where your attention goes first and what you make sure of before anything else.',
+];
+
+// The seven states. `null` and `absent` are listed separately and asserted to CONVERGE:
 // report_prep.js:371 is `cf.instinct_evidence ?? null`, and `??` maps undefined and null to
 // the same model value, so they are one model state reached two ways — not two states.
 // anders_sx9 ships with client_facing: {}, so `absent` is the current baseline.
+//
+// ── THE TWO PAGE DECLARATIONS, ADDED AT STEP 6B ──
+// Every NAMED state carries both, and there is NO DEFAULT. A state missing either fails the
+// render matrix by name. That is the whole mechanism: 6A suppressed the two states that spill
+// by design with an exemption, and an exemption can only SUPPRESS a failure — it notices
+// nothing when a hazard case silently stops being one. A declaration catches both directions.
+//
+//   capLines  the EXACT expected rendered line count, asserted exactly and not as a bound.
+//   page      'fits' | 'spills', asserted against the page gate (fails above 1057px).
+//
+// THEY ARE NOT REDUNDANT. A 6-line state exceeds a cap of 5 AND still fits the page, at
+// 1053.88px natural. Both facts have to be declarable independently.
+//
+// `expect` above is the MODEL-SHAPE expectation and is a different thing. Do not shadow it.
+//
+// A null z6Key in render_client.js's z6For means "no Z6 axis applied" — the absence of a
+// state, not a state — so it carries no declaration. Every state named in z6For does.
 const Z6_STATES = {
-  sm_bullets:      { evidence: SM_BULLETS_OVER_SPEC, expect: SM_BULLETS_OVER_SPEC },
-  em_paragraph:    { evidence: EM_PARAGRAPH,         expect: EM_PARAGRAPH },
-  em_observed_max: { evidence: EM_OBSERVED_MAX,      expect: EM_OBSERVED_MAX },
-  null:            { evidence: null,                 expect: null },
-  absent:          { evidence: undefined,            expect: null },   // client_facing: {}
+  // sp4's own untouched evidence: 3 SM bullets, joined to one paragraph by the p10 renderer.
+  // A live reference, so it cannot drift from the fixture.
+  sp4_real:        { evidence: sp4.client_facing.instinct_evidence,
+                     expect:   sp4.client_facing.instinct_evidence, capLines: 4, page: 'fits',
+                     renderedInMatrix: true },
+  sm_bullets:      { evidence: SM_BULLETS_OVER_SPEC, expect: SM_BULLETS_OVER_SPEC,
+                     capLines: 5, page: 'fits', renderedInMatrix: true },
+  // DECLARED TO SPILL. 7 rendered lines against a cap of 5, 1073.25px against a 1057px gate.
+  // This is the synthetic hazard case and it is SUPPOSED to exceed; the run is green when it
+  // does and red when it does not. Shortening it so it fits fails the matrix, which is the
+  // thing an exemption could never do.
+  em_paragraph:    { evidence: EM_PARAGRAPH,         expect: EM_PARAGRAPH,
+                     capLines: 7, page: 'spills', renderedInMatrix: true },
+  em_observed_max: { evidence: EM_OBSERVED_MAX,      expect: EM_OBSERVED_MAX,
+                     capLines: 5, page: 'fits', renderedInMatrix: true },
+  // THE CANARY, and read this before concluding the preview is broken.
+  // This state and em_observed_max both sit at 5 lines / 21.50px of headroom, so they are the
+  // FIRST THINGS THAT GO RED ON ANY p10 GROWTH — a taller Z3 definition, a longer Z5
+  // narrative, an extra line anywhere on the page. A red here usually means THE PAGE GREW,
+  // not that the preview constant is wrong. Check the page's other zones before touching it.
+  cms_preview:     { evidence: CMS_PREVIEW_V3_COPY,  expect: CMS_PREVIEW_V3_COPY,
+                     capLines: 5, page: 'fits', renderedInMatrix: true },
+  // NOT RENDERED BY THE MATRIX, and that is what renderedInMatrix says.
+  //
+  // z6For (scripts/render_client.js) names five states; these two are not among them. Their
+  // capLines/page are checked for COHERENCE against Z6_CAP_LINES by instinct_axis_test.js and
+  // are NEVER compared against an actual render. `capLines: 0` is true — neither state emits a
+  // Z6 box at all — but nothing observes it, and a declaration nothing observes is precisely
+  // the failure class this table exists to prevent. Saying so is the point of the flag.
+  //
+  // The flag is not decoration: render_client.js fails if a state marked false is ever
+  // evaluated, so adding one of these to z6For without updating the flag goes red rather than
+  // silently making this comment untrue.
+  null:            { evidence: null,                 expect: null, capLines: 0, page: 'fits',
+                     renderedInMatrix: false },
+  absent:          { evidence: undefined,            expect: null, capLines: 0, page: 'fits',
+                     renderedInMatrix: false },
 };
 
 // Applied to an api_result clone. `absent` deletes the key rather than setting undefined,
@@ -201,5 +280,6 @@ function applyZ6(apiResult, key) {
 
 module.exports = {
   INSTINCT_PROFILES, INSTINCT_MARKUP, applyInstinct,
-  STACK_EDGE_CASES, SM_BULLETS_OVER_SPEC, EM_PARAGRAPH, EM_OBSERVED_MAX, Z6_STATES, applyZ6,
+  STACK_EDGE_CASES, SM_BULLETS_OVER_SPEC, EM_PARAGRAPH, EM_OBSERVED_MAX,
+  CMS_PREVIEW_V3_COPY, Z6_CAP_LINES, Z6_STATES, applyZ6,
 };

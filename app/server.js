@@ -13858,19 +13858,31 @@ const CMS_PREVIEW_WORST_EVIDENCE = [
 // page to 1065.88px — it SPILLS past the 1057px gate. [CC-MEASURED, 7 Sep] An editor would
 // be shown a two-sheet page and reasonably conclude the layout was broken.
 //
-// So this is capped at the DECIDED Z6 limit of 5 rendered lines (docs/p10_fit_results.md),
-// which measures 159.88px and leaves the page at 1056. The cap is decided but not yet
-// enforced in the product — that is step 6 — and a preview should show the page as it will
-// be rather than as it currently can be.
+// So this sits at the DECIDED Z6 limit of 5 rendered lines (docs/p10_fit_results.md sections
+// 7b and 8) — 147.88px, leaving the page at 1034.50px natural.
 //
-// DERIVED, NOT AUTHORED: each bullet is the corresponding CMS_PREVIEW_WORST_EVIDENCE string
-// cut at its last clause boundary within the producer's own "<=25 words each" contract
-// (app/server.js:4828), then closed with a period. 20/18/14 words. No new prose was
-// written, and unlike a raw word-count truncation none of them ends mid-phrase.
+// RE-CUT AT STEP 6B, and the reason is worth keeping. Step 6A joined Z6 into one paragraph
+// p10-locally, which reclaims each item's partial last line and both 6px inter-item gaps.
+// That silently took this constant from 5 rendered lines to 4 — one line UNDER the cap — and
+// nothing noticed until a manual re-measure. It is now rendered on every CI run as a Z6 state
+// in scripts/render_client.js, via a self-policing copy in tests/fixtures/instinct_axis.js.
+//
+// WHY IT MUST SIT AT THE CAP, and it is not "honesty about the limit". The editor using this
+// preview is editing Z3 definitions and Z5 narratives — the content that SHARES p10 with Z6.
+// They cannot edit Z6 at all. So the preview's real job is "if I lengthen this narrative,
+// does the page still fit?", and at 4 lines it answered that with 19.375px of slack that
+// production would not have. An editor could make a change that previews clean and spills in
+// production.
+//
+// ONE ELEMENT, not three. Production is EM-only and emits a single narrative; measured, three
+// items and one element render identically under the join, so this matches the shape that
+// actually ships at no visual cost.
+//
+// 527 chars, 5 rendered lines, last-line fill 56.41%. THE FILL IS NOT A CONTRACT — it is a
+// readability choice, and pinning it would be the same over-pinning rejected for
+// EM_OBSERVED_MAX. What is asserted is the line count and the box height.
 const CMS_PREVIEW_V3_EVIDENCE = [
-  'Across several of your responses you returned to maintaining comfort, protecting your energy, and keeping daily life steady and predictable.',
-  'You repeatedly described scanning your environment for what could go wrong and quietly securing resources ahead of time.',
-  'When asked about stress you emphasized withdrawing to conserve, tending to practical needs first.',
+  'Across several of your responses you returned to maintaining comfort, protecting your energy, and keeping daily life steady and predictable. You repeatedly described scanning your environment for what could go wrong and quietly securing resources ahead of time. When asked about stress you emphasized withdrawing to conserve, tending to practical needs first. Taken together these responses point toward a steady, self-protective focus that shapes where your attention goes first and what you make sure of before anything else.',
 ];
 
 // splitWingBest / wing+line remap mirror report_prep (kept in sync manually; report_prep is

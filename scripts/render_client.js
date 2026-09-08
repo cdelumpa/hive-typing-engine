@@ -26,7 +26,8 @@ const R = require(path.join(ROOT, 'app/renderer.js'));
 // The instinct axis (PR 4 step 2). Defined in tests/fixtures/ so the harness and
 // tests/instinct_axis_test.js share one definition and cannot drift; this script already
 // requires fixtures from there.
-const { applyInstinct, INSTINCT_MARKUP, applyZ6 } = require(path.join(ROOT, 'tests/fixtures/instinct_axis.js'));
+const { applyInstinct, INSTINCT_MARKUP, applyZ6, Z6_STATES, Z6_CAP_LINES } =
+  require(path.join(ROOT, 'tests/fixtures/instinct_axis.js'));
 
 const PAGE_PX = 1056; // US Letter 11in @96dpi
 const OUT = path.join(ROOT, '.phase6_out');
@@ -219,8 +220,12 @@ const REPORTS = {
     // `null` is sp4's own real evidence, not an empty state — the fixture's untouched
     // 3-bullet SM value, which is what shipped before this axis and is the control the other
     // three are read against.
+    // EVERY STATE IS NAMED as of step 6B. `sp4_real` is the fixture's own untouched evidence,
+    // which used to be a bare `null` here; naming it means every state the matrix renders
+    // carries a declaration, with no entry inheriting a permissive default. anders_sx9 keeps
+    // `[null]` — that is the ABSENCE of the axis, not a state, and it carries no declaration.
     z6For: (fx) => (fx === 'sp4'
-      ? [null, 'sm_bullets', 'em_paragraph', 'em_observed_max']
+      ? ['sp4_real', 'sm_bullets', 'em_paragraph', 'em_observed_max', 'cms_preview']
       : [null]),
   },
   coach: {
@@ -446,6 +451,11 @@ async function measureLayout(page, selector) {
           if (!fontReported) { console.log(`  font probe: ${w.toFixed(2)}px (Arial metrics OK)`); fontReported = true; }
         } catch (e) { fail(e.message); }
         const pages = await measureLayout(page, cfg.selector);
+        // Which logical page carries Z6. Derived from V3_PAGE_ORDER rather than hard-coded,
+        // so it survives a page being added before sheet 10.
+        const z6PageIndex = cfg.z6For
+          ? R.v3PagesFor(asType == null ? 9 : asType).findIndex((pg) => pg.key === 'instincts')
+          : -1;
         let sheets = 0;
         for (const p of pages) {
           sheets += p.sheets;
@@ -455,27 +465,15 @@ async function measureLayout(page, selector) {
           const LBL = cfg.labelsFor ? cfg.labelsFor(asType) : cfg.labels;
           console.log(`  ${(LBL[p.index] || 'page ' + p.index).padEnd(16)} ${p.height}px  ` +
                       `stack ${p.natural.toFixed(2)}px  ${room}${spill}`);
-          // REPORT-ONLY EXEMPTION FOR THE Z6 AXIS (PR 4 step 6A).
-          //
-          // enforceSheet is a property of the CONFIG, not of the render, so without this the
-          // page gate enforces the synthetic Z6 states too — and two of them spill by design.
-          // That would take the whole matrix red on every branch until 6B lands the cap,
-          // which is the exact failure V3_PAIRS documents from PR 3d: a gate that goes red on
-          // arrival blocks every unrelated PR. Report-only in 6A, enforcing in 6B, same as
-          // PR 3d -> PR 3f.
-          //
-          // NARROW BY CONSTRUCTION: only `z6Key != null` is exempt. The 28 renders that
-          // existed before this axis all carry z6Key == null and are enforced exactly as
-          // before, sp4's own real evidence included. The exemption cannot mask a regression
-          // in anything that was already covered.
-          //
-          // The spill is still PRINTED above, with its height and headroom. Failing and
-          // reporting are separate jobs and this still does the second one.
-          const z6Exempt = z6Key != null;
-          if (cfg.enforceSheet && p.height > PAGE_PX + 1) {
-            const msg = `${kind}${asType == null ? '' : ' Type ' + asType} ${(cfg.labelsFor ? cfg.labelsFor(asType) : cfg.labels)[p.index] || 'page ' + p.index} spills to ${p.sheets} sheets (${p.height}px > ${PAGE_PX}px)`;
-            if (z6Exempt) console.log(`  REPORT-ONLY (Z6:${z6Key}, cap lands at 6B) — would fail: ${msg}`);
-            else fail(msg);
+          // p10's verdict on a Z6 render is governed by that state's DECLARATION, compared
+          // against the observation in the Z6 block below. This is not the 6A exemption and
+          // nothing is suppressed: a missing declaration fails, a declared 'fits' that spills
+          // fails, and a declared 'spills' that fits ALSO fails — which is the case an
+          // exemption could never catch. The verdict is moved to where the declaration is,
+          // not removed.
+          const z6Governed = z6Key != null && p.index === z6PageIndex;
+          if (cfg.enforceSheet && p.height > PAGE_PX + 1 && !z6Governed) {
+            fail(`${kind}${asType == null ? '' : ' Type ' + asType} ${(cfg.labelsFor ? cfg.labelsFor(asType) : cfg.labels)[p.index] || 'page ' + p.index} spills to ${p.sheets} sheets (${p.height}px > ${PAGE_PX}px)`);
           }
         }
         const want = cfg.expectedFor ? cfg.expectedFor(asType) : cfg.expected;
@@ -619,6 +617,56 @@ async function measureLayout(page, selector) {
             console.log(`  ${'Z6 band'.padEnd(16)} ${z6.lines} lines  box ${z6.box}px  ` +
                         `${z6.els} element(s)  ${z6.brs} <br>  ` +
                         `last-line fill ${z6.fill == null ? 'n/a (single line)' : z6.fill + '%'}`);
+          }
+
+          // ── THE CAP, AND THE DECLARATIONS (PR 4 step 6B) ───────────────────────────────
+          //
+          // WHAT THIS IS: a CI regression gate. It exists so that a producer change, a prompt
+          // edit or a content edit that pushes Z6 past Z6_CAP_LINES rendered lines goes red
+          // here before it ships.
+          // WHAT IT IS NOT: protection for a client. Nothing in the production path measures
+          // page height — app/generate_report.js:588 is a bare page.pdf() call, and this file
+          // is a CI harness reached only through `npm run verify:render`.
+          //
+          // fail() is called ONLY when an observation contradicts its declaration, so a green
+          // run keeps its ordinary meaning: everything matched what it said it would do. A
+          // harness whose green depended on a failure having occurred would invert that.
+          if (z6Key != null) {
+            const decl = Z6_STATES[z6Key];
+            const p10 = pages[z6PageIndex];
+            // NO DEFAULT. A state that declares neither field cannot fall through to a
+            // permissive assumption — it fails, by name.
+            if (!decl || typeof decl.capLines !== 'number' || (decl.page !== 'fits' && decl.page !== 'spills')) {
+              fail(`Z6 state "${z6Key}" is missing its capLines/page declaration — every state ` +
+                   `named in z6For must declare both (tests/fixtures/instinct_axis.js)`);
+            } else if (decl.renderedInMatrix === false) {
+              // Keeps the label honest. A state marked "not rendered by the matrix" that IS
+              // being rendered means the flag has gone stale — the comment on it would be
+              // silently untrue, which is the thing the flag was added to prevent.
+              fail(`Z6 state "${z6Key}" is marked renderedInMatrix: false but the matrix just ` +
+                   `rendered it — update the flag in tests/fixtures/instinct_axis.js`);
+            } else if (!p10) {
+              fail(`Z6 state "${z6Key}": could not locate the p10 page to judge (index ${z6PageIndex})`);
+            } else {
+              const lines = z6 && !z6.absent ? z6.lines : 0;
+              const spills = p10.height > PAGE_PX + 1;
+              const obs = spills ? 'spills' : 'fits';
+              console.log(`  ${'Z6 cap'.padEnd(16)} ${lines} lines vs cap ${Z6_CAP_LINES}  ` +
+                          `declared ${decl.capLines} lines / ${decl.page}  observed ${lines} lines / ${obs}`);
+              // EXACT, not a bound. A bound would let a state drift a line without notice.
+              if (lines !== decl.capLines) {
+                fail(`Z6 state "${z6Key}": declared ${decl.capLines} rendered lines, observed ${lines}`);
+              }
+              if (obs !== decl.page) {
+                fail(`Z6 state "${z6Key}": declared page "${decl.page}", observed "${obs}" ` +
+                     `(${p10.height}px against the ${PAGE_PX + 1}px gate)`);
+              }
+              // The cap itself. Only states that are supposed to fit are held to it; a state
+              // declared to spill is the hazard case and is SUPPOSED to exceed.
+              if (decl.page === 'fits' && lines > Z6_CAP_LINES) {
+                fail(`Z6 state "${z6Key}": ${lines} rendered lines over the ${Z6_CAP_LINES}-line cap`);
+              }
+            }
           }
         }
         await page.pdf({ path: path.join(OUT, `${kind}_${tag}.pdf`), ...R.buildCoachPdfOptions() });

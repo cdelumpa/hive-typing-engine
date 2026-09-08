@@ -366,6 +366,49 @@ So it is one producer's field measured against the other producer's spec. Real E
 recorded in §9: 17 rows, every one of them 2 or 3 sentences, maximum 532 characters. The fixture
 carrying that value is labelled a **synthetic hazard case** as of step 6A, not a sample.
 
+### 8b. As implemented, at step 6B
+
+The cap is **`Z6_CAP_LINES = 5`** in `tests/fixtures/instinct_axis.js`, imported by
+`scripts/render_client.js`. One constant, not a repeated literal. It is a **line count and not a
+character count**, because character count does not predict line count — §7.4 of the spec struck
+three character ceilings for exactly that reason, and this project has re-proved it twice since.
+
+**What it is: a CI regression gate.** It exists so that a producer change, a prompt edit or a
+content edit that pushes Z6 past five rendered lines goes red in CI before it ships.
+
+**What it is not: protection for a client.** Nothing in the production path measures page height.
+`app/generate_report.js:588` is a bare `page.pdf()` call, and `scripts/render_client.js` is a CI
+harness reached only through `npm run verify:render`. A client report that spills has never been
+stopped by anything, on any page. That is a separate card.
+
+**How it is enforced — a declaration per state, with no default.** Every Z6 state named in the
+matrix declares two things, and a state that declares neither fails by name:
+
+| state | capLines | page | measured |
+|---|---|---|---|
+| `sp4_real` | 4 | fits | 128.50px box, 1015.13 natural |
+| `sm_bullets` | 5 | fits | 147.88px, 1034.50 |
+| `em_paragraph` | **7** | **spills** | 186.63px, 1073.25 |
+| `em_observed_max` | 5 | fits | 147.88px, 1034.50 |
+| `cms_preview` | 5 | fits | 147.88px, 1034.50 |
+
+[CC-MEASURED, step 6B. Headroom on the harness's basis is `1056 − natural`; the gate fails above
+**1057**, so gate-basis headroom is 1px larger.]
+
+**`em_paragraph` is green while spilling.** It is the synthetic hazard case, it is *declared* to
+exceed, and the run is green because it did. **Shortening it until it fits now fails the matrix** —
+which is the case 6A's exemption could never catch, and the whole reason a declaration replaced it.
+
+**The canary, worth knowing before anyone debugs it.** `cms_preview` and `em_observed_max` both sit
+at 5 lines with 21.50px of headroom, so **they are the first things that go red on any p10
+growth** — a taller Z3 definition, a longer Z5 narrative, an extra line anywhere on the page. A red
+there usually means *the page grew*, not that those two values are wrong. Check the other zones
+first.
+
+**The preview constant was re-cut here**, from 4 rendered lines back to 5. 6A's join silently took
+it under the cap by reclaiming each item's partial last line and both 6px inter-item gaps, and
+nothing noticed until a manual re-measure. It is now rendered on every CI run.
+
 ---
 
 ## 9. The production population — what the cap is actually sized against
