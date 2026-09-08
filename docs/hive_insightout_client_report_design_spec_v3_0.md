@@ -884,12 +884,109 @@ Two cautions when re-transcribing:
    function in the mockup. Where does the production equivalent live, and does it replace
    `buildEnneagramSVG()` or extend it?
 
-4. **Quick Reference data.** The heat map and instinct bars need all nine type scores plus the three
-   instinct scores. The coach report has them. Are they exposed to the client report generator today?
+4. ~~**Quick Reference data.** The heat map and instinct bars need all nine type scores plus the three
+   instinct scores. The coach report has them. Are they exposed to the client report generator today?~~
 
-5. **Score display.** Numeric values were deliberately removed from the client-facing charts. Confirm
+   > **Post-lock correction — 8 Sep 2026. ANSWERED, AND RESOLVED IN THE SAME ENTRY.** Traced in
+   > PR 5's audit and closed by PR 5 Build 1, so this records the finding and its resolution
+   > together rather than recording a state and then correcting itself.
+   >
+   > **(a) The answer was: instincts yes, the nine type scores no.** The three instinct scores were
+   > already on the client model as `charts.instincts` (`app/report_prep.js`, `instinctBars`). The
+   > nine type scores were **not**, and the drop was a deliberate one-line DTO projection, not an
+   > accident: the coach model's `charts` carried a `types` key and the client model's omitted it,
+   > same helper in scope, one line apart in the same file. **Build 1 exposed them** — the client
+   > `charts` now carries `types` (`report_prep.js:284`), built by `typeRamp`, a **sibling** of
+   > `typeBars` rather than an overload of it, because `typeBars` colours by centre for the coach
+   > chart and the client figure is a single cyan ramp with no centre semantics.
+   >
+   > **(b) THERE IS NO NINE-WIDE FINALIZED RANKING, and expecting one is the trap this entry
+   > exists to close.** The engine's finalized view of the type hypothesis is **three scalars** —
+   > `leading_candidate`, `alternate_candidate`, `third_candidate` (and `third_candidate` is
+   > reasoning context for the AI and the coach, explicitly never shown to the client;
+   > `app/server.js:4636`). Exactly **two** fields are nine wide, and **neither is the finalized
+   > ranking**:
+   >
+   > | Field | What it is | Deterministic? | Nine wide? |
+   > |---|---|---|---|
+   > | `hypothesis.call1_ranking` | in `em_only` — production — EM's `em_ranking`, an **AI** dimensional confidence score per type. On the SM path, Call #1's coherence ranking. | no | contracted "exactly 9 entries"; **not enforced in code** |
+   > | `hypothesis.type_score_profile` | the mean of five 0-100 sliders per type (`scoreStage1Profile`) — the client's own answers | **yes** | **yes**, by a `TYPES` loop |
+   >
+   > **(c) [DECISION — Cai, 8 Sep 2026] THE NINE NODE FILLS COME FROM `call1_ranking`.** The
+   > measured reason is agreement with the scalars the rest of the page uses: across the 19 stored
+   > production rows, `leading_candidate` equals `call1_ranking` position 1 on **19/19**, and
+   > `alternate_candidate` equals position 2 on **17/19** (the other two sit at position 3).
+   > `[CAI-MEASURED, n=19]` Sourcing the ramp from `type_score_profile` instead would let the
+   > figure and the prose disagree about which type is the alternate — measured on the tracked
+   > `sp4` fixture, where `type_score_profile`'s second-ranked type is 3 while
+   > `alternate_candidate` is 1. `[CLAUDE-MEASURED, 3 fixtures]`
+   >
+   > **(d) ⚠ THE LEADING RING IS SOURCED FROM `hero.number` (i.e. `confirmed_type`), NOT FROM
+   > `leading_candidate`.** [DECISION — Cai, 8 Sep 2026] The **alternate** ring stays on
+   > `alternate_candidate`. **This is recorded here because the spec carries no per-page zone
+   > documentation for sheet 5, so this blockquote is its only home — do not expect a reader to
+   > derive it from (c).** Two reasons, both measured:
+   >
+   > 1. **The redirect collision.** On a REDIRECT, `call2_stamp.js` sets
+   >    `alternate_candidate = redirect_from_type`, and `leading_candidate` **already is** that
+   >    type. Run through the production stamper with Call #1 ranking 9 first and 6 second, and
+   >    the model confirming 6: `confirmed_type` 6, `leading_candidate` 9, `alternate_candidate`
+   >    9. Sourcing the leading ring from `leading_candidate` therefore draws **both rings on node
+   >    9** and none on the client's actual type, under a header that says Type 6.
+   >    `[CLAUDE-MEASURED]` `em_only` never redirects, but the SM path is a live fallback whenever
+   >    the EM call fails, so this is reachable in production.
+   > 2. **Every other zone on sheet 5 uses `confirmed_type`** — the page header, the subtype panel,
+   >    the leading motivation block, the page title, all via `hero.number`. A ring drawn from a
+   >    different scalar can contradict the page it sits on.
+   >
+   > Consequence, stated so it is not read as a defect later: on the 2-of-19 rows where
+   > `alternate_candidate` is `call1_ranking` position 3, the alternate ring sits on the
+   > **third-brightest** node. That is intended — it is visibly unusual and it is not a false
+   > statement, which is the trade the decoupling buys.
+   >
+   > **(e) The full trace, with file and line at every hop, is `docs/audit_pr5_quickref.md` §1**
+   > (`§1.1` at rest, `§1.2` the hop that dropped them, `§1.3` the instinct path, `§1.4` the work).
+   > `§20` carries the fixture measurements and `§22.4d` Build 1's scope.
+
+5. ~~**Score display.** Numeric values were deliberately removed from the client-facing charts. Confirm
    the underlying scale is not a percentage, and that removing the numbers does not break anything
-   downstream.
+   downstream.~~
+
+   > **Post-lock correction — 8 Sep 2026. CONFIRMED ON BOTH COUNTS, AND THE RAMP IS DECIDED.**
+   >
+   > **(a) Neither scale is a percentage, and the two charts read different fields.**
+   >
+   > | Chart | Field | What one unit means | Range |
+   > |---|---|---|---|
+   > | Heat map, nine nodes | `call1_ranking` (see §8.4) | an AI confidence score per type, contracted `<0-100>`. **Nine independent values** — they do not sum to anything and are not shares of a total. | 18-92 across the three tracked fixtures, all integers `[CLAUDE-MEASURED, n=3]`; production spans a leading-to-alternate gap of 0-42, median 19, and row 57 carries **two types at the 100 ceiling** `[CAI-MEASURED, n=19]` |
+   > | Instinct bars, three | `instinct_score_profile` | the **mean of five 0-100 sliders** per instinct (`scoreStage1Profile`, `app/public/assessment.js:768`). **Three independent means**, likewise not shares. | 40-84 across the fixtures `[CLAUDE-MEASURED, n=3]`. Values land on `.0/.2/.4/.6/.8`, so **production is fractional even though every fixture is an integer** |
+   >
+   > Both scales are **0-100 indices with a reachable ceiling** — `tests/stage1_scoring_test.js`
+   > asserts a slider profile of exactly 100.0 and one of exactly 0.0 from real input. That is what
+   > makes (b) possible.
+   >
+   > **(b) [DECISION — Cai, 8 Sep 2026] BOTH CHARTS USE A FIXED CEILING: `0.10 + 0.90 × score/100`.**
+   > One formula, one referent, both figures on the sheet comparable to each other and between
+   > clients.
+   >
+   > **Min-max normalisation across the client's own nine was rejected, and the reason is
+   > measured.** The v3 mockup's SVG implements it — its `fill-opacity` values match
+   > `0.10 + 0.90 × (score − min) / (max − min)` to three decimals. It is degenerate by
+   > construction: **every** client gets exactly one node at full cyan and one at 0.10 regardless
+   > of spread, so a client scoring 48-52 across all nine — genuinely undifferentiated, and the
+   > case a Quick Reference most needs to communicate honestly — renders **pixel-identical** to a
+   > client scoring 31-91. The figure would state a strong type pattern the data does not contain.
+   > It also gave the two charts on one page two different ratio bases, since the mockup's instinct
+   > bars are already `width: {score}%` against a fixed 100. `[CLAUDE-MEASURED]`
+   >
+   > **(c) Nothing downstream breaks.** The numerals were removed from the **client** charts; the
+   > consumer that displays them is the **coach portal**, a different surface, which reads
+   > `call1_ranking` and `instinct_score_profile` and renders them to one decimal
+   > (`app/server.js:2228`, `renderStrengthBars`). It is unaffected by anything on sheet 5.
+   >
+   > One cross-surface inconsistency worth knowing rather than fixing here: those portal bars
+   > normalise against **max observed** (`score / max × 100`), a third basis, for the same three
+   > instinct numbers sheet 5 will draw against a fixed 100.
 
 6. **Editable PDF fields.** Chromium's print-to-PDF does not emit AcroForm fields; `<input>` and
    `<textarea>` render flat. Making p12 typeable requires a post-render stamping step. Field
