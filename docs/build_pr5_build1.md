@@ -171,3 +171,88 @@ The pilot-list lesson applied to each change:
 * **`validateModel`** — the guarantee ("sheet 5's rings always have nodes") is carried by
   `ninePerType` + `nodesFor`, which test the invariant rather than a scalar proxy. The scalar proxy
   A5 originally specified would have passed the two-entry stub.
+
+---
+
+## 3. Phase B — predictions, committed before the push
+
+**Committed before the branch was pushed and before any PR existed.** A deviation is a **finding**.
+
+### 3.1 Expected-red: what CI does with `74f47b5`
+
+`74f47b5` ("A7 — RED BY DESIGN") is deliberately failing. Stated **before** the run:
+
+| Prediction | Basis |
+|---|---|
+| **The `pull_request` run tests the BRANCH HEAD**, not any intermediate commit. `gh` reports its `headSha` as the PR head — the docs PR's run reported `66f2cfe`, which was that branch's head. | `[MEASURED]` on run `34183865983` |
+| **No run fires on `74f47b5`.** `pull_request` fires on PR open/synchronize against the head; `push` fires only on `main`. Neither addresses an intermediate commit. | `[MEASURED]` — workflow lines 17–20 |
+| **So the deliberate red is invisible to CI and cannot fail this PR.** It is reachable only by checking that commit out and running the gates by hand, where it fails by design. | `[ESTIMATED]` from the two above |
+| **The merge commit's `push` run also does not test it** — it tests the merge result. | `[MEASURED]` |
+
+**If a run does fire on `74f47b5` and fails, that is EXPECTED-RED, not a build failure** — and it
+would also be a finding about the workflow, because nothing in the triggers should produce it.
+
+### 3.2 The runs
+
+| # | Prediction | Basis |
+|---|---|---|
+| Q1 | Bare branch push → **zero** runs | `[MEASURED]` — held on the docs PR |
+| Q2 | Opening the PR → **exactly one** run, `pull_request`, on the branch head | `[MEASURED]` |
+| Q3 | **PR number #95** (last merged #94) | `[MEASURED]` |
+| Q4 | **All 11 named steps run, none skip** — no path filters, no step-level `if:` | `[MEASURED]` |
+| Q5 | Merging → a **second** run, `push`, on the merge commit SHA | `[MEASURED]` |
+| Q6 | Both runs `success` on every step | `[ESTIMATED]`, premises measured — see 3.4 |
+
+### 3.3 Wall-clock — a measured basis this time
+
+The docs PR gives real CI numbers for this exact workflow: **branch 2m06s, merge 1m58s**, of which
+**117s** was steps — setup 20s, `verify:render` **85s**, everything else ~12s. `[MEASURED]`
+
+Build 1's local `verify:render` is **52.39s** against a **52.53s** baseline — **−0.3%**. `[MEASURED]`
+So the dominant step should not move.
+
+> **Point estimate 2m06s, predicted range 1m50s – 2m30s, for both runs.** `[ESTIMATED]` from
+> measured components. **The docs-PR lesson is applied**: last time the render step (scaled from
+> measurement) held to 4.9% while the setup steps (estimated by feel) were 3.5× out. Setup is now
+> measured at ~20s rather than guessed at ~70s, and that is where the whole previous deviation sat.
+
+### 3.4 ⚠ The coach byte-diff — the half that has never run
+
+**This branch run is Build 1's first full coach byte-diff.** Every local run reported
+`ALL PASSED — HTML only (PDF half skipped off-Linux)`.
+
+| Half | Prediction | Basis |
+|---|---|---|
+| **HTML** | **PASS** — coach HTML byte-identical | `[MEASURED]` locally on every run of this build |
+| **PDF hash** | **PASS** | `[ESTIMATED]` from measured premises below |
+
+The premises, each `[MEASURED]` on the branch diff:
+
+* the **coach** `charts` line (`report_prep.js:195`, `typeBars`) has no `+`/`-` in the diff;
+* `COACH_SPEC` is unchanged, so `validateModel`'s two new loops (`ninePerType`, `nodesFor`) iterate
+  empty lists for the coach and cannot alter it;
+* `buildCoachReportHTML` and `_coachPage1/2/3` are untouched;
+* `instinctRanks` is called only from `_clv3Instincts`, a client v3 page;
+* everything added to the model — `charts.types`, `alternate_core_motivation` — is on the **client**
+  model only.
+
+The PDF is a deterministic render of that HTML on pinned Chromium 147 with Liberation Sans.
+Identical input, identical environment, identical output.
+
+**A PDF-half failure is a finding and it stops the merge.** It would mean the coach PDF moved while
+its HTML did not — a rendering-level change from something in this build, which none of the premises
+above predicts. It will not be re-run and will not be read as a flake.
+
+### 3.5 The merge
+
+| Prediction | Value | Basis |
+|---|---|---|
+| Files changed | **9** (6 code/script/test + 3 `.md`) | `[MEASURED]` |
+| Line delta | **+587 / −51** | `[MEASURED]` |
+| Non-`.md` paths | **6** — this is a code PR, not a docs PR | `[MEASURED]` |
+| Merge commit parents | **2** (`--no-ff`) | `[MEASURED]` |
+| Branch commits landing | **10** (11 in `rev-list` including the merge) | `[MEASURED]` — stated both ways, since the docs PR's "9 vs 10" was a definitional miss |
+
+**These are the figures as of commit 10 (`4318358`).** This commit adds §3, so the final numbers are
+larger by its own diff — one file, `docs/build_pr5_build1.md`. **File count stays 9, non-`.md` stays
+6; only the insertion count moves.** Predicted rather than explained afterwards.
