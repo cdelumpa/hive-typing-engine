@@ -2220,10 +2220,19 @@ Enumerated at the end of the run. No push, no PR, no merge, no branch deletion.
 | 3 | `2ac1add` | PR 5 audit addendum: content sources and the reopened P2 — §§12–18 |
 | 4 | `ddd5043` | **Spec v3.0: five post-lock corrections, 8 Sep 2026** — the only commit that touches a file other than this document |
 | 5 | `eb856b9` | PR 5 plan detail: revalidate the sequence — §§19–23 |
-| 6 | *this commit* | PR 5 plan detail: close the section-numbering gap |
+| 6 | `7843749` | PR 5 plan detail: close the section-numbering gap |
+| 7 | `e877c53` | **Spec v3.0: §7.3 bullet 1 — the sixth correction** |
+| 8 | *this commit* | PR 5: bring §24's commit table current before the docs merge |
 
-Commit 6's SHA is in the build response and in `git log --oneline main..HEAD`; a commit cannot
+Commit 8's SHA is in the build response and in `git log --oneline main..HEAD`; a commit cannot
 record its own SHA, and amending one to insert it just produces a new SHA and a stale table.
+
+**Commit 7 is the sixth spec correction**, added 8 Sep after the check in its own message: §7.3's
+first bullet did not merely name a stale count, it pointed at **two constants that no longer
+exist**. `V3_EXPLORE_PILOT_TYPES` and `EXPLORE_PILOT_TYPES` were **deleted** at `c1d5183`
+(4 Sep 2026), not collapsed to nine — `grep -rn "PILOT_TYPES"` returns zero hits in any `.js` file.
+Sheets 6-7 are unconditional, and the blank-page guarantee moved from a filter in `v3PagesFor` to a
+throw in the render functions. **Six spec corrections now, not five.**
 
 **Two files on the branch, and the split is deliberate** — commit 4 is the spec, alone, so it can be
 reviewed, reverted or cherry-picked independently of the audit. Everything else is this document.
