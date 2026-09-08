@@ -200,3 +200,61 @@ by file), `tests/lib/report_page_inventory.js` (still `{ 'v3-page': 10 }`),
 
 ⚠ **PR 5 is adding a Wings regression gate** (`scripts/verify_wings_pixel.js`) for a page PR 5 does
 not build. Named here and in the file's own header rather than left to be discovered.
+
+---
+
+## 4. The visual smoke test — and what only looking found
+
+Contact sheet: `.phase6_out/quickref_contact_sheet.png` — the shipped variant beside the tracked
+mockup, then 12 of the 72 ring configurations, plus a flat profile and a tied-at-100 profile.
+Regenerated from `client-quickref` on this branch.
+
+Design spec v3.0 §3.5 requires this rather than treating it as optional: *"Do not derive label
+positions from a formula without rendering… the automation replaces the arithmetic, not the
+looking."* It found two things.
+
+### 4.1 A defect the gate could not see — eight pairs read as one word `[MEASURED]`
+
+On the first sheet, `1 × 2` rendered its two labels as **`LEADINGALTERNATE`**. Measured across all
+72: **32 pairs share a rail, and 8 of them sat at a 2.49–2.79px gap.** The label-vs-label check
+passed every one of them, correctly — **2.5px is not an overlap.** Non-overlap and legibility are
+different requirements, and the first does not imply the second.
+
+Two causes, both fixed:
+
+* **The advance-width estimate was 7% low.** `wide()` used `length × 6.1`; measured, LEADING
+  renders **45.24px over 7 characters** and ALTERNATE **59.20px over 9** — about **6.6** each. The
+  shortfall ate the separation margin.
+* **The margin itself was 6px**, which is a non-overlap allowance, not a legibility one. Now
+  **`LBL_SEP = 14`**.
+
+**Result: minimum same-rail gap 2.49px → 14.59px.** Pairs under 12px: **8 → 0**.
+
+**A new assertion, `MIN_LABEL_SEP = 12`, and per the standing rule it re-opens its own prediction
+in the same commit** — predicted minimum same-rail gap **≥ 12px across all 72** `[ESTIMATED]`,
+actual **14.59px** `[MEASURED]`, held. Red-proven: restoring `LBL_SEP = 6` fails **8 pairs** with
+*"share a rail with only 6.59px between them (min 12) — they read as one word"*.
+
+### 4.2 A defect in the smoke test's own data `[MEASURED]`
+
+The first sheet drew **node 9 ringed LEADING but palest on the ramp**. The renderer was right; my
+contact sheet was wrong. It built scores as
+`[91, 83, 74, …].map((score, i) => ({ type: i + 1, score }))` — the **sorted** list indexed by
+position, so type 1 got 91 and type 9 got 31, while the fixture's real mapping is
+**T9:91 T5:83 T1:74 T8:52 T3:47 T2:44 T7:38 T4:35 T6:31**.
+
+**`SWEEP_SCORES` in `verify_diagrams.js` carried the same shape**, and its comment claimed "the
+tracked anders_sx9 call1_ranking values" — true of the multiset, false of the mapping. Corrected to
+the real type mapping, and the comment now says why it matters.
+
+`[JUDGMENT]` Nothing could have failed on this: geometry does not depend on scores, which B10
+asserts. It is a **readability defect in the evidence**, and it is the same class as Build 1's
+harness finding — a sweep producing data that contradicts the page it draws.
+
+### 4.3 One design note for Cai and Mo, not a defect
+
+The rail places a label at the wheel's **outer radius**, so for the mockup's own case the ALTERNATE
+label sits slightly further below node 5 than the mockup draws it. That is the cost of a rule that
+holds for all 72 rather than for the one pair the mockup contains — and for mid-height nodes
+(3, 6, 7) the label is ~90px from its node, associated by horizontal position alone. It reads
+correctly on the sheet, but it is a design choice worth seeing rather than inheriting.

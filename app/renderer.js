@@ -1348,10 +1348,16 @@ function buildEnneagramSVG({ type, variant, leading, alternate, scores }) {
     // what the per-node rule could not guarantee.
     const railTop = C.cy - (C.r + C.ringR + C.lblGap);
     const railBot = C.cy + (C.r + C.ringR + C.lblGap) + C.lblAsc;
-    // Approximate advance width at 8.5px bold Arial with letter-spacing 1. Used ONLY to keep two
-    // labels on the same rail apart; the gate measures real getBBox() boxes and would fail if
-    // this were badly wrong.
-    const wide = (t) => t.length * 6.1;
+    // Advance width at 8.5px bold Arial with letter-spacing 1. MEASURED, not guessed: LEADING
+    // renders 45.24px over 7 characters and ALTERNATE 59.20px over 9, i.e. ~6.6px each. A first
+    // pass used 6.1 and it was 7% low — which ate the separation below down to 2.5px on eight
+    // pairs, close enough to read as one word. The gate's own label-vs-label check could not see
+    // that: 2.5px is not an overlap. It was caught by LOOKING at a contact sheet, which is what
+    // design spec v3.0 §3.5 means by "the automation replaces the arithmetic, not the looking".
+    const wide = (t) => t.length * 6.6;
+    // Minimum clear space between two labels sharing a rail. NOT the non-overlap the gate
+    // asserts — this is a legibility floor, and the two are different requirements.
+    const LBL_SEP = 14;
     const place = (i, text) => {
       if (i == null || !N[i]) return null;
       const [x, y] = N[i];
@@ -1363,7 +1369,7 @@ function buildEnneagramSVG({ type, variant, leading, alternate, scores }) {
     // label-vs-label check is what proves the nudge is enough.
     if (marks.length === 2 && marks[0].up === marks[1].up) {
       const [a, b] = marks[0].x <= marks[1].x ? [marks[0], marks[1]] : [marks[1], marks[0]];
-      const need = (a.w + b.w) / 2 + 6;
+      const need = (a.w + b.w) / 2 + LBL_SEP;
       const have = b.x - a.x;
       if (have < need) { const push = (need - have) / 2; a.x -= push; b.x += push; }
     }

@@ -31,6 +31,9 @@ const R = require(path.join(ROOT, 'app/renderer.js'));
 const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
 
 const MIN_EDGE_CLEARANCE = 5;   // px, spec section 3.5
+// Legibility floor between two labels on the same rail — a DIFFERENT requirement from the
+// non-overlap the spec's §3.5 gate asserts, and one that check cannot express.
+const MIN_LABEL_SEP = 12;
 const VARIANTS = ['client-wings', 'client-lines'];
 
 // ── client-quickref: 72 RING CONFIGURATIONS, NOT NINE TYPES ────────────────────────────────
@@ -43,10 +46,17 @@ const RING_PAIRS = [];
 for (let lead = 1; lead <= 9; lead++) {
   for (let alt = 1; alt <= 9; alt++) if (alt !== lead) RING_PAIRS.push([lead, alt]);
 }
-// A representative profile for the sweep — the tracked anders_sx9 call1_ranking values. Any
-// nine numbers would do for geometry; these are real ones so the contact sheet is readable.
-const SWEEP_SCORES = [91, 83, 74, 52, 47, 44, 38, 35, 31]
-  .map((score, i) => ({ type: i + 1, score }));
+// A representative profile for the sweep — the tracked anders_sx9 call1_ranking, TYPE-MAPPED.
+// The score MULTISET is the fixture's; so is the mapping, which matters for anyone reading a
+// rendered sweep: the sorted list assigned to types 1..9 in order puts the highest score on
+// type 1 and the lowest on type 9, so a LEADING ring on node 9 sits on the palest node. That
+// is confusing to look at and was caught on a contact sheet rather than by any gate — geometry
+// does not depend on scores (asserted below), so nothing here could have failed.
+const SWEEP_SCORES = [
+  { type: 9, score: 91 }, { type: 5, score: 83 }, { type: 1, score: 74 },
+  { type: 8, score: 52 }, { type: 3, score: 47 }, { type: 2, score: 44 },
+  { type: 7, score: 38 }, { type: 4, score: 35 }, { type: 6, score: 31 },
+];
 
 let failed = false;
 const fail = (m) => { failed = true; console.log(`  *** FAIL — ${m}`); };
@@ -217,6 +227,20 @@ const rectsOverlap = (a, b) =>
       const labels = geo.texts.filter(t => !isNodeNumber(t));
       for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) {
         if (rectsOverlap(labels[i], labels[j])) fail(`${id}: labels "${labels[i].s}" and "${labels[j].s}" overlap`);
+      }
+      // ── LEGIBILITY, WHICH IS NOT NON-OVERLAP (added after a contact-sheet review) ──────
+      // Two labels sharing a rail passed the overlap check above at a 2.49px gap on eight of
+      // the 72 pairs, and at 8.5px they read as ONE WORD — "LEADINGALTERNATE". Non-overlap and
+      // legibility are different requirements and the first does not imply the second. This
+      // asserts the second. Same-rail is a y match; different rails cannot crowd each other.
+      for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) {
+        const [A, B] = labels[i].x <= labels[j].x ? [labels[i], labels[j]] : [labels[j], labels[i]];
+        if (Math.abs(A.y - B.y) > 1) continue;
+        const gap = B.x - (A.x + A.w);
+        if (gap < MIN_LABEL_SEP) {
+          fail(`${id}: labels "${A.s}" and "${B.s}" share a rail with only ${gap.toFixed(2)}px `
+             + `between them (min ${MIN_LABEL_SEP}) — they read as one word`);
+        }
       }
     }
     console.log(`  ${RING_PAIRS.length} configurations measured · minimum edge clearance ${worst.toFixed(2)}px (${worstAt2})`);
