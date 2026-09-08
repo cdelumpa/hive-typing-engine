@@ -1600,7 +1600,7 @@ this section — **the tree was already current, nothing came down.**
 
 ---
 
-## 20. Lead — what is wrong
+## 19. Lead — what is wrong
 
 ### 20.1 The harness invalidates the heat map's inputs on 9 of 9 renders `[MEASURED]`
 
@@ -1678,7 +1678,7 @@ challenge to it: source the LEADING ring from `hero.number` (`confirmed_type`), 
 1. **Every other zone on p5 uses `confirmed_type`** — the header, the subtype panel, the leading
    motivation block, the page title. A ring drawn from a different scalar can contradict the page
    it sits on, and on a REDIRECT it does.
-2. **It fixes 8 of the 9 sweep renders for free** (§20.1), independently of the harness fix.
+2. **It fixes 8 of the 9 sweep renders for free** (§19.1), independently of the harness fix.
 3. **It costs nothing when they agree**, which is 19 of 19 production rows and all three fixtures.
 
 The ALTERNATE ring stays on `alternate_candidate` — that part of the decision is right, and it is
@@ -1714,12 +1714,12 @@ two sections apart. One line, same shape as the others. Cai's list, Cai's call �
 * **§2.2's "the type-axis fixture need is gone" is right, but not for the stated reason.**
   `leading_candidate = call1 #1` holds on 19/19 production rows **and on all three fixtures** —
   but it is not an invariant of the code. On the SM REDIRECT path they diverge by construction
-  (§20.2). The fixture need is gone for **CONFIRMED** rows; it reappears as a REDIRECT need.
-* **§2.3's premise is sound and the answer is the one it suspects** — see §22.
+  (§19.2). The fixture need is gone for **CONFIRMED** rows; it reappears as a REDIRECT need.
+* **§2.3's premise is sound and the answer is the one it suspects** — see §21.
 
 ---
 
-## 21. §2.2 — the fixtures, measured
+## 20. §2.2 — the fixtures, measured
 
 ### 21.1 What carries `call1_ranking` `[MEASURED]`
 
@@ -1747,7 +1747,7 @@ the only short one in the repo.** The thinness is elsewhere.
 | Two types tied at the top | **row 57, both at 100** | **0 of 3** |
 | A score at the 100 ceiling | row 57 | **0 of 3** — max observed 92 |
 | Fractional scores | unknown | **0 of 3** — all integers |
-| REDIRECT (rings collide, §20.2) | reachable via the SM fallback | **0 of 3** — all CONFIRMED |
+| REDIRECT (rings collide, §19.2) | reachable via the SM fallback | **0 of 3** — all CONFIRMED |
 
 **Plain answer to "can the heat map be tested with what exists": partly.** The nine-fill ramp and
 the ordinary two-ring case are covered three times over once the harness is fixed. **Four hazards
@@ -1761,7 +1761,7 @@ additions rather than the two the audit proposed:
 2. **Two types tied at the top, both at 100** — production row 57. Proves the ramp's fixed-ceiling
    formula terminates at exactly 1.00 for both, and that the LEADING ring's node is chosen by
    `hero.number` rather than by a `sort()` whose tie-break is undefined between them.
-3. **A REDIRECT** — §20.2's ring collision. This one is cheap: `redirect69.json` already exists and
+3. **A REDIRECT** — §19.2's ring collision. This one is cheap: `redirect69.json` already exists and
    already produces the collided scalars; it needs promoting to an `api_result`-shaped fixture the
    client harness can render.
 4. **A flat profile** — all nine within a few points. Under the decided fixed-ceiling ramp this is
@@ -1782,7 +1782,7 @@ alternate ring somewhere the ramp does not predict. The need did not disappear; 
 
 ---
 
-## 22. §2.3 — the `|| iz.columns[0]` fallback is **NOT REACHABLE**
+## 21. §2.3 — the `|| iz.columns[0]` fallback is **NOT REACHABLE**
 
 `[MEASURED]` Tested empirically rather than reasoned about — fifteen values of
 `dominant_instinct_hypothesis` with `confirmed_instinct` deleted, each run through
@@ -1823,7 +1823,7 @@ let a miss throw, which is what already happens one hop earlier.
 
 ---
 
-## 23. §2.4 — the sequence, revalidated
+## 22. §2.4 — the sequence, revalidated
 
 ### 23.1 What the seven steps become
 
@@ -1833,12 +1833,12 @@ reported rather than kept as placeholders.
 | Old | Now | Why |
 |---|---|---|
 | 1. Data decision | **gone — decided** | `call1_ranking`, fixed-ceiling ramp `0.10 + 0.90 × score/100`, rings from the scalars. One production query remains outstanding and moves into Build 1 as a pre-flight check, not a step. |
-| 2. The probe | **gone — dissolved** | P2 and P3 answered (addendum §15, §16). P7 superseded by the ramp decision. P1, P4, P5 became verification and move into Step C's assertions. **P6 folds into Build 2** — see §23.2a. Nothing is left to measure before code. |
-| 3. Expose the scores | **BUILD 1** | plus §20.1's harness fix, plus the alternate motivation, plus §2.1's `instinctRanks` extraction |
+| 2. The probe | **gone — dissolved** | P2 and P3 answered (addendum §15, §16). P7 superseded by the ramp decision. P1, P4, P5 became verification and move into Step C's assertions. **P6 folds into Build 2** — see §22.2a. Nothing is left to measure before code. |
+| 3. Expose the scores | **BUILD 1** | plus §19.1's harness fix, plus the alternate motivation, plus §2.1's `instinctRanks` extraction |
 | 4. Content | **parallel, non-blocking** | per Cai 1.1 — the 27 summaries at a 3-rendered-line budget |
 | 5. The diagram | **BUILD 2** | plus P6, plus IO-75's baseline as its **first** commit |
 | 6. The page | **Step C** | plus the P1/P4/P5 verification assertions |
-| 7. Gates and fixtures | **Step D** | now four fixture additions, not two (§21.2) |
+| 7. Gates and fixtures | **Step D** | now four fixture additions, not two (§20.2) |
 
 **Five things, two of which are the build prompts Cai specified.**
 
@@ -1876,7 +1876,7 @@ Answered from the file list, not from memory:
 regions are ~2,750 lines apart (`:1087`/`:1233` against `:3838`) with no shared symbol.
 
 `[JUDGMENT]` **The two prompts cannot be collapsed into one, and I have no refutation to offer** —
-the separation Cai gives is the right one, and §20.1 is the argument for it. Build 1 changes what
+the separation Cai gives is the right one, and §19.1 is the argument for it. Build 1 changes what
 the harness renders; if it is wrong, every geometry measurement Build 2 takes is taken against bad
 data, and the two errors would surface together with no way to attribute them. One condition:
 **Build 2 must not start until Build 1's 27-render matrix and coach baseline are green**, which is
@@ -1964,11 +1964,11 @@ any `.docx`, `scripts/build_content_library.js`, `scripts/verify_diagrams.js`, `
 | A4 | `model.charts.types` scores are numeric and within 0–100 | a fractional or out-of-range score being assumed away |
 | A5 | `leading_candidate` and `alternate_candidate` are both present and both ∈ 1–9 | either absent — the rings would have no node |
 | A6 | The alternate's core motivation is a non-empty string for all 72 leading×alternate pairs | a type whose `explore_v3` is missing |
-| A7 | **After the retype, for every `asType`: `leading_candidate === confirmed_type` and `call1_ranking` position 1 `=== confirmed_type`** | §20.1's defect surviving — **RED BY DESIGN first**, then green |
+| A7 | **After the retype, for every `asType`: `leading_candidate === confirmed_type` and `call1_ranking` position 1 `=== confirmed_type`** | §19.1's defect surviving — **RED BY DESIGN first**, then green |
 | A8 | `cmsPreviewApiResult` emits 9 `call1_ranking` entries | the two-entry stub surviving |
 
 **A7 is the one to write red first.** It fails today on 8 of 9 types, for a reason the table in
-§20.1 states exactly, and watching it fail is what proves the assertion is measuring the thing.
+§19.1 states exactly, and watching it fail is what proves the assertion is measuring the thing.
 
 **One pre-flight, not a code change**: run the production query for
 `api_result -> 'hypothesis' -> 'call1_ranking'` — entry count, score range, and whether any value is
@@ -1985,16 +1985,16 @@ no database access in this session.
    *fit* is genuinely unknown; here the mockup is the fit evidence, and I should have measured
    against it before proposing a step.
 2. **I placed the fixture work in the wrong step and under-sized it.** Step 7's fixtures are not a
-   tidy-up after the page works — items 2 and 3 in §21.2 (the tie at 100, the REDIRECT) are cases
+   tidy-up after the page works — items 2 and 3 in §20.2 (the tie at 100, the REDIRECT) are cases
    where the *design* is undefined, not merely untested. They should be settled before Step C draws
    a ring, even if the fixtures land later.
 3. **I named `instinctRanks` and did not place it**, which is the thing Cai's 2.1 caught. The lesson
    generalises: a recommendation inside a findings section is not a plan item until it has a step, a
-   commit and a falsification. §23.3 gives it all three.
+   commit and a falsification. §22.3 gives it all three.
 
 ---
 
-## 24. §4 — read-back of the repo copy
+## 23. §4 — read-back of the repo copy
 
 Requested so the other copy can be compared against it. **The repo copy at commit `ddd5043`**,
 i.e. **after** the five corrections in §3 of the prompt. Where I changed a section, both states
@@ -2205,11 +2205,11 @@ The rest of §7.2 is unchanged, including its own 4 Sep correction closing the T
   > With this, **p5 carries no conditional content in any zone.**
 ```
 
-**Note the first bullet is untouched and is stale** — see §20.4. It claims five types remain
+**Note the first bullet is untouched and is stale** — see §19.4. It claims five types remain
 unauthored; §7.4's 4 Sep correction in the same document says all nine are authored.
 
 
-## 25. Commits
+## 24. Commits
 
 Enumerated at the end of the run. No push, no PR, no merge, no branch deletion.
 
@@ -2219,9 +2219,10 @@ Enumerated at the end of the run. No push, no PR, no merge, no branch deletion.
 | 2 | `8e553e4` | PR 5 audit: record the commit set — the commits section, since renumbered |
 | 3 | `2ac1add` | PR 5 audit addendum: content sources and the reopened P2 — §§12–18 |
 | 4 | `ddd5043` | **Spec v3.0: five post-lock corrections, 8 Sep 2026** — the only commit that touches a file other than this document |
-| 5 | *this commit* | PR 5 plan detail: revalidate the sequence — §§19–24 |
+| 5 | `eb856b9` | PR 5 plan detail: revalidate the sequence — §§19–23 |
+| 6 | *this commit* | PR 5 plan detail: close the section-numbering gap |
 
-Commit 5's SHA is in the build response and in `git log --oneline main..HEAD`; a commit cannot
+Commit 6's SHA is in the build response and in `git log --oneline main..HEAD`; a commit cannot
 record its own SHA, and amending one to insert it just produces a new SHA and a stale table.
 
 **Two files on the branch, and the split is deliberate** — commit 4 is the spec, alone, so it can be
