@@ -33,10 +33,26 @@ const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
 const MIN_EDGE_CLEARANCE = 5;   // px, spec section 3.5
 const VARIANTS = ['client-wings', 'client-lines'];
 
+// ── client-quickref: 72 RING CONFIGURATIONS, NOT NINE TYPES ────────────────────────────────
+// The two rings are PARAMETERS (design spec v3.0 §8.4) — step 6 passes hero.number and
+// alternate.number — so what varies geometrically is every LEADING x ALTERNATE pair, each
+// placing the two labels at different node positions. 9 x 8 = 72. Scores are NOT swept here:
+// they change fills only, and a fill cannot clip a label. That claim is itself asserted, as the
+// score-independence check further down, rather than assumed.
+const RING_PAIRS = [];
+for (let lead = 1; lead <= 9; lead++) {
+  for (let alt = 1; alt <= 9; alt++) if (alt !== lead) RING_PAIRS.push([lead, alt]);
+}
+// A representative profile for the sweep — the tracked anders_sx9 call1_ranking values. Any
+// nine numbers would do for geometry; these are real ones so the contact sheet is readable.
+const SWEEP_SCORES = [91, 83, 74, 52, 47, 44, 38, 35, 31]
+  .map((score, i) => ({ type: i + 1, score }));
+
 let failed = false;
 const fail = (m) => { failed = true; console.log(`  *** FAIL — ${m}`); };
 // Per-variant geometry, so nodes can be located rather than guessed at.
-const GEOM = { 'client-wings': R.CLIENT_GEO, 'client-lines': R.CLIENT_GEO };
+const GEOM = { 'client-wings': R.CLIENT_GEO, 'client-lines': R.CLIENT_GEO,
+  'client-quickref': R.QUICKREF_GEO };
 
 /** Canonical node centres for a geometry, from the same angle table the renderer uses. */
 function nodeCentres(GEO) {
@@ -152,6 +168,75 @@ const rectsOverlap = (a, b) =>
       }
     }
     await page.close();
+
+  // ── client-quickref — 72 ring configurations (PR 5 Build 2) ────────────────
+  console.log('\nQuick Reference heat map — 72 ring configurations:');
+  {
+    const qpage = await browser.newPage();
+    let worst = Infinity, worstAt2 = '', nodeCountBad = 0, orange = 0, banned = 0;
+    const BANNED = /fill-opacity|stop-opacity|\sopacity\s*=|rgba\(|\btransparent\b|oklch\(|#[0-9a-fA-F]{8}\b/;
+    for (const [lead, alt] of RING_PAIRS) {
+      const svg = R.buildEnneagramSVG({ variant: 'client-quickref', leading: lead, alternate: alt, scores: SWEEP_SCORES });
+
+      // B6 — no transparency construct in the emitted markup. Cheap, and it catches the thing at
+      // authoring time rather than after a render.
+      const m = svg.match(BANNED);
+      if (m) { banned++; fail(`quickref ${lead}x${alt}: banned opacity construct "${m[0]}" in the emitted SVG`); }
+      // B8 — PER-VARIANT, not blanket. client-cover legitimately carries #F68625: the cover's
+      // home node is the sole client marker on a sheet with no page header (spec §5.3, and
+      // renderer.js documents it at the emitter). A blanket check would turn CI red on shipped,
+      // correct work. Orange on THIS figure would be the ramp borrowing the instinct bars' fill.
+      if (svg.includes('#F68625')) { orange++; fail(`quickref ${lead}x${alt}: #F68625 (client orange) inside the heat map — the ramp must stay cyan (spec §5.3)`); }
+
+      await qpage.setContent(`<!doctype html><body style="margin:0;background:#FFFFFF">${svg}</body>`, { waitUntil: 'load' });
+      const geo = await qpage.evaluate(() => {
+        const svgEl = document.querySelector('svg');
+        const vb = svgEl.viewBox.baseVal;
+        return {
+          vw: vb.width, vh: vb.height,
+          texts: [...svgEl.querySelectorAll('text')].map(t => { const b = t.getBBox();
+            return { s: t.textContent, x: b.x, y: b.y, w: b.width, h: b.height }; }),
+          circles: [...svgEl.querySelectorAll('circle')].map(c => ({
+            cx: +c.getAttribute('cx'), cy: +c.getAttribute('cy'), r: +c.getAttribute('r') })),
+        };
+      });
+      const id = `QUICKREF ${lead}x${alt}`;
+      const boxes = nodeBoxes(geo.circles, R.QUICKREF_GEO);
+      if (boxes.length !== 9) { nodeCountBad++; fail(`${id}: ${boxes.length} circles at canonical node positions, expected 9`); }
+      const isNodeNumber = (t) => /^\d$/.test(t.s.trim());
+      for (const t of geo.texts) {
+        const clear = Math.min(t.x, t.y, geo.vw - (t.x + t.w), geo.vh - (t.y + t.h));
+        if (clear < worst) { worst = clear; worstAt2 = `${id} "${t.s}"`; }
+        if (clear < MIN_EDGE_CLEARANCE) fail(`${id}: label "${t.s}" clearance ${clear.toFixed(2)}px < ${MIN_EDGE_CLEARANCE}px`);
+        if (isNodeNumber(t)) continue;
+        for (const c of boxes) {
+          const box = { x: c.cx - c.r, y: c.cy - c.r, w: c.r * 2, h: c.r * 2 };
+          if (rectsOverlap(t, box)) fail(`${id}: label "${t.s}" overlaps the node at (${c.cx.toFixed(1)}, ${c.cy.toFixed(1)})`);
+        }
+      }
+      const labels = geo.texts.filter(t => !isNodeNumber(t));
+      for (let i = 0; i < labels.length; i++) for (let j = i + 1; j < labels.length; j++) {
+        if (rectsOverlap(labels[i], labels[j])) fail(`${id}: labels "${labels[i].s}" and "${labels[j].s}" overlap`);
+      }
+    }
+    console.log(`  ${RING_PAIRS.length} configurations measured · minimum edge clearance ${worst.toFixed(2)}px (${worstAt2})`);
+    console.log(`  node-count failures ${nodeCountBad} · banned opacity constructs ${banned} · #F68625 hits ${orange}`);
+
+    // B10 — SCORE INDEPENDENCE. Two renders with different score vectors must differ ONLY in
+    // fills. Geometry could not previously depend on scores because they could not reach the
+    // builder; Build 2 breaks that property deliberately, so the claim is re-established as a
+    // gate rather than inherited.
+    const strip = (svg) => svg.replace(/fill="#[0-9A-F]{6}"/g, 'fill="X"')
+                              .replace(/stop-color="#[0-9A-F]{6}"/g, 'stop-color="X"');
+    const flat = [1,2,3,4,5,6,7,8,9].map(t => ({ type: t, score: 50 }));
+    const a = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 5, scores: SWEEP_SCORES });
+    const b = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 5, scores: flat });
+    if (a === b) fail('score-independence: two different score vectors produced identical SVG — the ramp is not reading scores');
+    else if (strip(a) !== strip(b)) fail('score-independence: two score vectors differ OUTSIDE fill — a position or label depends on a score');
+    else console.log('  score independence: differs in fills only ✓');
+    await qpage.close();
+  }
+
   } finally {
     await browser.close();
   }

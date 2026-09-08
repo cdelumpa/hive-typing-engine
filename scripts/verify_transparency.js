@@ -140,6 +140,53 @@ function badControlHtml() {
       console.log('  ✓ scanner detects transparency when it is present');
     }
 
+    // ── STANDALONE SVG SCAN — sheet 5's figure, before sheet 5 exists (PR 5 Build 2) ────────
+    //
+    // WHY THIS IS NOT DEFERRED TO STEP 6. The real gate below renders the whole v3 document, and
+    // `quickref` has no `built: true` until step 6 — so the strongest gate in the repo
+    // STRUCTURALLY CANNOT SEE the figure Build 2 produces. "We'll catch it at step 6" is the PR 4
+    // failure exactly: a renderer assertion passing vacuously because the page did not exist.
+    //
+    // buildEnneagramSVG is a pure function of its arguments and takes no page context, so its
+    // output can be scanned standalone. That is the whole reason this works.
+    //
+    // THE RED CONTROL IS A REAL TRACKED ARTIFACT, not a synthetic mutation: the mockup's own
+    // heat-map SVG carries fill-opacity on all nine nodes plus a stop-opacity gradient, and
+    // scans at 1 group / 1 mask / 8 non-opaque alphas. The shipped variant re-expresses those as
+    // opaque solids and scans clean.
+    {
+      const SC = [91, 83, 74, 52, 47, 44, 38, 35, 31].map((score, i) => ({ type: i + 1, score }));
+      const wrap = (svg) => `<!doctype html><html><head><meta charset="utf-8"><style>`
+        + `*{margin:0;padding:0}body{background:#FFFFFF}svg{display:block;width:322px}`
+        + `</style></head><body>${svg}</body></html>`;
+      console.log('\nstandalone SVG scan — client-quickref (sheet 5 is not built yet):');
+      for (const [lead, alt] of [[9, 5], [1, 2], [4, 8]]) {
+        const svg = R.buildEnneagramSVG({ variant: 'client-quickref', leading: lead, alternate: alt, scores: SC });
+        const r = scan(await renderPdf(browser, wrap(svg)));
+        console.log(`  ${lead}x${alt}: groups ${r.groups} · masks ${r.smasks} · alpha<1 ${r.alphas} · blends ${r.blends}`);
+        if (r.groups || r.smasks || r.alphas || r.blends) {
+          fail(`client-quickref ${lead}x${alt}: ${r.groups} group(s), ${r.smasks} mask(s), `
+             + `${r.alphas} non-opaque alpha(s) — the ramp must be OPAQUE SOLIDS (spec 3.2)`);
+        }
+      }
+      // Positive control: the tracked mockup SVG must still trip the scanner, or this block
+      // proves nothing about the block above.
+      const mock = fs.readFileSync(path.join(ROOT, 'docs/mockup/claude_The_Peacemaker_Page_AtAGlance_v1.html'), 'utf8');
+      const msvg = mock.slice(mock.indexOf('<svg viewBox="0 0 360 352"'), mock.indexOf('</svg>') + 6);
+      if (!msvg.startsWith('<svg')) {
+        fail('standalone control: could not extract the mockup heat-map SVG — the fixture changed shape');
+      } else {
+        const c = scan(await renderPdf(browser, wrap(msvg)));
+        console.log(`  control (tracked mockup SVG): groups ${c.groups} · masks ${c.smasks} · alpha<1 ${c.alphas}`);
+        if (!c.groups && !c.alphas) {
+          fail('standalone control: the mockup SVG scanned CLEAN — it carries fill-opacity and '
+             + 'stop-opacity, so the scanner is not measuring anything on standalone SVG');
+        } else {
+          console.log('  ✓ scanner detects transparency in a standalone SVG');
+        }
+      }
+    }
+
     if (!selfTestOnly) {
       // ── the real gate: the v3 client report must be free of all four ──
       const apiResult = require(path.join(ROOT, `tests/fixtures/${FIXTURE}_api_result.json`));

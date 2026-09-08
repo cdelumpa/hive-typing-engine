@@ -1071,6 +1071,42 @@ const COVER_GEO  = { vw: 420, vh: 420, cx: 210, cy: 210, r: 158, rNode: 23, fs: 
 const WHATIS_GEO = { vw: 300, vh: 300, cx: 150, cy: 150, r: 112, rNode: 16, fs: 13, ring: 1.4, web: '#9FD9EA', web_w: 1.5 };
 
 /**
+ * Sheet 5 "Quick Reference" — the heat-map wheel.
+ *
+ * A FOURTH client geometry, ported from docs/mockup/claude_The_Peacemaker_Page_AtAGlance_v1.html
+ * with TWO deliberate departures, both recorded rather than silent:
+ *
+ * 1. `vh` 352 -> 356 and `cy` 150 -> 154, i.e. the content sits 4px lower in a 4px taller box.
+ *    The mockup's LEADING label measures 1.17 viewBox px from the canvas top — a hard FAIL of
+ *    scripts/verify_diagrams.js's 5px edge rule, which is enforced in viewBox units. Shifting
+ *    down 4 clears it without moving anything relative to anything else.
+ * 2. Fills are OPAQUE SOLIDS, not `fill-opacity`. Design spec v3.0 §3.2 forbids the alpha path
+ *    outright, and the mockup violates it: rendered standalone through the pinned Chromium it
+ *    produces 1 transparency group, 1 soft mask and 8 non-opaque alphas (measured). So the SVG
+ *    is RE-EXPRESSED, not ported.
+ *
+ * `ringR` is the concentric marker around the leading and alternate nodes — a second circle at
+ * the same centre, which is why verify_diagrams.js sizes its node box to the LARGEST circle at
+ * each position.
+ */
+const QUICKREF_GEO = { vw: 360, vh: 348, cx: 180, cy: 157, r: 105, rNode: 21, ringR: 27, fs: 16,
+  web: '#E4E9ED', web_w: 1.3, rim: '#D9E1E6',
+  lblFs: 8.5, lblGap: 9, lblAsc: 7.9, rampX: 30, rampW: 300, rampH: 8, rampY: 316, capFs: 8.5 };
+
+// The cyan ramp, as OPAQUE SOLIDS. t = 0.10 + 0.90 x score/100 (design spec v3.0 §8.5, decided
+// 8 Sep) is applied as a lerp from white toward the cyan token rather than as an alpha, so the
+// emitted fill is a flat hex and Chromium has no transparency group to build. A fixed ceiling,
+// NOT min-max across the client's own nine: min-max is degenerate — every client would get one
+// node at full cyan and one at 0.10 whatever their spread, so a flat 48-52 profile would render
+// pixel-identical to a 31-91 one.
+const RAMP_BASE = [0, 178, 217];            // #00B2D9
+function rampFill(score) {
+  const t = 0.10 + 0.90 * (Math.max(0, Math.min(100, Number(score) || 0)) / 100);
+  const ch = (c) => Math.round(255 + t * (c - 255)).toString(16).padStart(2, '0');
+  return `#${ch(RAMP_BASE[0])}${ch(RAMP_BASE[1])}${ch(RAMP_BASE[2])}`.toUpperCase();
+}
+
+/**
  * Sheet 6 "Exploring Your Type Hypothesis" — the small in-line wheel.
  *
  * A third client geometry, smaller than either of the other two and ported from
@@ -1201,7 +1237,12 @@ function _arrowMarker(id, color) {
 }
 
 // A6 — single source for all Enneagram diagrams. variant: 'base'|'type'|'wings-lines'.
-function buildEnneagramSVG({ type, variant }) {
+// SIGNATURE WIDENED at PR 5 Build 2, and this is a shared primitive five shipped pages call.
+// `leading`, `alternate` and `scores` are read ONLY by the 'client-quickref' branch; every other
+// branch ignores them, which is asserted by B11 — all nine pre-existing variants emit
+// byte-identical SVG across all nine types, before and after. Scores could not previously reach
+// this function at all: it took { type, variant } and no call site passed anything else.
+function buildEnneagramSVG({ type, variant, leading, alternate, scores }) {
   const open = `<svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">`;
   const uid = `${variant}-${type || 'base'}`;
 
@@ -1246,6 +1287,114 @@ function buildEnneagramSVG({ type, variant }) {
     return `<svg viewBox="0 0 ${C.vw} ${C.vh}" xmlns="http://www.w3.org/2000/svg">`
       + `<circle cx="${C.cx}" cy="${C.cy}" r="${C.r}" fill="none" stroke="#C8D0D9" stroke-width="${C.ring}"/>`
       + nodes + `</svg>`;
+  }
+
+  if (variant === 'client-quickref') {
+    // THE TWO RINGS ARE PARAMETERS, NOT DERIVED. Step 6 passes hero.number for the solid LEADING
+    // ring and alternate.number for the dashed ALTERNATE (design spec v3.0 §8.4, decided 8 Sep).
+    // The figure resolves neither from the model nor from this array's own ordering: on a
+    // REDIRECT, leading_candidate and alternate_candidate are the SAME type, and sourcing the
+    // leading ring from it would draw both rings on one node and none on the client's own type.
+    const C = QUICKREF_GEO;
+    const N = _wheelNodes(C);
+    const byType = Object.fromEntries((scores || []).map((r) => [r.type, r.score]));
+    if (!SVG_TYPE_META[leading]) {
+      throw new Error(`buildEnneagramSVG: variant "client-quickref" needs a valid leading type, got ${leading}`);
+    }
+    // TWO RINGS ON ONE NODE IS REFUSED HERE, not left to the page. Under hero.number sourcing
+    // they should never collide — but "should never" is what the redirect-collision card is
+    // about, and that collision is the case where they did. A dashed ring stacked on a solid one
+    // reads as a rendering artefact rather than as the data defect it would be.
+    if (alternate != null && alternate === leading) {
+      throw new Error(`buildEnneagramSVG: client-quickref leading and alternate are both type ${leading} `
+        + `— the two rings would collide; the caller must resolve this before rendering`);
+    }
+
+    let nodes = '';
+    for (const k of Object.keys(N)) {
+      const i = +k, [x, y] = N[i];
+      const isLead = i === leading, isAlt = i === alternate;
+      if (isLead || isAlt) {
+        nodes += `<circle cx="${x}" cy="${y}" r="${C.ringR}" fill="none" stroke="#00B2D9" `
+               + `stroke-width="${isLead ? 2.4 : 1.6}"${isAlt ? ' stroke-dasharray="4,3"' : ''}/>`;
+      }
+      const fill = rampFill(byType[i]);
+      // Numeral contrast follows the ramp, not the ring: white once the fill is dark enough to
+      // carry it. The threshold is on t, so it moves with the formula rather than with a
+      // hand-picked score.
+      const dark = (0.10 + 0.90 * ((byType[i] || 0) / 100)) >= 0.62;
+      nodes += `<circle cx="${x}" cy="${y}" r="${C.rNode}" fill="${fill}" stroke="#C8D0D9" stroke-width="1"/>`
+             + `<text x="${x}" y="${(y + C.fs * 0.37).toFixed(1)}" text-anchor="middle" font-family="Arial" `
+             + `font-size="${C.fs}" font-weight="bold" fill="${dark ? '#FFFFFF' : '#4A5568'}">${i}</text>`;
+    }
+
+    // Labels sit RADIALLY OUTWARD from their node, on the line from the centre through it, so the
+    // rule holds for all 72 leading x alternate pairs rather than for the one the mockup drew.
+    // LABEL PLACEMENT — A COMMON RAIL, NOT PER-NODE, AND MEASURED RATHER THAN DERIVED.
+    //
+    // Two earlier rules were written and both were measured failing across the 72 pairs, which
+    // is why this one is stated with its evidence (design spec v3.0 §3.5: "Do not derive label
+    // positions from a formula without rendering"):
+    //
+    //   RADIAL from the node — minimum edge clearance **-3.15px**. It pushes labels off the top
+    //   for node 9 and off the sides for nodes near the horizontal.
+    //   ABOVE/BELOW each node — clears the edges, but a label above node 2 lands on top of
+    //   node 1, which sits ~61px away along the circle. Same collision class §3.5 records for
+    //   WINGS TYPE 1.
+    //
+    // THE RAIL: labels sit at the wheel's outer radius, above it for an upper-half node and
+    // below for a lower-half one, horizontally centred on their own node. Because the rail is
+    // outside every node's ring, a label cannot overlap ANY node — not merely its own — which is
+    // what the per-node rule could not guarantee.
+    const railTop = C.cy - (C.r + C.ringR + C.lblGap);
+    const railBot = C.cy + (C.r + C.ringR + C.lblGap) + C.lblAsc;
+    // Approximate advance width at 8.5px bold Arial with letter-spacing 1. Used ONLY to keep two
+    // labels on the same rail apart; the gate measures real getBBox() boxes and would fail if
+    // this were badly wrong.
+    const wide = (t) => t.length * 6.1;
+    const place = (i, text) => {
+      if (i == null || !N[i]) return null;
+      const [x, y] = N[i];
+      return { text, x, up: y < C.cy, w: wide(text) };
+    };
+    const marks = [place(leading, 'LEADING'), place(alternate, 'ALTERNATE')].filter(Boolean);
+    // TWO LABELS ON ONE RAIL CAN COLLIDE — adjacent nodes are ~36px apart in x while the labels
+    // run 45-59px wide. Push them apart symmetrically when they would overlap; the gate's
+    // label-vs-label check is what proves the nudge is enough.
+    if (marks.length === 2 && marks[0].up === marks[1].up) {
+      const [a, b] = marks[0].x <= marks[1].x ? [marks[0], marks[1]] : [marks[1], marks[0]];
+      const need = (a.w + b.w) / 2 + 6;
+      const have = b.x - a.x;
+      if (have < need) { const push = (need - have) / 2; a.x -= push; b.x += push; }
+    }
+    // Keep every label inside the canvas after the nudge, with the gate's own 5px margin.
+    const labels = marks.map((m) => {
+      const half = m.w / 2;
+      const x = Math.min(Math.max(m.x, 5 + half), C.vw - 5 - half);
+      return `<text x="${x.toFixed(1)}" y="${(m.up ? railTop : railBot).toFixed(1)}" text-anchor="middle" `
+           + `font-family="Arial" font-size="${C.lblFs}" font-weight="bold" fill="#00B2D9" `
+           + `letter-spacing="1">${m.text}</text>`;
+    }).join('');
+
+    // The legend ramp. Both gradient stops are OPAQUE — they terminate on the underlying colour
+    // rather than on `transparent`, which is the construct spec §3.2 names as the cause of the
+    // cover rendering PINK in one viewer.
+    const gid = `qr-ramp-${leading}-${alternate == null ? 'x' : alternate}`;
+    const defs = `<defs><linearGradient id="${gid}">`
+      + `<stop offset="0%" stop-color="${rampFill(0)}"/><stop offset="100%" stop-color="${rampFill(100)}"/>`
+      + `</linearGradient></defs>`;
+    const capY = C.rampY + C.rampH + 13;
+    const legend = `<rect x="${C.rampX}" y="${C.rampY}" width="${C.rampW}" height="${C.rampH}" rx="3" fill="url(#${gid})"/>`
+      + `<text x="${C.rampX}" y="${capY}" font-family="Arial" font-size="${C.capFs}" fill="#6B7785">Less like you</text>`
+      + `<text x="${C.rampX + C.rampW}" y="${capY}" text-anchor="end" font-family="Arial" font-size="${C.capFs}" fill="#6B7785">More like you</text>`;
+
+    const line = (pts) => `<polyline points="${pts.map(i => `${N[i][0]},${N[i][1]}`).join(' ')}" fill="none" stroke="${C.web}" stroke-width="${C.web_w}"/>`;
+    return `<svg viewBox="0 0 ${C.vw} ${C.vh}" xmlns="http://www.w3.org/2000/svg">`
+      + defs
+      + `<circle cx="${C.cx}" cy="${C.cy}" r="${C.r}" fill="none" stroke="${C.rim}" stroke-width="${C.web_w}"/>`
+      + line(CLIENT_TRIANGLE) + line(CLIENT_HEXAGON)
+      + nodes + labels + legend
+      + `</svg>`;
   }
 
   if (variant === 'client-cover' || variant === 'client-whatis') {
@@ -3995,7 +4144,7 @@ module.exports = {
   // matching them to the canonical centres CLIENT_ANGLES + the geometry constant produce —
   // not by radius, and not by an attribute the builder puts on itself. Export only; the
   // emitted SVG is unchanged.
-  COVER_GEO, WHATIS_GEO, CLIENT_GEO, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
+  COVER_GEO, WHATIS_GEO, CLIENT_GEO, QUICKREF_GEO, rampFill, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
   buildClientHTML, buildCoachHTML, buildBetaHTML, betaReportBodyHtml, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
   buildCoachReportHTML, buildCoachPdfOptions, COACH_CLARIFICATION_QUESTIONS,
