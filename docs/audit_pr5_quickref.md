@@ -2345,3 +2345,324 @@ changed.
 
 **If any step fails, that is the finding**, and it means the docs-only assertion was wrong or CI is
 testing something the local run does not.
+
+---
+
+# 26. Step 4 — the 27 subtype summaries, measured
+
+**Branch** `pr5-step4-subtype-measure`, base `90640b8`. Predictions committed first at `6acef77`
+(`docs/predictions_pr5_step4.md`), before any browser launched. This section is the result.
+
+**No product code changed. No client prose entered the repo.** The 27 strings were injected at
+runtime by replacing `.stxt`'s `textContent` in the loaded page; the mockup file on disk is
+untouched — blob `813e871` at base, at the predictions commit, and here. The measurement harness
+lives in the session scratchpad and is not committed, because it embeds the strings.
+
+**One deliberate exception, stated rather than slipped in.** The single word `compartmentalizing`
+appears below. It is one common English word, not prose, and it is the measured cause of the
+narrowest full line in the set — the number the recommended ceiling is derived from. Without it the
+finding in §26.4 is unverifiable. No sentence, clause or phrase from the 27 appears anywhere in this
+repo; a scan of this branch's full diff against `main` for eleven distinctive phrases from the set
+returns nothing.
+
+## 26.1 What is wrong with the ask — read this before the numbers
+
+**① The premise that some of the 27 fail is false. Zero of them render at 4 or more lines.** The
+step-4 brief asked for the table sorted descending "so the failures are at the top." There are no
+failures. Fifteen render at 3 lines, ten at 2, two at 1. The longest string in the set, SO5 at 161
+characters, lands at exactly 3 lines with its widest line at 300.17 px in a 308.00 px box — 7.83 px
+of slack. Cai and Mo have already written inside the bound. The ceiling below is for *future*
+authoring and for the rewrite that a page build may force; it is not triage of this set.
+
+**② M4's SAFE CEILING formula is unsound, and it is unsound in a way that would cost real copy.**
+`3 × (min chars-per-line)` takes the minimum of a *per-string average* — chars ÷ lines — and that
+average is depressed by short terminal lines, which say nothing about how much text a line holds.
+The minimum is set by SP6 at 34.00, and SP6 hits 34.00 only because its 68 characters break 57 / 10:
+its second line carries one word. The resulting ceiling, **102**, would reject **17 of the 27
+strings that demonstrably fit**, six of them by more than 20 characters, including SO5 which fits by
+7.83 px. A rule that rejects the whole measured sample is not a safe rule, it is a broken one.
+
+The number that actually follows from greedy line-breaking is the **minimum full-line char count**.
+If a string wraps to 4 lines, its first 3 lines are by definition full — a further word would
+overflow. So `chars ≥ 3 × m`, where `m` is the smallest number of characters a full line can carry.
+Terminal lines are excluded because they are never full. That method is used below and it is the
+number this pass recommends. It was named as the recommendation in the predictions file, before the
+data — see P3.3 — so it is a method disagreement, not a result picked after the fact.
+
+**③ Neither ceiling is unconditionally sufficient, and "sufficient, not necessary" understates it.**
+The brief asks the report to say the ceiling is a sufficient condition. It is weaker than that: it
+is sufficient *conditional on the character mix and the maximum word length staying close to the
+sample's*. `m = 41` was set by SX5's second line, and that line stops at 41 characters (218.19 px in
+a 308.00 px box, 89.81 px left empty) for one reason — the next word is **"compartmentalizing"**, 18
+characters, **108.39 px, 35.2 % of the box width**. A 22-character word would push `m` lower and the
+ceiling with it. The only *unconditionally* sufficient char ceiling is the widest-glyph bound:
+`3 × floor(308.00 / 11.7984)` = **78**, where 11.7984 px is the measured advance of `W`. That is
+correct, useless, and 40 % below what the sample actually sustains. Say "safe for prose like this
+prose," and mean it.
+
+**④ "Ceiling" presupposes monotonicity, so it was checked rather than assumed.** Across all 351
+ordered pairs of the 27, no string renders on more lines than a longer string. It holds here. It is
+a property of this sample, not a law — a single wide word can invert it — so the OBSERVED CEILING
+below is quoted with that check attached rather than left implicit.
+
+## 26.2 M1 — the box
+
+Chromium 147.0.7727.57 (pinned, bundled, via `app/browser_launch.js`), viewport 816 × 1056,
+`emulateMediaType('print')`, `document.fonts.ready` awaited.
+
+| Property | Value | Label | Counting basis |
+|---|---|---|---|
+| `.stxt` content width | **308.00 px** | `[MEASURED]` | `clientWidth − paddingLeft − paddingRight`, the `contentBox` helper in `scripts/lib/line_metrics.js`. `getBoundingClientRect().width` agrees at 308.00 — the box is not content-shrunk. |
+| Width invariance across all 29 injections | **308.00 px, every one** | `[MEASURED]` | `.half` is `flex:1` = `flex:1 1 0%`, basis 0 and equal grow, so the halves split the row regardless of content. Asserted, not assumed: every per-string number below shares one width. |
+| `font-family` resolved | **`Arial, sans-serif`** — Arial, no substitution | `[MEASURED]` | `bl.assertReportFont` advance probe returned **2378.80859375 px**, against the genuine-Arial constant **2378.81** — Δ **0.0014 px**. Liberation Sans reproduces this; DejaVu Sans does not. |
+| `font-size` | **12.5 px** | `[MEASURED]` | `getComputedStyle`, from `.stxt{font-size:12.5px}` |
+| `line-height` | **18.75 px** | `[MEASURED]` | `getComputedStyle`, `1.5 × 12.5` |
+| `font-weight` / `letter-spacing` / `word-spacing` | **400 / normal / 0 px** | `[MEASURED]` | no tracking adjustments in play |
+
+Derivation of 308.00 from the stylesheet, so the number is checkable without a browser: `.page` 816
+− 2 × 53 padding = 710; `.two` is `display:flex; gap:18px` with two `flex:1` children → 346 each;
+`.half` has a 1 px border each side → 344; `.hbd` has `padding:16px 18px` → **308**. `[DERIVED]`,
+and it agrees with the measurement exactly.
+
+Selected Arial advances at 12.5 px, used by the bounds above. `[MEASURED]` — width of a 20-character
+repeat ÷ 20, in a `white-space:pre` span inheriting `.stxt`'s font:
+
+| `W` | `M` | `m` | `w` | `O` | `A` | `e`/`o`/`n` | space | `i`/`l` |
+|---|---|---|---|---|---|---|---|---|
+| 11.7984 | 10.4133 | 10.4133 | 9.0273 | 9.7234 | 8.3375 | 6.9523 | 3.4734 | 2.7773 |
+
+## 26.3 M2 — the 27
+
+Sorted by line count descending, then char count descending.
+
+- **lines** `[MEASURED]` — `Range.selectNodeContents(.stxt)` → `getClientRects()`, rects with
+  `width > 0 && height > 0`, merged by top edge rounded to 0.5 px, sorted by top. The established
+  method, identical to `lineRects` in `scripts/lib/line_metrics.js`. Not box height.
+- **chars** `[MEASURED]` — `textContent.replace(/\s+/g,' ').trim().length`, the same basis as
+  `measureZones`. Includes spaces and terminal punctuation.
+- **widest line** `[MEASURED]` — merged rect `right − left`, 2 dp.
+- **per-line chars** `[MEASURED]` — one `Range` per character index; a space collapsed at a wrap has
+  a zero-width rect and is counted on neither line. So `Σ lineChars + (lines − 1) = chars`, which
+  held for all 27 with no exceptions — the arithmetic check is what makes the per-line split
+  trustworthy.
+- **chars/line** `[DERIVED]` — chars ÷ lines. The average basis. See §26.1 ② for why it misleads.
+
+| # | lines | chars | widest line px | chars/line | per-line chars |
+|---|---|---|---|---|---|
+| SO5 | 3 | 161 | 300.17 | 53.7 | 50 · 55 · 54 |
+| SO1 | 3 | 148 | 298.80 | 49.3 | 52 · 52 · 42 |
+| SO3 | 3 | 130 | 297.39 | 43.3 | 56 · 55 · 17 |
+| SX5 | 3 | 130 | 271.23 | 43.3 | 50 · **41** · 37 |
+| SO8 | 3 | 126 | **307.69** | 42.0 | 55 · 54 · 15 |
+| SP1 | 3 | 125 | 298.31 | 41.7 | 55 · 50 · 18 |
+| SO7 | 3 | 120 | 294.63 | 40.0 | 45 · 53 · 20 |
+| SX4 | 3 | 119 | 301.56 | 39.7 | 45 · 56 · 16 |
+| SP7 | 3 | 118 | 304.59 | 39.3 | 54 · 54 · 8 |
+| SX3 | 3 | 117 | 300.84 | 39.0 | 52 · 54 · 9 |
+| SX7 | 3 | 114 | 301.11 | 38.0 | 53 · 51 · 8 |
+| SX9 | 3 | 114 | 301.88 | 38.0 | 52 · 48 · 12 |
+| SP2 | 3 | 113 | 295.31 | 37.7 | 48 · 54 · 9 |
+| SO4 | 3 | 112 | 260.14 | 37.3 | 47 · 44 · 19 |
+| SP5 | 3 | 112 | 278.91 | 37.3 | 50 · 52 · 8 |
+| SP4 | 2 | 110 | 306.70 | 55.0 | 54 · 55 |
+| SX2 | 2 | 108 | 307.14 | 54.0 | 51 · 56 |
+| SO6 | 2 | 101 | 292.53 | 50.5 | 44 · 56 |
+| SX1 | 2 | 97 | 289.30 | 48.5 | 50 · 46 |
+| SX8 | 2 | 93 | 305.98 | 46.5 | 55 · 37 |
+| SO2 | 2 | 89 | 304.61 | 44.5 | 53 · 35 |
+| SX6 | 2 | 87 | 302.52 | 43.5 | **57** · 29 |
+| SP8 | 2 | 85 | 298.33 | 42.5 | 53 · 31 |
+| SP3 | 2 | 78 | 299.72 | 39.0 | 54 · 23 |
+| SP6 | 2 | 68 | 303.22 | **34.0** | **57** · 10 |
+| SP9 | 1 | 52 | 291.41 | 52.0 | 52 |
+| SO9 | 1 | 51 | 284.50 | 51.0 | 51 |
+
+**Strings rendering at 4 or more lines: NONE.** `[MEASURED]` — stated explicitly because M2 asked
+for it explicitly. The set maximum is 3.
+
+`[AGGREGATE]` — line distribution **1 line: 2 · 2 lines: 10 · 3 lines: 15 · 4+ lines: 0**; total
+rendered lines **67** across 2878 characters.
+
+**Quote-form sensitivity `[MEASURED]`.** Two strings carry quote marks and the transcription used
+straight forms. Both were re-measured with curly forms (`'` → `’`, `"…"` → `“…”`): SP5 3 lines,
+278.91 → 279.08 px; SO8 3 lines, 307.69 → 307.14 px. Line counts unchanged, widths move by
+< 0.6 px. **The typographic form of the quotes does not affect any conclusion here** — but SO8's
+widest line is the widest in the whole set at 307.69 px in a 308.00 px box, **0.31 px of slack**, so
+if the authoring doc's punctuation normalisation ever changes that line's characters, SO8 is the
+string that wraps first.
+
+## 26.4 M3 — chars per line
+
+**Average basis** — chars ÷ lines, per string, as M3 specifies. `[AGGREGATE]` over 27 strings:
+
+| | value | string |
+|---|---|---|
+| min | **34.00** | **SP6** — 68 chars breaking 57 / 10 |
+| median | **42.50** | — |
+| max | **55.00** | SP4 — 110 chars breaking 54 / 55 |
+| mean, pooled (2878 ÷ 67) | **42.96** | — |
+
+**SP6 is the worst case only in the sense M3 means, and it is not a worst case at all.** Its *first*
+line carries **57 characters**, the joint-widest in the set. It scores 34.00 because its last word
+sits alone on line 2. Nothing about SP6 tells you a line is hard to fill; the opposite.
+
+**Full-line basis** — the 40 non-terminal lines across the 27, which are the only lines that were
+actually filled to the wrap. `[AGGREGATE]`:
+
+| | chars | width px |
+|---|---|---|
+| min | **41** — SX5 line 2 | 218.19 |
+| median | 52.5 | 295.79 |
+| mean | 51.63 | — |
+| max | **57** — SP6 line 1, SX6 line 1 | 307.69 (SO8 line 2, 54 chars) |
+
+**The real worst case is SX5's second line: 41 characters, 218.19 px, 89.81 px of the box left
+empty.** The cause is measured, not guessed — the following word is `compartmentalizing`, rendering
+at **108.39 px**, **35.2 %** of the 308.00 px box, the widest word anywhere in the 27. Next widest:
+`attractiveness` 77.13 px, `indispensable` 76.45 px, `expectations.` 73.67 px. **A single long word
+costs more line capacity than any other property of the copy**, and it is the one thing authors can
+control without counting characters.
+
+## 26.5 M4 — the ceilings
+
+| Ceiling | Value | Label | Basis, and exactly what it licenses |
+|---|---|---|---|
+| **OBSERVED** | **161 chars** | `[MEASURED]` | The highest char count among the 27 still at ≤ 3 lines — **SO5**, and it is the longest string in the set, so the sample never found the wall. Holds **for this sample only**. Meaningful as a "ceiling" only because line count is monotone in char count across all 351 pairs here (§26.1 ④); it is not a licence to write a 28th string at 161. |
+| **SAFE, prompt formula** | **102 chars** | `[DERIVED]` | `3 × 34.00` (min chars-per-line, average basis), floored. **Not recommended.** It rejects 17 of the 27 measured-good strings. See §26.1 ②. |
+| **SAFE, full-line method — RECOMMENDED** | **123 chars** | `[DERIVED]` | `3 × 41` (min full-line char count), floored. A string of ≤ 123 characters cannot reach 4 lines, because reaching 4 lines requires 3 full lines and no full line in this sample carried fewer than 41. Sufficient, **conditional on word widths staying within the sample's** — no word wider than `compartmentalizing`'s 108.39 px. |
+| **Unconditional bound** | **78 chars** | `[DERIVED]` | `3 × floor(308.00 / 11.7984)`, the measured `W` advance. True for any character mix, assuming no single word exceeds the box width. Recorded to show the price of an unconditional guarantee; not proposed as the rule. |
+| **Practical wall** | **166 chars** | `[MEASURED]` | Most characters observed at ≤ 3 lines across 900 synthetic neutral-prose candidates. Vocabulary-dependent and an upper bound only for prose of that shape — short words pack more characters per line because a space is 3.4734 px against ~6.95 px for a typical lowercase letter. `[DERIVED]` companion: `3 × 57 + 2` = **173**, from the widest full line observed. |
+
+**The guidance to hand Cai and Mo, in one line:** *write to **123 characters** and you never need a
+render; between 124 and 161 the sample says you are fine but the string must be rendered before it
+ships; avoid words longer than about 16 characters, which cost more than the characters they add.*
+Six of the current 27 sit in the 124–161 band — SP1 125, SO8 126, SO3 130, SX5 130, SO1 148,
+SO5 161 — and all six are **measured good**, so nothing needs rewriting today. They are the six that
+must be re-rendered if the box width ever moves.
+
+**This is a sufficient condition, not a limit.** A string over 123 characters is not too long. Nine
+of the 27 exceed the 102-char figure and every one of them fits. Character count does not predict
+line count; it only bounds it.
+
+## 26.6 M5 — the caveat, and what the page build must re-confirm
+
+**`_clv3QuickRef` does not exist on `main`.** `[MEASURED]` — the `_clv3*` builders in
+`app/renderer.js` are Contents, Cover, Instincts, Lines, Thoughts, TypeA, TypeB, Welcome, WhatIs,
+Wings. There is no QuickRef, and the string `stxt` does not appear in `app/renderer.js` at all.
+`V3_PAGE_ORDER` reserves sheet 5 (`{ key: 'quickref', sheet: 5, footer: 3 }`, `app/renderer.js:3362`)
+with a title and a footer number and nothing behind it.
+
+**So the box measured here is the MOCKUP's box, and every number in §26.2 through §26.5 is
+downstream of one quantity: 308.00 px.** Chars per line scales with width; the ceilings are 3 ×
+a chars-per-line figure. If the built page produces a box 20 px narrower, roughly 7 % of the
+capacity goes, `m` falls from 41 toward 38, and the recommended ceiling falls from 123 toward 114 —
+at which point SO5, SO1, SX5, SO3, SO8 and SP1 are all above it and must be re-rendered rather than
+trusted.
+
+**What the page build must re-confirm, before any of these numbers is quoted as a constraint:**
+
+1. **The `.stxt` content width is 308.00 px in the built page.** Not "about 308" — the same number,
+   measured the same way (`clientWidth` minus horizontal padding). If it differs, §26.3 through
+   §26.5 are re-run, not adjusted.
+2. **`font-size: 12.5px` and `line-height: 1.5`** survive into the built stylesheet. Line count is a
+   function of both; the 3-line bound is worth 56.25 px of stack.
+3. **The 3-line bound still holds at the page level.** The 22.03 px headroom at 3 lines and 3.28 px
+   at 4 (§17.4, measured 8 Sep on this mockup) are whole-page figures. Any other zone that grows on
+   the built page spends the same headroom, and the subtype panel is not the only thing on sheet 5.
+4. **The two `.half` columns still split the row evenly.** The width invariance in §26.2 rests on
+   `flex:1 1 0%`. If the built page gives the instincts half a fixed width, the subtype half is a
+   different box and 308.00 is wrong.
+5. **Re-render the six strings in the 124–161 band.** Not the whole 27 — those six are the only ones
+   the ceiling does not cover on its own.
+
+## 26.7 Committed synthetics — render-matched, no client prose
+
+Two strings are committed here so a future gate can assert the worst cases without client copy in
+the repo. **They are machine-generated word sequences selected for their rendered geometry. They
+carry no meaning and are not copy.** Matched on the **render** — line count and line widths — not on
+character count, as the step-4 brief specifies.
+
+**Synthetic A — matched to the tightest 3-line case (referent: the 161-char string, label SO5):**
+
+> `derived for over under table over figure output on measured those in table build sample margin of panel these into on number author from sheet with measure.`
+
+| | lines | line widths px | per-line chars | chars |
+|---|---|---|---|---|
+| referent | 3 | 271.23 · 296.72 · 300.17 | 50 · 55 · 54 | 161 |
+| **Synthetic A** | **3** | **271.02 · 296.72 · 300.17** | 50 · 52 · 52 | 156 |
+| Δ | 0 | **−0.21 · 0.00 · 0.00** | — | −5 |
+
+`[MEASURED]`. Lines 2 and 3 are **bit-identical in width**; line 1 is 0.21 px narrower — **0.08 %**.
+Char count deliberately differs, per the brief.
+
+**Synthetic B — matched to the narrow-full-line case that sets the safe ceiling (referent: the
+130-char string, label SX5):**
+
+> `typography proportionality counterbalancing block value basis measure and in measure of counterbalancing version author figure.`
+
+| | lines | line widths px | per-line chars | chars |
+|---|---|---|---|---|
+| referent | 3 | 271.23 · **218.19** · 216.09 | 50 · **41** · 37 | 130 |
+| **Synthetic B** | **3** | 275.17 · **218.19** · 216.11 | 49 · 37 · 39 | 127 |
+| Δ | 0 | +3.94 · **0.00** · +0.02 | — | −3 |
+
+`[MEASURED]`. **The line that matters — the narrow full line at 218.19 px — matches exactly**, and
+line 3 to 0.02 px. Line 1 is 3.94 px wider (**1.45 %**), so **B is a match on the constraining line
+and a near-match on the others, and is reported as such rather than as an exact match.** It
+reproduces the mechanism: `counterbalancing` renders at a width that strands line 2 the same way
+`compartmentalizing` does.
+
+## 26.8 The coach byte-diff
+
+**`verify_coach_baseline.js` does not apply to this pass.** `[MEASURED]` — the branch diff against
+`main` is `docs/` only; no `.js`, no fixture, no baseline, no template. The gate's subject is the
+coach-portal render path, and nothing on this branch can reach it.
+
+It was run anyway, as a control. **`COACH BASELINE: ALL PASSED — HTML only (PDF half skipped
+off-Linux).`** In the brief's own words: **this is a HALF-RESULT, not a pass.** The PDF-hash half
+skipped on every fixture — `normalized PDF hash SKIPPED (platform is darwin, not linux)` — because
+the embedded fonts differ from production. The HTML half was byte-identical on every fixture. The
+PDF half runs on CI, on Linux, and only that run is a full result.
+
+## 26.9 Predictions versus measurement
+
+Predictions are at `6acef77`, `docs/predictions_pr5_step4.md`. **11 of 20 hit, 9 missed.** The
+misses are listed as findings, not corrected in the predictions file.
+
+| # | Predicted | Measured | |
+|---|---|---|---|
+| P0.1 | 308.00 px | 308.00 px | ✓ |
+| P0.2 | Arial, no substitution | Arial, probe Δ 0.0014 px | ✓ |
+| P0.3 / P0.4 | 12.5 px / 18.75 px | 12.5 px / 18.75 px | ✓ |
+| P0.5 | width invariant across injections | 308.00 on all 29 | ✓ |
+| P1.1 | mean chars/line **49** | **42.96** | ✗ −6.04 |
+| P1.2 | min chars/line **34**, from **SP6** | **34.00**, from **SP6** | ✓ exact |
+| P1.3 | median **46** | **42.50** | ✗ −3.50 |
+| P1.4 | max **52**, from SP9 (1 line) | **55.00**, from **SP4** (2 lines) | ✗ |
+| P1.5 | min full line **44** | **41** | ✗ −3 |
+| P2.1 | **1** string over 3 lines | **0** | ✗ |
+| P2.2 | SO5 is the one | none | ✗ |
+| P2.3 | longest at 3 lines: SO1, 148 | **SO5, 161** | ✗ |
+| P2.4 | monotone | holds, 0 violations / 351 pairs | ✓ |
+| P3.1 | OBSERVED ceiling **148** | **161** | ✗ +13 |
+| P3.2 | SAFE, prompt formula **102** | **102** | ✓ exact |
+| P3.3 | SAFE, full-line method **132** | **123** | ✗ −9 |
+| P4.1 / P4.2 | gate does not apply; half-result if run | both confirmed | ✓ |
+| P4.3 | 2 files, both `.md`, 0 non-`.md` | 2 files, both `.md`, 0 non-`.md` | ✓ |
+
+**The nine misses have one root cause, and it is the same error as §26.1 ②.** P1.1 predicted 49 by
+estimating how many characters a *full line* holds, then compared that estimate against a statistic
+that averages full lines together with short terminal ones. The two quantities are different, and
+they differ by exactly the amount the terminal lines drag: full lines mean **51.63**, pooled average
+**42.96**. The full-line estimate of 49 was in fact **2.63 low** against 51.63, not 6.04 high — it
+was a decent estimate of the wrong quantity, scored against the wrong number.
+
+Everything downstream followed. Underestimating full-line capacity by ~3 characters made SO5 look
+like a 4-line string (P2.1, P2.2, P2.3), which set the observed ceiling 13 too low (P3.1). P1.4
+missed for a separate and simpler reason: a 2-line string with two near-full lines beats a 1-line
+string on the average basis, and SP4 at 110 ÷ 2 = 55.0 does exactly that.
+
+**The one prediction that was exactly right on the average basis — P1.2, 34.00 from SP6 — was right
+because it was a prediction about a stranded last word, which is what that statistic measures.**
+That is the clearest evidence available that the statistic measures stranding rather than capacity,
+and it is why 123 and not 102 is the number to hand the authors.
