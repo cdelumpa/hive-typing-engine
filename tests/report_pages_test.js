@@ -110,6 +110,38 @@ console.log('\ncountByClass token boundaries:');
       return;
     }
 
+    // ── SHEET 5's MODEL CONTRACT (PR 5 Build 1) ────────────────────────────────────────
+    //
+    // Sheet 5 does not exist yet — this asserts the DATA it will read, so the shape is
+    // locked before a page builder assumes it. buildClientModel already throws on all of
+    // these via CLIENT_SPEC; asserting here as well is not redundant, because a future
+    // relaxation of the spec would otherwise be silent.
+    //
+    // NOT ASSERTED: hypothesis.leading_candidate. Cai's 8 Sep decision sources the LEADING
+    // ring from hero.number, so no client page reads it, and it is not on the client model
+    // (report_prep.js puts it on the COACH model only). See report_prep.js CLIENT_SPEC.
+    {
+      const t = model.charts.types;
+      assert(Array.isArray(t), `v3 sheet-5 contract: charts.types is not an array`);
+      assert(t.length === 9, `v3 sheet-5 contract: charts.types has ${t.length} entries, expected 9`);
+      const types = t.map(r => r.type).sort((a, b) => a - b).join(',');
+      assert(types === '1,2,3,4,5,6,7,8,9',
+        `v3 sheet-5 contract: charts.types types are [${types}], expected one per type 1-9`);
+      assert(t.every(r => Number.isInteger(r.score) && r.score >= 0 && r.score <= 100),
+        `v3 sheet-5 contract: charts.types carries a non-integer or out-of-range score`);
+      // The two rings must each have a node to sit on.
+      assert(t.some(r => r.type === model.hero.number),
+        `v3 sheet-5 contract: hero.number ${model.hero.number} has no node in charts.types`);
+      assert(t.some(r => r.type === model.alternate.number),
+        `v3 sheet-5 contract: alternate.number ${model.alternate.number} has no node in charts.types`);
+      // The ALTERNATE hypothesis block's motivation, from the alternate's own library entry.
+      const acm = model.pages.type_hypotheses.alternate_core_motivation;
+      assert(typeof acm === 'string' && acm.trim().length > 0,
+        `v3 sheet-5 contract: alternate_core_motivation is empty (${JSON.stringify(acm)})`);
+      assert(acm !== model.pages.v3_explore.p6.core_motivation,
+        `v3 sheet-5 contract: alternate_core_motivation equals the HERO's — it must come from the alternate`);
+    }
+
     // Every type renders the NINE-page document as of PR 3e — sheets 6-7 are authored for all
     // nine, so the two page counts collapse back to one.
     const total = countPages(html, 'client_v3');
