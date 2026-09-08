@@ -1164,20 +1164,448 @@ in this prompt have drifted elsewhere; this one has not.
 
 ---
 
-## 12. Commits
+# Addendum — content sources and the reopened P2
+
+**Appended 8 Sep 2026.** Same branch, same document, one record. `main` and `origin/main` both at
+`f385c9a` at the time of the pull — **the tree was already current, nothing came down**. Branch head
+before this addendum: `8e553e4`.
+
+**Measurement only. No code and no content changed.** Same tagging convention as the audit above.
+**No character ceilings** — every content bound below is in rendered lines.
+
+---
+
+## 12. Lead — what is wrong
+
+### 12.1 The nine strings are in the repo. They already ship on sheet 6. `[MEASURED]`
+
+§2 of the addendum prompt says the nine v3 second-person core motivations "are not in the repo."
+**All nine are in `app/content/content_library.json`**, at
+**`type_N.explore_v3.p6.core_motivation`**, and I verified every one **byte-identical** to the
+prompt's transcription:
+
+| Type | Repo value at `explore_v3.p6.core_motivation` | ch | identical to prompt |
+|---|---|---|---|
+| 1 | To reform, improve, and hold the line on your standards. | 56 | ✅ |
+| 2 | To be loved, connected, and indispensable to the people that matter to you. | 75 | ✅ |
+| 3 | To be recognized, respected, and admired for getting things done and achieving your goals. | 90 | ✅ |
+| 4 | To feel significant and authentic, express your uniqueness, and experience real emotional depth. | 96 | ✅ |
+| 5 | To guard your inner resources, be competent, and maintain your self-sufficiency. | 80 | ✅ |
+| 6 | To feel safe, have contingencies, and find people you can truly rely on. | 72 | ✅ |
+| 7 | To live life fully, escaping limits and maintaining your freedom. | 65 | ✅ |
+| 8 | To be strong, stay free of anyone's control, and protect what matters to you. | 77 | ✅ |
+| 9 | To keep the peace, stay connected, and avoid conflict. | 54 | ✅ |
+
+Range **54–96 chars, mean 73.9** — the prompt's own figures, reproduced exactly, which is
+independent corroboration that this is the same set rather than a coincidence.
+
+They are transcribed in `scripts/build_content_library.js` at `:689, :755, :821, :887, :953, :1019,
+:1085, :1151, :1217` inside `INTERIM_EXPLORE_V3`, validated by `build_content_library.js:1911`
+(`need(e.p6.core_motivation, …)`), exposed on the client model at
+[`app/report_prep.js:350`](app/report_prep.js:350) as `pages.v3_explore.p6`, and **rendered today**
+on sheet 6 at [`app/renderer.js:3624`](app/renderer.js:3624):
+
+```js
+<div class="v3-ta-cm-narr">${_v3t(x.core_motivation)}</div>
+```
+
+This is not a new source. **It is live v3 content that landed with PR 3e.**
+
+### 12.2 Therefore §3's hazard does not arise `[MEASURED]`
+
+§3 asks whether replacing `type_N.description.core_motivation` would change a live v2 page. **There
+is nothing to replace.** The v3 second-person string and the v2 third-person string are **two
+different fields that coexist in the same library object today**:
+
+| | `type_N.description.core_motivation` | `type_N.explore_v3.p6.core_motivation` |
+|---|---|---|
+| Person | third ("their own priorities") | **second** ("your standards") |
+| Length | 124–164 ch | **54–96 ch** |
+| Renders on | v2 client p3 (`renderer.js:2074`), v2 p1 (`:247`), coach comparison (`:1644`) | **v3 sheet 6** (`renderer.js:3624`) |
+| On the client model | `pages.type_hypotheses.core_motivation` | `pages.v3_explore.p6.core_motivation` |
+
+p5 reads the v3 field. Nothing is replaced, no v2 page changes, and the "same class as the content
+gate that would have silently emptied live v2 p7" scenario does not occur. **I answer 3.1–3.3 below
+anyway**, because the enumeration is worth having on the record and because it confirms the coverage
+gap §3.2 predicted.
+
+### 12.3 The one real plumbing item §3 did not ask about `[MEASURED]`
+
+**The alternate's v3 core motivation is not on the client model.** `v3_explore` is built from `t`,
+the **hero** type's library object (`report_prep.js:350`). The alternate's object `alt` is resolved
+at [`app/report_prep.js:218`](app/report_prep.js:218) but only `alt.comparison` is exposed
+(`:299`). Verified by building the model: the Type 5 string
+`"To guard your inner resources, be competent, and maintain your self-sufficiency."` **does not
+appear anywhere in the serialised client model** for the `anders_sx9` render, whose alternate is
+Type 5.
+
+p5 draws **two** hypothesis blocks. The leading one is free; the alternate one needs one line in
+`report_prep.js`. That is the whole cost — but it has to be named, because it is the sort of thing
+that gets discovered at the renderer.
+
+### 12.4 Three smaller corrections `[MEASURED]`
+
+* **§1.3's "its predicate is 100 chars" is 111.** The SX9 first sentence is 128 ch; the predicate
+  after the subject `"One-to-One Nines "` is **111 ch**. The companion figure is right — the
+  mockup's `.stxt` line is **105 ch** exactly.
+* **§4.1's stripped character figures do not reproduce.** Prompt: 33–128, median 78, 3 over 105.
+  My extraction: **47–157, median 111, 17 of 27 over 105.** The **full**-sentence figures reproduce
+  exactly (60–173, median 134, 21 of 27 over 105), so the divergence is in the strip rule, not the
+  extraction. See §15.1 — I report mine, labelled as mine, and it does not change the budget.
+* **§1.1's caption measurement is confirmed exactly.** All 72 leading×alternate pairs render
+  **157 characters, one distinct length, zero variance.** Both slots are single-digit numerals, so
+  the string is length-invariant by construction.
+
+---
+
+## 13. The three decisions, recorded
+
+**13.1 The alternate caption is final** (Cai, 8 Sep). Two numeral slots, no branching, no generated
+text:
+
+> "Type {leading} is your leading hypothesis. Type {alternate} is the alternate worth exploring with
+> your coach, particularly if parts of the Type {leading} description do not quite fit."
+
+157 chars for every pair `[MEASURED]`. It replaces the mockup's "scored close behind", which claims
+a distance the data does not support. Fit confirmed in §16.
+
+`[JUDGMENT]` Worth recording why this is the stronger line beyond the truth claim: it removes the
+last piece of conditional display logic from the page. The audit's §4 and §5.3 both ended at "no
+branching"; with this, **p5 has no conditional content at all.** Every zone renders the same shape
+for every client, which is what makes the 72-pair matrix in §14 a complete proof rather than a
+sample.
+
+**13.2 §5.3's orange enumeration is amended, not the rule.** The p5 instinct bars are a fifth place
+orange appears; orange still means the client. This closes the collision the audit raised at §7.5.
+Docs pass. `[JUDGMENT]` The audit's suggested assertion — "no `#F68625` inside the heat-map SVG" —
+still stands and is unaffected: it scopes the check to the figure, which is where the rule could
+actually be broken by copy-paste, and leaves the bars alone.
+
+**13.3 The 27 subtype summaries derive from the first sentence of each narrative**, subject clause
+dropped, restated in second person. Measured in §15.
+
+---
+
+## 14. §3's answers, on the record
+
+Recorded even though §12.2 makes the decision moot, because the coverage facts are load-bearing for
+anything else that ever touches `description.core_motivation`.
+
+### 14.1 Every consumer of `type_N.description.core_motivation` `[MEASURED]`
+
+| # | Consumer | File:line | Surface |
+|---|---|---|---|
+| 1 | v2 client **p1** — "Core Motivation" section | [`app/renderer.js:247`](app/renderer.js:247) | live client PDF |
+| 2 | v2 client **p3** — `.p3-motivation` | [`app/renderer.js:2074`](app/renderer.js:2074) | live client PDF |
+| 3 | Coach portal — assessment overview | [`app/server.js:2392`](app/server.js:2392) | live portal |
+| 4 | CMS preview — `type_N.description` | [`app/server.js:13963`](app/server.js:13963) | editor preview, **v2 p3** |
+| 5 | Model assembly | [`app/report_prep.js:295`](app/report_prep.js:295) | `pages.type_hypotheses.core_motivation` |
+| 6 | Model validation — required key | [`app/report_prep.js:474`](app/report_prep.js:474) | throws if absent |
+| 7 | Content-library build validation | `scripts/build_content_library.js:1813` | build gate |
+
+Distinct from `type_N.comparison.core_motivation` (a different field, `renderer.js:1644`, `:2110`)
+and from the AI's `client_facing.core_motivation_evidence` (a different thing entirely).
+
+**Not a consumer:** v3 sheet 6, which reads `explore_v3.p6.core_motivation` (§12.1).
+
+### 14.2 Would replacing it change shipped output? **Yes, and nothing would catch it.** `[MEASURED]`
+
+**Against the coach byte-diff: structurally blind.** `scripts/verify_coach_baseline.js:101` builds
+only `R.buildCoachReportHTML(buildCoachModel(...))`, and `tests/baselines/` contains exactly four
+files — `coach_sp4.html`, `coach_sp4.pdf.sha256`, `coach_sx7.html`, `coach_sx7.pdf.sha256`. It
+would catch consumer #7 above (the coach comparison row uses a *different* field) but cannot see
+consumers #1 or #2 at all.
+
+**Against whatever covers the v2 client pages: nothing covers them.** As expected, and precisely:
+
+* `scripts/render_client.js:136` and `tests/report_pages_test.js:72` both build the v2 client HTML,
+  but assert only **structure** — page-container counts against `PAGE_INVENTORY`, single-sheet
+  spill, and that no legacy `.report-page` survives (`report_pages_test.js:90`).
+* **There is no v2 client baseline.** No `client_*.html` in `tests/baselines/`.
+* `grep -rn "core_motivation" tests/*.js scripts/render_client.js scripts/verify_content_library.js`
+  → **zero hits.** Nothing asserts the text anywhere.
+* The failure would be **silent by shape**: the v3 strings are 54–96 ch against 124–164, so a
+  replacement makes both v2 pages *shorter*. No spill, no page-count change, every structural gate
+  green.
+* `scripts/verify_content_library.js` would catch a hand-edit of the JSON (the `committed ==
+  build(docx)` invariant), but **not** a docx or `INTERIM_*` edit followed by a rebuild — which is
+  the sanctioned way to change content on this project.
+
+`[JUDGMENT]` So the class §3 names is real and the repo is exactly as exposed as it fears. It simply
+is not the situation PR 5 is in.
+
+### 14.3 New `_v3` field versus replacement — priced `[MEASURED]`
+
+**Replacement: do not.** Seven consumers, two of them live client pages, zero content coverage.
+
+**New `_v3` field: already done, at zero cost.** `explore_v3.p6.core_motivation` *is* the new field,
+and it landed in PR 3e with its own validation. p5's remaining cost is the single line in §12.3 for
+the alternate's copy — no new content key, no docx change, no `cmsPreviewSpec` entry needed for the
+data to render.
+
+**One IO-92 state fact, not scoped here** `[MEASURED]`: `explore_v3` is **not CMS-editable**. The
+registry regex at [`app/server.js:13957`](app/server.js:13957) enumerates
+`description|comparison|patterns|inquiry_lines|wings|lines|strengths|challenges|practices|communication|conflict|center`
+— `explore_v3` is absent, so `type_9.explore_v3` returns no spec. The v3 core motivations, on sheets
+6 and (prospectively) 5, are not editable through the CMS today.
+
+---
+
+## 15. §2 — P2's real answer
+
+### 15.1 The nine, in `.ptxt` `[MEASURED]`
+
+Measured on the `AtAGlance_v1.html` scaffold, `.ptxt` box **316px**, 12.5px / 1.5 line-height,
+Chromium 147.0.7727.57, line counts by `Range.getClientRects()` per the audit's §8.5 method.
+
+| Type | ch | **rendered lines** | px |
+|---|---|---|---|
+| 1 | 56 | **1** | 18.75 |
+| 2 | 75 | 2 | 37.50 |
+| 3 | 90 | 2 | 37.50 |
+| 4 | 96 | 2 | 37.50 |
+| 5 | 80 | 2 | 37.50 |
+| 6 | 72 | 2 | 37.50 |
+| 7 | 65 | 2 | 37.50 |
+| 8 | 77 | 2 | 37.50 |
+| 9 | 54 | **1** | 18.75 |
+
+**Distribution: 1 line — T1, T9 (2 types). 2 lines — T2–T8 (7 types).**
+
+**P2 is genuinely reopened.** The audit closed it because all nine library strings rendered exactly
+3 lines; this source does not have that property. The prompt is right.
+
+The other variable in the block is inert `[MEASURED]`: `.pname` ("Type N · The Name", 15px bold,
+316px) renders **1 line for all nine**, 17.00px, the longest being Type 4 at 26 ch. So block height
+is governed by `.ptxt` alone.
+
+### 15.2 The 72-pair matrix `[MEASURED]`
+
+Both `.pick` blocks set from this source, all 72 leading×alternate pairs. **Four distinct
+(leading height / alternate height) combinations:**
+
+| Leading / alternate | Pairs | Verdict |
+|---|---|---|
+| 74.50 / 74.50 | **42** | matched — both 2-line |
+| 74.50 / 55.75 | **14** | **ragged, +18.75px** — alternate is T1 or T9 |
+| 55.75 / 74.50 | **14** | **ragged, −18.75px** — leading is T1 or T9 |
+| 55.75 / 55.75 | **2** | matched — the 1×9 and 9×1 pairs |
+
+**44 of 72 matched, 28 of 72 ragged**, always by exactly one line (18.75px). The ragged set is
+structurally determined: it is every pair where exactly one of {T1, T9} appears — 2 types × 7 others
+× 2 positions = 28.
+
+### 15.3 §2.3 — the fix. **Accept the ragged pair.** `[JUDGMENT]`
+
+Because the measurement changes the question. **The ragged pair costs zero page height** `[MEASURED]`:
+across all 72 pairs, with the new caption in place, the **intrinsic page height is 1015.22px for
+every single one**, `.chart` is **353px for every single one**, and the caption is 2 lines for every
+single one. Headroom stays **40.78px** (1056 basis) / **41.78px** (1057 gate basis) on the worst
+pair — identical to the mockup baseline in §6.2.
+
+The reason is structural: `.chart` is `align-items:center` with the heat map at `flex:0 0 322px` and
+a 315px-tall SVG. `.klist` varies **131.50 / 150.25 / 169.00px** across the matrix and is shorter
+than the figure in every case, so the variation is absorbed inside a box the SVG governs.
+
+Four reasons to accept it rather than fix it:
+
+1. **Zero fit cost, measured on all 72 pairs.** There is no spill risk to buy off.
+2. **Spec §6.1 does not apply.** Its matched-line rule is for **paired columns** — side-by-side, where
+   a ragged bottom edge is visible against its neighbour. These two blocks are **stacked vertically**
+   inside `.klist` (`.pick` + `margin-bottom:20px`). There is no adjacent column edge to reveal the
+   mismatch; the alternate block simply begins 18.75px higher or lower against a 315px figure.
+3. **A `min-height` buys an orphan.** Forcing T1's 56-ch and T9's 54-ch lines into a two-line box
+   leaves a visible empty half-line under the two shortest strings — and Type 9 is the reference
+   client. It trades an invisible defect for a visible one.
+4. **A line-count authoring target would change live output.** These strings **ship today on sheet
+   6** (§12.1). Rewriting T1 and T9 to reach two lines on p5 edits a page that is already approved
+   and already rendering, to fix a cosmetic issue on a page that does not exist. That is the wrong
+   direction of travel, and it is the same "changing live content to satisfy a new page" shape §3
+   was right to be alert to.
+
+`[JUDGMENT]` If Cai wants them matched anyway, the cheapest honest option is **neither** of §2.3's
+first two: it is to let the *label* row absorb it — `.plbl` is a single 8.5px uppercase line and a
+`min-height` there is invisible when unused. But I would not spend it. Cai's call.
+
+---
+
+## 16. §4.2 — the caption at 157
+
+`[MEASURED]` `.note` is **710px** wide — the full content column, not the 316px `.klist` — 11.5px
+italic / 1.45. Measured, not assumed:
+
+| Line | ch | rendered lines | px |
+|---|---|---|---|
+| Shipped mockup line ("scored close behind") | 165 | 2 | 33.34 |
+| **New caption, 9×5** | **157** | **2** | **33.34** |
+| New caption, 1×9 | 157 | 2 | 33.34 |
+| New caption, 8×2 | 157 | 2 | 33.34 |
+
+**Confirmed at 2 lines, byte-for-byte the same box height as the line it replaces.**
+
+**Headroom to 3 lines: 114 further characters** `[MEASURED]` — the caption breaks to a third line at
+**271 ch**, measured by growing the string until the line count changed rather than inferring it.
+At 157 the caption uses 58% of its two-line box. This zone is not a risk.
+
+---
+
+## 17. §4.1 — the 27 first sentences, and the line budget
+
+### 17.1 Extraction
+
+Extracted from the store, as instructed — `content_library.json` →
+`subtype_<code>.instincts_v3.narrative`, first sentence by `/^.*?[.!?](?=\s|$)/s`.
+
+**A necessary caveat on the "stripped" column** `[JUDGMENT]`: the recipe in §1.3 is *subject clause
+dropped **and** restated in second person*. Restating in second person is authoring, which this
+audit does not do. So my stripped column is a **mechanical subject-strip only** — it removes the
+leading noun phrase naming the subtype and sentence-cases the remainder. It is a **proxy for the
+recipe's output, not the recipe's output.** That is also why my character figures diverge from the
+prompt's (§12.4): a more aggressive strip, or the second-person restatement, shortens further. The
+mockup's SX9 line is the evidence — 105 ch against my strip's 111 for the same sentence.
+
+The budget below is set in lines with margin, so the divergence does not move it.
+
+### 17.2 Rendered lines, `.stxt` at 308px `[MEASURED]`
+
+| Key | full ch | **full lines** | strip ch | **strip lines** |
+|---|---|---|---|---|
+| so1 | 157 | 4 | 142 | 3 |
+| so2 | 102 | 2 | 87 | 2 |
+| so3 | 163 | 3 | 146 | 3 |
+| so4 | 134 | 3 | 118 | 3 |
+| so5 | 173 | 4 | 157 | 3 |
+| so6 | 113 | 2 | 98 | 2 |
+| so7 | 135 | 3 | 118 | 3 |
+| so8 | 140 | 3 | 126 | 3 |
+| so9 | 60 | 2 | 47 | **1** |
+| sp1 | 149 | 3 | 123 | 3 |
+| sp2 | 137 | 3 | 111 | 2 |
+| sp3 | 103 | 2 | 75 | 2 |
+| sp4 | 135 | 3 | 108 | 2 |
+| sp5 | 136 | 3 | 109 | 3 |
+| sp6 | 91 | 2 | 65 | 2 |
+| sp7 | 143 | 3 | 115 | 3 |
+| sp8 | 109 | 3 | 84 | 2 |
+| sp9 | 72 | 2 | 48 | **1** |
+| sx1 | 117 | 3 | 98 | 2 |
+| sx2 | 126 | 3 | 107 | 3 |
+| sx3 | 136 | 3 | 115 | 3 |
+| sx4 | 136 | 3 | 116 | 3 |
+| sx5 | 147 | 3 | 127 | 3 |
+| sx6 | 103 | 2 | 84 | 2 |
+| sx7 | 132 | 3 | 111 | 3 |
+| sx8 | 110 | 3 | 92 | 2 |
+| sx9 | 128 | 3 | 111 | 2 |
+
+**Full:** 2–4 lines — 2 lines ×7, 3 lines ×18, 4 lines ×2 (so1, so5).
+**Stripped:** 1–3 lines — 1 line ×2 (so9, sp9), 2 lines ×11, 3 lines ×14.
+
+### 17.3 The character ordering contradicts the line ordering — **the fourth instance, and the cleanest** `[MEASURED]`
+
+The prompt named this as a possibility. It happens, and it happens as an **exact tie**:
+
+| Key | stripped ch | rendered lines |
+|---|---|---|
+| **sx9** | **111** | **2** |
+| **sp2** | **111** | **2** |
+| **sx7** | **111** | **3** |
+
+**Three strings at exactly 111 characters. Two render two lines; one renders three.** No
+character-based rule can express that, because the inputs are identical.
+
+And the ordering **inverts**, not merely ties:
+
+| Key | stripped ch | rendered lines |
+|---|---|---|
+| sp5 | **109** | **3** |
+| sp4 | 108 | 2 |
+| sx9 | **111** | **2** |
+
+**sp5 is shorter than sx9 and renders one line more.** The cause is word shape, not length —
+sx7 carries `constraints`, `approaching` and the hyphenated `rose-colored`; sp5 carries `protection`,
+`intrusion`, `depletion` and `world's`. Long tokens break early in a 308px box.
+
+The **three longest by character count** are so5 (157), so3 (146), so1 (142) — the same three types
+the prompt names, in a different order. **By rendered lines, fourteen strings tie at the maximum of
+three, and so5/so3/so1 are not distinguishable from the other eleven.** The character ranking
+carries no information the budget can use.
+
+### 17.4 The line budget `[MEASURED]`
+
+Measured by growing `.stxt` one rendered line at a time on a worst-case pair (leading T4, alternate
+T3 — both 2-line motivations) with the new caption in place:
+
+| `.stxt` lines | `.two` height | intrinsic page | headroom to 1056 | verdict |
+|---|---|---|---|---|
+| 1 | 140.00 | 1011.72 | 44.28 | fits |
+| **2** (mockup) | 143.50 | **1015.22** | **40.78** | fits |
+| **3** | 162.25 | **1033.97** | **22.03** | **fits** |
+| **4** | 181.00 | **1052.72** | **3.28** | fits, but see below |
+| 5 | 199.75 | 1071.47 | −15.47 | **fails the 1057 gate** |
+| 6 | 218.50 | 1090.22 | −34.22 | fails |
+| 7 | 237.25 | 1108.97 | −52.97 | fails |
+
+Note the first line is nearly free (3.50px, the panel absorbing it) and every line after costs a
+full 18.75px.
+
+**Proposed budget: 3 rendered lines, gated at 3.** `[JUDGMENT]`
+
+* **The hard ceiling is 4**, at **3.28px** of headroom. That is under a fifth of a line, and design
+  spec §3.3 states that a font substitution shifts every measurement in the document. **3.28px is
+  inside the noise of the one failure mode the spec calls most likely.** Authoring to 4 would be
+  building on it.
+* **3 lines leaves 22.03px** — over a full line of margin, absorbing a rewrap without a rebuild.
+* **The recipe already meets it.** Even my deliberately conservative mechanical strip lands **1–3
+  lines for all 27, maximum 3**. The authored second-person form is shorter again (105 vs 111 on the
+  SX9 evidence), so it should sit comfortably inside 3 with several dropping to 2.
+* **State it in lines and gate it in lines.** `render_client.js` already counts rendered lines for
+  the §6.1 pairs and the Z6 cap; this is the same assertion shape, and it is the fourth time on this
+  project that a character figure would have set the wrong bound.
+
+---
+
+## 18. Effect on the seven-step sequence
+
+`[JUDGMENT]` Three steps change; the sequence does not.
+
+| Step | Change |
+|---|---|
+| **1. Data decision** | **Unchanged.** Still the one that decides the shape. §12 touches content, not the nine type scores. |
+| **2. The probe** | **P2 and P3 are done — delete them.** §15 answers P2 (nine line counts, the 72-pair matrix, zero page cost) and §16 answers P3 (the caption at 2 lines, 114 ch of headroom). **P1 narrows**: §17.4 sets the 3-line budget, so P1 becomes verification of the authored strings against a known budget, not discovery of one. P4–P7 unchanged. The probe gets smaller, and it gets smaller because the measuring happened here. |
+| **3. Expose the nine scores** | **Add one line**: the alternate's `explore_v3.p6.core_motivation` (§12.3), alongside the `charts.types` work. Same file, same commit, same validator. |
+| **4. Content** | **Materially smaller.** The 9 motivation strings need **no authoring at all** — they exist, they ship, and they are second person already. The caption needs none — it is final and fits. What remains is the 27 subtype summaries, now with a measured **3-line** budget and a starting draft in each narrative's first sentence. |
+| **5. The diagram** | Unchanged. |
+| **6. The page** | **Add one assertion**: `.stxt` ≤ 3 rendered lines across all 27 subtypes, in the existing 27-render 3×9 matrix. And record that all 72 pairs render 1015.22px, so a page-height regression is attributable. |
+| **7. Gates and fixtures** | Unchanged. |
+
+**One item moves up.** `[JUDGMENT]` §12.3's alternate exposure was not in the audit's plan at all,
+because the audit had p5 reading `description.core_motivation`, which is on the model for the hero
+and never needed for the alternate. It belongs in step 3, and it is the kind of one-line omission
+that otherwise surfaces at step 6 with the renderer half-written.
+
+**And one thing to protect.** §15.3 recommends accepting the ragged pair. If Cai takes the other
+option, it belongs in **step 4, not step 6** — because "match the line counts" means editing T1's and
+T9's live sheet-6 strings, which is a content change to a shipped page and needs the coach and
+content gates run against it, not a layout tweak inside the p5 build.
+
+---
+
+## 19. Commits
 
 Enumerated at the end of the run. No push, no PR, no merge, no branch deletion.
 
 | # | SHA | Message |
 |---|---|---|
-| 1 | `8ec97e7` | PR 5 audit: Quick Reference (sheet 5 / footer 3) — this document |
-| 2 | *this commit* | PR 5 audit: record the commit set in §12 |
+| 1 | `8ec97e7` | PR 5 audit: Quick Reference (sheet 5 / footer 3) — §§1–11 |
+| 2 | `8e553e4` | PR 5 audit: record the commit set in §12 *(the commits section, since renumbered to §19)* |
+| 3 | *this commit* | PR 5 audit addendum: content sources and the reopened P2 — §§12–18 |
 
-**One commit of substance.** The second exists only because a commit cannot record its own SHA —
-amending it to insert one just produces a new SHA and a stale table, which is what happened on the
-first attempt. Commit 2's SHA is reported in the build response and is readable from
-`git log --oneline main..HEAD`; it is deliberately not written here.
+Commit 3's SHA is reported in the build response and readable from `git log --oneline main..HEAD`.
+It is deliberately not written here: a commit cannot record its own SHA, and amending one to insert
+it just produces a new SHA and a stale table — which is what happened on the first attempt at
+commit 2, and is why that commit exists at all.
 
-Branch `pr-5-quickref-audit`, off `main @ f385c9a`. `git diff main...HEAD --stat` touches
-`docs/audit_pr5_quickref.md` and nothing else — no code and no content changed, as the prompt
-required.
+Branch `pr-5-quickref-audit`, off `main @ f385c9a` — unchanged across both runs; the addendum pull
+brought nothing down. `git diff main...HEAD --stat` touches `docs/audit_pr5_quickref.md` and nothing
+else — no code and no content changed, as both prompts required.
