@@ -3991,7 +3991,11 @@ ${V3_PAGE_BUILDERS_ORDERED(model)}
 
 module.exports = {
   buildClientReportHTML_v3, V3_PAGE_ORDER, v3PagesFor,
-  COVER_GEO, WHATIS_GEO, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
+  // CLIENT_GEO is exported for scripts/verify_diagrams.js, which identifies node circles by
+  // matching them to the canonical centres CLIENT_ANGLES + the geometry constant produce —
+  // not by radius, and not by an attribute the builder puts on itself. Export only; the
+  // emitted SVG is unchanged.
+  COVER_GEO, WHATIS_GEO, CLIENT_GEO, CLIENT_ANGLES, CLIENT_TRIANGLE, CLIENT_HEXAGON,
   buildClientHTML, buildCoachHTML, buildBetaHTML, betaReportBodyHtml, buildPdfOptions,
   buildEnneagramSVG, renderTypeStrengthChart, renderInstinctChart, partAStyles, PALETTE, CENTER_COLORS,
   buildCoachReportHTML, buildCoachPdfOptions, COACH_CLARIFICATION_QUESTIONS,

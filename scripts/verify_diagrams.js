@@ -35,6 +35,33 @@ const VARIANTS = ['client-wings', 'client-lines'];
 
 let failed = false;
 const fail = (m) => { failed = true; console.log(`  *** FAIL — ${m}`); };
+// Per-variant geometry, so nodes can be located rather than guessed at.
+const GEOM = { 'client-wings': R.CLIENT_GEO, 'client-lines': R.CLIENT_GEO };
+
+/** Canonical node centres for a geometry, from the same angle table the renderer uses. */
+function nodeCentres(GEO) {
+  return Object.fromEntries(Object.entries(R.CLIENT_ANGLES).map(([n, deg]) => {
+    const rad = deg * Math.PI / 180;
+    return [n, [GEO.cx + GEO.r * Math.cos(rad), GEO.cy + GEO.r * Math.sin(rad)]];
+  }));
+}
+
+/**
+ * One box per canonical node position, sized to the LARGEST circle sitting there.
+ * Returns [] rather than throwing when a geometry is unknown, so the count assertion at the
+ * call site reports it as 0-of-9 by name instead of aborting the run.
+ */
+function nodeBoxes(circles, GEO) {
+  if (!GEO) return [];
+  const centres = nodeCentres(GEO);
+  const out = [];
+  for (const [, [ex, ey]] of Object.entries(centres)) {
+    const here = circles.filter(c => Math.hypot(c.cx - ex, c.cy - ey) < 1);
+    if (here.length) out.push({ cx: ex, cy: ey, r: Math.max(...here.map(c => c.r)) });
+  }
+  return out;
+}
+
 const rectsOverlap = (a, b) =>
   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
@@ -60,7 +87,6 @@ const rectsOverlap = (a, b) =>
           });
           const circles = [...svgEl.querySelectorAll('circle')].map(c => ({
             cx: +c.getAttribute('cx'), cy: +c.getAttribute('cy'), r: +c.getAttribute('r'),
-            node: c.getAttribute('data-node') !== null,
           }));
           return { vw: vb.width, vh: vb.height, texts, circles };
         });
@@ -69,24 +95,34 @@ const rectsOverlap = (a, b) =>
 
         // ── WHICH CIRCLES ARE NODES ────────────────────────────────────────────────────
         //
-        // Nodes are the circles the BUILDER MARKS AS NODES, via data-node. They were previously
-        // selected by `r <= 20`, a heuristic tuned to this pair's radii (11/13/15 against a 95
-        // ring). That heuristic is already wrong for one shipped variant — client-cover's nodes
-        // are r=23, so it returns 0 of 10 there — and it returns 0 of 12 for client-quickref
-        // (nodes 21, rings 27, circle 105). A filter that returns nothing makes the label-vs-node
-        // check below PASS BY TESTING NOTHING, which is the defect this replaces.
+        // BY POSITION, against the canonical centres. Nodes were previously selected by
+        // `r <= 20`, a heuristic tuned to this pair's radii (11/13/15 against a 95 ring). It is
+        // ALREADY WRONG for a shipped variant — client-cover's nodes are r=23, so it returns 0
+        // of 10 there — and it returns 0 of 12 for client-quickref (nodes 21, rings 27, circle
+        // 105). A filter that returns nothing makes the label-vs-node check below PASS BY
+        // TESTING NOTHING.
         //
         // client-cover's vacuum is LATENT, not live: VARIANTS did not include it, and the
-        // structural block at the foot of this file runs no overlap or clearance test. Marking
-        // nodes structurally removes the latency rather than leaving it for whoever adds it.
-        const nodeCircles = geo.circles.filter(c => c.node);
+        // structural block at the foot of this file runs no overlap or clearance test. Matching
+        // by position removes the latency rather than leaving it for whoever adds it.
+        //
+        // WHY POSITION AND NOT AN ATTRIBUTE. A `data-node` marker was written first and
+        // discarded: it changed the emitted markup on five shipped v3 variants (45 of 81
+        // renders, measured), and it is weaker — a circle drawn in the WRONG PLACE but tagged
+        // as a node would pass. Matching against CLIENT_ANGLES + the geometry constant asserts
+        // the circle is where the node belongs, and emits nothing. This is the same technique
+        // the structural block at the foot of this file already uses.
+        //
+        // ONE BOX PER POSITION, SIZED TO THE LARGEST CIRCLE THERE. client-quickref draws a ring
+        // concentric with its leading and alternate nodes, so two positions carry two circles.
+        // A label must clear the ring, not merely the node, so the conservative radius is right.
+        const nodeCircles = nodeBoxes(geo.circles, GEOM[variant]);
 
         // NON-VACUITY. Without this, the fix above reintroduces the same vacuum at the next
-        // geometry change — a builder that stops emitting data-node would silently empty the
-        // check again. Asserting the COUNT is what makes the label-vs-node test meaningful.
+        // geometry change. Asserting the COUNT is what makes the label-vs-node test meaningful.
         if (nodeCircles.length !== 9) {
-          fail(`${variant} T${type}: ${nodeCircles.length} node circles marked, expected 9 — `
-             + `the label-vs-node check below would test nothing`);
+          fail(`${variant} T${type}: ${nodeCircles.length} circles sit at canonical node `
+             + `positions, expected 9 — the label-vs-node check below would test nothing`);
         }
         const isNodeNumber = (t) => /^\d$/.test(t.s.trim());
 
