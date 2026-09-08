@@ -177,3 +177,72 @@ This amendment's predictions commit moves the branch head from `db7e0d0`. Every 
 fixed before that commit. The measurement runs against the working tree at the commit **after** this
 one; `docs/mockup/claude_The_Peacemaker_Page_AtAGlance_v1.html` is not modified by this branch and
 its blob stays `813e871` throughout — asserted again in the findings.
+
+---
+
+# BUILD 0 — predictions, committed BEFORE measuring the real `.stxt` box
+
+**Written** 8 Sep 2026, appended at `e027a04`, before any browser was launched for this build.
+Neither section above is altered.
+
+## The basis, named again
+
+**FULL-LINE basis** — the character count of a *non-terminal* line, one filled until the next word
+would not fit. Terminal lines are excluded. `m` and the ceiling are on this basis and are to be
+scored on it. No number below is a chars ÷ lines average.
+
+## What is genuinely open, and what is not
+
+The only open quantity is **width**. The method injects the mockup's own `.two`/`.half`/`.hbd`/
+`.stxt` rules verbatim into a page rendered by the real v3 pipeline, so `font-size` and
+`line-height` are **fixed by the method and are not predictions** — they are declared here and
+excluded from scoring rather than counted as free hits. Said before measuring, not after.
+
+## B0 — the box
+
+| # | Prediction | Value | Scored? |
+|---|---|---|---|
+| B0.1 | `.v3-page` content width in the real rendered v3 document | **710.00 px** | **yes** |
+| B0.2 | `.stxt` content width, mockup panel rules inside the real v3 shell | **308.00 px** | **yes** |
+| B0.3 | Both `.half` columns equal, computed `flex-grow:1 / flex-shrink:1 / flex-basis:0%` | **346.00 px each**, border-box | **yes** |
+| B0.4 | Arial resolved; `bl.assertReportFont` probe | **2378.80859375** vs the 2378.81 constant | **yes** |
+| B0.5 | `.stxt` computed `font-size` / `line-height` | 12.5 px / 18.75 px | **no — fixed by the method** |
+
+## B1 — the box-sizing question, which is the reason this is not a foregone conclusion
+
+The mockup's `.page` declares **no `box-sizing`**, so its `.half` and `.hbd` are **content-box**.
+The v3 shell opens with `.v3-page, .v3-page *{ margin:0; padding:0; box-sizing:border-box }`
+(`app/client_report_v3_styles.js:53`). **The same markup is therefore laid out under a different
+box model in the two documents.**
+
+| # | Prediction | Value |
+|---|---|---|
+| B1.1 | The two box models yield the **same** `.stxt` width | **yes — 308.00 px both ways** |
+| B1.2 | Why | `[DERIVED]` content-box: free space 710 − (2+2+18) = 688, 344 content each, outer 346. border-box: 346 each, −2 border = 344, −36 padding = 308. The border and padding are subtracted at different stages and the arithmetic is symmetric. |
+| B1.3 | The v3 reset does **not** win over the panel's own padding | **correct** — `.v3-page *` is specificity (0,1,0), the panel rules match it, and `clientReportV3PageStyles()` is emitted **after** `clientReportV3Styles()` in `buildClientReportHTML_v3`, so source order decides in the panel's favour. |
+
+B1.1 is the prediction most likely to be wrong, and if it is wrong every subtype-panel number on
+`main` is wrong with it.
+
+## B2 — the ceiling
+
+| # | Prediction | Value |
+|---|---|---|
+| B2.1 | `m`, minimum full-line character count | **44 — unchanged** |
+| B2.2 | Safe ceiling, `3m` | **132 — unchanged** |
+| B2.3 | Strings above the ceiling | **2 — SO5 (161) and SO1 (148)** |
+| B2.4 | Does §26.3–§26.5 of `docs/audit_pr5_quickref.md` need re-running? | **No.** Conditional on B0.2 landing at 308.00 px. If it does not, the §26.3–§26.5 re-run fires and every figure in B2 is void. (Section numbers here are `docs/audit_pr5_quickref.md`'s.) |
+
+## B3 — scope and gates
+
+| # | Prediction | Value |
+|---|---|---|
+| B3.1 | A real box can be measured **without** setting `built: true` or bumping `PAGE_INVENTORY` | **yes** — the scaffold reads the real shell and injects the panel at runtime; nothing is registered |
+| B3.2 | Files this branch touches at merge | **2**, both `.md`, both under `docs/`. Non-`.md`: **0**. |
+| B3.3 | CI jobs that examine either changed file | **0** |
+| B3.4 | `verify_coach_baseline.js` applies | **No.** Docs-only. |
+
+## Post-commit
+
+This commit moves the head from `e027a04`. Every number above was fixed before it. The mockup
+blob stays `813e871` throughout — it is read, never written.
