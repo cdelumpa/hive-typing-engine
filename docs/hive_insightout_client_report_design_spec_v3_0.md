@@ -657,10 +657,38 @@ withheld from re-typed renders. It is therefore the tightest case *and* the only
 
 ### 7.3 Known content gaps
 
-- **Types 1, 4, 7 and 9 are authored (20 Aug 2026). Five remain: 2, 3, 5, 6, 8.** Sheets 6-7 are
+- ~~**Types 1, 4, 7 and 9 are authored (20 Aug 2026). Five remain: 2, 3, 5, 6, 8.** Sheets 6-7 are
   gated to the authored set by `V3_EXPLORE_PILOT_TYPES` (`app/renderer.js`) and
   `EXPLORE_PILOT_TYPES` (`scripts/build_content_library.js`) — two lists that must agree, flagged
-  in both files for collapse when the remaining five land.
+  in both files for collapse when the remaining five land.~~
+
+  > **Post-lock correction — 8 Sep 2026. CLOSED. ALL NINE AUTHORED, AND BOTH LISTS ARE GONE.**
+  > Stale on three counts, and the third is the one a reader would trip on.
+  >
+  > 1. **All nine types are authored.** §7.4's own 4 Sep correction records this ("All nine types
+  >    are now authored"), so the document has contradicted itself two sections apart since then.
+  > 2. **Neither constant exists.** `grep -rn "PILOT_TYPES"` over the repo returns **zero hits in
+  >    any `.js` file** — only this bullet, two historical docs, and one past-tense comment at
+  >    `tests/report_pages_test.js:121`. Anyone reading this bullet is sent to two symbols that
+  >    cannot be found, in two files that do not contain them.
+  > 3. **They did not "collapse" — they were DELETED**, at `c1d5183` on **4 Sep 2026** ("PR 3e:
+  >    delete both pilot lists, per the plan — my reason for keeping them was wrong"), which
+  >    touched `app/renderer.js`, `scripts/build_content_library.js` and
+  >    `tests/report_pages_test.js`. **Sheets 6-7 are unconditional.** There is no authored set to
+  >    gate to, because the set is all nine.
+  >
+  > **The guarantee survived the mechanism, which is the part worth carrying forward.** The blank-
+  > page protection used to be a *filter* in `v3PagesFor` — a type absent from the list simply did
+  > not get sheets 6-7. It is now a **throw** in the render functions: `_clv3TypeA`
+  > (`app/renderer.js:3599`) raises `type N has no explore_v3 content` rather than emitting a blank
+  > page, and `build_content_library.js:1911` catches the same condition earlier at build time.
+  > `tests/report_pages_test.js:121` asserts the throw against a synthetic model, deliberately not
+  > a real type.
+  >
+  > `V3_PAGE_ORDER`'s `pilotTypes` key survives as an unused capability — `v3PagesFor`
+  > (`app/renderer.js:3174`) still honours it, and **no entry carries it** (measured: 0 of 12).
+  > That is a fact, not a defect: it is the staging mechanism, retained for the next page family
+  > that needs it.
 - ~~The subtype signature (`Merging & Intensity`) is a new three-part naming convention: formal name,
   nickname, two-word signature. Only the three Type 9 subtypes exist.~~
 
