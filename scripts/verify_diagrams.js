@@ -52,11 +52,19 @@ for (let lead = 1; lead <= 9; lead++) {
 // type 1 and the lowest on type 9, so a LEADING ring on node 9 sits on the palest node. That
 // is confusing to look at and was caught on a contact sheet rather than by any gate — geometry
 // does not depend on scores (asserted below), so nothing here could have failed.
-const SWEEP_SCORES = [
-  { type: 9, score: 91 }, { type: 5, score: 83 }, { type: 1, score: 74 },
-  { type: 8, score: 52 }, { type: 3, score: 47 }, { type: 2, score: 44 },
-  { type: 7, score: 38 }, { type: 4, score: 35 }, { type: 6, score: 31 },
-];
+// Ordered, the way report_prep's typeRamp emits it: position 1 first. Built PER PAIR below, so
+// position 1 is always the sweep's leading type and position 2 its alternate — which is what
+// B12 asserts. The types after the first two are the anders_sx9 ranking order.
+const TAIL = [9, 5, 1, 8, 3, 2, 7, 4, 6];
+const orderFor = (lead, alt) => {
+  const seen = new Set(), out = [];
+  const put = (t) => { if (t != null && !seen.has(t)) { seen.add(t); out.push(t); } };
+  put(lead); put(alt);
+  for (const t of TAIL) put(t);
+  for (let t = 1; t <= 9; t += 1) put(t);
+  return out.map((type, i) => ({ type, position: i + 1, score: null }));
+};
+const SWEEP_SCORES = orderFor(9, 5);
 
 let failed = false;
 const fail = (m) => { failed = true; console.log(`  *** FAIL — ${m}`); };
@@ -186,7 +194,8 @@ const rectsOverlap = (a, b) =>
     let worst = Infinity, worstAt2 = '', nodeCountBad = 0, orange = 0, banned = 0;
     const BANNED = /fill-opacity|stop-opacity|\sopacity\s*=|rgba\(|\btransparent\b|oklch\(|#[0-9a-fA-F]{8}\b/;
     for (const [lead, alt] of RING_PAIRS) {
-      const svg = R.buildEnneagramSVG({ variant: 'client-quickref', leading: lead, alternate: alt, scores: SWEEP_SCORES });
+      const scores = orderFor(lead, alt);
+      const svg = R.buildEnneagramSVG({ variant: 'client-quickref', leading: lead, alternate: alt, scores });
 
       // B6 — no transparency construct in the emitted markup. Cheap, and it catches the thing at
       // authoring time rather than after a render.
@@ -276,18 +285,65 @@ const rectsOverlap = (a, b) =>
       }
     }
 
-    // B10 — SCORE INDEPENDENCE. Two renders with different score vectors must differ ONLY in
-    // fills. Geometry could not previously depend on scores because they could not reach the
-    // builder; Build 2 breaks that property deliberately, so the claim is re-established as a
-    // gate rather than inherited.
+    // ── B10, RESTATED (PR 5 Build 3) ──────────────────────────────────────────────────
+    //
+    // It used to assert "two SCORE vectors differ only in fills". Under rank-shading fills no
+    // longer depend on scores at all, so that would pass vacuously — the seventh instance of
+    // that pattern on this project, and a trivially true assertion is worse than none because
+    // it reads as coverage. The property actually worth protecting is unchanged: GEOMETRY DOES
+    // NOT DEPEND ON THE DATA. Restated in the units the figure now uses — two different
+    // ORDERINGS must differ only in fills.
     const strip = (svg) => svg.replace(/fill="#[0-9A-F]{6}"/g, 'fill="X"')
                               .replace(/stop-color="#[0-9A-F]{6}"/g, 'stop-color="X"');
-    const flat = [1,2,3,4,5,6,7,8,9].map(t => ({ type: t, score: 50 }));
-    const a = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 5, scores: SWEEP_SCORES });
-    const b = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 5, scores: flat });
-    if (a === b) fail('score-independence: two different score vectors produced identical SVG — the ramp is not reading scores');
-    else if (strip(a) !== strip(b)) fail('score-independence: two score vectors differ OUTSIDE fill — a position or label depends on a score');
-    else console.log('  score independence: differs in fills only ✓');
+    {
+      const a = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 5, scores: orderFor(9, 5) });
+      // Same rings, a DIFFERENT tail order — so positions 3-9 land on different types.
+      const shuffled = orderFor(9, 5).map((r, i) => ({ ...r, type: [9, 5, 6, 4, 7, 2, 3, 8, 1][i] }));
+      const b = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 5, scores: shuffled });
+      if (a === b) fail('B10: two different orderings produced identical SVG — the ramp is not reading position');
+      else if (strip(a) !== strip(b)) fail('B10: two orderings differ OUTSIDE fill — a position or label depends on the ordering');
+      else console.log('  B10 ordering independence: differs in fills only ✓');
+    }
+
+    // ── B12 — THE RINGS SIT ON POSITIONS 1 AND 2 (PR 5 Build 3) ───────────────────────
+    //
+    // The guarantee the whole design rests on, asserted rather than assumed. Reads the fill of
+    // the circle AT each ring's node and requires RANK_FILL[0] / RANK_FILL[1].
+    //
+    // ITS RED CONTROL IS ORDERING FROM leading_candidate, which is the flaw this build exists
+    // to remove: on a REDIRECT confirmed_type and leading_candidate differ, so that ordering
+    // puts the solid LEADING ring on position 2. Asserting here means it cannot come back.
+    {
+      let bad = 0;
+      const nodeAt = (svg, geo, type) => {
+        const deg = R.CLIENT_ANGLES[type], rad = deg * Math.PI / 180;
+        // MATCH THE RENDERER'S OWN FORMATTING. _wheelNodes does `+(x).toFixed(1)`, so the value
+        // is a NUMBER before it reaches the template — 49.0 is emitted as "49", not "49.0".
+        // A naive .toFixed(1) here missed every whole-numbered coordinate, which on this
+        // geometry is node 9 (cy = 49). Caught by B12 failing on all eight `x9` pairs.
+        const cx = +(geo.cx + geo.r * Math.cos(rad)).toFixed(1), cy = +(geo.cy + geo.r * Math.sin(rad)).toFixed(1);
+        const m = svg.match(new RegExp(`<circle cx="${cx}" cy="${cy}" r="${geo.rNode}" fill="(#[0-9A-F]{6})"`));
+        return m ? m[1] : null;
+      };
+      for (const [lead, alt] of RING_PAIRS) {
+        const svg = R.buildEnneagramSVG({ variant: 'client-quickref', leading: lead, alternate: alt, scores: orderFor(lead, alt) });
+        const lf = nodeAt(svg, R.QUICKREF_GEO, lead), af = nodeAt(svg, R.QUICKREF_GEO, alt);
+        if (lf !== R.RANK_FILL[0]) { bad++; fail(`B12 ${lead}x${alt}: LEADING ring node fill is ${lf}, expected position 1 (${R.RANK_FILL[0]})`); }
+        if (af !== R.RANK_FILL[1]) { bad++; fail(`B12 ${lead}x${alt}: ALTERNATE ring node fill is ${af}, expected position 2 (${R.RANK_FILL[1]})`); }
+      }
+      if (!bad) console.log(`  B12 rings on positions 1 and 2: ${RING_PAIRS.length}/${RING_PAIRS.length} ✓`);
+    }
+
+    // B9, REPLACED — nine constants rather than a formula. The endpoints are byte-identical to
+    // the values Build 2's B9 verified against t = 0.10 + 0.90 x score/100, so this is the same
+    // ramp sampled at nine fixed points.
+    {
+      const want = ['#00B2D9', '#1DBBDD', '#39C3E2', '#56CCE6', '#73D5EA', '#8FDDEE', '#ACE6F3', '#C9EFF7', '#E6F7FB'];
+      if (R.RANK_FILL.join(',') !== want.join(',')) {
+        fail(`B9: RANK_FILL is [${R.RANK_FILL.join(', ')}], expected [${want.join(', ')}]`);
+      } else console.log('  B9 nine fixed steps: exact, endpoints match the verified #00B2D9 / #E6F7FB ✓');
+    }
+
     await qpage.close();
   }
 
