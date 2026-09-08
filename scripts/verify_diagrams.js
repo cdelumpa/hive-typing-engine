@@ -352,6 +352,27 @@ const rectsOverlap = (a, b) =>
       if (R.RANK_FILL.join(',') !== want.join(',')) {
         fail(`B9: RANK_FILL is [${R.RANK_FILL.join(', ')}], expected [${want.join(', ')}]`);
       } else console.log('  B9 nine fixed steps: exact, endpoints match the verified #00B2D9 / #E6F7FB ✓');
+
+      // THE LEGEND READS THE SAME TABLE — the drift the nine-block legend closes. With a
+      // gradient the legend's two stops and the nodes' nine steps were separate expressions of
+      // one ramp; nothing compared them, so a change to RANK_FILL would have left the legend
+      // interpolating between stale endpoints. Asserted against the LAST NINE rects, since the
+      // ramp is the only place the variant emits them.
+      const svg9 = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 5, scores: orderFor(9, 5) });
+      const rects = [...svg9.matchAll(/<rect [^>]*fill="(#[0-9A-F]{6})"/g)].map((m) => m[1]);
+      const legend = rects.slice(-9);
+      if (legend.length !== 9) {
+        fail(`B9 legend: found ${legend.length} legend rect(s), expected 9`);
+      } else if (legend.join(',') !== [...R.RANK_FILL].reverse().join(',')) {
+        fail(`B9 legend: fills are [${legend.join(', ')}], expected RANK_FILL reversed `
+           + `(palest left) [${[...R.RANK_FILL].reverse().join(', ')}] — the legend has drifted from the nodes`);
+      } else console.log('  B9 legend: nine blocks, reading RANK_FILL reversed — cannot drift from the nodes ✓');
+
+      // NO GRADIENT AT ALL. A <defs>/<linearGradient> surviving here would mean the old ramp was
+      // left in place beside the new blocks.
+      if (/<defs>|linearGradient|url\(#/.test(svg9)) {
+        fail('B9 legend: the SVG still carries a gradient — the continuous ramp was not removed');
+      }
     }
 
     await qpage.close();

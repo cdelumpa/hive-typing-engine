@@ -1419,15 +1419,32 @@ function buildEnneagramSVG({ type, variant, leading, alternate, scores }) {
            + `letter-spacing="1">${m.text}</text>`;
     }).join('');
 
-    // The legend ramp. Both gradient stops are OPAQUE — they terminate on the underlying colour
-    // rather than on `transparent`, which is the construct spec §3.2 names as the cause of the
-    // cover rendering PINK in one viewer.
-    const gid = `qr-ramp-${leading}-${altN == null ? 'x' : altN}`;
-    const defs = `<defs><linearGradient id="${gid}">`
-      + `<stop offset="0%" stop-color="${RAMP_MIN}"/><stop offset="100%" stop-color="${RAMP_MAX}"/>`
-      + `</linearGradient></defs>`;
+    // ── THE LEGEND: NINE BLOCKS, NOT A GRADIENT ───────────────────────────────────────
+    //
+    // [DECISION — Cai, 8 Sep 2026] The nodes are nine discrete steps, so the legend is too. A
+    // continuous bar said "a continuum" beside a figure that had stopped claiming one — the two
+    // halves of the same sheet reading differently.
+    //
+    // IT READS RANK_FILL, THE SAME TABLE THE NODES DO. That is the drift this closes: with a
+    // gradient, the legend's two stops and the nodes' nine steps were separate expressions of
+    // one ramp and could diverge silently. B9 now asserts the legend's fills ARE the table, in
+    // order, so they cannot.
+    //
+    // PALEST LEFT, DARKEST RIGHT — RANK_FILL reversed — because the captions run "Less like you"
+    // to "More like you" and position 1 is the most like you. Unchanged from the gradient's
+    // direction, which ran RAMP_MIN at 0% to RAMP_MAX at 100%.
+    //
+    // NO <defs> AND NO GRADIENT AT ALL, so the emitted PDF carries one fewer shading object:
+    // measured 1 -> 0 by verify_transparency.js's scanner. Nine flat fills cannot produce a
+    // transparency group by any path, which is a stronger position than an opaque gradient.
+    const GAP = 2;
+    const blockW = (C.rampW - GAP * 8) / 9;
+    const legendBlocks = RANK_FILL.slice().reverse().map((fill, i) =>
+      `<rect x="${(C.rampX + i * (blockW + GAP)).toFixed(2)}" y="${C.rampY}" `
+      + `width="${blockW.toFixed(2)}" height="${C.rampH}" fill="${fill}"/>`).join('');
+    const defs = '';
     const capY = C.rampY + C.rampH + 13;
-    const legend = `<rect x="${C.rampX}" y="${C.rampY}" width="${C.rampW}" height="${C.rampH}" rx="3" fill="url(#${gid})"/>`
+    const legend = legendBlocks
       + `<text x="${C.rampX}" y="${capY}" font-family="Arial" font-size="${C.capFs}" fill="#6B7785">Less like you</text>`
       + `<text x="${C.rampX + C.rampW}" y="${capY}" text-anchor="end" font-family="Arial" font-size="${C.capFs}" fill="#6B7785">More like you</text>`;
 
