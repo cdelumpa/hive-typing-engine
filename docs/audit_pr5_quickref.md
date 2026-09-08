@@ -43,7 +43,7 @@ diagnostic PDF**, and it says so at [`app/generate_report.js:568`](app/generate_
 
 `generate_report.js:588` — the bare `page.pdf()` that **IO-93 cites as its evidence** — is inside
 `htmlToPdf`, one of the four functions named in that comment. IO-93's *substance* is correct and I
-confirm it below (§9.1), but its citation points at a function nothing calls. The live emitter is
+confirm it below (§9), but its citation points at a function nothing calls. The live emitter is
 [`app/server.js:5065`](app/server.js:5065). **The card should be re-cited before anyone works it**,
 or the first person to open it will "fix" a dead path and believe they are done.
 
@@ -836,7 +836,7 @@ Three findings:
 * **Label-to-node clearance: propose 5px**, same value, same reason. Measured p5 headroom **6.06px**
   (LEADING) and **6.41px** (ALTERNATE) — thin but passing, and directly comparable to wings/lines'
   5.47px. This is the check `r <= 20` currently disables.
-* **Label-to-label: assert non-overlap only**, exactly as the corrected §3.5 already prescribes. If a
+* **Label-to-label: assert non-overlap only**, exactly as the spec's corrected §3.5 already prescribes. If a
   numeric floor is ever wanted, p5's measured baseline is **24.81** counting numerals, **46.98**
   excluding them — and the two must not be conflated, which is arguably how 27.7 was born.
 
@@ -1602,7 +1602,7 @@ this section — **the tree was already current, nothing came down.**
 
 ## 19. Lead — what is wrong
 
-### 20.1 The harness invalidates the heat map's inputs on 9 of 9 renders `[MEASURED]`
+### 19.1 The harness invalidates the heat map's inputs on 9 of 9 renders `[MEASURED]`
 
 This is the plan-moving finding, and it is not a fixture gap — it is a **harness** gap.
 
@@ -1646,7 +1646,7 @@ for a different field, with the same reasoning, and it needs the same treatment.
 work on the exact field the first prompt exposes, and doing it late means every render between now
 and then is untrustworthy.
 
-### 20.2 On a REDIRECT, both rings land on the same node — and it is the wrong node `[MEASURED]`
+### 19.2 On a REDIRECT, both rings land on the same node — and it is the wrong node `[MEASURED]`
 
 Proved by running the production stamper (`app/call2_stamp.js`), not by reading it. Input: Call #1
 ranks 9 first and 6 second; the model confirms 6 and records `redirect_from_type: 9`.
@@ -1686,7 +1686,7 @@ what makes the 2-of-19 "alternate is ramp #3" case render as a mid-ramp node wea
 ring: visibly odd, but not a false statement. Add one guard: **if the two rings resolve to the same
 node, draw the leading ring only and flag it**, rather than stacking a dashed ring on a solid one.
 
-### 20.3 One note on the decided field, stated once `[JUDGMENT]`
+### 19.3 One note on the decided field, stated once `[JUDGMENT]`
 
 The decision is `call1_ranking`, and I am building to it. One thing to have on the record: in
 em_only — which is production — `call1_ranking` is EM's `em_ranking`
@@ -1699,7 +1699,7 @@ I am not reopening the field choice — the decision buys internal consistency w
 of the audit was wrong to weigh that lightly. But **the heading may want a word**, and that is a
 copy question for Cai and Mo, not a build question.
 
-### 20.4 A seventh stale spec line, found while making the six `[MEASURED]`
+### 19.4 A seventh stale spec line, found while making the six `[MEASURED]`
 
 Not corrected, because it is outside the decided list. **§7.3's first bullet** still reads:
 
@@ -1709,7 +1709,7 @@ Not corrected, because it is outside the decided list. **§7.3's first bullet** 
 authored", and `V3_EXPLORE_PILOT_TYPES` was collapsed in PR 3e. The document contradicts itself
 two sections apart. One line, same shape as the others. Cai's list, Cai's call — say the word.
 
-### 20.5 Two small corrections to this prompt `[MEASURED]`
+### 19.5 Two small corrections to this prompt `[MEASURED]`
 
 * **§2.2's "the type-axis fixture need is gone" is right, but not for the stated reason.**
   `leading_candidate = call1 #1` holds on 19/19 production rows **and on all three fixtures** —
@@ -1721,7 +1721,7 @@ two sections apart. One line, same shape as the others. Cai's list, Cai's call �
 
 ## 20. §2.2 — the fixtures, measured
 
-### 21.1 What carries `call1_ranking` `[MEASURED]`
+### 20.1 What carries `call1_ranking` `[MEASURED]`
 
 Scanned every `.json` in `tests/fixtures/`. Eight of the eleven carry no `hypothesis` at all —
 `redirect69.json`, `so7.json`, `sp4.json`, `sx7.json`, `sp4_pre051426.json`, `sx7_pre051426.json`,
@@ -1739,7 +1739,7 @@ Scanned every `.json` in `tests/fixtures/`. Eight of the eleven carry no `hypoth
 **So the shape is not thin — every fixture is 9/9, and `cmsPreviewApiResult`'s two-entry stub is
 the only short one in the repo.** The thinness is elsewhere.
 
-### 21.2 Where the fixtures *are* thin — and it is exactly the production hazards `[JUDGMENT]`
+### 20.2 Where the fixtures *are* thin — and it is exactly the production hazards `[JUDGMENT]`
 
 | Case | In production `[CAI-MEASURED]` | In fixtures `[MEASURED]` |
 |---|---|---|
@@ -1770,7 +1770,7 @@ additions rather than the two the audit proposed:
 
 Plus the two instinct-axis fixtures from audit §8.1, unchanged.
 
-### 21.3 What replaces the retired fixture need `[MEASURED]`
+### 20.3 What replaces the retired fixture need `[MEASURED]`
 
 The audit's §8.2 wanted a fixture where "`type_score_profile` #2 ≠ `alternate_candidate`" — the
 `sp4` disagreement. **Under the decided field that case cannot occur**, because `alternate_candidate`
@@ -1825,7 +1825,7 @@ let a miss throw, which is what already happens one hop earlier.
 
 ## 22. §2.4 — the sequence, revalidated
 
-### 23.1 What the seven steps become
+### 22.1 What the seven steps become
 
 The old step 1 is a decision that has been taken, and **the old step 2 dissolves**. Both are
 reported rather than kept as placeholders.
@@ -1842,7 +1842,7 @@ reported rather than kept as placeholders.
 
 **Five things, two of which are the build prompts Cai specified.**
 
-### 23.2a Does P6 fold into Build 2? **Yes, entirely.** `[JUDGMENT]`
+### 22.2a Does P6 fold into Build 2? **Yes, entirely.** `[JUDGMENT]`
 
 P6 was "heat-map SVG geometry under both ramp formulas at the flat, spread and extreme profiles".
 Two halves, both gone as a *separate* step:
@@ -1858,7 +1858,7 @@ So P6 is not a measurement that must precede the code — **it is the code's own
 already known: the mockup's LEADING label sits **1.17 viewBox px** from the canvas top and fails the
 existing 5px rule (audit §7.2). Build 2 opens with that fix.
 
-### 23.2b Do Builds 1 and 2 touch a file in common? **Yes — `app/renderer.js`.** `[MEASURED]`
+### 22.2b Do Builds 1 and 2 touch a file in common? **Yes — `app/renderer.js`.** `[MEASURED]`
 
 Answered from the file list, not from memory:
 
@@ -1882,7 +1882,7 @@ data, and the two errors would surface together with no way to attribute them. O
 **Build 2 must not start until Build 1's 27-render matrix and coach baseline are green**, which is
 the sequencing already decided.
 
-### 23.2c Where IO-75 lands `[JUDGMENT]`
+### 22.2c Where IO-75 lands `[JUDGMENT]`
 
 **Build 2, as its first commit — before any geometry change.** Not step 7.
 
@@ -1908,7 +1908,7 @@ as its own card and have Build 2 merely *report* the before/after number — is 
 but it leaves the shared primitive ungated during the one change most likely to move it. I recommend
 carrying it here and naming it.
 
-### 23.3 §2.1 — where the orphaned decision lands
+### 22.3 §2.1 — where the orphaned decision lands
 
 **Build 1, as its own commit, sequenced first within the prompt.** Not its own step, not folded into
 the `report_prep.js` commit.
@@ -1937,7 +1937,7 @@ green. Two things have been measured since:
 subtype-column lookup, not to the rank computation; the two are separate concerns in the same IIFE
 today.
 
-### 23.4d Build 1 — exact scope
+### 22.4d Build 1 — exact scope
 
 **Files touched, and nothing else.**
 
@@ -1976,7 +1976,7 @@ fractional — and record it in the build report. Audit §2.1's range is fixture
 should be set against real data rather than three hand-authored fixtures. `[UNVERIFIED]` here; I have
 no database access in this session.
 
-### 23.5 What I would now do differently
+### 22.5 What I would now do differently
 
 `[JUDGMENT]` Three things, all of them consequences of measuring rather than of the decisions:
 
@@ -2000,7 +2000,7 @@ Requested so the other copy can be compared against it. **The repo copy at commi
 i.e. **after** the five corrections in §3 of the prompt. Where I changed a section, both states
 are given, because the divergence being hunted is between copies *and* across time.
 
-### 24.1 Every post-lock correction the document contains `[MEASURED]`
+### 23.1 Every post-lock correction the document contains `[MEASURED]`
 
 Counted by `grep -o "Post-lock correction — [0-9]* [A-Za-z]* 2026"`, plus the inline dated
 markers that do not use that heading form.
@@ -2008,7 +2008,7 @@ markers that do not use that heading form.
 | Date | Count | Sections |
 |---|---|---|
 | **11 Aug 2026** | 1 | §4.1 — `type_library_name_patch_080726.json` corrects no archetype names; do not apply. Also the Appendix row. |
-| **12 Aug 2026** | 1 + 1 inline | §3.5 — the four-count retraction (this is the convention the others follow). Plus "**This is a required step, not an assumption** (added 12 Aug 2026)" later in §3.5. |
+| **12 Aug 2026** | 1 + 1 inline | spec §3.5 — the four-count retraction (this is the convention the others follow). Plus "**This is a required step, not an assumption** (added 12 Aug 2026)" later in §3.5. |
 | **20 Aug 2026** | 2 inline | §4.4 rows M1 and M2, both marked "Ratified 20 Aug 2026". |
 | **3 Sep 2026** | 1 + 2 inline | §6.1 table (two corrections to the line-count bands). Inline: §4.4 row M4 "Recorded 3 Sep 2026", and §4.4's closing paragraph "Reworded 3 Sep 2026". |
 | **4 Sep 2026** | 7 | §6.1 (×2 — scope, and the hard gate at PR 3f), §7.2 (Type 9 p7 rows CLOSED), §7.4 (×2 — all nine authored; the nine doc IDs superseded at PR 3e), §7.4 budgets (×2 — the budgets are not sound). |
@@ -2017,11 +2017,11 @@ markers that do not use that heading form.
 **Total: 17 dated post-lock corrections or ratifications, across six dates.** The oldest is
 11 Aug; the document has been corrected in place on every working date since.
 
-`[JUDGMENT]` If the other copy carries none of these, the divergence is not one line in §3.5 —
+`[JUDGMENT]` If the other copy carries none of these, the divergence is not one line in spec §3.5 —
 it is every section listed above. §6.1, §7.2 and §7.4 have each been corrected twice, and §7.4's
 4 Sep entry explicitly says a claim in it was "**false when written**".
 
-### 24.2 §3.5 — unchanged by me, already struck
+### 23.2 §3.5 — unchanged by me, already struck
 
 The opening claim and its retraction, verbatim:
 
@@ -2055,7 +2055,7 @@ clipped, minimum edge clearance 5px, minimum label-to-label gap 27.7px**.~~
 **The 27.7px figure is inside `~~strikethrough~~` and the blockquote withdraws it explicitly.**
 The measured replacement is **24.12px**, and the gate asserts **non-overlap**, not any figure.
 
-### 24.3 §4.3 — corrected by me
+### 23.3 §4.3 — corrected by me
 
 **Before `ddd5043`** the section was four short paragraphs asserting the v3 mockup "has been
 wrong about client data twice" — a mirrored figure missing node 2, and SP9 throughout — closing
@@ -2108,7 +2108,7 @@ violation). Current text:
 >    be re-expressed as opaque solids on white before it ships.
 ```
 
-### 24.4 §5.3 — corrected by me
+### 23.4 §5.3 — corrected by me
 
 **Before:** "Orange appears in exactly four places: the client's name in every page header, the
 cover identifier, the subtype identifier and column, and the \"In Your Responses\" block."
@@ -2141,7 +2141,7 @@ instinct bars**. A client can find what is about *them* without reading. This mu
 
 ```
 
-### 24.5 §7.2 — corrected by me (bullet 4 only)
+### 23.5 §7.2 — corrected by me (bullet 4 only)
 
 **Before:** `- **The four debrief tips (p5)** — explicit placeholders.`
 
@@ -2161,7 +2161,7 @@ instinct bars**. A client can find what is about *them* without reading. This mu
 
 The rest of §7.2 is unchanged, including its own 4 Sep correction closing the Type 9 p7 rows.
 
-### 24.6 §7.3 — two bullets corrected by me, one left stale
+### 23.6 §7.3 — two bullets corrected by me, one left stale
 
 ```
 ### 7.3 Known content gaps

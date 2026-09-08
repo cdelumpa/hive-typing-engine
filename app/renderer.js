@@ -3795,6 +3795,44 @@ ${l.work.map((w, i) => `    <div class="v3-work-item">
 }
 
 /**
+ * PRIMARY / SECONDARY / TERTIARY for the three instincts — the ONE implementation.
+ *
+ * PRIMARY follows dominant_instinct_hypothesis (reaching here as display.instinct_code);
+ * SECONDARY and TERTIARY follow instinct_score_profile descending (reaching here as
+ * charts.instincts). Both inputs are already on the client model for every render, so this
+ * needs no plumbing and no second lookup path.
+ *
+ * THIS IS A THIRD HELPER, DELIBERATELY. It is NOT instinctStack (report_prep.js:65) and must
+ * never become a second caller of it: that helper labels Leading/Supporting/Growing BY SCORE
+ * ALONE with no dominant input, and it is read by live v2 p6 (renderer.js:2254), the coach
+ * report and the Coach Prep Report. The two rules give different answers whenever the
+ * dominant instinct is not the top-scoring one — which no fixture in the repo currently
+ * produces (audit §0.5 — all six repo profiles have dominant == top score), so nothing
+ * would catch the wrong import. Three ordering rules in one module is why each says which
+ * it is.
+ *
+ * SHARED BECAUSE THE PAGES MUST AGREE, not because the code was duplicated. p5 draws the
+ * three scores as BAR LENGTHS while p10 draws only badges, so a divergence that is invisible
+ * on p10 is visible on p5 as the longest bar labelled Secondary.
+ *
+ * NO FALLBACK, deliberately. p10's `|| iz.columns[0]` guards the SUBTYPE COLUMN lookup, not
+ * this one, and it is unreachable in any case: any dominant value that would miss a column
+ * also misses `subtype_<lower><N>` and buildClientModel throws at report_prep.js:219 before
+ * a page is built (audit §21, measured across fifteen inputs). Copying a dead fallback into
+ * shared code would make the next reader re-derive that proof.
+ *
+ * @param {string} dominant   'SP' | 'SO' | 'SX', already upper-cased by the caller
+ * @param {Array}  bars       charts.instincts — [{ code, score }, ...]
+ * @returns {Object}          { SP|SO|SX: 'Primary' | 'Secondary' | 'Tertiary' }
+ */
+function instinctRanks(dominant, bars) {
+  const score = Object.fromEntries((bars || []).map((b) => [b.code, b.score]));
+  const rest = ['SP', 'SO', 'SX'].filter((c) => c !== dominant)
+    .sort((a, b) => (score[b] || 0) - (score[a] || 0));
+  return { [dominant]: 'Primary', [rest[0]]: 'Secondary', [rest[1]]: 'Tertiary' };
+}
+
+/**
  * p10 "Instincts & Subtypes" — sheet 10, printed page 8.
  *
  * GEOMETRY OF RECORD: docs/p10_fit_results.md. Every zone below was measured on a scaffold
@@ -3823,24 +3861,13 @@ function _clv3Instincts(m) {
   const page = v3Page('instincts');
   const iz = m.pages.v3_instincts;
 
-  // ── BADGES, p10-LOCAL ──────────────────────────────────────────────────────────────
-  // PRIMARY follows dominant_instinct_hypothesis (via display.instinct_code); SECONDARY
-  // and TERTIARY follow instinct_score_profile descending. Computed HERE, from data
-  // already on the model, and NOT from instinctStack — that helper is read by live v2 p6
-  // (renderer.js:2254), the coach report and the Coach Prep Report, and it labels
-  // Leading/Supporting/Growing by score alone with no dominant input. Two ordering rules in
-  // one module is how the wrong one gets imported.
-  //
-  // A null dominant does not reach here: report_prep falls back to confirmed_instinct, and
-  // with both null buildClientModel throws before any page is built. Asserted in
-  // tests/report_pages_test.js rather than defended against.
+  // ── BADGES ─────────────────────────────────────────────────────────────────────────
+  // Was p10-LOCAL. Extracted to instinctRanks (above) at PR 5 Build 1, unchanged, because
+  // sheet 5 renders the same three badges and the two pages must not be able to disagree
+  // about which instinct is Primary. See the comment on instinctRanks for why it is a THIRD
+  // helper rather than a second caller of instinctStack.
   const dom = String(m.display.instinct_code || '').toUpperCase();
-  const rank = (() => {
-    const score = Object.fromEntries((m.charts.instincts || []).map((b) => [b.code, b.score]));
-    const rest = ['SP', 'SO', 'SX'].filter((c) => c !== dom)
-      .sort((a, b) => (score[b] || 0) - (score[a] || 0));
-    return { [dom]: 'Primary', [rest[0]]: 'Secondary', [rest[1]]: 'Tertiary' };
-  })();
+  const rank = instinctRanks(dom, m.charts.instincts);
 
   const you = iz.columns.find((c) => c.instinct === dom) || iz.columns[0];
 

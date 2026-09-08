@@ -13990,7 +13990,15 @@ function cmsPreviewApiResult(N, instinct) {
     hypothesis: {
       confirmed_type: N, alternate_candidate: alt, dominant_instinct_hypothesis: instinct,
       confidence_level: 'HIGH', stage4_outcome: 'CONFIRM',
-      call1_ranking: [{ type: N, score: 85 }, { type: alt, score: 60 }],
+      // NINE ENTRIES, ONE PER TYPE. Two was enough while call1_ranking only fed the coach
+      // chart, which this stub never renders. Sheet 5 draws it as nine node fills, and
+      // report_prep's CLIENT_SPEC.ninePerType now rejects anything else — so a two-entry
+      // stub would make every v3 CMS preview throw the moment sheet 5 is `built`. The hero
+      // leads and the alternate is second, matching the two rings; the other seven descend
+      // in type order so the ramp has a visible spread to preview against.
+      call1_ranking: [{ type: N, score: 85 }, { type: alt, score: 60 }].concat(
+        [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((t) => t !== N && t !== alt)
+          .map((t, i) => ({ type: t, score: 52 - i * 4 }))),
       instinct_score_profile: prof,
     },
     coach_report: {}, client_facing: {}, client_words: {},
