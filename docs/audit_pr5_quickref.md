@@ -2222,9 +2222,10 @@ Enumerated at the end of the run. No push, no PR, no merge, no branch deletion.
 | 5 | `eb856b9` | PR 5 plan detail: revalidate the sequence — §§19–23 |
 | 6 | `7843749` | PR 5 plan detail: close the section-numbering gap |
 | 7 | `e877c53` | **Spec v3.0: §7.3 bullet 1 — the sixth correction** |
-| 8 | *this commit* | PR 5: bring §24's commit table current before the docs merge |
+| 8 | `a9eaf33` | PR 5: bring §24's commit table current before the docs merge |
+| 9 | *this commit* | PR 5 Phase B: commit the merge predictions before pushing (§25) |
 
-Commit 8's SHA is in the build response and in `git log --oneline main..HEAD`; a commit cannot
+Commit 9's SHA is in the build response and in `git log --oneline main..HEAD`; a commit cannot
 record its own SHA, and amending one to insert it just produces a new SHA and a stale table.
 
 **Commit 7 is the sixth spec correction**, added 8 Sep after the check in its own message: §7.3's
@@ -2248,3 +2249,79 @@ code to entangle them with.
 off `main` rather than continuing here, this branch must merge **first**, as a docs PR — otherwise
 the corrections are stranded on a branch nobody merges, which the opening prompt says has happened
 twice on this project.
+
+---
+
+## 25. Phase B — predictions, committed before the push
+
+**Committed 8 Sep 2026, before the branch was pushed and before any PR existed.** A deviation from
+anything below is a **finding**, not a licence to edit this section. Nothing here is copied from a
+prompt; every figure is measured on this machine or read out of the workflow file.
+
+### 25.1 What will and will not run
+
+| Prediction | Basis |
+|---|---|
+| **Exactly one workflow** — `.github/workflows/report-verify.yml`. `ls .github/workflows/` returns one file. | `[MEASURED]` |
+| **Exactly one job**, `verify`, on `ubuntu-latest`, `timeout-minutes: 15`. | `[MEASURED]` |
+| **The bare branch push triggers ZERO runs.** Triggers are `pull_request:` and `push: branches: [main]`. `pr-5-quickref-audit` is neither. | `[MEASURED]` — workflow lines 17-20 |
+| **Opening the PR triggers exactly ONE run**, on the `pull_request` event. | `[MEASURED]` |
+| **All 11 steps run. NONE skip.** There are no `paths:`/`paths-ignore:` filters and no step-level `if:`. A docs-only diff runs the entire suite — six gates, Chromium, 27+ renders. | `[MEASURED]` — grep for `paths` returns nothing |
+| **Merging triggers a SECOND run** on the `push: branches: [main]` event, against the merge commit. | `[MEASURED]` |
+| **The next PR number is #94.** Last merged is #93 (PR 4 step 6B, 2026-09-08T00:04:39Z). | `[MEASURED]` |
+
+### 25.2 Wall-clock
+
+Every gate timed on this machine (macOS, Chromium 147.0.7727.57) immediately before the push, all
+six green:
+
+| Step | Local | Predicted CI |
+|---|---|---|
+| `npm test` (7 test files, 27 tests) | **0.31s** | ~2s |
+| `npm run verify:render` | **52.53s** | ~81s |
+| `verify_diagrams.js` | **0.95s** | ~2s |
+| `verify_transparency.js` | **2.89s** | ~5s |
+| `verify_coach_baseline.js` | **2.85s** | ~6s |
+| `verify_content_library.js` | **0.22s** | ~1s |
+| **Gate compute subtotal** | **59.75s** | **~97s** |
+
+CI scaling factor **1.55×** on the render-bound steps, taken from `docs/audit_pr3_per_type_pages.md`
+(1.409 s/render locally against ~2.19 s/render in CI), not guessed. Plus setup, which does not scale
+the same way: checkout ~5s, `setup-node@v4` ~5s, `apt-get update && install fonts-liberation` ~20s,
+Puppeteer cache restore ~10s (expect a **hit** — `app/package-lock.json` is unchanged on this
+branch, so the key matches `main`'s), `npm ci` ~30s.
+
+> **Point estimate: 3m00s. Predicted range 2m30s – 4m30s.** Same for both runs; the merge-commit run
+> does identical work. Anything over 5m or under 2m is a finding.
+
+**One asymmetry predicted explicitly:** `verify_coach_baseline.js` reported *"ALL PASSED — HTML only
+(PDF half skipped off-Linux)"* locally. **On CI the PDF-hash half will also run**, so that step does
+strictly more work there than it did here. Predicted still green: `tests/baselines/coach_*.pdf.sha256`
+was recorded on Linux and this branch changes no code.
+
+### 25.3 The merge
+
+| Prediction | Value |
+|---|---|
+| Files changed | **2**, both `.md` |
+| Line delta | **+2375 / −18** (2393 changed) |
+| Paths | `docs/audit_pr5_quickref.md`, `docs/hive_insightout_client_report_design_spec_v3_0.md` |
+| Non-`.md` paths | **0** |
+| Merge commit parents | **2** (`--no-ff`, no squash, no rebase) |
+| Commits landing on `main` | **9** |
+
+**These are the figures as of commit 8 (`a9eaf33`).** This commit adds §25 and updates §24, so the
+final numbers will be **larger by this commit's own diff** — one file, `docs/audit_pr5_quickref.md`.
+The file count stays **2** and the non-`.md` count stays **0**; only the insertion count moves. Said
+here rather than after the fact, so the discrepancy is predicted rather than explained.
+
+### 25.4 Conclusions
+
+**Every step of both runs: `success`.** Basis — the branch is docs-only (asserted two ways in Phase
+A: the aggregate `main...HEAD` diff and a per-commit `--name-only` sweep across all eight commits),
+and all six gates are green on this machine at this HEAD. No `.js`, `.json`, fixture, baseline,
+lockfile or workflow file is touched, so there is no mechanism by which a gate's subject could have
+changed.
+
+**If any step fails, that is the finding**, and it means the docs-only assertion was wrong or CI is
+testing something the local run does not.
