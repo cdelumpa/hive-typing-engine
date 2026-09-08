@@ -79,8 +79,42 @@ function typeBars(call1_ranking) {
  * invite a page builder to read position 1 as "the leading type", which is exactly the
  * coupling that makes a REDIRECT render both rings on one node.
  */
-function typeRamp(call1_ranking) {
-  return (call1_ranking || []).map(r => ({ type: r.type, score: Math.round(r.score) }));
+function typeRamp(call1_ranking, heroN, altN) {
+  // ── THE ORDER IS THE OUTPUT. `position` is what sheet 5 shades by. ──────────────────────
+  //
+  // POSITIONS 1 AND 2 COME FROM THE FIELDS THE RINGS THEMSELVES READ — hero.number and
+  // alternate.number — NOT from leading_candidate. That distinction is the whole guarantee.
+  // On a stage-4 REDIRECT `confirmed_type` and `leading_candidate` differ (traced: confirmed 5,
+  // leading 9), so ordering from `leading_candidate` would put the solid LEADING ring on
+  // position 2 — the exact defect rank-shading exists to remove. Sourcing both from the ring's
+  // own field means there is no path on which the fill and the ring can disagree: it is one
+  // value used twice, not two values that happen to agree.
+  //
+  // `third_candidate` IS DELIBERATELY NOT USED. It is hard-null on the production path
+  // (em_report_adapter.js sets `third_candidate: null`), the EM schema never asks for one, and
+  // app/server.js's Call #2 prompt says it "is never shown to the client". On em_only it would
+  // arrive from SM Call #1 — a third provenance in one nine-step scale — and it buys nothing:
+  // on all three tracked fixtures it equals the ranking's top entry after the two placed types
+  // are removed.
+  //
+  // THE SCORE IS KEPT. It costs nothing, keeps charts.types truthful about what the engine
+  // produced, and leaves the door open if the figure ever wants magnitude again. Nothing on
+  // sheet 5 reads it.
+  //
+  // DE-DUPLICATED WHILE PLACING, and the backfill is not decoration. A collided record ships
+  // with confirmed_type === alternate_candidate (call2_stamp.js flags it and does NOT
+  // hard-stop), and a malformed call1_ranking is not validated anywhere upstream. Placing each
+  // type once and then backfilling 1-9 guarantees nine positions whatever arrives, so a bad
+  // ranking can only scramble positions 3-9 — it can never misplace a ring.
+  const byType = new Map((call1_ranking || []).map(r => [r.type, Math.round(r.score)]));
+  const placed = [];
+  const seen = new Set();
+  const put = (t) => { if (t != null && !seen.has(t)) { seen.add(t); placed.push(t); } };
+  put(heroN);
+  put(altN);
+  for (const r of [...(call1_ranking || [])].sort((a, b) => b.score - a.score)) put(r.type);
+  for (let t = 1; t <= 9; t += 1) put(t);
+  return placed.map((type, i) => ({ type, position: i + 1, score: byType.has(type) ? byType.get(type) : null }));
 }
 function instinctBars(profile) {
   return ['SP', 'SO', 'SX'].map(code => ({ code, score: Math.round((profile && profile[code]) || 0) }));
@@ -281,7 +315,7 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
     alternate: nameNode(altN),
     confidence: { label: confidenceLabel(h.confidence_level), near_tie: nearTie(h.call1_ranking) },
     svg: { type: { variant: 'type', type: heroN }, base: { variant: 'base' }, wings: { variant: 'wings-lines', type: heroN } },
-    charts: { types: typeRamp(h.call1_ranking), instincts: instinctBars(h.instinct_score_profile) },
+    charts: { types: typeRamp(h.call1_ranking, heroN, altN), instincts: instinctBars(h.instinct_score_profile) },
     instinct_stack: instinctStack(h.instinct_score_profile),
     pages: {
       welcome: { greeting_name: client.first_name || '',
@@ -466,6 +500,13 @@ function validateModel(model, spec) {
     if (!Array.isArray(v) || v.length === 0) missing.push(`${p} (non-empty array)`);
   }
   if (missing.length) throw new Error(`validateModel: missing/invalid required fields:\n  - ${missing.join('\n  - ')}`);
+  for (const p of spec.positionsOneToNine || []) {
+    const pos = (getPath(model, p) || []).map(r => r.position);
+    const want = [1, 2, 3, 4, 5, 6, 7, 8, 9].join(',');
+    if ([...pos].sort((a, b) => a - b).join(',') !== want) {
+      throw new Error(`validateModel: ${p} positions must be 1-9 exactly once; got [${pos.join(', ')}]`);
+    }
+  }
   // Exactly nine entries, one per type 1-9, no repeats and no strays.
   for (const p of spec.ninePerType || []) {
     const types = (getPath(model, p) || []).map(r => r.type);
@@ -536,7 +577,14 @@ const CLIENT_SPEC = {
   nonEmptyArrays: ['charts.types', 'charts.instincts', 'instinct_stack', 'pages.patterns.inquiry_lines',
     'pages.strengths_challenges.strengths', 'pages.strengths_challenges.challenges',
     'pages.welcome.letters'],
-  ints0to100: ['charts.types', 'charts.instincts'],
+  // charts.types scores are NOT range-checked here any more: a type absent from a malformed
+  // call1_ranking is backfilled with score null, which is honest — the engine produced no number
+  // for it — and ints0to100 would reject it. What sheet 5 actually reads is `position`, asserted
+  // by positionsOneToNine below. charts.instincts keeps the check.
+  ints0to100: ['charts.instincts'],
+  // Positions must be exactly 1..9, each once. This is what the figure shades by, so it is the
+  // one that has to hold; ninePerType covers the type side.
+  positionsOneToNine: ['charts.types'],
   // ── SHEET 5's OWN INVARIANTS (PR 5 Build 1) ──────────────────────────────────────────
   //
   // WHY NOT `leading_candidate`. The plan (§22.4d, A5) asserted leading_candidate and

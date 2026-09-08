@@ -134,6 +134,32 @@ console.log('\ncountByClass token boundaries:');
         `v3 sheet-5 contract: hero.number ${model.hero.number} has no node in charts.types`);
       assert(t.some(r => r.type === model.alternate.number),
         `v3 sheet-5 contract: alternate.number ${model.alternate.number} has no node in charts.types`);
+      // ── POSITIONS, AND THE THING THE BACKFILL WOULD OTHERWISE HIDE (PR 5 Build 3) ────
+      //
+      // Sheet 5 shades by `position`, so positions 1-9 exactly once is the invariant that has
+      // to hold; validateModel throws on it.
+      const pos = t.map(r => r.position).sort((a, b) => a - b).join(',');
+      assert(pos === '1,2,3,4,5,6,7,8,9',
+        `v3 sheet-5 contract: charts.types positions are [${pos}], expected 1-9 exactly once`);
+      assert(t.find(r => r.position === 1).type === model.hero.number,
+        'v3 sheet-5 contract: position 1 is not hero.number — the LEADING ring would not be darkest');
+      assert(t.find(r => r.position === 2).type === model.alternate.number,
+        'v3 sheet-5 contract: position 2 is not alternate.number — the ALTERNATE ring would not be second');
+
+      // WHY A NULL-SCORE CHECK EXISTS AT ALL. typeRamp now BACKFILLS any type missing from
+      // call1_ranking, so that a malformed ranking can never leave a ring unplaced — deliberate,
+      // and it matches call2_stamp.js's posture of flagging rather than hard-stopping. But it
+      // also means validateModel's ninePerType can no longer detect a short ranking: MEASURED,
+      // a two-entry call1_ranking threw on main and builds cleanly here, backfilling positions
+      // 3-9. The backfilled entries carry `score: null`, which is honest — the engine produced
+      // no number for them — and that is the signal. Asserting NO NULLS on the tracked fixtures
+      // keeps a malformed fixture or CMS stub detectable, while leaving production free to
+      // degrade rather than fail to generate a report.
+      const nulls = t.filter(r => r.score === null).map(r => 'p' + r.position);
+      assert(nulls.length === 0,
+        `v3 sheet-5 contract: charts.types has backfilled entries at ${nulls.join(', ')} — `
+        + 'call1_ranking was short or malformed for this fixture');
+
       // The ALTERNATE hypothesis block's motivation, from the alternate's own library entry.
       const acm = model.pages.type_hypotheses.alternate_core_motivation;
       assert(typeof acm === 'string' && acm.trim().length > 0,
