@@ -287,6 +287,16 @@ const rectsOverlap = (a, b) =>
 
     // ── B10, RESTATED (PR 5 Build 3) ──────────────────────────────────────────────────
     //
+    // WHAT THIS CAN AND CANNOT REACH, stated because two red controls failed to fire before one
+    // did. The two orderings compared below share the same rings, so positions 1 and 2 are
+    // IDENTICAL between them by construction — and labels attach only to the ringed types. A
+    // label that read the ordering therefore could not vary, and a red control aimed at one
+    // passes. What differs between the orderings is the TAIL, positions 3-9, which is exactly
+    // the part carrying no ring and no label. So this asserts that NODE GEOMETRY does not
+    // depend on the ordering; the label half is guaranteed structurally instead, by B12 pinning
+    // the two ringed positions.
+    //
+    //
     // It used to assert "two SCORE vectors differ only in fills". Under rank-shading fills no
     // longer depend on scores at all, so that would pass vacuously — the seventh instance of
     // that pattern on this project, and a trivially true assertion is worse than none because
