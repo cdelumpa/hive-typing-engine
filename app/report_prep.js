@@ -276,6 +276,30 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
   const st = resolveLibObject(overrides, subtypeKey(instinct, heroN), lib(subtypeKey(instinct, heroN)));
   const stat = resolveLibObject(overrides, 'static', lib('static'));
 
+  // The three subtype rows for the hero type, RESOLVED ONCE AND CONSUMED TWICE — by p10's
+  // three-column slot and by sheet 5's single-subtype slot. Hoisted out of pages.v3_instincts
+  // at PR 5 Build A for exactly that reason: two `resolveLibObject` reads of the same key
+  // could return different values if an override landed between them, and the two pages print
+  // the same naranjo name. One read makes disagreement impossible rather than unlikely.
+  //
+  // `summary` is stripped from the p10 columns below, not carried into them: p10's model slot
+  // stays byte-identical to what it was before this build, which is what keeps the 32 renders
+  // byte-identical.
+  const v3SubtypeRows = ['sp', 'so', 'sx'].map((i) => {
+    const k = `subtype_${i}${heroN}`;
+    const row = resolveLibObject(overrides, k, lib(k));
+    const iv = row.instincts_v3 || {};
+    return {
+      instinct: i.toUpperCase(),
+      code: `${i.toUpperCase()}${heroN}`,
+      naranjo: iv.naranjo || '',
+      signature: iv.signature || '',
+      narrative: iv.narrative || '',
+      summary: (row.quickref_v3 && row.quickref_v3.summary) || '',
+    };
+  });
+  const v3SubtypeCols = v3SubtypeRows.map(({ summary, ...col }) => col);
+
   // P5 remap (store untouched): wings keyed by NUMBER -> wing_low/wing_high; lines -> line_stress/line_security.
   const wingPair = [t.wings.wing_a, t.wings.wing_b].slice().sort((a, b) => a.target_type - b.target_type);
   const remapWing = (w) => { const s = splitWingBest(w.body); return { number: w.target_type, name: TYPE_NAMES[w.target_type], body: s.body, best: s.best }; };
@@ -451,21 +475,47 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       // is computed in the page builder from charts.instincts + display.instinct_code.
       // instinctStack is read by live v2 p6, the coach report and the Coach Prep Report;
       // a second ordering rule in this module would invite the wrong import.
-      v3_instincts: (() => {
-        const cols = ['sp', 'so', 'sx'].map((i) => {
-          const k = `subtype_${i}${heroN}`;
-          const row = resolveLibObject(overrides, k, lib(k));
-          const iv = row.instincts_v3 || {};
-          return {
-            instinct: i.toUpperCase(),
-            code: `${i.toUpperCase()}${heroN}`,
-            naranjo: iv.naranjo || '',
-            signature: iv.signature || '',
-            narrative: iv.narrative || '',
-          };
-        });
-        return { columns: cols, definitions: stat.instinct_definitions_v3 || [], primer: stat.instinct_primer || '' };
-      })(),
+      v3_instincts: { columns: v3SubtypeCols, definitions: stat.instinct_definitions_v3 || [], primer: stat.instinct_primer || '' },
+
+      // CLIENT REPORT v3 — sheet 5 "Quick Reference" (PR 5 Build A). CONTENT AND MODEL ONLY:
+      // no builder exists yet and `quickref` carries no `built` flag, so nothing reads this.
+      // It is prepared here because content is prepared into the model and never read from the
+      // library in the renderer — the convention _clv3Instincts follows.
+      //
+      // THE SUBTYPE IS SELECTED FROM p10's OWN ROWS, BY INSTINCT CODE, NEVER BY INDEX.
+      // v3SubtypeRows is resolved ONCE, above, and consumed twice: p10 renders all three
+      // columns, sheet 5 renders the client's. So the two pages cannot disagree about a
+      // subtype's naranjo name or signature — there is one read, not two. Selecting by index
+      // would be right by luck for SP and silently wrong for SO and SX, the same trap
+      // cmsPreviewSpec's instincts_v3 entry records for p10's preview.
+      //
+      // WHAT IS DELIBERATELY ABSENT. charts.types, instinctRanks, hero.number,
+      // alternate.number, display.instinct_code, display.subtype_label and
+      // type_hypotheses.core_motivation / .alternate_core_motivation ALL already reach the
+      // renderer. Duplicating any of them here would create a second value that can drift from
+      // the first, which is the defect this slot's subtype selection exists to avoid.
+      //
+      // THE TAGLINE IS NOT STORED. Sheet 5 renders `${naranjo} · ${signature}` with NO leading
+      // article — ratified 8 Sep. The mockup's .stag ("The Seeker · Merging & Intensity") is
+      // UNRATIFIED and is not ported: `Seeker` is not among the 27 naranjo values (SX9's is
+      // `Fusion`), and the article breaks on 26 of 27 ("The Appetite", "The Non-Adaptability").
+      // Composing it in the builder rather than storing it keeps one source for both pages.
+      v3_quickref: {
+        subtype: (() => {
+          const dom = String(instinct || '').toUpperCase();
+          const own = v3SubtypeRows.find((c) => c.instinct === dom) || v3SubtypeRows[0];
+          return { instinct: own.instinct, code: own.code, naranjo: own.naranjo, signature: own.signature, summary: own.summary };
+        })(),
+        // CMS-EDITABLE, resolved per key through `stat` (resolveLibObject resolves each child
+        // as `static.<field>`), so a published override reaches this without further wiring.
+        lead: stat.quickref_lead_v3 || '',
+        h2: stat.quickref_h2_v3 || '',
+        zone8: stat.quickref_zone8_v3 || '',
+        tips: stat.quickref_tips_v3 || [],
+        tips_heading: stat.quickref_tips_heading_v3 || '',
+        // NOT CMS-editable — structural labels, not prose.
+        labels: stat.quickref_labels_v3 || {},
+      },
 
       instinct_subtype: {                                                                       // P6
         subtype: { name: st.name, tagline: st.tagline, narrative: st.narrative, patterns: st.patterns },

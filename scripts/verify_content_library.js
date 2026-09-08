@@ -124,6 +124,35 @@ const SCRIPT_SOURCED = [
     retires: 'when the docx gains a CONTENTS ENTRIES section (no current plan — raise with design)' },
   { path: 'static.thoughts', label: 'static.thoughts (v3 Your Thoughts page)',
     retires: 'when the docx gains a YOUR THOUGHTS section (no current plan — raise with design)' },
+  // ── Sheet 5 "Quick Reference" (PR 5 Build A) ──────────────────────────────────────────
+  //
+  // PURELY ADDITIVE, like the wings and p10 rows: the docx has no section for any sheet-5
+  // string, so nothing docx-parsed stops being Word-sourced and the Word-canonical figure
+  // must not move when these land.
+  //
+  // ⚠ THESE SIX ROWS ARE THE STEP THIS TABLE MAKES EASY TO MISS. It is hand-maintained —
+  // "Keep in step with the constants themselves" — and NOTHING FAILS when it falls behind.
+  // Landing the constants without these rows left the build GREEN while reporting 1355/2108
+  // Word-canonical against a truth of 1316/2108: 39 leaves that came from a JS constant were
+  // counted as proven-from-Word, which is exactly the claim this figure exists to make. The
+  // gate did not catch it; the Build A predictions did, because they named 792/1316 in advance.
+  // Measured both ways on this branch before and after adding these rows.
+  { path: 'subtypes_v3_quickref',
+    label: 'sheet 5 quickref_v3 summary, all 27 subtypes',
+    retires: 'when the docx gains a SUBTYPE SUMMARIES section (no current plan — these are DRAFTS with no source document at all; see build_content_library.js)',
+    walkSubtypes: 'quickref_v3' },
+  { path: 'static.quickref_lead_v3', label: 'sheet 5 lead paragraph',
+    retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
+  { path: 'static.quickref_h2_v3', label: 'sheet 5 scores heading',
+    retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
+  { path: 'static.quickref_zone8_v3', label: 'sheet 5 zone 8 note',
+    retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
+  { path: 'static.quickref_tips_v3', label: 'sheet 5 debrief tips (4)',
+    retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
+  { path: 'static.quickref_tips_heading_v3', label: 'sheet 5 tips heading',
+    retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
+  { path: 'static.quickref_labels_v3', label: 'sheet 5 structural labels (4, not CMS-editable)',
+    retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
 ];
 
 let failed = false;
