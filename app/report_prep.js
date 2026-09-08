@@ -583,7 +583,8 @@ const CLIENT_SPEC = {
   // by positionsOneToNine below. charts.instincts keeps the check.
   ints0to100: ['charts.instincts'],
   // Positions must be exactly 1..9, each once. This is what the figure shades by, so it is the
-  // one that has to hold; ninePerType covers the type side.
+  // one that has to hold. It catches everything that changes the ENTRY COUNT; ninePerType covers
+  // the type set, which is a different property — see the note there.
   positionsOneToNine: ['charts.types'],
   // ── SHEET 5's OWN INVARIANTS (PR 5 Build 1) ──────────────────────────────────────────
   //
@@ -600,11 +601,26 @@ const CLIENT_SPEC = {
   // page depends on, and catches a short or mis-typed call1_ranking — which the CMS preview
   // stub emitted for a year at two entries — where a scalar presence check would not.
   nodesFor: ['hero.number', 'alternate.number'],
-  // NINE, EXACTLY, AND ONE PER TYPE. `nonEmptyArrays` was not enough and the red-proof is why:
-  // a TWO-entry call1_ranking — the shape app/server.js:13985's CMS preview stub emits —
-  // satisfied every other check on this list, because the stub's two entries happen to be the
-  // hero and the alternate, so even nodesFor passed. It would have rendered a heat map with
-  // two of nine nodes and a green build.
+  // ONE ENTRY PER TYPE 1-9. **ITS STATED PURPOSE IS STALE AND IS CORRECTED HERE; THE CHECK
+  // ITSELF IS NOT VACUOUS AND STAYS.**
+  //
+  // It was added at PR 5 Build 1 to catch a TWO-entry call1_ranking — the shape the CMS preview
+  // stub emitted — which satisfied every other check because its two entries happened to be the
+  // hero and the alternate. **It can no longer do that.** Build 3's typeRamp BACKFILLS, so every
+  // ranking becomes nine long: measured, a two-entry ranking threw before the backfill and
+  // builds cleanly after it. The detector for that case is now the `score: null` assertion in
+  // tests/report_pages_test.js — backfilled entries carry no score, which is the signal.
+  //
+  // WHY IT IS STILL HERE, checked rather than assumed. `positionsOneToNine` runs first and
+  // catches every case that changes the ENTRY COUNT, which under the current typeRamp is every
+  // stray or out-of-range type. But the two checks are not equivalent: positions are assigned
+  // by index, so they can be 1-9 exactly once while the TYPES contain a duplicate and a gap.
+  // Measured against a typeRamp with its de-duplication and backfill removed and a ranking
+  // carrying type 9 twice: positionsOneToNine PASSES and this check fires —
+  // "must carry one entry per type 1-9; got 9 [9, 9, 1, 8, 3, 2, 7, 4, 6]".
+  //
+  // So it guards the type set against a future rewrite of typeRamp, which is a different
+  // property from the one positionsOneToNine guards. Deleting it would leave that unchecked.
   ninePerType: ['charts.types'],
 };
 
