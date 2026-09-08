@@ -2350,6 +2350,12 @@ testing something the local run does not.
 
 # 26. Step 4 — the 27 subtype summaries, measured
 
+> **⚠ SUPERSEDED IN PART BY §27 (amendment, same day).** SX5 was revised after this section was
+> written and the word that set `m = 41` is gone from the shipping set. **`m` is now 44 and the
+> recommended ceiling is 132, not 123.** Every measurement below stands as a correct record of the
+> set as it was on 8 Sep; the ones that no longer describe a live constraint are marked inline.
+> Read §27 before quoting any ceiling from here.
+
 **Branch** `pr5-step4-subtype-measure`, base `90640b8`. Predictions committed first at `6acef77`
 (`docs/predictions_pr5_step4.md`), before any browser launched. This section is the result.
 
@@ -2364,6 +2370,11 @@ narrowest full line in the set — the number the recommended ceiling is derived
 finding in §26.4 is unverifiable. No sentence, clause or phrase from the 27 appears anywhere in this
 repo; a scan of this branch's full diff against `main` for eleven distinctive phrases from the set
 returns nothing.
+>
+> **Amendment note.** That word is no longer in any shipping string — see §27.A. It is retained here
+> because §26.4 is now a record of why `m` **was** 41, and deleting the evidence would leave the
+> finding unverifiable while the conclusion it supports — that the ceiling is conditional on word
+> width — is still live.
 
 ## 26.1 What is wrong with the ask — read this before the numbers
 
@@ -2390,10 +2401,13 @@ number this pass recommends. It was named as the recommendation in the predictio
 data — see P3.3 — so it is a method disagreement, not a result picked after the fact.
 
 **③ Neither ceiling is unconditionally sufficient, and "sufficient, not necessary" understates it.**
+*(The conclusion here is unchanged and still live. The specific string is not: SX5 was revised and
+`m` is now 44 — §27.B. The mechanism below is exactly why the amendment was needed, and it is the
+best evidence in this document that a ceiling moves when one word changes.)*
 The brief asks the report to say the ceiling is a sufficient condition. It is weaker than that: it
 is sufficient *conditional on the character mix and the maximum word length staying close to the
-sample's*. `m = 41` was set by SX5's second line, and that line stops at 41 characters (218.19 px in
-a 308.00 px box, 89.81 px left empty) for one reason — the next word is **"compartmentalizing"**, 18
+sample's*. `m = 41` **was** set by SX5's second line as that string then stood, and that line stopped
+at 41 characters (218.19 px in a 308.00 px box, 89.81 px left empty) for one reason — the next word is **"compartmentalizing"**, 18
 characters, **108.39 px, 35.2 % of the box width**. A 22-character word would push `m` lower and the
 ceiling with it. The only *unconditionally* sufficient char ceiling is the widest-glyph bound:
 `3 × floor(308.00 / 11.7984)` = **78**, where 11.7984 px is the measured advance of `W`. That is
@@ -2447,12 +2461,15 @@ Sorted by line count descending, then char count descending.
   trustworthy.
 - **chars/line** `[DERIVED]` — chars ÷ lines. The average basis. See §26.1 ② for why it misleads.
 
+⚠ **The SX5 row is the pre-revision string.** Revised SX5 is 120 chars at 3 lines breaking
+50 · 50 · 18 — §27.A. The row is kept as the measured record of what was in the doc on 8 Sep.
+
 | # | lines | chars | widest line px | chars/line | per-line chars |
 |---|---|---|---|---|---|
 | SO5 | 3 | 161 | 300.17 | 53.7 | 50 · 55 · 54 |
 | SO1 | 3 | 148 | 298.80 | 49.3 | 52 · 52 · 42 |
 | SO3 | 3 | 130 | 297.39 | 43.3 | 56 · 55 · 17 |
-| SX5 | 3 | 130 | 271.23 | 43.3 | 50 · **41** · 37 |
+| SX5 ⚠ | 3 | 130 | 271.23 | 43.3 | 50 · **41** · 37 |
 | SO8 | 3 | 126 | **307.69** | 42.0 | 55 · 54 · 15 |
 | SP1 | 3 | 125 | 298.31 | 41.7 | 55 · 50 · 18 |
 | SO7 | 3 | 120 | 294.63 | 40.0 | 45 · 53 · 20 |
@@ -2516,12 +2533,21 @@ actually filled to the wrap. `[AGGREGATE]`:
 | mean | 51.63 | — |
 | max | **57** — SP6 line 1, SX6 line 1 | 307.69 (SO8 line 2, 54 chars) |
 
-**The real worst case is SX5's second line: 41 characters, 218.19 px, 89.81 px of the box left
-empty.** The cause is measured, not guessed — the following word is `compartmentalizing`, rendering
-at **108.39 px**, **35.2 %** of the 308.00 px box, the widest word anywhere in the 27. Next widest:
-`attractiveness` 77.13 px, `indispensable` 76.45 px, `expectations.` 73.67 px. **A single long word
-costs more line capacity than any other property of the copy**, and it is the one thing authors can
-control without counting characters.
+**The worst case in the set as measured on 8 Sep was SX5's second line: 41 characters, 218.19 px,
+89.81 px of the box left empty.** The cause was measured, not guessed — the following word was
+`compartmentalizing`, rendering at **108.39 px**, **35.2 %** of the 308.00 px box, the widest word
+anywhere in the 27. Next widest at that time: `attractiveness` 77.13 px, `indispensable` 76.45 px,
+`expectations.` 73.67 px.
+
+> **⚠ This is now a historical finding, and §27.B is the live one.** SX5 was revised; the word is
+> gone; that 41-character line no longer exists in any shipping string. **`m` is 44 and the ceiling
+> is 132.** The paragraph is kept in place rather than rewritten because it is the derivation of the
+> ceiling's conditionality, and that conclusion did not change — it was *confirmed*. One word left
+> one sentence and the safe ceiling moved 9 characters.
+
+**The general finding is unchanged and is the durable one: a single long word costs more line
+capacity than any other property of the copy**, and it is the one thing authors can control without
+counting characters. §27.B measures the same effect at a smaller magnitude in the corrected set.
 
 ## 26.5 M4 — the ceilings
 
@@ -2529,16 +2555,17 @@ control without counting characters.
 |---|---|---|---|
 | **OBSERVED** | **161 chars** | `[MEASURED]` | The highest char count among the 27 still at ≤ 3 lines — **SO5**, and it is the longest string in the set, so the sample never found the wall. Holds **for this sample only**. Meaningful as a "ceiling" only because line count is monotone in char count across all 351 pairs here (§26.1 ④); it is not a licence to write a 28th string at 161. |
 | **SAFE, prompt formula** | **102 chars** | `[DERIVED]` | `3 × 34.00` (min chars-per-line, average basis), floored. **Not recommended.** It rejects 17 of the 27 measured-good strings. See §26.1 ②. |
-| **SAFE, full-line method — RECOMMENDED** | **123 chars** | `[DERIVED]` | `3 × 41` (min full-line char count), floored. A string of ≤ 123 characters cannot reach 4 lines, because reaching 4 lines requires 3 full lines and no full line in this sample carried fewer than 41. Sufficient, **conditional on word widths staying within the sample's** — no word wider than `compartmentalizing`'s 108.39 px. |
+| **SAFE, full-line method** ⚠ **superseded — see §27.B2** | ~~123 chars~~ → **132** | `[DERIVED]` | `3 × 41` (min full-line char count), floored, **on the pre-revision set**. A string of ≤ 123 characters cannot reach 4 lines, because reaching 4 lines requires 3 full lines and no full line in this sample carried fewer than 41. Sufficient, **conditional on word widths staying within the sample's** — no word wider than `compartmentalizing`'s 108.39 px. |
 | **Unconditional bound** | **78 chars** | `[DERIVED]` | `3 × floor(308.00 / 11.7984)`, the measured `W` advance. True for any character mix, assuming no single word exceeds the box width. Recorded to show the price of an unconditional guarantee; not proposed as the rule. |
 | **Practical wall** | **166 chars** | `[MEASURED]` | Most characters observed at ≤ 3 lines across 900 synthetic neutral-prose candidates. Vocabulary-dependent and an upper bound only for prose of that shape — short words pack more characters per line because a space is 3.4734 px against ~6.95 px for a typical lowercase letter. `[DERIVED]` companion: `3 × 57 + 2` = **173**, from the widest full line observed. |
 
-**The guidance to hand Cai and Mo, in one line:** *write to **123 characters** and you never need a
-render; between 124 and 161 the sample says you are fine but the string must be rendered before it
-ships; avoid words longer than about 16 characters, which cost more than the characters they add.*
-Six of the current 27 sit in the 124–161 band — SP1 125, SO8 126, SO3 130, SX5 130, SO1 148,
-SO5 161 — and all six are **measured good**, so nothing needs rewriting today. They are the six that
-must be re-rendered if the box width ever moves.
+⚠ **The guidance below is superseded. §27.B3 carries the version to give Mo.** It is left here so
+the change is legible: the ceiling was 123, the render-first band held six strings, and both moved.
+
+> ~~**The guidance to hand Cai and Mo, in one line:** *write to **123 characters** and you never need
+> a render; between 124 and 161 the sample says you are fine but the string must be rendered before
+> it ships; avoid words longer than about 16 characters.* Six of the current 27 sit in the 124–161
+> band — SP1 125, SO8 126, SO3 130, SX5 130, SO1 148, SO5 161.~~
 
 **This is a sufficient condition, not a limit.** A string over 123 characters is not too long. Nine
 of the 27 exceed the 102-char figure and every one of them fits. Character count does not predict
@@ -2561,6 +2588,8 @@ trusted.
 
 **What the page build must re-confirm, before any of these numbers is quoted as a constraint:**
 
+*(Item 6 was added by the amendment. Items 1–5 are unchanged and still live.)*
+
 1. **The `.stxt` content width is 308.00 px in the built page.** Not "about 308" — the same number,
    measured the same way (`clientWidth` minus horizontal padding). If it differs, §26.3 through
    §26.5 are re-run, not adjusted.
@@ -2572,8 +2601,17 @@ trusted.
 4. **The two `.half` columns still split the row evenly.** The width invariance in §26.2 rests on
    `flex:1 1 0%`. If the built page gives the instincts half a fixed width, the subtype half is a
    different box and 308.00 is wrong.
-5. **Re-render the six strings in the 124–161 band.** Not the whole 27 — those six are the only ones
-   the ceiling does not cover on its own.
+5. **Re-render the strings above the ceiling.** Not the whole 27 — only those the ceiling does not
+   cover on its own. ⚠ **That set is now two, not six: SO5 (161) and SO1 (148)** — §27.B3.
+6. **Which quote form the CMS actually stores for SO8, and re-measure SO8 in that form against the
+   real `.stxt` box.** The fact, stated here so §26.6 is checkable without opening the amendment:
+   **SO8's two quote forms render at different widths — straight U+0022 at 307.69 px, curly
+   U+201C/U+201D at 307.14 px, a delta of −0.55 px, and SO8 has only 0.31 px of slack in the wider
+   form.** `[MEASURED]`, §27.C. The form that was measured in §26.3 is the *straight* one; the form
+   in the authoring doc is *curly*, which is the narrower and safer of the two. This is the only
+   string in the set where the choice of quote glyph is worth more than a rounding error, and it is
+   the string with the least slack. If the CMS normalises curly to straight on ingest, SO8 goes from
+   0.86 px of slack to 0.31 px on a box whose width is itself unconfirmed.
 
 ## 26.7 Committed synthetics — render-matched, no client prose
 
@@ -2595,8 +2633,10 @@ character count, as the step-4 brief specifies.
 `[MEASURED]`. Lines 2 and 3 are **bit-identical in width**; line 1 is 0.21 px narrower — **0.08 %**.
 Char count deliberately differs, per the brief.
 
-**Synthetic B — matched to the narrow-full-line case that sets the safe ceiling (referent: the
-130-char string, label SX5):**
+**Synthetic B — matched to the narrow-full-line case that set the safe ceiling *on the pre-revision
+set* (referent: the 130-char string, label SX5).** ⚠ **Its referent line no longer exists in any
+shipping string.** B is no longer a fixture for a live constraint; §27.D1 states what it is a fixture
+for now, and §27.D2 adds **Synthetic C**, which is the fixture for the current `m`.
 
 > `typography proportionality counterbalancing block value basis measure and in measure of counterbalancing version author figure.`
 
@@ -2666,3 +2706,307 @@ string on the average basis, and SP4 at 110 ÷ 2 = 55.0 does exactly that.
 because it was a prediction about a stranded last word, which is what that statistic measures.**
 That is the clearest evidence available that the statistic measures stranding rather than capacity,
 and it is why 123 and not 102 is the number to hand the authors.
+
+---
+
+# 27. Step 4 amendment — revised SX5, recomputed ceiling, quote normalisation
+
+**Branch** `pr5-step4-subtype-measure`, base `90640b8`, amended from `db7e0d0`. Amendment
+predictions committed first at **`587547f`** (`docs/predictions_pr5_step4.md`, second section),
+before any browser launched for this pass. Same rules as §26: injected at runtime, no client prose
+committed, mockup untouched — blob **`813e871`** at base, at `db7e0d0`, at `587547f` and here.
+
+Box re-asserted at the head of this pass, because everything below divides by it: **308.00 px**,
+Arial resolved with the advance probe at **2378.80859375** against the constant 2378.81
+(Δ 0.0014 px), 12.5 px / 18.75 px. `[MEASURED]`, same basis as §26.2. Nothing moved.
+
+## 27.0 What is wrong — and one thing that is not
+
+**① The brief names `individuals` as the longest word in the revised SX5. It is *co*-longest.**
+`connections` is also 11 characters. `[MEASURED]` — `split(/\s+/)`, character length per token.
+This is not pedantry: §26.4's whole finding is that the *width* of the following word sets the
+break, and character length does not order words by width. In this string it happens not to matter —
+neither word forces the constraining break — but a brief that identifies the longest word by
+counting letters is using the wrong ruler, and that is the ruler that produced `m = 41`.
+
+**② The safe-ceiling formula from the original step-4 brief is still unsound, and this amendment
+does not repeat the error.** Nothing here divides a per-string average. `3 × 34` on the corrected
+set would give **105**, and it would still reject strings that fit. Every capacity number in §27 is
+on the **full-line basis** — non-terminal lines only — and the predictions file names that basis in
+its own text (`587547f`) so it could not be scored the wrong way twice.
+
+**③ Not wrong, and worth saying plainly: the revision does not rescue anything, because nothing
+needed rescuing.** All 27 fitted before and all 27 fit now. The ceiling moved from 123 to 132 and
+that is a change in *how much unrendered headroom the authors have*, not a change in what ships.
+
+**④ The amendment's own predictions were essentially all correct, which is a weaker result than it
+looks and is stated as such.** 22 of 22 scored items hit, most to within 0.04 px — because after
+§26 the line-breaking behaviour of this box was understood well enough to compute the answers from
+Arial advance widths by hand before rendering. Predicting a system you have already characterised is
+not the same test as predicting one you have not. The pass-1 misses were the informative ones.
+
+## 27.A — Revised SX5
+
+`[MEASURED]`, same bases as §26.3 — lines by merged `Range.getClientRects()`, chars by
+`replace(/\s+/g,' ').trim().length`, per-line chars by one `Range` per character index with
+break-collapsed spaces counted on neither line.
+
+| | value | check |
+|---|---|---|
+| Character count | **120** | brief's claim **CONFIRMED**; Σ per-line 118 + 2 break spaces = 120 ✓ |
+| Longest word | **11**, but a **TIE** — `individuals` **and** `connections` | brief's `individuals` is co-longest, §27.0 ① |
+| Rendered line count | **3** | — |
+| Per-line characters | **50 · 50 · 18** | — |
+| Line widths px | **271.23 · 271.70 · 102.16** | — |
+| Longest line | **271.70 px** (line 2) | — |
+| **Slack against 308.00 px** | **36.30 px** | against 0.31 px for SO8, the tightest in the set |
+
+Line 1 is byte-identical to the pre-revision string's line 1 and renders identically at 271.23 px —
+the revision changed nothing before character 50.
+
+### A2 — break type per line
+
+`[MEASURED]`. Break type is determined two ways and they agree. Structurally, a line is *full* iff
+it is not the last line. Mechanically, the next word is measured against the space remaining:
+
+| line | chars | width px | type | next word | its width | space remaining |
+|---|---|---|---|---|---|---|
+| 1 | 50 | 271.23 | **FULL** | `choosing` | 50.05 px | 33.16 px |
+| 2 | 50 | 271.70 | **FULL** | `connections` | 66.72 px | 32.67 px |
+| 3 | 18 | 102.16 | **TERMINAL** | — | — | — |
+
+**Revised SX5's minimum full line is 50 characters, up from 41.** `[MEASURED]` **It no longer sets
+`m` and no longer constrains the ceiling at all** — 50 is above the set median full line of 52.5 by
+only 2.5, i.e. it is now an ordinary line rather than the extreme one.
+
+**Method note on the break-type table.** The "next word / space remaining" columns come from a greedy
+re-wrap simulated from measured word run-widths, not from the rendered line rects. That simulation
+reproduced the rendered per-line character counts for **all 27 strings with zero mismatches**
+`[MEASURED]`, which is what licenses using it for attribution. It carries a systematic bias of
+**+0.05 to +0.17 px** against the rendered rect, from summing per-word runs rather than measuring one
+line box. Every *width* quoted in §27 is the rendered value; the simulation is used only for "which
+word forced this break", where a 0.17 px bias against a 33–72 px margin cannot change the answer.
+
+## 27.B — `m` and the ceiling, recomputed
+
+Over the corrected 27 — 26 unchanged, SX5 revised. 40 full lines, unchanged in count (the revised
+SX5 still contributes exactly 2).
+
+### B1 — the new minimum full line
+
+**`m` = 44 characters** `[MEASURED]`, and **it is a genuine tie.** `m` is defined in characters, so
+two lines set it:
+
+| line | chars | rendered width | empty | word forcing the break | its width | share of the 308.00 px box |
+|---|---|---|---|---|---|---|
+| **SO6 line 1** | **44** | **235.81 px** | **72.19 px** | **`responsibility`** | **72.27 px** | **23.5 %** |
+| **SO4 line 2** | **44** | **253.61 px** | 54.39 px | `compared` | 55.59 px | 18.0 % |
+
+**SO6 line 1 is the more constraining of the two in pixels** — 72.19 px left empty against SO4's
+54.39 px, and the narrowest full line in the set by width `[MEASURED]`. Both carry 44 characters, so
+both set `m` equally.
+
+Next narrowest full lines, for the margin: SX4 L1 45 ch / 264.44 px (`connection`, 60.47 px, 19.6 %),
+SO7 L1 45 ch / 258.14 px (`accepting`, 53.52 px, 17.4 %), SO4 L1 47 ch / 260.28 px. `[MEASURED]`
+
+`[AGGREGATE]` full-line character counts over the corrected 40: **min 44 · median 52.5 · mean 51.85 ·
+max 57**. The mean moved 51.63 → 51.85 and the median did not move.
+
+**The mechanism from §26.4 is confirmed, not overturned.** The narrowest full line in the corrected
+set is *still* set by a long following word — `responsibility` at 23.5 % of the box. The magnitude
+fell because `compartmentalizing` was 35.2 %, half again as wide. **A ceiling that moves 9 characters
+because one word left one sentence is exactly the conditionality §26.1 ③ warned about, now
+demonstrated rather than argued.**
+
+### B2 — the ceiling
+
+| | value | label | basis |
+|---|---|---|---|
+| **Safe ceiling, 3m — RECOMMENDED** | **132 characters** | `[DERIVED]` | `3 × 44`. A string of ≤ 132 characters cannot reach 4 lines: reaching 4 requires 3 full lines, and no full line in the corrected set carries fewer than 44. |
+| Movement | **+9**, from 123 | `[DERIVED]` | — |
+| Observed ceiling | **161**, SO5, unchanged | `[MEASURED]` | still the longest string in the set, so the sample still never finds the wall |
+| Prompt-formula ceiling, for contrast | 105 (`3 × 35.0`, SO9/SP6 average basis) | `[DERIVED]` | **not recommended**, §27.0 ② |
+| Unconditional bound | 78, unchanged | `[DERIVED]` | `3 × ⌊308.00 / 11.7984⌋` |
+
+**Still sufficient, still not necessary, and still conditional.** 132 is sufficient *for prose whose
+widest word stays under `responsibility`'s 72.27 px*. It is not a limit: SO5 at 161 characters fits
+in 3 lines with 7.83 px to spare.
+
+### B3 — who is above the ceiling now
+
+**Two strings, and the band does not empty.** `[MEASURED]`
+
+| string | chars | rendered lines | verdict |
+|---|---|---|---|
+| **SO5** | 161 | **3** | above the ceiling, **measured good** |
+| **SO1** | 148 | **3** | above the ceiling, **measured good** |
+
+**Four strings left the band:** SP1 (125), SO8 (126), SO3 (130) — the ceiling rose past them — and
+SX5, which fell from 130 to **120**. The render-first band goes **six → two**.
+
+**What Mo should be told, replacing §26.5's line:** *write to **132 characters** and you never need a
+render. Between 133 and 161 the sample says you are fine, but the string must be rendered before it
+ships — that is two strings today, SO5 and SO1. Avoid words longer than about 14 characters: a
+14-character word already costs 23 % of the line, and it is the single word that sets the ceiling for
+everyone else.*
+
+Note the word-length guidance tightened from "about 16" to "about 14" even though the ceiling
+loosened. Those move in opposite directions on purpose — the ceiling rose *because* the longest word
+got shorter, so the advice that keeps it there has to be stricter, not looser.
+
+### B4 — monotonicity
+
+**0 violations across all 351 ordered pairs.** `[MEASURED]`, re-run in full.
+
+**One changed string does not invalidate the pass-1 result, and re-running all 351 was not
+necessary.** A monotonicity violation is a property of a *pair* — a shorter string on more lines than
+a longer one. Changing SX5 can only affect the **26** pairs that contain SX5; the other **325** are
+between untouched strings whose char counts and line counts are unchanged, so their pass-1 verdict
+carries over unexamined. Re-running the full set costs nothing and was done as a control, but **the
+26-pair argument is the finding** — it is what makes the check cheap the next time a single string is
+revised, and there will be more revisions.
+
+For the record, the 26: SX5 fell 130 → 120 and stayed at 3 lines, so it moved *down* the char
+ordering while holding its line count. Every string it crossed — SP1 125, SO8 126, SO3 130 — also
+renders at 3 lines, so no pair could invert.
+
+`[AGGREGATE]` corrected set: **1 line: 2 · 2 lines: 10 · 3 lines: 15 · 4+ lines: 0**, 67 rendered
+lines over **2868** characters (was 2878; SX5 shed 10).
+
+## 27.C — SO8 quote normalisation
+
+### C2 first, as the brief asks
+
+**Neither form wraps to 4 lines. Both render at exactly 3.** `[MEASURED]`
+
+### C1 — the two forms
+
+`[MEASURED]`. Both strings are 126 characters and break 55 · 54 · 15. Only line 2 differs — it is the
+line carrying both quote glyphs, which the equal-and-doubled delta confirms independently.
+
+| form | line 1 | **line 2** | line 3 | longest line | **slack against 308.00 px** |
+|---|---|---|---|---|---|
+| **Straight** `U+0022` — what §26.3 measured | 305.28 | **307.69** | 74.34 | **307.69 px** | **0.31 px** |
+| **Curly** `U+201C`/`U+201D` — what the authoring doc holds | 305.28 | **307.14** | 74.34 | **307.14 px** | **0.86 px** |
+| **Δ (curly − straight)** | 0.00 | **−0.55** | 0.00 | **−0.55 px** | **+0.55 px more slack** |
+
+**Curly is narrower. The form Cai and Mo are actually editing is the safer of the two**, by 0.55 px —
+which is 178 % of the slack the measured form had.
+
+Glyph advances at 12.5 px Arial `[MEASURED]` — width of a 20-character repeat ÷ 20, in a
+`white-space:pre` span inheriting `.stxt`'s font:
+
+| glyph | advance | metrics-table value |
+|---|---|---|
+| `U+0022` straight double | **4.4375 px** | 355/1000 em = 4.4375 — exact |
+| `U+201C` left double | **4.1633 px** | 333/1000 em = 4.1625, Δ 0.0008 px (0.02 %, the repeat-and-divide method's own resolution) |
+| `U+201D` right double | **4.1633 px** | as above |
+| `U+0027` straight single | 2.3867 px | (measured for completeness; not in SO8) |
+| `U+2019` right single | 2.5633 px | **wider** than the straight single — the opposite direction to the doubles |
+
+**2 × (4.4375 − 4.1633) = 0.5484 px**, against the measured line-2 delta of **0.55 px** `[DERIVED]`.
+The arithmetic closes, which is what proves both glyphs land on the same line rather than one on each.
+
+**The direction does not generalise, and that is the finding worth carrying.** For *double* quotes,
+curly is narrower. For *single* quotes it reverses — `U+2019` is 2.5633 px against `U+0027`'s
+2.3867 px, so curly is **wider** by 0.1766 px. **"Curly is safer" is true of SO8 and false as a
+rule.** SP5 is the string with a single quote; §26.3 measured it at 278.91 px straight and 279.08 px
+curly — the same reversal, 29.09 px of slack either way, so it does not matter there. It would matter
+on a string with SO8's margins.
+
+### C3 — added to §26.6
+
+Item 6 has been added to §26.6's list of what the page build must confirm, with the numbers stated
+inline so that section is checkable without opening this one.
+
+## 27.D — housekeeping
+
+### D1 — Synthetic B
+
+**Synthetic B is no longer load-bearing for any shipping string.** Its referent — the 41-character,
+218.19 px line — does not exist in the corrected set.
+
+**It is retained, and it is now a fixture for the ceiling's conditionality rather than for a string.**
+Concretely: B is the committed, client-prose-free demonstration that a full line in this box **can**
+fall to 218.19 px and that `m` **can** be 41, when an 18-character word follows. That is the case
+`132` does not cover, and it is the regression a future gate should hold — *if a new string ever
+produces a full line as narrow as Synthetic B's, the ceiling is 123 again, not 132.* Reframed, not
+deleted; §26.7 is marked accordingly.
+
+### D2 — Synthetic C, the fixture for the current `m`
+
+New, committed here. Matched on the **render** to **SO6**, whose line 1 is the pixel-narrowest of the
+two lines that set `m = 44`. Machine-generated word sequence, no meaning, not copy:
+
+> `width for author gate an report but in count recapitalisation result result in rendered report under.`
+
+| | lines | line widths px | per-line chars | chars |
+|---|---|---|---|---|
+| referent (SO6) | 2 | **235.81** · 292.53 | **44** · 56 | 101 |
+| **Synthetic C** | **2** | **235.58** · **292.53** | **44** · **56** | **101** |
+| Δ | 0 | −0.23 · **0.00** | **0 · 0** | **0** |
+
+`[MEASURED]`. **The closest match of the three: identical line count, identical per-line character
+counts, identical total character count, line 2 exact, line 1 within 0.23 px — 0.10 %.** It
+reproduces `m = 44` exactly, so a gate can assert the current ceiling's derivation against a
+committed fixture with no client prose in the repo. As with A and B, character count matching here is
+a coincidence of the search landing on it, not a criterion — the criterion is the render.
+
+The three synthetics now cover: **A** the tightest 3-line fit, **B** the adversarial narrow line that
+sets a lower ceiling, **C** the narrow line that sets the current one.
+
+### D3 — the coach byte-diff
+
+**`verify_coach_baseline.js` does not apply to this amendment**, for the same reason as §26.8 — the
+branch diff against `main` is `docs/` only, **0 non-`.md` paths** `[MEASURED]`, and the gate's
+subject is the coach-portal render path, which nothing here can reach.
+
+Run again as a control: **`COACH BASELINE: ALL PASSED — HTML only (PDF half skipped off-Linux).`**
+**This is a HALF-RESULT, not a pass.** The PDF-hash half skipped on every fixture —
+`normalized PDF hash SKIPPED (platform is darwin, not linux)`. The HTML half was byte-identical on
+every fixture. Only the Linux CI run is a full result.
+
+## 27.E — Predictions versus measurement
+
+Predictions at **`587547f`**. **22 of 22 scored items hit.** Two items were declared unscoreable in
+the predictions file itself (C1.1–C1.4, retrodictions of a pass-1 measurement) and are excluded
+rather than counted as wins.
+
+| # | Predicted | Measured | |
+|---|---|---|---|
+| A0.1 | 120 chars | 120 | ✓ |
+| A0.2 | brief's "longest word" claim is partly wrong; `connections` ties at 11 | tie confirmed | ✓ |
+| A1.1 | 3 lines | 3 | ✓ |
+| A1.2 | 50 · 50 · 18 | 50 · 50 · 18 | ✓ exact |
+| A1.3 | 271.23 · 271.66 · 102.14 | 271.23 · **271.70** · **102.16** | ✓ Δ 0 / +0.04 / +0.02 |
+| A1.4 | longest 271.66 | 271.70 | ✓ Δ +0.04 |
+| A1.5 | slack 36.34 | 36.30 | ✓ Δ −0.04 |
+| A2.1–A2.3 | FULL · FULL · TERMINAL | FULL · FULL · TERMINAL | ✓ |
+| A2.4 | SX5 min full line 50, no longer sets `m` | 50, confirmed | ✓ |
+| B1.1 | m = 44 | 44 | ✓ |
+| B1.2 | a tie: SO4 L2 and SO6 L1 | tie confirmed | ✓ |
+| B1.3 | SO4 253.61 / SO6 235.81, SO6 more constraining | 253.61 / 235.81 | ✓ exact |
+| B1.4 | `responsibility` 72.27 px, 23.5 % | 72.27 px, 23.5 % | ✓ exact |
+| B1.5 | `compared` 55.58 px, 18.0 % | 55.59 px, 18.0 % | ✓ Δ 0.01 |
+| B2.1 | ceiling 132 | 132 | ✓ |
+| B2.2 | +9 | +9 | ✓ |
+| B3.1 | 2 above | 2 | ✓ |
+| B3.2 | SO5, SO1 | SO5, SO1 | ✓ |
+| B3.3 | band does not empty; 4 strings leave it | does not empty; SP1, SO8, SO3, SX5 leave | ✓ |
+| B4.1 | 0 violations | 0 / 351 | ✓ |
+| B4.2 | only 26 pairs need re-checking | argument holds | ✓ |
+| C1.5 | `U+0022` = 4.4375 px | 4.4375 px | ✓ exact |
+| C1.6 | `U+201C`/`U+201D` = 4.1625 px | **4.1633 px** | ✓ Δ +0.0008 px — within the method's own resolution, not a real disagreement |
+| C1.7 | **−0.55 px, curly narrower**, both glyphs on one line | **−0.55 px**, curly narrower, doubling confirms one line | ✓ exact, sign correct |
+| C2.1 | neither wraps to 4 | both 3 lines | ✓ |
+| D1.2 | Synthetic C achievable within 1.00 px | **0.23 px**, and exact on chars | ✓ |
+| D3.1–D3.3 | gate N/A; half-result; 2 files, both `.md`, 0 non-`.md` | all confirmed | ✓ |
+
+**Read this scoreline with §27.0 ④ attached.** The A-series predictions were computed by hand from
+Arial advance widths before rendering — the 271.66 px prediction against a 271.70 px measurement is
+arithmetic agreeing with itself, not foresight. The one genuinely blind prediction was **C1.6**, and
+it landed 0.0008 px off. The pass-1 report's 9 misses taught more than these 22 hits.
+
+**The basis error from pass 1 did not recur.** The predictions file named the full-line basis in its
+own text before any number was written, which is why there is no repeat of scoring a capacity
+estimate against a terminal-line-diluted average. That was the point of naming it, and it worked.
