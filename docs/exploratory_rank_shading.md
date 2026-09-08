@@ -72,7 +72,45 @@ backfill       ← any type still unplaced, ascending
 **Needs nothing the store does not already carry.** All three inputs are on the client model today:
 `hero.number`, `alternate.number` and `charts.types` (Build 1, merged).
 
-### 2.2 The collided record — proposal, not decision `[JUDGMENT]`
+### 2.2 How a stage-4 redirect is *ensured* to hold both positions `[MEASURED]`
+
+Asked directly, and it is the question the ordering source exists to answer. Traced through the
+production stamper across every redirect shape, with the ordering built from `hero.number` /
+`alternate.number`:
+
+| Shape | hero | alt | pos 1 | pos 2 | pos1 = hero | pos2 = alt |
+|---|---|---|---|---|---|---|
+| RD69 — canonical redirect 6 → 9 | 9 | 6 | **9** | **6** | ✅ | ✅ |
+| suppressed redirect (`CONFIRMED_WITH_NOTE`) | 6 | 9 | **6** | **9** | ✅ | ✅ |
+| REDIRECT, `redirect_from_type` **null** | 9 | — | **9** | 6 | ✅ | alternate dropped |
+| REDIRECT, `redirect_from_type` **=** `confirmed_type` | 9 | — | **9** | 6 | ✅ | alternate dropped |
+
+**The primary is guaranteed structurally, not by agreement.** Position 1 is not *derived from* the
+redirect — **it is `hero.number`**, the same value the ring reads. There is no path on which they
+can differ, because it is one field used twice. That is the whole of the "ensure": *the ordering
+reads the ring's own source*. It holds in all four shapes above, including the two malformed ones.
+
+**The alternate is guaranteed by `call2_stamp.js:50-53` — Defect #2 — and that stamp is what makes
+it editorially right**, not merely consistent:
+
+```js
+if (h.stage4_outcome === 'REDIRECT' && h.redirect_from_type != null
+    && h.redirect_from_type !== h.confirmed_type) {
+  h.alternate_candidate = h.redirect_from_type;
+}
+```
+
+On a redirect the alternate becomes **the type the client was redirected away from** — which is
+exactly what a coach would want second-darkest and dashed. Without Defect #2, `alternate_candidate`
+would still hold Call #1's position 2, which on a redirect *is* the confirmed type.
+
+**Two shapes ship no distinct alternate**, and there position 2 has no ring: a `REDIRECT` whose
+`redirect_from_type` is null, or equal to `confirmed_type`. Defect #2's guard does not fire, Defect
+#3 cannot recover, and the record ships flagged. `[JUDGMENT]` **Not PR 5's to fix** — it is
+malformed engine output the engine already decided to ship — but it is the reason B12 must assert
+positions rather than assume them, and why the collided case needs the posture in §2.3.
+
+### 2.3 The collided record — proposal, not decision `[JUDGMENT]`
 
 Measured collisions, `[CAI-MEASURED, n=19]`: row 72 `third == alternate`; row 57
 `third == leading`; and a redirect stamps `leading == alternate`. **Dropping `third_candidate`
@@ -91,7 +129,7 @@ ships those records deliberately. The ordering should match:
   **My recommendation is to leave it**: the record has an `engine_collision` flag, the coach sees
   it, and a nine-step scale with a hole would be a worse artefact.
 
-### 2.3 Malformed `em_ranking` `[MEASURED]`
+### 2.4 Malformed `em_ranking` `[MEASURED]`
 
 Nothing validates it — no length, ordering, range or duplicate check; the only guard is `.length`
 truthiness at `em_report_adapter.js:106`.
