@@ -1392,11 +1392,16 @@ const INTERIM_INSTINCT_DEFS_V3 = [
 
 // ── SHEET 5 "Quick Reference" — the subtype one-line summaries (PR 5 Build A) ────────
 //
-// ⚠ PROVENANCE IS WEAKER HERE THAN ANYWHERE ELSE IN THIS FILE, AND THAT IS STATED RATHER
-// THAN PAPERED OVER. Every other INTERIM_* block carrying client prose names a Google Doc
-// by ID and records a recount against the Doc's own stated counts. These 27 have NO source
-// document: they were supplied in the PR 5 Build A prompt on 8 September 2026. No Doc ID is
-// invented for them. When they acquire one, replace this note with the ID and recount.
+// SOURCE OF RECORD: Google Doc 1zSvB-mR0AH06Z69fSstBQz411yJ7D3Ecr2AzEih_uW4
+// ("Subtype Summaries — p5 Quick Reference — Content for Review"), ingested BY ID — the same
+// provenance convention INTERIM_INSTINCTS_V3 and INTERIM_INSTINCT_DEFS_V3 follow.
+//
+// The Doc was created after these strings first landed, so the ingest direction is the
+// reverse of every other block here: the values below were supplied in the PR 5 Build A
+// prompt on 8 September 2026 and the Doc was opened around them as the review surface.
+// Recorded that way rather than implying a parse that never happened. RE-INGEST FROM THE DOC
+// once Mo's voice pass lands, and recount then — this file's counting basis, not the Doc's
+// character count, which the p6/p7 ingest already found unreliable.
 //
 // THEY ARE DRAFTS. Mo's voice pass is open and will revise some of them. The key exists now
 // precisely so those revisions are VALUE changes against a settled shape rather than a
@@ -1405,7 +1410,8 @@ const INTERIM_INSTINCT_DEFS_V3 = [
 //
 // RECOUNTED at ingest, on this file's counting basis (rendered string, whitespace collapsed,
 // ends trimmed): 27 of 27 present; 51-161 characters; total 2868. SX9 is 114. SO5 is the
-// longest at 161 and SO9 the shortest at 51.
+// longest at 161 and SO9 the shortest at 51. The Doc is where the voice pass happens, so
+// DRAFT stays true until it lands — the marker is not stale, it is load-bearing.
 //
 // ⚠ A SIBLING OBJECT, NEVER A LEAF INSIDE instincts_v3. Adding `summary` to instincts_v3
 // would change the SHAPE of a CMS-editable field, and assertOverrideShape
