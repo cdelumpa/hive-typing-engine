@@ -149,7 +149,9 @@ const SCRIPT_SOURCED = [
     retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
   { path: 'static.quickref_tips_v3', label: 'sheet 5 debrief tips (4)',
     retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
-  { path: 'static.quickref_labels_v3', label: 'sheet 5 structural labels (5, not CMS-editable)',
+  { path: 'static.quickref_tips_heading_v3', label: 'sheet 5 tips heading',
+    retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
+  { path: 'static.quickref_labels_v3', label: 'sheet 5 structural labels (4, not CMS-editable)',
     retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
 ];
 

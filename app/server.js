@@ -9863,8 +9863,9 @@ ${sharedModalHTML(true, isSuperAdmin)}
 // prompt editing are later PRs. Overrides are keyed "static.<field>" (matching PR2's
 // resolveLibObject('static', ...)); the value column stores JSON.stringify(value).
 
-// Sheet 5 (PR 5 Build A) adds four. `quickref_labels_v3` is DELIBERATELY ABSENT: those five
-// strings are structural labels, not prose, and are content-library-only by decision.
+// Sheet 5 (PR 5 Build A) adds FIVE — six of the page's twelve strings are CMS-editable, and
+// the tips array is one key. `quickref_labels_v3` is DELIBERATELY ABSENT: those four strings
+// are structural labels, not prose, and are content-library-only by decision.
 //
 // ⚠ EDITABILITY AND PREVIEWABILITY ARE INDEPENDENT GATES. This list decides what the editor
 // shows and what the write routes accept; cmsPreviewSpec decides what can be PREVIEWED. They
@@ -9874,7 +9875,7 @@ ${sharedModalHTML(true, isSuperAdmin)}
 // a clean "no preview mapping for key" 400 rather than a screenshot of the wrong page, which
 // is the failure the p10 preview comment records.
 const CMS_STATIC_FIELDS = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'wings_using', 'instinct_primer', 'instinct_definitions', 'instinct_definitions_v3',
-  'quickref_lead_v3', 'quickref_h2_v3', 'quickref_zone8_v3', 'quickref_tips_v3'];
+  'quickref_lead_v3', 'quickref_h2_v3', 'quickref_zone8_v3', 'quickref_tips_v3', 'quickref_tips_heading_v3'];
 function cmsIsValidStaticKey(k) {
   return typeof k === 'string' && k.indexOf('static.') === 0 && CMS_STATIC_FIELDS.indexOf(k.slice(7)) >= 0;
 }
@@ -9900,6 +9901,7 @@ const CMS_FIELD_META = {
   'static.quickref_h2_v3':    { name: 'Quick Reference — Scores Heading', page: 'P5 — Quick Reference' },
   'static.quickref_zone8_v3': { name: 'Quick Reference — Candidates Note', page: 'P5 — Quick Reference' },
   'static.quickref_tips_v3':  { name: 'Quick Reference — Debrief Tips (4)', page: 'P5 — Quick Reference' },
+  'static.quickref_tips_heading_v3': { name: 'Quick Reference — Tips Heading', page: 'P5 — Quick Reference' },
 };
 const cmsCardId = (key) => 'card-' + key.replace(/\./g, '-');
 
@@ -9931,7 +9933,7 @@ const CMS_SUBTYPE_FIELDS = [
 function cmsIsValidSubtypeKey(k) {
   return typeof k === 'string' && /^subtype_(sp|so|sx)[1-9]\.(tagline|narrative|patterns|shifts|instincts_v3|quickref_v3)$/.test(k);
 }
-// Combined gate for the POST routes: 12 static + 162 subtype keys; rejects type_*.* (PR5)
+// Combined gate for the POST routes: 13 static + 162 subtype keys; rejects type_*.* (PR5)
 // and subtype_*.{code,name}.
 // Type keys (PR 5): all 12 editable type_{N} fields. Editable across the same 4 routes as
 // static/subtype now that the type editor exists.

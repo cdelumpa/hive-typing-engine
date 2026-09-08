@@ -1474,7 +1474,8 @@ const INTERIM_QUICKREF_V3 = {
 // for Debriefing This Report with Your Coach" over the tips grid — and the enumeration of
 // eleven counted only the first. The tips heading is the string that fell between the two
 // counts and that nobody was storing. Twelve is the number: lead + 2 pick labels + 2 panel
-// headers + 2 headings + zone 8 + 4 tips.
+// headers + 2 headings + zone 8 + 4 tips. SIX of the twelve are CMS-editable — both headings,
+// the lead, zone 8, and the four tips as one array; the four structural labels are not.
 //
 // FIVE FLAT SIBLINGS, NOT ONE OBJECT, and the reason is assertOverrideShape again. Grouping
 // all twelve under one CMS-editable key would make every future addition a new LEAF on a
@@ -1515,17 +1516,25 @@ const INTERIM_QUICKREF_STATIC_V3 = {
     'Ask about the alternate. If a second pattern scored close, that is a conversation, not a loose end.',
     'Pick one thing to work on. You do not need to act on all of it. One growing edge is enough to start.',
   ],
-  // CONTENT LIBRARY, NOT CMS — structural labels, not prose. `tips_heading` sits here rather
-  // than with the CMS set because Cai's stated reason for making h2 and zone8 editable was
-  // that both had already been rewritten once on this PR. That does not apply to this one, so
-  // it is filed as furniture pending a decision. Making it editable later is ADDITIVE — a
-  // cmsPreviewSpec entry for this whole key — and adds no leaf to a published shape.
+  // The second <h2>. PROSE, so CMS-editable under the same rule as `h2` above — it is a
+  // sentence a reader reads, not a structural label. It gets its OWN flat sibling rather than
+  // a seat in `labels` because CMS granularity is per key: leaving it in `labels` would make an
+  // editor choose between editing nothing and editing four structural labels alongside it.
+  //
+  // ⚠ MOVED HERE BEFORE MERGE, DELIBERATELY, AND THE TIMING IS THE POINT. It sat inside
+  // `labels` in the first Build A commit. Moving it AFTER these keys shipped would be a leaf
+  // REMOVAL from static.quickref_labels_v3, and assertOverrideShape rejects a published
+  // override in that direction too — "present only in the override" — so any coach who had
+  // published a labels edit would break at render. Nothing is deployed yet and no override can
+  // exist, so the move is free now and is not free later. That asymmetry is the reason to
+  // settle CMS granularity before a key ships, not after.
+  tips_heading: 'Tips for Debriefing This Report with Your Coach',
+  // CONTENT LIBRARY, NOT CMS — structural labels, not prose.
   labels: {
     pick_leading: 'Leading Hypothesis',
     pick_alternate: 'Alternate Worth Exploring',
     panel_instincts: 'Your Instincts Priority',
     panel_subtype: 'Your Subtype (Primary Type + Primary Instinct)',
-    tips_heading: 'Tips for Debriefing This Report with Your Coach',
   },
 };
 
@@ -2152,6 +2161,7 @@ function validateSubtype(key, st) {
       lib.static.quickref_h2_v3     = QR.h2;
       lib.static.quickref_zone8_v3  = QR.zone8;
       lib.static.quickref_tips_v3   = QR.tips.slice();
+      lib.static.quickref_tips_heading_v3 = QR.tips_heading;
       lib.static.quickref_labels_v3 = { ...QR.labels };
       continue;
     }
@@ -2209,14 +2219,14 @@ function validateSubtype(key, st) {
   // Sheet 5 (PR 5 Build A). Five flat siblings, checked explicitly rather than by the scalar
   // loop, because two of them are not scalars. Twelve strings across five keys; the count is
   // asserted so a dropped tip or a dropped label fails the build instead of rendering blank.
-  for (const k of ['quickref_lead_v3', 'quickref_h2_v3', 'quickref_zone8_v3']) {
+  for (const k of ['quickref_lead_v3', 'quickref_h2_v3', 'quickref_zone8_v3', 'quickref_tips_heading_v3']) {
     need(typeof S[k] === 'string' && S[k].trim(), `static.${k} empty`);
   }
   need(Array.isArray(S.quickref_tips_v3) && S.quickref_tips_v3.length === 4 && S.quickref_tips_v3.every(t => typeof t === 'string' && t.trim()),
     `static.quickref_tips_v3 must be exactly 4 non-empty (got ${Array.isArray(S.quickref_tips_v3) ? S.quickref_tips_v3.length : 'none'})`);
   // The four label keys are named individually. A `length === 5` check would pass if a key
   // were renamed, and a renamed label renders as `undefined` on a client page.
-  for (const k of ['pick_leading', 'pick_alternate', 'panel_instincts', 'panel_subtype', 'tips_heading']) {
+  for (const k of ['pick_leading', 'pick_alternate', 'panel_instincts', 'panel_subtype']) {
     need(S.quickref_labels_v3 && typeof S.quickref_labels_v3[k] === 'string' && S.quickref_labels_v3[k].trim(),
       `static.quickref_labels_v3.${k} empty`);
   }

@@ -197,12 +197,12 @@
       "Ask about the alternate. If a second pattern scored close, that is a conversation, not a loose end.",
       "Pick one thing to work on. You do not need to act on all of it. One growing edge is enough to start."
     ],
+    "quickref_tips_heading_v3": "Tips for Debriefing This Report with Your Coach",
     "quickref_labels_v3": {
       "pick_leading": "Leading Hypothesis",
       "pick_alternate": "Alternate Worth Exploring",
       "panel_instincts": "Your Instincts Priority",
-      "panel_subtype": "Your Subtype (Primary Type + Primary Instinct)",
-      "tips_heading": "Tips for Debriefing This Report with Your Coach"
+      "panel_subtype": "Your Subtype (Primary Type + Primary Instinct)"
     }
   },
   "type_8": {

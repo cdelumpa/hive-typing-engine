@@ -55,17 +55,36 @@ build, `[MEASURED]` by diffing the two lists — and **nothing asserts they must
 
 That correction is what makes the Build A / Build B seam clean rather than a compromise (§5).
 
-### 1.5 One convention the brief did not account for (§9)
+### 1.5 The source document — recorded by ID, and the ingest direction with it
+
+**AMENDED.** The Doc now exists: **`1zSvB-mR0AH06Z69fSstBQz411yJ7D3Ecr2AzEih_uW4`**, *"Subtype
+Summaries — p5 Quick Reference — Content for Review"*, recorded in the constant's header so the
+block follows the same convention as every other `INTERIM_*`.
+
+**The ingest direction is recorded rather than smoothed over**, because it is the reverse of every
+other block in that file: the Doc was created *after* these strings landed, so the values came from
+the Build A prompt and the Doc was opened around them as the review surface. Writing "ingested from
+the Doc" would imply a parse that never happened.
+
+**DRAFT stays**, and the marker is load-bearing rather than stale: the Doc is where Mo's voice pass
+happens. The header notes to re-ingest and recount from the Doc afterwards, on this file's counting
+basis — not the Doc's own character count, which the p6/p7 ingest already found unreliable.
+
+The subsection below records what the gap looked like before the Doc existed, and why no ID was
+invented for it.
+
+### 1.5a The convention the brief did not account for (§9)
 
 Committing client prose through `INTERIM_*` is consistent with the repo — `INTERIM_INSTINCTS_V3`
 already carries all 27 subtype narratives as committed prose. **But every `INTERIM_*` block carrying
 client prose cites a Google Doc BY ID and records a recount** ("Read and recounted 7 Sep 2026 …
 Recount at every re-ingest anyway").
 
-**These 27 have no source document.** They arrived in the Build A prompt. **No Doc ID was invented.**
-The constant's header records the provenance honestly — prompt, date, DRAFT status — and states the
-recount: 27 of 27 present, 51–161 characters, total 2868 `[MEASURED]`, counting basis "rendered
-string, whitespace collapsed, ends trimmed", the basis this file already uses.
+**At the time of the first Build A commit these 27 had no source document.** They arrived in the
+Build A prompt, and **no Doc ID was invented for them** — the header recorded prompt, date and DRAFT
+status instead. §1.5 above is the amendment that closed it. The recount stands unchanged: 27 of 27
+present, 51–161 characters, total 2868 `[MEASURED]`, counting basis "rendered string, whitespace
+collapsed, ends trimmed", the basis this file already uses.
 
 ## 2. The twelve chrome strings, verbatim, with their selectors
 
@@ -80,7 +99,7 @@ rendered `textContent`, whitespace-collapsed, never re-typed. The mockup was rea
 | 3 | `.plbl[1]` | `Alternate Worth Exploring` |
 | 4 | `.hhd[0]` | `Your Instincts Priority` |
 | 5 | `.hhd[1]` | `Your Subtype (Primary Type + Primary Instinct)` |
-| 6 | `h2[1]` | `Tips for Debriefing This Report with Your Coach` ← **the string neither count had** |
+| 6 | `h2[1]` | `Tips for Debriefing This Report with Your Coach` ← **the string neither count had; CMS-editable as of the amendment, §5a** |
 | 7 | `.ttxt[0]` | `Bring what didn't land. The parts that felt wrong are as useful to your coach as the parts that felt true.` |
 | 8 | `.ttxt[1]` | `Come with examples, not conclusions. A recent situation you can describe is worth more than a verdict.` |
 | 9 | `.ttxt[2]` | `Ask about the alternate. If a second pattern scored close, that is a conversation, not a loose end.` |
@@ -169,10 +188,31 @@ screenshot. **Build B must add:** one `STATIC` entry per CMS-editable static key
 the `subtype_*` regex/`SUB` map for `quickref_v3`, all with `doc: 'v3'` and a `.v3-page:has(...)`
 selector naming a sheet-5-only class.
 
-**`quickref_labels_v3` is deliberately not CMS-editable** — structural labels, not prose. So is the
-tips heading inside it: Cai's stated reason for making `h2` and `zone8` editable was that both had
-already been rewritten once on this PR, which does not apply to it. Filed as furniture pending a
-decision; making it editable later is additive and adds no leaf to a published shape.
+**`quickref_labels_v3` is deliberately not CMS-editable** — four structural labels, not prose.
+
+### 5a. The tips heading — moved out and made editable, before merge
+
+**AMENDED.** The tips heading is prose under Cai's own rule — a sentence a reader reads, not a
+structural label — and the other `<h2>` is editable. It is now **`static.quickref_tips_heading_v3`**,
+its own flat sibling, in `CMS_STATIC_FIELDS` with a `CMS_FIELD_META` card. **Six of the page's twelve
+strings are CMS-editable**; the four structural labels are not. The write routes now accept **13
+static + 162 subtype keys**.
+
+It got its own key rather than a seat in `labels` because CMS granularity is per key: leaving it
+there would make an editor choose between editing nothing and editing four structural labels
+alongside it.
+
+**Nothing about this was awkward, and the timing is the part worth keeping.** Moving it *after* these
+keys shipped would be a leaf **removal** from `static.quickref_labels_v3`, and `assertOverrideShape`
+rejects a published override in that direction too — *"present only in the override"* — so any coach
+who had published a labels edit would break at render. Nothing is deployed and no override can exist
+yet, so the move is free now and is not free later. **That asymmetry is the argument for settling CMS
+granularity before a key ships, not after**, and it generalises past this string.
+
+**Leaf-neutral, and asserted rather than assumed** `[MEASURED]`: `labels` 5 → 4 and one new key,
+so the library still reports **1316/2108 Word-canonical and 792 from `INTERIM_*`** — the two figures
+the merge was gated on. `SCRIPT_SOURCED` gained a row and its labels row was corrected 5 → 4, which
+is §1.1's lesson applied on its first opportunity.
 
 ## 6. Gates — all six green, and the two stale baselines
 
@@ -237,11 +277,40 @@ the Z6 band, neither of which this build touches. **Nothing this build added is 
 unforeseen. A prediction of six files was a prediction that the leaf-attribution table maintained
 itself.
 
+## 8a. What `.sname` actually is — the audit conflated two different strings
+
+The audit listed "`.sname` / `.stag` copy decision" as one open question blocking Build B. **They are
+not one question, and only one of them was ever a question.**
+
+**`.stag` was a real problem.** It read `The Seeker · Merging & Intensity`, and `Seeker` is not among
+the 27 naranjo values — SX9's is `Fusion` `[MEASURED]` — while the leading article breaks on 26 of 27
+(`The Appetite`, `The Non-Adaptability`). Cai's ratification of `${naranjo} · ${signature}` with no
+article settles it, and that is what landed: composed in the builder from the subtype row, not stored.
+
+**`.sname` was never a copy question at all.** It is the subtype **display name**, and it is
+`The ${display.subtype_label}` — a value already on the model, `${instinctName(instinct)}
+${TYPE_WORD[heroN]}` (`report_prep.js:323`). The mockup's `The One-to-One Nine` reproduces **exactly**
+from that `[MEASURED]`, and unlike the naranjo case the article generalises across all 27, because
+`subtype_label` is always a noun phrase: `The Self-Preservation One`, `The Social Eight`,
+`The One-to-One Four`.
+
+**So the tagline ratification does not cover `.sname` — and `.sname` does not need covering. No
+string is missing.** Build B composes it from data that already reaches the renderer, exactly as it
+composes the tagline, and stores nothing.
+
+The only residue is cosmetic and blocks nothing: **whether the leading article stays.** One case
+reads oddly — SX1 is `The One-to-One One` — and that is inherent to the naming scheme rather than to
+this decision; p10 already lives with the same construction. Worth Cai's eye at Build B review, not
+before it.
+
+**The audit was wrong to file this as blocking.** Naming two strings with one bullet hid that one of
+them was already answered by data on the model.
+
 ## 8. Still open, with owners
 
 | # | question | owner | blocks |
 |---|---|---|---|
-| 1 | `.sname` / `.stag` copy — author 27 taglines, or ratify `${naranjo} · ${signature}` with no article as final | **Cai & Mo** | Build B's subtype panel |
-| 2 | Is `quickref_labels_v3.tips_heading` CMS-editable? Filed as furniture; making it editable is additive | **Cai** | nothing — decide before Build C |
+| 1 | ~~`.sname` / `.stag` copy~~ — **CLOSED, see §8a.** `.stag` is ratified and landed; `.sname` was never a copy question | — | nothing |
+| 2 | ~~Is the tips heading CMS-editable?~~ — **CLOSED**, §5a: yes, moved to its own key before merge | — | nothing |
 | 3 | Mo's voice pass on the 27 summaries. The key exists, so revisions are value changes: edit `INTERIM_QUICKREF_V3` and rebuild | **Mo** | nothing — the shape is settled |
 | 4 | Nothing asserts `SCRIPT_SOURCED` covers every `INTERIM_*` constant (§1.1) | — | **PR 7 card** |

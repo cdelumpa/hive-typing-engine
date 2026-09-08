@@ -512,6 +512,7 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
         h2: stat.quickref_h2_v3 || '',
         zone8: stat.quickref_zone8_v3 || '',
         tips: stat.quickref_tips_v3 || [],
+        tips_heading: stat.quickref_tips_heading_v3 || '',
         // NOT CMS-editable — structural labels, not prose.
         labels: stat.quickref_labels_v3 || {},
       },
