@@ -9,7 +9,7 @@ Every figure `[MEASURED]` or `[ESTIMATED]`, with its counting basis.
 
 ## 1. Lead — what is wrong
 
-### 1.1 §4.4's premise is false: the `r <= 20` filter does **not** exclude `client-explore`'s home node `[MEASURED]`
+### 1.1 the prompt's §4.4 premise is false: the `r <= 20` filter does **not** exclude `client-explore`'s home node `[MEASURED]`
 
 Counted on the emitted markup, per variant, at type 9:
 
@@ -24,7 +24,7 @@ Counted on the emitted markup, per variant, at type 9:
 `EXPLORE_GEO`'s `rNode` is 12.5 and its `homeRNode` is **16** — both under 20. **The filter works
 correctly for `client-explore`**, keeping all nine nodes and dropping only the outer ring.
 
-This changes §4.4's pricing, and not in the direction the prompt assumes — see §6.4.
+This changes the prompt's §4.4 pricing, and not in the direction the prompt assumes — see §6.4.
 
 The variant the filter *does* break on, besides the proposed quickref, is **`client-cover`** at
 r=23. That is currently harmless because `client-cover` is covered by the **structural** wheel check
@@ -44,23 +44,23 @@ and an unknown variant throws.** Build 2 makes it **ten**.
 
 ### 1.3 Build 2 has no `§22.4d` equivalent — its scope was never enumerated in one place `[MEASURED]`
 
-§1.1 of the prompt asks which audit section carries Build 2's scope. **The honest answer is that no
-single section does.** Build 1 got `§22.4d "Build 1 — exact scope"` with a file table and eight
+The prompt's §1.1 asks which audit section carries Build 2's scope. **The honest answer is that no
+single section does.** Build 1 got the audit's `§22.4d` "Build 1 — exact scope" with a file table and eight
 assertions. Build 2 has:
 
-* `§22.1`, one table row — *"5. The diagram | **BUILD 2** | plus P6, plus IO-75's baseline as its
+* the audit's `§22.1`, one table row — *"5. The diagram | **BUILD 2** | plus P6, plus IO-75's baseline as its
   first commit"*;
-* `§22.2a` — P6 folds in entirely;
-* `§22.2b` — the shared-file table, which has a Build 2 column naming `renderer.js` (`QUICKREF_GEO`
+* its `§22.2a` — P6 folds in entirely;
+* its `§22.2b` — the shared-file table, which has a Build 2 column naming `renderer.js` (`QUICKREF_GEO`
   ~:1087, the variant ~:1233) and `verify_diagrams.js` (the variant + the `r <= 20` fix);
-* `§22.2c` — IO-75 lands as Build 2's first commit;
-* `§7.2`, `§7.3`, `§7.4`, `§7.5` — the original geometry, variant and gate findings.
+* its `§22.2c` — IO-75 lands as Build 2's first commit;
+* its `§7.2`, `§7.3`, `§7.4` and `§7.5` — the original geometry, variant and gate findings.
 
-**Has it gone stale? In one respect, yes** — `§22.2b`'s Build 2 column does not mention
+**Has it gone stale? In one respect, yes** — the audit's `§22.2b` Build 2 column does not mention
 `verify_transparency.js`, and §3 below shows Build 2 must touch it. Otherwise it holds.
 
 `[JUDGMENT]` This is the same shape as the orphaned `instinctRanks`: named in several places, never
-enumerated in one. **§6 of this document is Build 2's `§22.4d`**, and writing it is the main reason
+enumerated in one. **§6 of this document is Build 2's equivalent of the audit's `§22.4d`**, and writing it is the main reason
 this plan exists.
 
 ### 1.4 A signature change is unavoidable, and it was not in any plan `[MEASURED]`
@@ -74,7 +74,7 @@ backward-compatible, but this is a change to a shared primitive and no plan name
 
 ---
 
-## 2. §1.2 — what the sweep produces now, and whether it is what a diagram measurement needs
+## 2. The prompt's §1.2 — what the sweep produces now, and whether it is what a diagram measurement needs
 
 ### 2.1 What it produces `[MEASURED]`
 
@@ -125,7 +125,7 @@ fixtures.
 
 ---
 
-## 3. §2 — the shape-changing question. **Both can be proven at Build 2.**
+## 3. The prompt's §2 — the shape-changing question. **Both can be proven at Build 2.**
 
 `[MEASURED]` The premise that makes this work: **`buildEnneagramSVG` is a pure function that takes
 no page context.** Its output is a string. So it can be gated standalone, and `built: true` at step
@@ -186,7 +186,7 @@ check must be **per-variant**, asserting absence for `client-quickref` specifica
 | Node-filter non-vacuity | **assert the filter yields 9 circles, before fixing it** — it yields **0** | this is the RED-FIRST assertion; see §6.3 |
 | Edge clearance | port the mockup's LEADING label at its measured 1.17 vb | fails at 1.17 < 5 |
 
-### 3.4 §2.4 — is the honest answer "not until step 6"? **No.**
+### 3.4 The prompt's §2.4 — is the honest answer "not until step 6"? **No.**
 
 Everything above runs against a pure function. **No part of Build 2's verification needs
 `built: true`, and no part of step 6 needs to move forward.** `[JUDGMENT]`
@@ -197,7 +197,7 @@ step 6.
 
 ---
 
-## 4. §3 — re-measured against `b394a06`. **All four held.**
+## 4. The prompt's §3 — re-measured against `b394a06`. **All four held.**
 
 Measured 8 Sep against `f385c9a`; `main` has moved twice since (`216e926`, `b394a06`).
 
@@ -218,13 +218,13 @@ confirmation at the pixel level on a page P1 also covered.
 
 ---
 
-## 5. §4.3 — confirmed in the code, with a consequence `[MEASURED]`
+## 5. The prompt's §4.3 — confirmed in the code, with a consequence `[MEASURED]`
 
 **Confirmed, and more strongly than proposed.** It is not merely that geometry does not depend on
 scores — **scores cannot reach the builder at all.** `buildEnneagramSVG({ type, variant })` takes two
 parameters, and all 13 call sites pass only those.
 
-**The consequence is §1.4.** Build 2 breaks that property deliberately: the quickref variant needs
+**The consequence is §1.4 above.** Build 2 breaks that property deliberately: the quickref variant needs
 the nine scores. So the claim must be **re-established rather than inherited**, in this form:
 
 > Positions and label placement depend on `type`, `variant`, and which nodes carry rings. **Fills
@@ -232,7 +232,7 @@ the nine scores. So the claim must be **re-established rather than inherited**, 
 
 `[JUDGMENT]` That is assertable and should be asserted — **render the quickref variant twice with
 different score vectors and require every non-`fill` attribute to be byte-identical.** It is the same
-technique as Build 1's A1, and it converts §4.3 from a claim into a gate.
+technique as Build 1's A1, and it converts the prompt's §4.3 from a claim into a gate.
 
 **What the geometry sweep must cover instead of scores: ring configurations.** 9 leading × 8
 alternate = **72**, each placing the two labels at different node positions. `verify_diagrams.js`
@@ -240,7 +240,7 @@ already iterates variants and types directly, so it can iterate all 72 without a
 
 ---
 
-## 6. Build 2 — exact scope. **This section is Build 2's `§22.4d`.**
+## 6. Build 2 — exact scope. **This section is Build 2's equivalent of the audit's `§22.4d`.**
 
 ### 6.1 Files
 
@@ -291,9 +291,9 @@ widening is inert, exactly as A1 was for `instinctRanks`.
 5. B6–B9 — opacity and colour, both levels.
 6. B10 — the score-independence gate.
 
-### 6.4 §4.4 — the `client-explore` price, **repriced**
+### 6.4 The prompt's §4.4 — the `client-explore` price, **repriced**
 
-`[MEASURED]` §1.1 shows the premise is wrong: the `r <= 20` filter **includes** all nine of
+`[MEASURED]` §1.1 above shows the premise is wrong: the `r <= 20` filter **includes** all nine of
 `client-explore`'s nodes. So including it is **not** adjacent to the filter fix, and the filter fix
 does not partly pay for it.
 
@@ -308,7 +308,7 @@ does not partly pay for it.
 
 `[JUDGMENT]` **Recommendation: include it, in the structural block only, not the label block** — one
 line added to the pair at `:116`. It closes the last ungated v3 wheel against the exact defect class
-§4.3 documents, and it costs nothing the label sweep would waste. **But it is Cai's call and it is
+the spec's §4.3 documents, and it costs nothing the label sweep would waste. **But it is Cai's call and it is
 visible here rather than absorbed into a commit.** If it rides along it should be its own commit,
 named as such, so Build 2's diff does not quietly grow a page it does not otherwise touch.
 
@@ -316,11 +316,11 @@ named as such, so Build 2's diff does not quietly grow a page it does not otherw
 
 ## 7. Framings I would refute
 
-1. **§4.4's "the same `r <= 20` filter excludes its home node"** — false. `EXPLORE_GEO`'s home node
+1. **The prompt's §4.4 — "the same `r <= 20` filter excludes its home node"** — false. `EXPLORE_GEO`'s home node
    is r=16 and the filter keeps 9 of 10. §1.1.
-2. **§1.2's implication that the harness fix bears on Build 2's own measurements** — it does not.
+2. **The prompt's §1.2 implication that the harness fix bears on Build 2's own measurements** — it does not.
    `verify_diagrams.js` calls the builder directly and never builds a model. §2.3, and it partly
    refutes my own earlier argument, not only the prompt's.
 3. **My own audit's "five variants"** — it is nine, and Build 2 makes it ten. §1.2.
-4. **The premise that Build 2's scope lives in one audit section** — it does not; §6 is that section.
+4. **The prompt's premise that Build 2's scope lives in one audit section** — it does not; §6 is that section.
    §1.3.
