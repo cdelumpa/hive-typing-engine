@@ -1,7 +1,7 @@
 # PR 5 Build 1 — data exposure, the shared instinct rule, and the harness
 
 Branch `pr5-build1-data-exposure`, off `main @ 216e926`. Scope and assertions from
-`docs/audit_pr5_quickref.md` **§22.4d** (not §§19–21 — see the build report).
+`docs/audit_pr5_quickref.md` **§22.4d** (not §§19-21 — see the build report).
 
 **Every number below is labelled `[MEASURED]` or `[ESTIMATED]`.** On the docs PR the whole
 wall-clock deviation sat in unlabelled estimates while the one scaled figure held to 4.9%, so
@@ -90,13 +90,13 @@ this scale, on a 90ms test body, and not treated as a finding.
 
 **P5 was exactly right for what it predicted and wrong for what I built.**
 
-The plan (§22.4d) specified A7 as two clauses: `leading_candidate === confirmed_type` and
+The plan (audit §22.4d) specified A7 as two clauses: `leading_candidate === confirmed_type` and
 `call1_ranking` position 1 `=== confirmed_type`. P5 predicted those fail on 8 of 9 anders types and
 0 of 1 for sp4. **Measured on the red run, that subset fails on exactly anders types 1–8 and not on
 sp4 — the prediction to the type.**
 
 I then built a **three**-clause A7, adding `call1_ranking` position 2 `=== alternate_candidate`
-because §19.1's table shows those disagreeing. The third clause fails on 9 types plus sp4, and
+because the audit's §19.1 table shows those disagreeing. The third clause fails on 9 types plus sp4, and
 that is the whole deviation.
 
 | Clause | Failing (fixture, asType) pairs |

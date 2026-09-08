@@ -945,8 +945,9 @@ Two cautions when re-transcribing:
    > statement, which is the trade the decoupling buys.
    >
    > **(e) The full trace, with file and line at every hop, is `docs/audit_pr5_quickref.md` §1**
-   > (`§1.1` at rest, `§1.2` the hop that dropped them, `§1.3` the instinct path, `§1.4` the work).
-   > `§20` carries the fixture measurements and `§22.4d` Build 1's scope.
+   > (that document's `§1.1` at rest, `§1.2` the hop that dropped them, `§1.3` the instinct
+   > path, and that document's `§1.4` for the work).
+   > Its `§20` carries the fixture measurements and its `§22.4d` Build 1's scope.
 
 5. ~~**Score display.** Numeric values were deliberately removed from the client-facing charts. Confirm
    the underlying scale is not a percentage, and that removing the numbers does not break anything

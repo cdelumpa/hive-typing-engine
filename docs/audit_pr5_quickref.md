@@ -43,7 +43,7 @@ diagnostic PDF**, and it says so at [`app/generate_report.js:568`](app/generate_
 
 `generate_report.js:588` — the bare `page.pdf()` that **IO-93 cites as its evidence** — is inside
 `htmlToPdf`, one of the four functions named in that comment. IO-93's *substance* is correct and I
-confirm it below (§9.1), but its citation points at a function nothing calls. The live emitter is
+confirm it below (§9), but its citation points at a function nothing calls. The live emitter is
 [`app/server.js:5065`](app/server.js:5065). **The card should be re-cited before anyone works it**,
 or the first person to open it will "fix" a dead path and believe they are done.
 
@@ -836,7 +836,7 @@ Three findings:
 * **Label-to-node clearance: propose 5px**, same value, same reason. Measured p5 headroom **6.06px**
   (LEADING) and **6.41px** (ALTERNATE) — thin but passing, and directly comparable to wings/lines'
   5.47px. This is the check `r <= 20` currently disables.
-* **Label-to-label: assert non-overlap only**, exactly as the corrected §3.5 already prescribes. If a
+* **Label-to-label: assert non-overlap only**, exactly as the spec's corrected §3.5 already prescribes. If a
   numeric floor is ever wanted, p5's measured baseline is **24.81** counting numerals, **46.98**
   excluding them — and the two must not be conflated, which is arguably how 27.7 was born.
 
@@ -2008,7 +2008,7 @@ markers that do not use that heading form.
 | Date | Count | Sections |
 |---|---|---|
 | **11 Aug 2026** | 1 | §4.1 — `type_library_name_patch_080726.json` corrects no archetype names; do not apply. Also the Appendix row. |
-| **12 Aug 2026** | 1 + 1 inline | §3.5 — the four-count retraction (this is the convention the others follow). Plus "**This is a required step, not an assumption** (added 12 Aug 2026)" later in §3.5. |
+| **12 Aug 2026** | 1 + 1 inline | spec §3.5 — the four-count retraction (this is the convention the others follow). Plus "**This is a required step, not an assumption** (added 12 Aug 2026)" later in §3.5. |
 | **20 Aug 2026** | 2 inline | §4.4 rows M1 and M2, both marked "Ratified 20 Aug 2026". |
 | **3 Sep 2026** | 1 + 2 inline | §6.1 table (two corrections to the line-count bands). Inline: §4.4 row M4 "Recorded 3 Sep 2026", and §4.4's closing paragraph "Reworded 3 Sep 2026". |
 | **4 Sep 2026** | 7 | §6.1 (×2 — scope, and the hard gate at PR 3f), §7.2 (Type 9 p7 rows CLOSED), §7.4 (×2 — all nine authored; the nine doc IDs superseded at PR 3e), §7.4 budgets (×2 — the budgets are not sound). |
@@ -2017,7 +2017,7 @@ markers that do not use that heading form.
 **Total: 17 dated post-lock corrections or ratifications, across six dates.** The oldest is
 11 Aug; the document has been corrected in place on every working date since.
 
-`[JUDGMENT]` If the other copy carries none of these, the divergence is not one line in §3.5 —
+`[JUDGMENT]` If the other copy carries none of these, the divergence is not one line in spec §3.5 —
 it is every section listed above. §6.1, §7.2 and §7.4 have each been corrected twice, and §7.4's
 4 Sep entry explicitly says a claim in it was "**false when written**".
 

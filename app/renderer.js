@@ -3807,8 +3807,9 @@ ${l.work.map((w, i) => `    <div class="v3-work-item">
  * ALONE with no dominant input, and it is read by live v2 p6 (renderer.js:2254), the coach
  * report and the Coach Prep Report. The two rules give different answers whenever the
  * dominant instinct is not the top-scoring one — which no fixture in the repo currently
- * produces (audit §20.1), so nothing would catch the wrong import. Three ordering rules in
- * one module is why each of them says which it is.
+ * produces (audit §0.5 — all six repo profiles have dominant == top score), so nothing
+ * would catch the wrong import. Three ordering rules in one module is why each says which
+ * it is.
  *
  * SHARED BECAUSE THE PAGES MUST AGREE, not because the code was duplicated. p5 draws the
  * three scores as BAR LENGTHS while p10 draws only badges, so a divergence that is invisible
