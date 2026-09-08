@@ -3010,3 +3010,340 @@ it landed 0.0008 px off. The pass-1 report's 9 misses taught more than these 22 
 **The basis error from pass 1 did not recur.** The predictions file named the full-line basis in its
 own text before any number was written, which is why there is no repeat of scoring a capacity
 estimate against a terminal-line-diluted average. That was the point of naming it, and it worked.
+
+---
+
+## 28. Build 0 — the sheet-5 audit, and the real `.stxt` box measured
+
+**Branch** `pr5-build0-stxt-measure`, base `e027a04`. Predictions committed first at **`e45f830`**,
+before any browser launched. Read-only against product code: this build changes **no** `.js`, sets
+**no** `built` flag, bumps **no** inventory. The mockup is read, never written — blob `813e871`
+throughout.
+
+### 28.0 The headline
+
+**`.stxt` measures 308.00 px inside the real v3 page shell.** `[MEASURED]` The figure every
+subtype-panel number on `main` rests on is confirmed against the shipped pipeline rather than
+against the mockup alone. **`m` = 44 and the safe ceiling of 132 stand. Mo keeps authoring to 132.**
+Nothing in §26.3–§26.5 is re-run, because nothing moved.
+
+### 28.1 Two things that lead, both decided
+
+#### 28.1a DECIDED — the summary is a new sibling field, never a leaf inside `instincts_v3`
+
+**The hazard, verified in the repo.** `assertOverrideShape` (`app/content_overrides.js:159`) throws
+when a published override's leaf set no longer matches the library's. Adding a `summary` leaf inside
+`subtype_<code>.instincts_v3` makes every already-published `instincts_v3` override throw at render.
+`content_overrides.js:114` is explicit about the blast radius, and it is **wider than the audit brief
+stated**: *"This throw reaches EVERY report render, including the dry-validate probe in
+`/api/submit`. A mismatched row therefore **fails assessment submission**, not just a PDF."*
+`build_content_library.js:1360` records this being **reproduced**, not theorised — a `body_v3` leaf
+was rejected on exactly this failure.
+
+**DECIDED.** The 27 summaries land as a **new sibling object on the subtype row**:
+
+```
+content_library.json → subtype_<code>.quickref_v3 = { summary }
+```
+
+authored as `INTERIM_QUICKREF_V3` in `scripts/build_content_library.js`, the same shape and
+provenance convention `INTERIM_INSTINCTS_V3` follows. A key that does not yet exist can have no
+published override, so the shape guard cannot fire. It satisfies the co-location decision — the
+summary sits on the same record as both narratives — and gives the CMS a clean
+`subtype_sx5.quickref_v3` key. `[DECIDED, Cai, 8 Sep]`
+
+#### 28.1b The registry entry already exists
+
+`app/renderer.js:3362` — `{ key: 'quickref', sheet: 5, footer: 3, title: 'Quick Reference',
+eyebrow: 'Your Report at a Glance' }`. `[MEASURED]` Only the `built` flag is absent. The state
+document said there was no registry entry; it was wrong. The row's title, eyebrow, sheet and footer
+are already decided, already committed, and **already read by the TOC** — see §28.5.
+
+`quickref` and `car` are the only two of twelve rows without `built`. `[MEASURED]`
+
+### 28.2 The summary / narrative overlap — design, not defect
+
+`[MEASURED]` Longest contiguous shared word-run between each summary and the first sentence of the
+corresponding `subtype_<code>.instincts_v3.narrative`, whitespace-normalised and case-folded:
+**16 of 27 at ≥ 60 %**. SP7 90 %, SP5 89 %, SX7 89 %, SP9 88 %, SO6 88 %, SX6 87 %, SO9 86 %,
+SX9 83 %. Lowest SO8 26 %, SO4 35 %, SX8 40 %. All 27 are recognisably the same sentence, the
+summary in second person and the narrative in third.
+
+**DECIDED — this is by design.** `[Cai, 8 Sep]` Two renditions of the same subtype content, a long
+one on sheet 10 and a short one on sheet 5, is the design; a summary that opens with the same
+sentence as the long form is what a summary is. The pages are five sheets apart and each is
+internally consistent in its own voice. **There is no client-visible defect and it is not an open
+question.** The audit measurement stands; the design conclusion drawn from it in the audit report
+does not, and is withdrawn here.
+
+> **Maintenance note.** What survives is narrower: if the p8 narrative's opening sentence is later
+> edited, the p5 summary will not follow, and the two renditions will drift. **Mitigation, already
+> chosen: co-locating both fields on the same subtype row** (§28.1a), so an editor changing one has
+> the other in front of them. Not a finding; a thing to know when editing.
+
+### 28.3 Content — where the strings live
+
+**Two narrative fields per subtype. Never write "the narrative" unqualified.** `[MEASURED]`
+
+| field | length | page |
+|---|---|---|
+| `subtype_<code>.instincts_v3.narrative` | **360–394 chars** | sheet 10, printed page 8 — **the one this build cites** |
+| `subtype_<code>.narrative` | **602–762 chars** | the v2 P6 page |
+
+Counting basis: JSON string length, all 27 present in both fields.
+
+`type_N.explore_v3.p6.core_motivation` `[MEASURED]` — present for all nine types, **54–96 chars**.
+Sheet 5 needs the **alternate's** copy, and it is already staged (§28.6).
+
+**Four content homes, plus chrome. The rule is provenance, not page.**
+
+1. **Word docx** — canonical for authored client prose.
+2. **`INTERIM_*` constants in `scripts/build_content_library.js`** — canonical for prose with no
+   docx section yet; an explicit staging state whose count `verify_content_library.js` prints on
+   every run "so it moves visibly as constants retire into Word."
+3. **`app/content/content_library.json`** — the **built artifact**. Never hand-edited; CI asserts
+   `JSON == build(docx + INTERIM_*)`.
+4. **`content_overrides` DB table** — the CMS runtime layer, keyed `<topKey>.<field>`, resolved per
+   render with library fallback.
+5. Literal strings in `renderer.js` — page furniture only, no content key.
+
+**`cmsPreviewSpec` is not a content home.** It stores no content: it is the CMS *preview routing*
+table, mapping an editable key to a page and selector. A string is CMS-*editable* only if it also
+gets an entry there. Recorded because treating it as a home sends the reader looking for strings
+that were never in it.
+
+### 28.4 The analogue builder
+
+**`_clv3Instincts` (`app/renderer.js:4069`), not wings.** It is the only builder that reads the
+subtype row, the only one that renders instinct badges — it already calls `instinctRanks`, the
+Build 1 helper sheet 5 must reuse so the two pages cannot disagree about which instinct is Primary —
+and the only one whose geometry was measured on a scaffold *before the page existed* and asserted
+afterwards, which is exactly sheet 5's position.
+
+**Contract.** `function _clv3Instincts(m)` → HTML string. Takes the whole client model, returns one
+`<div class="v3-page">…</div>`. Opens `const page = v3Page('instincts')` (throws on an unknown key),
+reads its content slice from `m.pages.v3_instincts`, closes with `${_v3Footer(page)}`. Registered in
+`V3_PAGE_BUILDERS` (`:4171`); `V3_PAGE_BUILDERS_ORDERED` throws if a `built` page has no builder.
+Content is prepared in `report_prep.js` into `m.pages.<slot>` — never read from the library inside
+the renderer. Geometry comes from a module-level `*_GEO` constant; `QUICKREF_GEO` already exists at
+`renderer.js:1092`.
+
+**Conventions an eleventh builder must follow that are nowhere written down:**
+
+- **Namespace.** `p5-` is taken by the live v2 renderer; `.v3-inst-`'s header documents the same
+  collision for `p6-`/`p8-`. Use `v3-qr-`.
+- **`_v3t()` for library content, `esc()` for chrome.** `_v3t` runs `_v3NoBreak`, which wraps
+  hyphenated compounds — "Self-Preservation", "One-to-One" — in nowrap spans.
+- **No HTML comments in output** — notes go in JS comments so they do not ship inside the client PDF.
+- **`{type_word}` / `{subtype_label}` / `{nickname_plural}`** resolve through `_v3Tokens`.
+- **Footer number from `V3_PAGE_ORDER`, never a literal.**
+- **Set `built: true` in the same commit as the builder** (`renderer.js:3352`).
+- **Bump `PAGE_INVENTORY.client_v3` by hand** — §28.5.
+- **Never inline the mockup's SVG** — §28.7.
+
+### 28.5 Registry, order and the tripwire
+
+**`V3_PAGE_ORDER`** is twelve rows of `{key, sheet, footer, chrome?, built?, title, eyebrow?}`,
+asserted at 12 rows with `sheet === i+1`. `quickref` **inserts nowhere — it is already row 5.**
+Build B adds `built: true` to the existing row. At runtime `built` does exactly one thing:
+`v3PagesFor` filters on it (`:3383`), which drives the renderer, the render harness and the
+structural test from one source.
+
+**`report_page_inventory.js:47`** — `{ 'v3-page': 10 }` → **11**. Left un-bumped, both
+`report_pages_test.js` and `tests/run_test.js` fail on the container count, deliberately. The
+comment at `:29–47` is emphatic that this is the one v3 count **not** derived from `V3_PAGE_ORDER`,
+because if every assertion derives from the constant the renderer reads, "a wrong `V3_PAGE_ORDER`
+passes silently and the suite becomes a tautology." **Do not tidy it into a derivation.** No other
+place counts pages: `EXPECTED_PAGES` derives from this literal, and the footer and header counts
+derive from the `built` flags.
+
+**The TOC assertion** (`tests/report_pages_test.js:273–282`) checks that there are 9 entries, that
+each `v3_contents.start` names a real `V3_PAGE_ORDER` key, that each printed page number equals that
+entry's `.footer`, and that footer 5 is absent.
+
+**It asserts TOC-vs-registry consistency and never TOC-vs-document-existence — and that gap is live
+now.** `INTERIM_CONTENTS` entry 03 is `quickref`, so **the contents column already prints "3" for a
+page the document does not contain**, as it prints "9" for `car`. `[MEASURED]` Adding sheet 5 makes
+the assertion neither stronger nor weaker — it was never testing existence. It closes one of the two
+remaining lies in that column.
+
+**`pilotTypes`** appears in exactly two places — the comment at `:3377` and the filter at `:3383` —
+and **no page entry sets it**. `[MEASURED]` Sheet 5 declares nothing there. Not cleaned up.
+
+### 28.6 The data the page needs
+
+| Needed | Reaches the renderer? | Path |
+|---|---|---|
+| Nine type scores | **YES** | `m.charts.types` — `typeRamp()`, `{type, position, score}` × 9, hero at position 1, alternate at 2 |
+| `instinctRanks` | **YES** | `renderer.js:4037`, called with `m.display.instinct_code` + `m.charts.instincts` |
+| `hero.number` / `alternate.number` | **YES** | `m.hero.number`, `m.alternate.number` |
+| Which of the 27 subtypes | **YES** | `m.display.instinct_code` × `m.hero.number`; label at `m.display.subtype_label` |
+| Naranjo + signature | **YES** | `m.pages.v3_instincts.columns[].{naranjo, signature}` — slotted for p10's three-column layout, needs reslotting for one |
+| Leading + alternate core motivations | **YES, already** | `m.pages.type_hypotheses.core_motivation` and **`.alternate_core_motivation`**, the latter commented *"Sheet 5's ALTERNATE hypothesis block"* (`report_prep.js:357–363`) |
+| `buildEnneagramSVG` quickref inputs | **YES** | `{leading, alternate, scores}` |
+| The 27 summaries | **NO** | do not exist — §28.1a |
+| `.lead`, both `.plbl`, both `.hhd`, H2, zone 8, four debrief tips | **NO** | mockup only `[MEASURED]`, grep excluding audit/build docs |
+
+**Call signature.** `buildEnneagramSVG({ variant: 'client-quickref', leading: m.hero.number,
+alternate: m.alternate.number, scores: m.charts.types })`. The branch reads **position, not score**,
+"so the darkest node and the solid ring cannot disagree."
+
+**Two data steps precede Build B:** the 27 summaries via `INTERIM_QUICKREF_V3` plus a
+`pages.v3_quickref` model slot; and **the eight static chrome strings**, which are unscoped and
+unowned — §28.9.
+
+### 28.7 What would catch a broken page, and what would not
+
+**The single-sheet gate.** `npm run verify:render` → `verify_phase4_prep.js && render_client.js`.
+**32 v3 renders** `[AGGREGATE]`, computed from the config's own functions: `anders_sx9` = 9 types ×
+3 instincts × 1 Z6 = **27**; `sp4` = 1 type × 1 instinct × 5 Z6 states = **5**. A full 3 × 9 on the
+instinct axis, all 27 subtype columns in the highlighted slot.
+
+**No collided fixture exists and the harness structurally cannot make one.** `[MEASURED]` All three
+`*_api_result.json` fixtures have `confirmed ≠ alternate` — 9/5, 4/1, 7/5 — and the retype rule is
+`alternate_candidate = (asType % 9) + 1`, which has **no fixed point on 1..9** `[DERIVED]`. So the
+collided path renders **zero times in any gate**, despite `call2_stamp.js` deliberately shipping such
+records, `buildEnneagramSVG` carrying a documented recovery branch for them ("the alternate is
+dropped, not thrown"), and `typeRamp`'s de-duplication existing for them. Three pieces of code
+written for a case nothing renders. **Nothing asserts a collided record produces a complete
+document.**
+
+**Gates a new page passes without being examined by:**
+
+- `verify_coach_baseline.js` — coach path only, structurally blind.
+- `verify_content_library.js` — asserts JSON == build(docx); says nothing about rendering.
+- `verify_diagrams.js` — covers `client-quickref` across 72 ring configurations, but only the
+  **standalone SVG**; it never sees the page the SVG is embedded in.
+- `verify_transparency.js` — the page-level half runs **one fixture at one type**, not the 32-render
+  matrix.
+- `check_docs.py` — not in CI at all.
+- The derived halves of `report_pages_test.js` — footer, header and built-key counts all derive from
+  `V3_PAGE_ORDER`; only the hand-maintained `client_v3` literal can catch a wrong constant.
+- The whole suite, on the collided path.
+- **The `.stxt` box width** — nothing measures it. §28.8 is a one-off, not a gate.
+
+**Transparency, and why the mockup must not be "fixed."** The mockup's heat-map SVG carries
+`fill-opacity` on all nine nodes (0.100–1.000), a `stop-opacity` `linearGradient`, and
+`fill="url(#sc)"` — a §3.2 violation. It is already known: `verify_transparency.js:22` names the file
+and `:172` uses it as the scanner's **positive control**, failing if it ever scans clean.
+**Editing the mockup to remove the transparency would break that gate.** Build B calls
+`buildEnneagramSVG('client-quickref')`, whose `RANK_FILL` ramp is opaque solid hex.
+
+### 28.8 The measurement
+
+**Method, and why it is not the §26 measurement again.** §26 measured the mockup's own `.stxt` in the
+mockup document. This measures `.stxt` **inside a page rendered by the real v3 pipeline** —
+`buildClientReportHTML_v3` on the `anders_sx9` fixture, a real non-cover `.v3-page` as the host —
+with the mockup's `.two` / `.half` / `.hhd` / `.hbd` / `.sname` / `.stag` / `.stxt` rules lifted
+**verbatim** from its `<style>` block (11 rules extracted by selector match, never re-typed, the same
+discipline `scripts/spike/p10_fit_probe.js` uses) and injected at runtime, with a content-free
+skeleton: the row, the two `.half` columns, the `.stxt` element.
+
+**Nothing was registered.** `built` was not set, `PAGE_INVENTORY` was not bumped, no builder was
+written. §2.2's stop condition — "if the only way to get a real box is to register the page" — **did
+not fire**: the shell is real without it.
+
+| # | Property | Value | Label | Counting basis |
+|---|---|---|---|---|
+| M1 | `.v3-page` count in the rendered document | 10 | `[MEASURED]` | `querySelectorAll('.v3-page')` |
+| M2 | `.v3-page` outer / **content** width | 816.00 / **710.00 px** | `[MEASURED]` | `clientWidth` − horizontal padding; `padding: 40px 53px`, `box-sizing: border-box` |
+| M3 | `.two` content width, `display`, `gap` | 710.00 px, `flex`, 18 px | `[MEASURED]` | as M2 |
+| M4 | `.half` × 2 — border-box / content | **346.00 / 344.00 px each** | `[MEASURED]` | `getBoundingClientRect().width`; content as M2 |
+| M5 | `.half` computed flex | **`1` / `1` / `0%`** | `[MEASURED]` | `getComputedStyle` grow/shrink/basis |
+| M6 | `.hbd` content width | **308.00 px** | `[MEASURED]` | as M2; `padding: 16px 18px` |
+| M7 | **`.stxt` content width** | **308.00 px** | `[MEASURED]` | as M2 |
+| M8 | `.stxt` bounding width | 308.00 px | `[MEASURED]` | `getBoundingClientRect().width` — agrees, so the box is not content-shrunk |
+| M9 | `font-family` / `font-size` / `line-height` | `Arial, sans-serif` / 12.5 px / 18.75 px | `[MEASURED]` | `getComputedStyle`. **Fixed by the method** — the rules were injected verbatim — and declared unscoreable in the predictions before the run. |
+| M10 | Arial resolved | probe **2378.80859375** vs the 2378.81 constant, Δ 0.0014 px | `[MEASURED]` | `bl.assertReportFont` |
+
+**What this confirms.** The v3 page shell offers the same 710.00 px content band as the mockup's
+`.page`, and a panel built at the mockup's grid inside it yields **the same 308.00 px** the §26–§27
+numbers were taken at. **`m` = 44 and the safe ceiling of 132 stand unchanged. §26.3–§26.5 are not
+re-run, because nothing moved.**
+
+**What it does not settle, stated plainly.** This measures the panel **as the mockup specifies it**.
+It does not settle what CSS Build B writes. Change the gap, the border, the `.hbd` padding, or give
+the instincts half a fixed width, and 308.00 moves with it. That is §26.6 item 4 and it remains
+Build B's to answer against Build B's own stylesheet.
+
+**§26.6, after this build:**
+
+| item | status |
+|---|---|
+| 1 — `.stxt` is 308.00 px in the built page | **answered conditionally** — 308.00 px in the real shell at the mockup's grid; final only against Build B's stylesheet |
+| 2 — 12.5 px / 1.5 survive into the built stylesheet | **not answered** — injected verbatim here, so untested; Build B's |
+| 3 — the 3-line bound holds at page level | **not answered** — needs the whole page |
+| 4 — the two `.half` columns split evenly | **ANSWERED** — `flex: 1 1 0%`, 346.00 px each, in the real v3 shell |
+| 5 — re-render the strings above the ceiling | **not needed** — the ceiling did not move |
+| 6 — SO8's CMS quote form | **not answered** — a CMS question, not a geometry one |
+
+### 28.9 Decisions and open questions
+
+**DECIDED** `[Cai, 8 Sep]`
+
+- **The build split**, with this measurement pulled out in front as **Build 0** (this section):
+  **A** content and model — `INTERIM_QUICKREF_V3`, the eight chrome strings, the `pages.v3_quickref`
+  slot, the CMS preview entry; ends with the library rebuilt and green, **no page rendering**.
+  **B** the page — `_clv3QuickRef`, `v3-qr-` namespace, `built: true`, `PAGE_INVENTORY` → 11;
+  ends with 32 renders single-sheet and §26.6 items 1, 2 and 4 answered against the real stylesheet.
+  **C** fit and the ceiling — §26.6 items 3, 5, 6; ends with 132 confirmed or restated against the
+  built page. **D** the collided-record fixture; ends with §28.7's gap closed.
+- **D stays in PR 5.** Sheet 5 is the first page that renders the alternate at all, so it is the page
+  that makes the collided path reachable in a client report.
+- **`.sname` / `.stag` are UNRATIFIED.** The mockup carries **three** stale strings, not two.
+  Alongside the H2 and the italic caption, `.stag` reads "The Seeker · Merging & Intensity" — but the
+  library's SX9 naranjo is **`Fusion`** `[MEASURED]`, and "Seeker" is not among the 27 naranjo values
+  at all. The signature matches; the name does not. The `The ` prefix also fails to generalise:
+  it yields "The Appetite" (SP9), "The Non-Adaptability" (SO1), "The Keepers of the Castle" (SP7).
+  p10 renders naranjo with no article. Do not port `.sname`/`.stag` as chrome.
+
+**OPEN, with owners**
+
+| # | Question | Owner | Blocks |
+|---|---|---|---|
+| 1 | The `.sname` / `.stag` copy decision — author 27 taglines, or ratify `${naranjo} · ${signature}` with no article | **Cai & Mo** | Build A |
+| 2 | The eight chrome strings — lead, two pick labels, two panel headers, H2, zone 8, four debrief tips — and whether they are authored into a docx section or an `INTERIM_*` constant | **Cai** | Build A |
+| 3 | Are the summaries CMS-editable? If yes they need a `cmsPreviewSpec` entry and sheet 5 needs a preview selector — unscoped work | **Cai** | Build A |
+
+### 28.10 Predictions versus measurement
+
+Predictions at `e45f830`. **12 of 14 scored items hit. Two missed, and both are mine.**
+
+| # | Predicted | Measured | |
+|---|---|---|---|
+| B0.1 | `.v3-page` content 710.00 px | 710.00 px | ✓ |
+| B0.2 | **`.stxt` content 308.00 px** | **308.00 px** | ✓ |
+| B0.3 | `.half` 346.00 px each, `flex 1 1 0%` | 346.00 px, `1 1 0%` | ✓ |
+| B0.4 | probe 2378.80859375 | 2378.80859375 | ✓ |
+| B0.5 | 12.5 px / 18.75 px | confirmed | — declared unscoreable before the run |
+| **B1.1** | The two box models yield the same 308.00 px | 308.00 px both | **✗ — right answer, wrong reason. See below.** |
+| **B1.2** | Content-box arithmetic: free space 710 − (2+2+18) = 688 → 344 content each | **Never applied.** | **✗ WRONG** |
+| B1.3 | The v3 reset loses to the panel's padding on source order | untestable by this method | — the scaffold appends its `<style>` last **by construction**, so this proves nothing about `clientReportV3PageStyles()` ordering. Not scored. Build B must confirm it. |
+| B2.1 | `m` = 44 | 44 | ✓ |
+| B2.2 | ceiling 132 | 132 | ✓ |
+| B2.3 | 2 above — SO5, SO1 | 2 — SO5, SO1 | ✓ |
+| B2.4 | no re-run needed | none run | ✓ |
+| B3.1 | a real box without registering the page | confirmed; §2.2's stop did not fire | ✓ |
+| B3.2–B3.4 | 2 files, both `.md`, 0 non-`.md`; 0 CI jobs examine them; coach gate N/A | confirmed | ✓ |
+
+**The miss, stated properly.** B1 was built on the claim that the mockup's `.page` declares no
+`box-sizing` and its panel is therefore **content-box**, against the v3 shell's border-box reset —
+a divergence the predictions called "the reason this is not a foregone conclusion." **It is not
+true.** `docs/mockup/…AtAGlance_v1.html:4` opens with `*{margin:0;padding:0;box-sizing:border-box}`,
+a universal reset one line above the `.page` rule I read. `[MEASURED]` — the mockup's `.half`,
+`.hbd` and `.stxt` all compute `border-box`, and its `.half` measures 346.00 / 344.00 px, identical
+to the v3 shell's.
+
+So **there was never a box-model divergence to reconcile**, and B1.2's arithmetic describes a layout
+that does not exist anywhere. B1.1's conclusion happens to be correct because the two documents use
+**the same** box model, not because two different models converge.
+
+**This makes the result stronger, not weaker, and it is worth being precise about why.** Had the
+premise been true, 308.00 px would have been a coincidence of two box models agreeing — durable only
+while both stayed as they are. What is actually the case is that the mockup and the v3 shell are
+geometrically the same document: 816 px wide, `40px 53px` padding, border-box throughout, 710.00 px
+of content. The mockup's measurements transfer to the v3 shell because there is nothing to transfer
+across. That is a better guarantee than the one predicted, arrived at by being wrong about the
+mechanism — recorded here rather than quietly corrected, because the reasoning error is the
+interesting part and the reading habit that caused it (reading a rule without checking the reset
+above it) is the one to carry forward.
