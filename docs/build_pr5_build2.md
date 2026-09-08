@@ -350,3 +350,77 @@ on it. Recorded here rather than left to be rediscovered.
 Build 2 renders what it is passed, and now degrades rather than hard-stopping on the one input that
 the engine can legitimately produce. All seven gates green, B11 still 81/81 byte-identical. The
 step-6 assertion in §5.5 is the follow-up, not a blocker.
+
+---
+
+## 6. Merge predictions, committed before the push
+
+**Read against this branch's own file list before committing, not against Build 1's baseline.**
+That is the C10 correction: Build 2 *changes two gates that CI runs*, so a Build-1 timing baseline
+is not a prediction for them.
+
+### 6.1 Which steps this branch actually moves `[MEASURED]` from the diff
+
+| CI step | Touched by this branch? |
+|---|---|
+| Diagram geometry gate | **yes** — `verify_diagrams.js` +232 lines: 72 ring configurations, the collided-record check, score-independence |
+| Transparency gate | **yes** — `verify_transparency.js` +47 lines: **4 additional standalone PDF renders** |
+| Unit tests · Render check · Coach regression · Content library | no |
+| — | `verify_wings_pixel.js` is **new and not in the workflow** — see §6.5 — so it adds **0s** |
+
+### 6.2 Predictions
+
+| # | Prediction | Label |
+|---|---|---|
+| D1 | Bare push → **0** runs; this branch has never been pushed | `[MEASURED]` — held twice |
+| D2 | Opening the PR → **1** run, `pull_request`, on branch head **`46a211e`** | `[MEASURED]` |
+| D3 | **No run fires on `6aa2821`** (deliberately red). `pull_request` tests the head; `push` only fires on `main` | `[MEASURED]` — workflow lines 17-20 |
+| D4 | **PR #96** (last merged #95) | `[MEASURED]` |
+| D5 | All 11 named steps run, none skip | `[MEASURED]` |
+| D6 | **Coach byte-diff: HTML *and* PDF halves pass, on `sp4` and `sx7`** | `[ESTIMATED]`, premise `[MEASURED]` — see 6.4 |
+| D7 | Every other step `success` | `[ESTIMATED]` |
+| D8 | Merge → a second run, `push`, on the merge commit | `[MEASURED]` |
+| D9 | 10 files (5 non-`.md`), **+1834 / −13**, 2 parents, **16 branch commits** | `[MEASURED]` |
+
+### 6.3 Wall-clock — rebased on the changed steps
+
+Build 1's CI run measured 113s of steps, of which **Diagram gate < 1s** and **Transparency 5s**
+`[MEASURED]`. Local deltas for this branch `[MEASURED]`: diagrams 0.93s → **1.10s**; transparency
+2.88s → **7.48s** (+4.60s, the four PDF renders).
+
+| | Build 1 CI | Predicted here |
+|---|---|---|
+| Diagram gate | <1s | **~2s** `[ESTIMATED]` |
+| Transparency gate | 5s | **~12s** `[ESTIMATED]` |
+| everything else | 107s | 107s `[MEASURED]` |
+
+> **Point estimate 2m07s; predicted range 1m55s – 2m30s**, both runs. `[ESTIMATED]` from measured
+> components.
+
+### 6.4 ⚠ The coach byte-diff — the half that has never run
+
+**This branch has never been pushed and no Build 2 commit has ever had a CI run** `[MEASURED]`. So
+the PDF half of the coach byte-diff has **never executed against this build**, and Build 2 is the
+build where it is load-bearing: `_coachPage1` (`renderer.js:1590`) calls `buildEnneagramSVG`, whose
+signature this branch widened.
+
+**Predicted PASS**, on these measured premises:
+
+* **B11: 81/81 byte-identical** across nine variants × nine types — the coach renders variant
+  `type`, and its markup is unchanged;
+* the coach byte-diff's **HTML half passes locally** on both fixtures — a direct check of the coach
+  HTML, not an inference;
+* `buildCoachReportHTML` and `_coachPage1/2/3` have **no `+`/`-` in the diff**;
+* the additions to `renderer.js` are module-level (`QUICKREF_GEO`, `rampFill`, one export line) plus
+  a new variant branch no coach path reaches.
+
+**A PDF-half failure stops the merge and will not be re-run.** It would mean the coach PDF moved
+while its HTML did not — a rendering-level change none of the premises above predicts, and a finding
+about a shipped page.
+
+### 6.5 One thing this branch does not do `[MEASURED]`
+
+It adds **123 lines of gate** in `scripts/verify_wings_pixel.js` and **CI coverage does not
+increase**, because nothing runs it: `grep verify_wings_pixel .github/workflows/report-verify.yml`
+and the same over `app/package.json` both return **0** `[MEASURED]`. Stated here so the merge is not read as
+having landed IO-75's assertion. The workflow PR is the next thing.
