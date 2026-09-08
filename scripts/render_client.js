@@ -378,6 +378,42 @@ async function measureLayout(page, selector) {
           if (asType !== realType) c.client_words = {};
           return c;
         })();
+
+        // ── A7 — THE RE-TYPED SCALARS MUST AGREE WITH THE RE-TYPED PAGE ────────────────
+        //
+        // WHY THIS EXISTS. The retype above swaps confirmed_type and sets a mechanical
+        // alternate_candidate, and until PR 5 Build 1 it touched NEITHER leading_candidate
+        // NOR call1_ranking. Sheet 5 is the first v3 page to draw either: the nine node
+        // fills come from call1_ranking and the ALTERNATE ring from alternate_candidate.
+        // Unfixed, eight of the nine re-typed renders would show a ramp whose brightest
+        // node is the fixture's real type on a page headlined as a different one, and a
+        // reviewer would have to be TOLD to ignore them — which is the same failure the
+        // client_words drop above already solved for a different field.
+        //
+        // WRITTEN RED FIRST, and it failed on exactly 8 of 9 types for anders_sx9 and 0 of
+        // 1 for sp4, which is the count docs/audit_pr5_quickref.md §19.1 predicts.
+        //
+        // ASSERTS ON THE FAILURE TEXT, NOT AN EXIT CODE. fail() records a message; a
+        // TypeError here would abort the run without one, and a gate that dies before
+        // reporting its own message is one this project has already found five times.
+        if (asType != null) {
+          const h = retyped.hypothesis;
+          const rank = [...(h.call1_ranking || [])].sort((a, b) => b.score - a.score);
+          if (h.leading_candidate !== asType) {
+            fail(`A7 ${fx} asType ${asType}: leading_candidate is ${h.leading_candidate}, `
+               + `expected ${asType} — the retype left it on the fixture's real type`);
+          }
+          if (!rank.length || rank[0].type !== asType) {
+            fail(`A7 ${fx} asType ${asType}: call1_ranking position 1 is `
+               + `${rank.length ? rank[0].type : 'ABSENT'}, expected ${asType} — the heat map's `
+               + `brightest node would not be this page's type`);
+          }
+          if (rank.length > 1 && rank[1].type !== h.alternate_candidate) {
+            fail(`A7 ${fx} asType ${asType}: call1_ranking position 2 is ${rank[1].type} but `
+               + `alternate_candidate is ${h.alternate_candidate} — the ALTERNATE ring and the `
+               + `ramp ordering would disagree`);
+          }
+        }
         // Applied on top of the re-typed clone, and only when a profile is named. Overrides
         // instinct_score_profile AND dominant_instinct_hypothesis together — necessary, not
         // stylistic: nothing in the codebase reconciles them, so overriding one would make
