@@ -266,3 +266,75 @@ bar beneath it, and that is the argument.
 rides with it**, and that is Cai and Mo's — which is why it is priced here and left.
 
 **The instinct bars are untouched and out of scope**, as instructed. Same question one zone over.
+
+---
+
+## 7. Two corrections to this document
+
+### 7.1 The commit label
+
+**This report is committed as "Build 3 (3/3)" and the build ran to five.** Two commits follow it —
+the nine-block legend and `ninePerType`'s restatement — both authorised after it was written.
+
+Left as-is rather than rewritten, on a branch under review. **Corrected here for the same reason
+`ninePerType`'s comment was corrected one artifact over: a label that describes a shape the work no
+longer has is how the next reader concludes they have seen all of it.** The commit set is in §8.
+
+### 7.2 The legend, added after §6 priced it
+
+§6 priced the nine-block legend and stated it did not ride along. **It was subsequently authorised
+and built** — `a6b0e72`. §6's pricing held: nine `<rect>`s from the exported table, the gradient and
+its `uid` removed, and `shadings` **1 → 0** on the standalone SVG, measured. B9 was extended to
+assert the legend reads the same constants as the nodes, which is the drift the change closes.
+
+**The caption question §6 flagged is still open and still Cai and Mo's** — the captions are unchanged
+by decision.
+
+---
+
+## 8. Phase B — predictions, committed before the push
+
+**Read against the branch's own file list, and stated for the values AFTER this commit lands** —
+this commit adds §7 and §8 to a file already in the diff, so it moves the head SHA, the commit count
+and the insertion count it predicts. It cannot predict its own SHA.
+
+**No commit on this branch is deliberately red** — unlike Build 2's `6aa2821`. Every commit was
+green when made.
+
+### 8.1 Scope and shape
+
+| # | Prediction | Label |
+|---|---|---|
+| F1 | Bare push → **0** runs | `[MEASURED]` — held three times |
+| F2 | Opening the PR → **1** run, `pull_request`, on the branch head, which is **this commit** | `[MEASURED]` |
+| F3 | **PR #97** (last merged #96) | `[MEASURED]` |
+| F4 | All **11** named steps run, none skip | `[MEASURED]` |
+| F5 | **5 files, 4 non-`.md`, 8 commits, 2 parents** | `[ESTIMATED]`, post-commit values |
+| F6 | Merge → a **second** run, `push`, on the merge commit | `[MEASURED]` |
+| F7 | Page count still **10**; forbidden paths absent in both views | `[MEASURED]` |
+
+### 8.2 The coach byte-diff — expected **blind**
+
+| # | Prediction | Label |
+|---|---|---|
+| F8 | **HTML and PDF halves both pass, on `sp4` and `sx7`** | `[ESTIMATED]`, premises `[MEASURED]` |
+
+Premises, each measured on this branch's diff: `buildCoachReportHTML` and `_coachPage1/2/3` have
+**no `+`/`-`**; the coach renders variant `type` and **E5's 81/81 byte-identical** covers it; every
+change is inside the `client-quickref` branch, `typeRamp`, or the client `CLIENT_SPEC`.
+
+**Unlike Build 2, nothing this build changes is on the coach path** — Build 2 widened the signature
+`_coachPage1` calls, and this build does not touch the signature. **A PDF-half failure would
+contradict the prediction and stops the merge.**
+
+### 8.3 Wall-clock
+
+Build 2's branch run measured **127s** of steps `[MEASURED]`, of which `verify_diagrams` **1s** and
+`Transparency` **13s**. This build touches **only `verify_diagrams`**, and locally it moved
+**1.08s → 1.09s** `[MEASURED]` — the legend check adds one SVG build and two regex passes.
+
+> **Point estimate 2m13s, predicted range 1m55s – 2m30s**, both runs. `[ESTIMATED]` from measured
+> components.
+
+`verify_wings_pixel.js` remains **not wired into CI** `[MEASURED]`, so it contributes 0s and IO-75
+still asserts nothing on any run. Unchanged by this build; the workflow PR is still the next thing.
