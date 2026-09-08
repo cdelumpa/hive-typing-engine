@@ -1591,21 +1591,650 @@ content gates run against it, not a layout tweak inside the p5 build.
 
 ---
 
-## 19. Commits
+# Plan detail — revalidating the sequence
+
+**Appended 8 Sep 2026.** `main` and `origin/main` both at `f385c9a`, branch head `2ac1add` before
+this section — **the tree was already current, nothing came down.**
+
+**Not an audit and not a build.** Same tagging convention. No character ceilings.
+
+---
+
+## 20. Lead — what is wrong
+
+### 20.1 The harness invalidates the heat map's inputs on 9 of 9 renders `[MEASURED]`
+
+This is the plan-moving finding, and it is not a fixture gap — it is a **harness** gap.
+
+`scripts/render_client.js:362-377` re-types the `anders_sx9` fixture to render all nine types. It
+swaps `confirmed_type`, sets `alternate_candidate = (asType % 9) + 1`, nulls the name strings and
+drops `client_words`. **It does not touch `leading_candidate`, and it does not touch
+`call1_ranking`.** Measured across the sweep:
+
+| asType | confirmed_type | leading_candidate | alternate_candidate | call1 #1 | call1 #2 |
+|---|---|---|---|---|---|
+| 1 | 1 | **9** | **2** | **9** | 5 |
+| 2 | 2 | **9** | **3** | **9** | 5 |
+| 3 | 3 | **9** | **4** | **9** | 5 |
+| 4 | 4 | **9** | 5 | **9** | 5 |
+| 5 | 5 | **9** | **6** | **9** | 5 |
+| 6 | 6 | **9** | **7** | **9** | 5 |
+| 7 | 7 | **9** | **8** | **9** | 5 |
+| 8 | 8 | **9** | **9** | **9** | 5 |
+| 9 | 9 | 9 | **1** | 9 | 5 |
+
+Under the decided design — **fills from `call1_ranking`, rings from `leading_candidate` and
+`alternate_candidate`** — this produces, for the eight re-typed renders:
+
+* the **ramp's brightest node is 9** on a page headlined "Type 3";
+* the **LEADING ring sits on node 9** while the header, the subtype panel and the motivation block
+  all say Type 3;
+* the **ALTERNATE ring sits on a node the ramp does not rank second** (`(asType%9)+1` against a
+  constant call1 #2 of 5).
+
+And note **row 9**: even the fixture's own type is broken, because the sweep overwrites the correct
+`alternate_candidate` (5) with `(9%9)+1 = 1`. `asType` is never null for `client_v3` —
+`typesFor` returns `[1..9]` at `render_client.js:176` — so **every** render goes through the retype.
+
+`[JUDGMENT]` This has never mattered because **p5 is the first v3 page to render the alternate at
+all** — the alternate page was cut, and `m.alternate` reaches no built v3 sheet today. The moment
+p5 exists, the harness produces nine pages that contradict themselves, and a reviewer would have to
+be told to ignore them. That is the same failure the `client_words` drop at `:371` already solved
+for a different field, with the same reasoning, and it needs the same treatment.
+
+**Consequence for the plan: this lands in the first build prompt, not step 6.** It is data-shape
+work on the exact field the first prompt exposes, and doing it late means every render between now
+and then is untrustworthy.
+
+### 20.2 On a REDIRECT, both rings land on the same node — and it is the wrong node `[MEASURED]`
+
+Proved by running the production stamper (`app/call2_stamp.js`), not by reading it. Input: Call #1
+ranks 9 first and 6 second; the model confirms 6 and records `redirect_from_type: 9`.
+
+| Field | Value |
+|---|---|
+| `confirmed_type` (drives `hero.number` and every other zone) | **6** |
+| `leading_candidate` | **9** |
+| `alternate_candidate` | **9** |
+| call1 #1 / #2 | 9 / 6 |
+
+`call2_stamp.js:51` sets `alternate_candidate = redirect_from_type` (Defect #2's swap), and
+`leading_candidate` is stamped from Call #1 and never moved. On a REDIRECT they are **the same
+type**, and it is the type the client was redirected *away from*.
+
+So: **LEADING ring on node 9 against a header that says Type 6, ALTERNATE ring on node 9 too.** One
+node wearing both rings, and the client's actual type wearing neither.
+
+**Is it reachable in production?** `[MEASURED]` Not on the EM path — `em_report_adapter.js:98`
+hard-sets `redirect_from_type: null`, so em_only never redirects. **But the SM path is a live
+fallback**: `server.js:5479` returns null on any EM failure "so runBackgroundJob falls back to SM's
+Call #2". So a REDIRECT reaches production whenever the EM call fails. `redirect69.json` exercises
+this exact path today through `tests/run_test.js`.
+
+`[JUDGMENT]` **Recommendation, and it is a small change to the decided design rather than a
+challenge to it: source the LEADING ring from `hero.number` (`confirmed_type`), not
+`leading_candidate`.** Reasons, all measured:
+
+1. **Every other zone on p5 uses `confirmed_type`** — the header, the subtype panel, the leading
+   motivation block, the page title. A ring drawn from a different scalar can contradict the page
+   it sits on, and on a REDIRECT it does.
+2. **It fixes 8 of the 9 sweep renders for free** (§20.1), independently of the harness fix.
+3. **It costs nothing when they agree**, which is 19 of 19 production rows and all three fixtures.
+
+The ALTERNATE ring stays on `alternate_candidate` — that part of the decision is right, and it is
+what makes the 2-of-19 "alternate is ramp #3" case render as a mid-ramp node wearing the alternate
+ring: visibly odd, but not a false statement. Add one guard: **if the two rings resolve to the same
+node, draw the leading ring only and flag it**, rather than stacking a dashed ring on a solid one.
+
+### 20.3 One note on the decided field, stated once `[JUDGMENT]`
+
+The decision is `call1_ranking`, and I am building to it. One thing to have on the record: in
+em_only — which is production — `call1_ranking` is EM's `em_ranking`
+(`em_report_adapter.js:106`), an **AI-generated** dimensional confidence ranking, not the client's
+own slider answers. The mockup heads this figure **"How the Nine Patterns Scored"**. Under the
+decided field, that heading describes the engine's confidence, not the client's responses.
+
+I am not reopening the field choice — the decision buys internal consistency with
+`leading_candidate` and `alternate_candidate`, which is worth more than provenance here, and §1.4
+of the audit was wrong to weigh that lightly. But **the heading may want a word**, and that is a
+copy question for Cai and Mo, not a build question.
+
+### 20.4 A seventh stale spec line, found while making the six `[MEASURED]`
+
+Not corrected, because it is outside the decided list. **§7.3's first bullet** still reads:
+
+> "**Types 1, 4, 7 and 9 are authored (20 Aug 2026). Five remain: 2, 3, 5, 6, 8.**"
+
+§7.4's own **4 Sep 2026** post-lock correction in the same document says "All nine types are now
+authored", and `V3_EXPLORE_PILOT_TYPES` was collapsed in PR 3e. The document contradicts itself
+two sections apart. One line, same shape as the others. Cai's list, Cai's call — say the word.
+
+### 20.5 Two small corrections to this prompt `[MEASURED]`
+
+* **§2.2's "the type-axis fixture need is gone" is right, but not for the stated reason.**
+  `leading_candidate = call1 #1` holds on 19/19 production rows **and on all three fixtures** —
+  but it is not an invariant of the code. On the SM REDIRECT path they diverge by construction
+  (§20.2). The fixture need is gone for **CONFIRMED** rows; it reappears as a REDIRECT need.
+* **§2.3's premise is sound and the answer is the one it suspects** — see §22.
+
+---
+
+## 21. §2.2 — the fixtures, measured
+
+### 21.1 What carries `call1_ranking` `[MEASURED]`
+
+Scanned every `.json` in `tests/fixtures/`. Eight of the eleven carry no `hypothesis` at all —
+`redirect69.json`, `so7.json`, `sp4.json`, `sx7.json`, `sp4_pre051426.json`, `sx7_pre051426.json`,
+`sp9_selftyping.json`, `published_overrides.json` are Call #2 *input* fixtures (`intake`,
+`scores`, `call1Result`) replayed by `tests/run_test.js`, not `api_result` shapes.
+
+**Three carry it. All three carry nine entries.**
+
+| Fixture | entries | all nine types? | score range | shape | leading = ramp #1 | alternate = ramp #2 | ties at top | scores at 100 | stage4 |
+|---|---|---|---|---|---|---|---|---|---|
+| `anders_sx9_api_result.json` | **9** | yes | 31–91 | **all integers** | ✅ 9 | ✅ 5 | none | **0** | CONFIRMED |
+| `sp4_api_result.json` | **9** | yes | 18–92 | **all integers** | ✅ 4 | ✅ 1 | none | **0** | CONFIRMED |
+| `sx7_api_result.json` | **9** | yes | 18–92 | **all integers** | ✅ 7 | ✅ 5 | none | **0** | CONFIRMED |
+
+**So the shape is not thin — every fixture is 9/9, and `cmsPreviewApiResult`'s two-entry stub is
+the only short one in the repo.** The thinness is elsewhere.
+
+### 21.2 Where the fixtures *are* thin — and it is exactly the production hazards `[JUDGMENT]`
+
+| Case | In production `[CAI-MEASURED]` | In fixtures `[MEASURED]` |
+|---|---|---|
+| `alternate_candidate` ≠ ramp #2 | **2 of 19** (it is ramp #3) | **0 of 3** |
+| Two types tied at the top | **row 57, both at 100** | **0 of 3** |
+| A score at the 100 ceiling | row 57 | **0 of 3** — max observed 92 |
+| Fractional scores | unknown | **0 of 3** — all integers |
+| REDIRECT (rings collide, §20.2) | reachable via the SM fallback | **0 of 3** — all CONFIRMED |
+
+**Plain answer to "can the heat map be tested with what exists": partly.** The nine-fill ramp and
+the ordinary two-ring case are covered three times over once the harness is fixed. **Four hazards
+are not testable with what exists**, and two of them are known to occur in production.
+
+**Step 7 changes materially, and it gets bigger, not smaller.** It now carries four fixture
+additions rather than the two the audit proposed:
+
+1. **`alternate_candidate` = ramp #3** — the 2-of-19 case. Proves the ring decouples from the ramp
+   ordering without contradicting the page.
+2. **Two types tied at the top, both at 100** — production row 57. Proves the ramp's fixed-ceiling
+   formula terminates at exactly 1.00 for both, and that the LEADING ring's node is chosen by
+   `hero.number` rather than by a `sort()` whose tie-break is undefined between them.
+3. **A REDIRECT** — §20.2's ring collision. This one is cheap: `redirect69.json` already exists and
+   already produces the collided scalars; it needs promoting to an `api_result`-shaped fixture the
+   client harness can render.
+4. **A flat profile** — all nine within a few points. Under the decided fixed-ceiling ramp this is
+   the case that renders *correctly* flat, and it is the regression guard that stops anyone
+   reintroducing min–max normalisation. Carried over from the audit's §8.2.
+
+Plus the two instinct-axis fixtures from audit §8.1, unchanged.
+
+### 21.3 What replaces the retired fixture need `[MEASURED]`
+
+The audit's §8.2 wanted a fixture where "`type_score_profile` #2 ≠ `alternate_candidate`" — the
+`sp4` disagreement. **Under the decided field that case cannot occur**, because `alternate_candidate`
+and the ramp now come from the same array. Correct, and it retires.
+
+**What replaces it is item 1 above** — `alternate_candidate` ≠ **ramp #2**, which *can* occur under
+the decided field, does occur on 2 of 19 production rows, and is now the only thing that can put the
+alternate ring somewhere the ramp does not predict. The need did not disappear; it moved fields.
+
+---
+
+## 22. §2.3 — the `|| iz.columns[0]` fallback is **NOT REACHABLE**
+
+`[MEASURED]` Tested empirically rather than reasoned about — fifteen values of
+`dominant_instinct_hypothesis` with `confirmed_instinct` deleted, each run through
+`buildClientModel`:
+
+| Input | `buildClientModel` | Column match |
+|---|---|---|
+| `"SX"`, `"sx"`, `"sX"`, `"SP"` | builds | **match** — SX9 / SP9 |
+| `" SX"`, `"SX "` | **throws** — `content_library missing key: subtype_ sx9` / `subtype_sx 9` | never reached |
+| `"SEXUAL"`, `"Sexual"` | **throws** — `subtype_sexual9` | never reached |
+| `"One-to-One"`, `"ONE-TO-ONE"` | **throws** — `subtype_one-to-one9` | never reached |
+| `"XX"` | **throws** — `subtype_xx9` | never reached |
+| `""`, `null`, key deleted, `0` | **throws** — `subtype_9` | never reached |
+
+**The mechanism, and why it is structural rather than lucky.** Two lookups read the same variable
+through transforms that differ *only* in case folding:
+
+* `report_prep.js:219` — `lib(subtypeKey(instinct, heroN))`, where `subtypeKey` is
+  `` `subtype_${String(instinct).toLowerCase()}${n}` ``. `lib()` **throws** on a missing key.
+* `renderer.js:3836` — `String(m.display.instinct_code).toUpperCase()`, matched against
+  `columns[].instinct`.
+
+Any input that would miss the column differs from `sp`/`so`/`sx` by more than case — and any input
+that differs by more than case produces a `subtype_<x><N>` key that does not exist, so
+`buildClientModel` throws at `:219` **before any page is built**. The set of values that survive to
+the renderer is exactly `{sp, so, sx}` in any casing, and `toUpperCase()` maps all of them to a
+column.
+
+**The short-array branch closes too** `[MEASURED]`: `columns` is built at `report_prep.js:391` from
+a literal `['sp','so','sx'].map(...)` — **always exactly length 3** — and each iteration calls
+`lib()`, which throws rather than yielding a short array.
+
+`[JUDGMENT]` **So this is a comment, not a decision. Stop treating it as one.** The right disposition
+is to leave `|| iz.columns[0]` in place on p10 and **not copy it to p5** — not because the risk is
+real, but because on p5 it would be dead code that reads as a live fallback, and the next person to
+audit the page would have to re-derive this proof. p5's builder should index the column directly and
+let a miss throw, which is what already happens one hop earlier.
+
+---
+
+## 23. §2.4 — the sequence, revalidated
+
+### 23.1 What the seven steps become
+
+The old step 1 is a decision that has been taken, and **the old step 2 dissolves**. Both are
+reported rather than kept as placeholders.
+
+| Old | Now | Why |
+|---|---|---|
+| 1. Data decision | **gone — decided** | `call1_ranking`, fixed-ceiling ramp `0.10 + 0.90 × score/100`, rings from the scalars. One production query remains outstanding and moves into Build 1 as a pre-flight check, not a step. |
+| 2. The probe | **gone — dissolved** | P2 and P3 answered (addendum §15, §16). P7 superseded by the ramp decision. P1, P4, P5 became verification and move into Step C's assertions. **P6 folds into Build 2** — see §23.2a. Nothing is left to measure before code. |
+| 3. Expose the scores | **BUILD 1** | plus §20.1's harness fix, plus the alternate motivation, plus §2.1's `instinctRanks` extraction |
+| 4. Content | **parallel, non-blocking** | per Cai 1.1 — the 27 summaries at a 3-rendered-line budget |
+| 5. The diagram | **BUILD 2** | plus P6, plus IO-75's baseline as its **first** commit |
+| 6. The page | **Step C** | plus the P1/P4/P5 verification assertions |
+| 7. Gates and fixtures | **Step D** | now four fixture additions, not two (§21.2) |
+
+**Five things, two of which are the build prompts Cai specified.**
+
+### 23.2a Does P6 fold into Build 2? **Yes, entirely.** `[JUDGMENT]`
+
+P6 was "heat-map SVG geometry under both ramp formulas at the flat, spread and extreme profiles".
+Two halves, both gone as a *separate* step:
+
+* **"Both ramp formulas" is decided**, so that half evaporates.
+* **The geometry does not depend on the scores.** Node positions come from `CLIENT_ANGLES` and the
+  geometry constant; only the *fills* vary with score, and a fill cannot clip a label. What varies
+  geometrically is which node carries a ring and where the LEADING / ALTERNATE labels sit — a
+  function of **node position only**, 72 configurations, purely geometric.
+
+So P6 is not a measurement that must precede the code — **it is the code's own gate**, and
+`verify_diagrams.js` is the harness that performs it. The one thing a pre-step would have taught is
+already known: the mockup's LEADING label sits **1.17 viewBox px** from the canvas top and fails the
+existing 5px rule (audit §7.2). Build 2 opens with that fix.
+
+### 23.2b Do Builds 1 and 2 touch a file in common? **Yes — `app/renderer.js`.** `[MEASURED]`
+
+Answered from the file list, not from memory:
+
+| File | Build 1 | Build 2 |
+|---|---|---|
+| `app/report_prep.js` | ✅ `charts.types`, alternate motivation, `validateModel` | — |
+| **`app/renderer.js`** | **✅ `instinctRanks` extraction, ~:3838** | **✅ `QUICKREF_GEO` ~:1087, new variant ~:1233** |
+| `scripts/render_client.js` | ✅ the retype fix, :362-377 | — |
+| `app/server.js` | ✅ `cmsPreviewApiResult`, :13985 | — |
+| `tests/report_pages_test.js` | ✅ model-shape assertions | — |
+| `scripts/verify_diagrams.js` | — | ✅ variant + the `r <= 20` filter fix |
+
+**One file in common, and it is not a conflict, for two reasons.** First, Cai's 1.2 sequences them
+— Build 1 lands before Build 2 is written — so there is no parallel edit to merge. Second, the two
+regions are ~2,750 lines apart (`:1087`/`:1233` against `:3838`) with no shared symbol.
+
+`[JUDGMENT]` **The two prompts cannot be collapsed into one, and I have no refutation to offer** —
+the separation Cai gives is the right one, and §20.1 is the argument for it. Build 1 changes what
+the harness renders; if it is wrong, every geometry measurement Build 2 takes is taken against bad
+data, and the two errors would surface together with no way to attribute them. One condition:
+**Build 2 must not start until Build 1's 27-render matrix and coach baseline are green**, which is
+the sequencing already decided.
+
+### 23.2c Where IO-75 lands `[JUDGMENT]`
+
+**Build 2, as its first commit — before any geometry change.** Not step 7.
+
+The reasoning is about *ordering*, not filing. IO-75's delta lives in `buildEnneagramSVG`, which is
+the function Build 2 modifies. **If the assertion is added after the change, it baselines the
+post-change value and proves nothing.** Added first, it is a genuine safety gate on the shared
+primitive five shipped pages depend on — which is precisely the risk Cai's 1.2 cites for splitting
+the prompts.
+
+So Build 2 runs: (1) record the band-scoped Wings baseline at today's measured value, green; (2) the
+geometry work; (3) the same assertion, still green. If step 3 goes red, Build 2 broke a shipped page
+and knows it immediately.
+
+**Scope it to the diagram band, y = 148–370, not the whole page** — as decided. The audit's reason
+holds and is now twice-demonstrated: the whole-page figure moved from 1.9643% → 2.1258% → 2.3433%
+across two changes, **neither of which was a geometry change**; both were copy rewraps. A page-level
+threshold is a copy-change detector.
+
+**The one thing I would say out loud in the build report**: PR 5 is adding a standing regression gate
+for a page PR 5 does not build. That is unusual and worth naming rather than letting a future reader
+discover a Wings assertion inside a Quick Reference PR. The alternative — file the standing assertion
+as its own card and have Build 2 merely *report* the before/after number — is defensible and cheaper,
+but it leaves the shared primitive ungated during the one change most likely to move it. I recommend
+carrying it here and naming it.
+
+### 23.3 §2.1 — where the orphaned decision lands
+
+**Build 1, as its own commit, sequenced first within the prompt.** Not its own step, not folded into
+the `report_prep.js` commit.
+
+* **Why Build 1 and not Build 2**, even though it touches `renderer.js` and Build 2 owns that file:
+  it must land **before p5's renderer is written** (Step C), or p5 duplicates the rule and gets
+  refactored later — which is the divergence the decision exists to prevent. Build 2 is the diagram,
+  not the page, so waiting for it buys nothing and risks Step C starting first.
+* **Why its own commit**: because the condition depends on it.
+
+**The condition still holds, and it is now stronger than when I stated it** `[MEASURED]`. Restated:
+a **pure move**, in its **own commit**, with the 27-render matrix the only thing that has to stay
+green. Two things have been measured since:
+
+1. **The coach byte-diff is structurally blind to it** — `verify_coach_baseline.js:101` builds only
+   `buildCoachReportHTML`, and `tests/baselines/` holds four files, all coach. So the 27-render
+   matrix and `report_pages_test.js` really are the only gates, and a shared commit would give a red
+   run two candidate causes.
+2. **A stronger falsification is available and costs one render each side.** A pure move must produce
+   **byte-identical v3 client HTML**. Build 1 should capture `buildClientReportHTML_v3` output before
+   and after the extraction and assert equality — that is a complete proof of "no behaviour change",
+   far tighter than "the matrix stayed green".
+
+**One addition to the extraction itself**, from §22: the new helper should **not** carry p10's
+`|| iz.columns[0]` fallback into shared code. That fallback is unreachable and belongs to the
+subtype-column lookup, not to the rank computation; the two are separate concerns in the same IIFE
+today.
+
+### 23.4d Build 1 — exact scope
+
+**Files touched, and nothing else.**
+
+| # | File | Change | Commit |
+|---|---|---|---|
+| 1 | `app/renderer.js` | Extract the `rank` IIFE at `:3838` into `instinctRanks(dominantCode, instinctBars)`. Pure move. Leave `:3828`'s warning in place pointing at both it and `instinctStack`. | **1 — alone** |
+| 2 | `app/report_prep.js` | `:261` — add `types` to the client `charts`, from `h.call1_ranking`, as a new `typeRamp` helper (not an overload of `typeBars`, which applies centre colours). Expose the alternate's `explore_v3.p6.core_motivation`. | 2 |
+| 3 | `app/report_prep.js` | `validateModel` — assert the new keys. | 2 |
+| 4 | `scripts/render_client.js` | `:362-377` — extend the retype to rebuild `leading_candidate` and `call1_ranking` consistently with `asType`. | **3 — alone** |
+| 5 | `app/server.js` | `:13985` `cmsPreviewApiResult` — nine `call1_ranking` entries instead of two. | 4 |
+| 6 | `tests/report_pages_test.js` | Assertions for 1–5. | with each |
+
+**Not touched by Build 1**, and worth stating so the prompt can say so: `app/content/content_library.json`,
+any `.docx`, `scripts/build_content_library.js`, `scripts/verify_diagrams.js`, `V3_PAGE_ORDER`,
+`tests/lib/report_page_inventory.js`. **No page is built and no page count changes.**
+
+**Assertions added.**
+
+| # | Assertion | Falsified by |
+|---|---|---|
+| A1 | `buildClientReportHTML_v3` output is **byte-identical** before and after the `instinctRanks` extraction | any diff — the move was not pure |
+| A2 | The 27-render 3×9 instinct matrix stays green | p10 changed |
+| A3 | `model.charts.types` has **exactly 9** entries, each `{type, score}`, `type` ∈ 1–9 with no repeats | a short or malformed `call1_ranking` reaching the model |
+| A4 | `model.charts.types` scores are numeric and within 0–100 | a fractional or out-of-range score being assumed away |
+| A5 | `leading_candidate` and `alternate_candidate` are both present and both ∈ 1–9 | either absent — the rings would have no node |
+| A6 | The alternate's core motivation is a non-empty string for all 72 leading×alternate pairs | a type whose `explore_v3` is missing |
+| A7 | **After the retype, for every `asType`: `leading_candidate === confirmed_type` and `call1_ranking` position 1 `=== confirmed_type`** | §20.1's defect surviving — **RED BY DESIGN first**, then green |
+| A8 | `cmsPreviewApiResult` emits 9 `call1_ranking` entries | the two-entry stub surviving |
+
+**A7 is the one to write red first.** It fails today on 8 of 9 types, for a reason the table in
+§20.1 states exactly, and watching it fail is what proves the assertion is measuring the thing.
+
+**One pre-flight, not a code change**: run the production query for
+`api_result -> 'hypothesis' -> 'call1_ranking'` — entry count, score range, and whether any value is
+fractional — and record it in the build report. Audit §2.1's range is fixture-only, and A4's bounds
+should be set against real data rather than three hand-authored fixtures. `[UNVERIFIED]` here; I have
+no database access in this session.
+
+### 23.5 What I would now do differently
+
+`[JUDGMENT]` Three things, all of them consequences of measuring rather than of the decisions:
+
+1. **The probe was over-scoped.** Seven measurements, five of which turned out to be answerable from
+   the tracked mockup with no scaffold and no new code. A probe earns its own step when the page's
+   *fit* is genuinely unknown; here the mockup is the fit evidence, and I should have measured
+   against it before proposing a step.
+2. **I placed the fixture work in the wrong step and under-sized it.** Step 7's fixtures are not a
+   tidy-up after the page works — items 2 and 3 in §21.2 (the tie at 100, the REDIRECT) are cases
+   where the *design* is undefined, not merely untested. They should be settled before Step C draws
+   a ring, even if the fixtures land later.
+3. **I named `instinctRanks` and did not place it**, which is the thing Cai's 2.1 caught. The lesson
+   generalises: a recommendation inside a findings section is not a plan item until it has a step, a
+   commit and a falsification. §23.3 gives it all three.
+
+---
+
+## 24. §4 — read-back of the repo copy
+
+Requested so the other copy can be compared against it. **The repo copy at commit `ddd5043`**,
+i.e. **after** the five corrections in §3 of the prompt. Where I changed a section, both states
+are given, because the divergence being hunted is between copies *and* across time.
+
+### 24.1 Every post-lock correction the document contains `[MEASURED]`
+
+Counted by `grep -o "Post-lock correction — [0-9]* [A-Za-z]* 2026"`, plus the inline dated
+markers that do not use that heading form.
+
+| Date | Count | Sections |
+|---|---|---|
+| **11 Aug 2026** | 1 | §4.1 — `type_library_name_patch_080726.json` corrects no archetype names; do not apply. Also the Appendix row. |
+| **12 Aug 2026** | 1 + 1 inline | §3.5 — the four-count retraction (this is the convention the others follow). Plus "**This is a required step, not an assumption** (added 12 Aug 2026)" later in §3.5. |
+| **20 Aug 2026** | 2 inline | §4.4 rows M1 and M2, both marked "Ratified 20 Aug 2026". |
+| **3 Sep 2026** | 1 + 2 inline | §6.1 table (two corrections to the line-count bands). Inline: §4.4 row M4 "Recorded 3 Sep 2026", and §4.4's closing paragraph "Reworded 3 Sep 2026". |
+| **4 Sep 2026** | 7 | §6.1 (×2 — scope, and the hard gate at PR 3f), §7.2 (Type 9 p7 rows CLOSED), §7.4 (×2 — all nine authored; the nine doc IDs superseded at PR 3e), §7.4 budgets (×2 — the budgets are not sound). |
+| **8 Sep 2026** | 5 | §4.3, §5.3, §7.2, §7.3 (×2). Added by commit `ddd5043` on this branch. |
+
+**Total: 17 dated post-lock corrections or ratifications, across six dates.** The oldest is
+11 Aug; the document has been corrected in place on every working date since.
+
+`[JUDGMENT]` If the other copy carries none of these, the divergence is not one line in §3.5 —
+it is every section listed above. §6.1, §7.2 and §7.4 have each been corrected twice, and §7.4's
+4 Sep entry explicitly says a claim in it was "**false when written**".
+
+### 24.2 §3.5 — unchanged by me, already struck
+
+The opening claim and its retraction, verbatim:
+
+```
+All diagrams share one geometry. ~~Verified across all 9 types on both page types — **54 labels, zero
+clipped, minimum edge clearance 5px, minimum label-to-label gap 27.7px**.~~
+
+> **Post-lock correction — 12 Aug 2026.** The verification claim above is **false on four counts**,
+> all found by rendering during PR 1.
+>
+> - **Not zero clipped.** On **WINGS · TYPE 1** the 9-wing label ran through the home node and
+>   collided with the home label. The "place above" rule below applied only to the *home* label, so
+>   a non-home node at the top of the circle fell through to horizontal placement and defaulted to
+>   one side. Type 1 is the only type whose home node sits immediately clockwise of the top, which
+>   is why it was the only diagram affected — and why it survived review. Fixed with a general rule,
+>   not a Type-1 special case.
+> - **The 5px minimum was never met.** Real measured clearance was **4.47px**. The 5.88px figure
+>   reported earlier in PR 1 was arithmetic over font size, not a measurement — it appeared in an
+>   evidence table looking like one, and it was concealing a live failure.
+> - **A second defect surfaced only on render.** The first fix stacked two-line labels above the
+>   node; that pushed the eyebrow off-canvas and Chromium clipped it on four diagrams (WINGS 1,
+>   WINGS 8, LINES 3, LINES 6).
+> - **The 27.7px label-to-label minimum is not met either.** Measured minimum gap between distinct
+>   labels is **24.12px** (tightest pair: WINGS · TYPE 4, "3 WING / The Performer" against "YOUR
+>   HOME BASE"). Nothing overlaps, so this is a tighter layout than advertised rather than a defect.
+>   Note that TYPE 4's labels are placed entirely by the horizontal rule and are untouched by the
+>   placement change below, which suggests the 27.7px figure was not met by the original either.
+>
+```
+
+**The 27.7px figure is inside `~~strikethrough~~` and the blockquote withdraws it explicitly.**
+The measured replacement is **24.12px**, and the gate asserts **non-overlap**, not any figure.
+
+### 24.3 §4.3 — corrected by me
+
+**Before `ddd5043`** the section was four short paragraphs asserting the v3 mockup "has been
+wrong about client data twice" — a mirrored figure missing node 2, and SP9 throughout — closing
+with "Anything sourced from v3 must be verified against the coach report or production output."
+**No date, no scope, no retraction.**
+
+**Now:** all of that is struck, with a dated correction scoping it to the earlier draft and
+keeping the two cautions that are still true (synthetic scores; the §3.2 transparency
+violation). Current text:
+
+```
+### 4.3 v3 mockup is unreliable as a source
+
+~~The v3 client report mockup has been wrong about client data twice:~~
+
+- ~~Its Enneagram figure is mirrored (counterclockwise numbering) and **missing node 2** entirely,
+  which also makes the interior lines wrong.~~
+- ~~It labels Anders **SP9** throughout, including the TOC. The coach report gives SP 66 / SO 64 /
+  **SX 84**, and the production client report says One-to-One Nine.~~
+
+~~Anything sourced from v3 must be verified against the coach report or production output.~~
+
+> **Post-lock correction — 8 Sep 2026. THIS SECTION DESCRIBES AN EARLIER DRAFT, NOT THE TRACKED
+> REFERENCE IMPLEMENTATION.** Both charges above are **false of
+> `docs/mockup/claude_The_Peacemaker_Page_AtAGlance_v1.html`**, the sheet-5 file this section's
+> warning is most likely to be read against. Confirmed on the HTML, not on the rendered PDF, since
+> node positions are literal attributes there (PR 5 audit §6.3):
+>
+> - **Nine nodes, node 2 present, clockwise.** Node 2 is at `cx=283.4 cy=131.8`; the sequence from
+>   9 at the top runs **9-1-2-3-4-5-6-7-8**, matching `CLIENT_ANGLES`. Twelve `<circle>` elements:
+>   the outer ring at r=105, nine nodes at r=21, two decorative rings at r=27.
+> - **SX, not SP9.** The instinct panel marks the `SX` row `.irow.pri` with rank `Primary`; bar
+>   widths are 66 / 64 / 84, matching the coach report's SP 66 / SO 64 / SX 84. The subtype panel
+>   reads "The One-to-One Nine".
+>
+> As written, this section warns against the exact file PR 5 must port from. **Scope it to whatever
+> earlier draft it was written against, and do not apply it to the twelve tracked mockups.**
+>
+> **Two cautions about that file remain true and are not withdrawn:**
+>
+> 1. **Its client scores are synthetic.** `docs/mockup_file_manifest.md` lists Anders at
+>    9:90 · 5:85 · 1:75 · 8:55 · 3:50 · 2:48 · 7:42 · 4:40 · 6:35. The tracked fixture
+>    `anders_sx9_api_result.json` has **91 · 83 · 74 · 52 · 47 · 44 · 38 · 35 · 31** — same
+>    ordering, different numbers. The mockup's `fill-opacity` values were computed from numbers
+>    that are not in the fixture, so a port with real data will not reproduce them, and that is
+>    not a regression.
+> 2. **Its SVG violates §3.2.** `fill-opacity` on all nine heat-map nodes plus a `stop-opacity`
+>    gradient. Measured through the pinned Chromium with `verify_transparency.js`'s own scanner:
+>    **1 transparency group, 1 soft mask, 8 non-opaque alphas.** The gate catches it; the SVG must
+>    be re-expressed as opaque solids on white before it ships.
+```
+
+### 24.4 §5.3 — corrected by me
+
+**Before:** "Orange appears in exactly four places: the client's name in every page header, the
+cover identifier, the subtype identifier and column, and the \"In Your Responses\" block."
+
+**Now:**
+
+```
+### 5.3 The colour rule
+
+**Blue-grey means the framework. Orange means the client.**
+
+Orange appears in exactly ~~four~~ **five** places: the client's name in every page header, the
+cover identifier, the subtype identifier and column, the "In Your Responses" block, and **the p5
+instinct bars**. A client can find what is about *them* without reading. This must not be diluted.
+
+> **Post-lock correction — 8 Sep 2026. THE ENUMERATION WAS INCOMPLETE; THE RULE IS UNCHANGED.**
+> [DECISION — Cai, 8 Sep 2026] The Quick Reference instinct bars are a fifth place orange appears
+> — `#F68625` on the primary bar, `#F5D2AC` on the other two. **Orange still means the client**,
+> and these bars are the client's own instinct scores, so the principle holds; the list was written
+> before p5 existed and simply did not contain them. This amends the count, not the rule.
+>
+> The subtype panel's header (`#F9E7D2` / `#C2650F`) needs no new entry — it is already covered by
+> "the subtype identifier and column".
+>
+> **Nothing asserts this rule today** (PR 5 audit §7.5): `grep -rn "F68625" scripts/ tests/`
+> returns zero hits, and the only colour gate in the repo is `verify_coach_baseline.js`'s
+> normalised **coach** PDF hash, which does not cover client pages. If an assertion is wanted, the
+> durable one is scoped to the figure — **no `#F68625` inside the heat-map SVG** — which catches a
+> ramp built by copy-pasting the instinct bar's fill and leaves the legitimate bar usage alone.
+
+```
+
+### 24.5 §7.2 — corrected by me (bullet 4 only)
+
+**Before:** `- **The four debrief tips (p5)** — explicit placeholders.`
+
+**Now:**
+
+```
+- ~~**The four debrief tips (p5)** — explicit placeholders.~~
+
+  > **Post-lock correction — 8 Sep 2026. CLOSED.** [DECISION — Cai, 8 Sep 2026] **The mockup copy
+  > is final.** The four tips ship as rendered in
+  > `docs/mockup/claude_The_Peacemaker_Page_AtAGlance_v1.html:151-156`, including the reworded
+  > "Ask about the alternate" (see §7.3). They are not placeholders and are not to be re-authored.
+  > Measured on the tracked mockup: all four render **2 lines** in the `.ttxt` box at 329px,
+  > `.tcol` intrinsic height 87px.
+- ~~**All Type 9 practice bullets (p7).** ⚠️ **Still open, for a changed reason.** The mockup's
+```
+
+The rest of §7.2 is unchanged, including its own 4 Sep correction closing the Type 9 p7 rows.
+
+### 24.6 §7.3 — two bullets corrected by me, one left stale
+
+```
+### 7.3 Known content gaps
+
+- **Types 1, 4, 7 and 9 are authored (20 Aug 2026). Five remain: 2, 3, 5, 6, 8.** Sheets 6-7 are
+  gated to the authored set by `V3_EXPLORE_PILOT_TYPES` (`app/renderer.js`) and
+  `EXPLORE_PILOT_TYPES` (`scripts/build_content_library.js`) — two lists that must agree, flagged
+  in both files for collapse when the remaining five land.
+- ~~The subtype signature (`Merging & Intensity`) is a new three-part naming convention: formal name,
+  nickname, two-word signature. Only the three Type 9 subtypes exist.~~
+
+  > **Post-lock correction — 8 Sep 2026. CLOSED — ALL 27 EXIST.** The three-part convention is
+  > complete and landed in PR 4. Counted in `app/content/content_library.json`, not inferred
+  > (PR 5 audit §3.2): formal name (`subtype_*.name`) **27/27**; nickname (`subtype_*.tagline`
+  > prefix) **27/27**; two-word signature (`subtype_*.instincts_v3.signature`) **27/27**. The
+  > narrative that accompanies them is likewise **27/27**. Spot values: SO1 `Non-Adaptability ·
+  > Standards & Systems`, SP7 `Keepers of the Castle · Abundance & Options`, SX9 `Fusion ·
+  > Merging & Intensity`.
+  >
+  > This is **not a content blocker** for any page that reads naranjo and signature, which is what
+  > the sentence above was being used to argue.
+- ~~One "In Your Responses" bullet on p5 — "Ask about the alternate" — only makes sense when a second
+  pattern scored close. As global static content it needs to hold for a client whose leading type is
+  20 points clear, or become conditional.~~
+
+  > **Post-lock correction — 8 Sep 2026. CLOSED, AND THE SENTENCE MISNAMED THE ZONE.** Two errors,
+  > corrected together.
+  >
+  > **The zone.** "Ask about the alternate" is one of the **four debrief tips** on p5, not an "In
+  > Your Responses" bullet. "In Your Responses" is the `#FDF3E9` evidence block with a 3px
+  > `#F68625` left border defined in §5.2, and it **does not appear on p5 at all** — a reader
+  > following this sentence would go looking for a zone that is not on the page.
+  >
+  > **The conditionality.** [DECISION — Cai, 8 Sep 2026] The tip is **always included, with no
+  > conditional display logic**, and its copy is final (see §7.2). It no longer needs to hold as a
+  > claim about closeness, because the alternate caption beside it no longer makes one — the locked
+  > caption reads "Type {alternate} is the alternate worth exploring with your coach", which
+  > asserts only that the alternate is the alternate. It therefore holds at any gap, including the
+  > 20-points-clear case this bullet was written about.
+  >
+  > With this, **p5 carries no conditional content in any zone.**
+```
+
+**Note the first bullet is untouched and is stale** — see §20.4. It claims five types remain
+unauthored; §7.4's 4 Sep correction in the same document says all nine are authored.
+
+
+## 25. Commits
 
 Enumerated at the end of the run. No push, no PR, no merge, no branch deletion.
 
 | # | SHA | Message |
 |---|---|---|
 | 1 | `8ec97e7` | PR 5 audit: Quick Reference (sheet 5 / footer 3) — §§1–11 |
-| 2 | `8e553e4` | PR 5 audit: record the commit set in §12 *(the commits section, since renumbered to §19)* |
-| 3 | *this commit* | PR 5 audit addendum: content sources and the reopened P2 — §§12–18 |
+| 2 | `8e553e4` | PR 5 audit: record the commit set — the commits section, since renumbered |
+| 3 | `2ac1add` | PR 5 audit addendum: content sources and the reopened P2 — §§12–18 |
+| 4 | `ddd5043` | **Spec v3.0: five post-lock corrections, 8 Sep 2026** — the only commit that touches a file other than this document |
+| 5 | *this commit* | PR 5 plan detail: revalidate the sequence — §§19–24 |
 
-Commit 3's SHA is reported in the build response and readable from `git log --oneline main..HEAD`.
-It is deliberately not written here: a commit cannot record its own SHA, and amending one to insert
-it just produces a new SHA and a stale table — which is what happened on the first attempt at
-commit 2, and is why that commit exists at all.
+Commit 5's SHA is in the build response and in `git log --oneline main..HEAD`; a commit cannot
+record its own SHA, and amending one to insert it just produces a new SHA and a stale table.
 
-Branch `pr-5-quickref-audit`, off `main @ f385c9a` — unchanged across both runs; the addendum pull
-brought nothing down. `git diff main...HEAD --stat` touches `docs/audit_pr5_quickref.md` and nothing
-else — no code and no content changed, as both prompts required.
+**Two files on the branch, and the split is deliberate** — commit 4 is the spec, alone, so it can be
+reviewed, reverted or cherry-picked independently of the audit. Everything else is this document.
+Branch `pr-5-quickref-audit`, off `main @ f385c9a`, unchanged across all three runs.
+
+`[JUDGMENT]` **On whether the spec corrections belong in their own docs PR** — Cai offered the split
+and asked me to say rather than do. **My recommendation is to keep them here**, for one reason: every
+correction cites a measurement that lives in this document on this branch, and separating them puts
+the correction and its evidence in different PRs. This branch is docs-only today, so there is no
+code to entangle them with.
+
+**One condition, and it is the failure mode the original prompt named.** If Builds 1 and 2 branch
+off `main` rather than continuing here, this branch must merge **first**, as a docs PR — otherwise
+the corrections are stranded on a branch nobody merges, which the opening prompt says has happened
+twice on this project.
