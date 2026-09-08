@@ -1390,6 +1390,139 @@ const INTERIM_INSTINCT_DEFS_V3 = [
     body: 'Governs our need for an intense bond or connection with one person at a time. People who lead with SX seek intimacy and passion in one-on-one relationships.' },
 ];
 
+// ── SHEET 5 "Quick Reference" — the subtype one-line summaries (PR 5 Build A) ────────
+//
+// ⚠ PROVENANCE IS WEAKER HERE THAN ANYWHERE ELSE IN THIS FILE, AND THAT IS STATED RATHER
+// THAN PAPERED OVER. Every other INTERIM_* block carrying client prose names a Google Doc
+// by ID and records a recount against the Doc's own stated counts. These 27 have NO source
+// document: they were supplied in the PR 5 Build A prompt on 8 September 2026. No Doc ID is
+// invented for them. When they acquire one, replace this note with the ID and recount.
+//
+// THEY ARE DRAFTS. Mo's voice pass is open and will revise some of them. The key exists now
+// precisely so those revisions are VALUE changes against a settled shape rather than a
+// structural change later — a rebuild after a wording edit touches this constant and the
+// built JSON, nothing else.
+//
+// RECOUNTED at ingest, on this file's counting basis (rendered string, whitespace collapsed,
+// ends trimmed): 27 of 27 present; 51-161 characters; total 2868. SX9 is 114. SO5 is the
+// longest at 161 and SO9 the shortest at 51.
+//
+// ⚠ A SIBLING OBJECT, NEVER A LEAF INSIDE instincts_v3. Adding `summary` to instincts_v3
+// would change the SHAPE of a CMS-editable field, and assertOverrideShape
+// (app/content_overrides.js:159) throws when a published override no longer carries every
+// leaf path. content_overrides.js:114 records the blast radius: that throw "reaches EVERY
+// report render, including the dry-validate probe in /api/submit. A mismatched row therefore
+// fails assessment submission, not just a PDF." Any coach who has already published a
+// subtype_*.instincts_v3 edit would break the moment such a leaf landed. A brand-new sibling
+// key has no published overrides, so the guard cannot fire. This is the same reproduced
+// failure that rejected a `body_v3` leaf for INTERIM_INSTINCT_DEFS_V3 — see that comment.
+//
+// STRAIGHT QUOTES, and it is not a free choice. SO8 carries a quoted phrase. The library
+// stores straight punctuation throughout (see the _v3Straighten note above), and
+// renderer.js:3473 straightens curly to straight at render inside _v3t regardless of what is
+// stored. So the curly form is UNREACHABLE on this page: SO8 renders straight whatever a
+// coach publishes. That settles §26.6 item 6 of docs/audit_pr5_quickref.md, and it settles it
+// against us — straight is the WIDER form, leaving SO8 0.31px of slack in a 308.00px box
+// rather than 0.86px. Measured, not assumed. Do not "fix" this by storing curly.
+//
+// SECOND PERSON, deliberately, and it differs from instincts_v3.narrative's third person on
+// sheet 10. Two renditions of the same subtype content five sheets apart, each internally
+// consistent in its own voice — decided 8 Sep and recorded in §28.2 of the audit. If the
+// sheet-10 opening sentence is ever edited, THIS field does not follow: they are co-located
+// on the same subtype row so an editor changing one has the other in front of them.
+const INTERIM_QUICKREF_V3 = {
+  SP1: { summary: 'You improve your world by getting the practical details right: the home run well, finances in order, meals prepared properly.' },
+  SO1: { summary: 'You improve your world by holding yourself up as the perfect model of how things should be done — in your institutions, your community, your causes.' },
+  SX1: { summary: 'You improve your world by reforming the people and causes around you, not by perfecting yourself.' },
+  SP2: { summary: 'You earn care with a warmth that can feel almost childlike, playful and personable with nearly everyone you meet.' },
+  SO2: { summary: 'You earn the care of others by becoming indispensable to a group or cause you believe in.' },
+  SX2: { summary: 'You earn love by drawing out the best in one chosen person, changing yourself to fit what that person needs.' },
+  SP3: { summary: 'You gain recognition by working hard, performing well, and delivering results.' },
+  SO3: { summary: 'You gain recognition by skillfully navigating social and political structures, adapting how you present yourself to your audience.' },
+  SX3: { summary: 'You gain recognition by using your magnetic presence and physical attractiveness to transmit an image worth admiring.' },
+  SP4: { summary: 'You gain wholeness by pushing through feelings of lack to go after what you want in unorthodox, creative ways.' },
+  SO4: { summary: 'You gain wholeness by striving to be unique, to overcome feelings of shame for what you lack compared to others.' },
+  SX4: { summary: 'You gain wholeness through seeking an intense connection — to an important other, to yourself, or to a divine presence.' },
+  SP5: { summary: "You gain protection from intrusion or depletion by retreating to a private place, away from the world's demands." },
+  SO5: { summary: 'You gain protection from intrusion or depletion by becoming an expert in a field, then taking up a role as teacher or master, sharing that knowledge with others.' },
+  SX5: { summary: 'You gain protection from intrusion or depletion by choosing a few individuals to trust, keeping those connections apart.' },
+  SP6: { summary: 'You gain safety and predictability by building protective alliances.' },
+  SO6: { summary: 'You gain safety and predictability by taking responsibility for the safety and security of the group.' },
+  SX6: { summary: 'You gain safety and predictability by running straight at fear instead of away from it.' },
+  SP7: { summary: 'You gain freedom from pain and constraints by building an abundant life within a trusted circle of family and friends.' },
+  SO7: { summary: 'You gain freedom from pain and constraints by accepting some limitations that keep you aligned with social expectations.' },
+  SX7: { summary: 'You gain freedom from pain and constraints by staying up and positive, approaching life with rose-colored glasses.' },
+  SP8: { summary: 'You protect yourself and others by securing resources and your immediate environment.' },
+  SO8: { summary: 'You protect yourself and others by directing your power and influence toward serving "your people" and seeking social justice.' },
+  SX8: { summary: 'You protect yourself and others by openly wielding your power and influence to create change.' },
+  SP9: { summary: 'You find peace through physical comfort and routine.' },
+  SO9: { summary: 'You find peace through belonging and participation.' },
+  SX9: { summary: 'You find peace through a deep and intense connection with a significant other, an experience, or your environment.' },
+};
+
+// ── SHEET 5 "Quick Reference" — the page's own static strings (PR 5 Build A) ─────────
+//
+// TWELVE STRINGS, and the count is a correction. The Build A brief said "eight static chrome
+// strings"; the audit that produced that phrase then enumerated eleven. Both were wrong. The
+// mockup carries TWO <h2> elements — "How the Nine Types Show Up" over the scores, and "Tips
+// for Debriefing This Report with Your Coach" over the tips grid — and the enumeration of
+// eleven counted only the first. The tips heading is the string that fell between the two
+// counts and that nobody was storing. Twelve is the number: lead + 2 pick labels + 2 panel
+// headers + 2 headings + zone 8 + 4 tips.
+//
+// FIVE FLAT SIBLINGS, NOT ONE OBJECT, and the reason is assertOverrideShape again. Grouping
+// all twelve under one CMS-editable key would make every future addition a new LEAF on a
+// published shape — the exact guard that forced the sibling decision above. Flat siblings
+// under `static` follow the convention INTERIM_INSTINCT_DEFS_V3 states for
+// static.instinct_definitions_v3: "a second flat sibling, which stays consistent with this."
+//
+// THE TIPS ARE AN ARRAY ON PURPOSE. overrideShape (content_overrides.js:79) collapses an
+// array to `prefix[]` and does NOT record its length, so a fifth tip can be added later
+// without tripping the shape guard. A fifth OBJECT KEY could not be. Verified by reading that
+// function, not assumed.
+//
+// PROVENANCE SPLITS, and the split is the point.
+//   · lead, pick labels, panel headers, tips heading, the four tips — lifted from
+//     docs/mockup/claude_The_Peacemaker_Page_AtAGlance_v1.html by SELECTOR (.lead, .plbl,
+//     .hhd, h2[1], .ttxt), rendered and whitespace-collapsed, never re-typed. Ratified 8 Sep.
+//   · h2 and zone8 — NOT from the mockup. The mockup still carries the OLD copy ("How the
+//     Nine Patterns Scored" and an italic caption) and porting it is the failure mode this PR
+//     has guarded against three times. Their source of record is the PR 5 Build A prompt.
+//
+// ZONE 8 IS NORMAL TEXT, not italic, and interpolates nothing and counts nothing. The
+// mockup's inline style="margin:-6px 0 18px 0" becomes a class modifier at Build B.
+//
+// NOT PORTED: .sname ("The One-to-One Nine") and .stag ("The Seeker · Merging & Intensity").
+// Both are UNRATIFIED. `Seeker` is not among the 27 naranjo values at all — SX9's is `Fusion`
+// — and the leading article breaks on 26 of 27 ("The Appetite", "The Non-Adaptability", "The
+// Keepers of the Castle"). The ratified tagline is `${naranjo} · ${signature}` with no
+// article, read from the subtype row's existing instincts_v3 fields so sheet 5 and sheet 10
+// cannot disagree. Nothing is stored here for it.
+const INTERIM_QUICKREF_STATIC_V3 = {
+  // CMS-EDITABLE (each also needs a cmsPreviewSpec entry — see app/server.js).
+  lead: "A single-page summary of your assessment results. You'll find a more detailed description of your leading type hypothesis and its dynamics on the following pages.",
+  h2: 'How the Nine Types Show Up',
+  zone8: "We all have access to all nine types, and most of us have one home base we return to. Your responses point to the candidates marked here — worth exploring with your coach, especially if parts of the description don't quite fit.",
+  tips: [
+    "Bring what didn't land. The parts that felt wrong are as useful to your coach as the parts that felt true.",
+    'Come with examples, not conclusions. A recent situation you can describe is worth more than a verdict.',
+    'Ask about the alternate. If a second pattern scored close, that is a conversation, not a loose end.',
+    'Pick one thing to work on. You do not need to act on all of it. One growing edge is enough to start.',
+  ],
+  // CONTENT LIBRARY, NOT CMS — structural labels, not prose. `tips_heading` sits here rather
+  // than with the CMS set because Cai's stated reason for making h2 and zone8 editable was
+  // that both had already been rewritten once on this PR. That does not apply to this one, so
+  // it is filed as furniture pending a decision. Making it editable later is ADDITIVE — a
+  // cmsPreviewSpec entry for this whole key — and adds no leaf to a published shape.
+  labels: {
+    pick_leading: 'Leading Hypothesis',
+    pick_alternate: 'Alternate Worth Exploring',
+    panel_instincts: 'Your Instincts Priority',
+    panel_subtype: 'Your Subtype (Primary Type + Primary Instinct)',
+    tips_heading: 'Tips for Debriefing This Report with Your Coach',
+  },
+};
+
 const INTERIM_INSTINCTS_V3 = {
   SP1: {
     naranjo: 'Worry',
@@ -1969,6 +2102,10 @@ function validateSubtype(key, st) {
   need(iv && iv.naranjo, `${P}.instincts_v3.naranjo empty`);
   need(iv && iv.signature, `${P}.instincts_v3.signature empty`);
   need(iv && iv.narrative, `${P}.instincts_v3.narrative empty`);
+  // Sheet 5 (PR 5 Build A). 27/27 coverage is structural for the same reason as instincts_v3:
+  // the caller loops all 27 subtype keys, so requiring the leaf here enforces presence for all
+  // of them. A missing summary would render sheet 5's subtype panel empty rather than throw.
+  need(st.quickref_v3 && st.quickref_v3.summary, `${P}.quickref_v3.summary empty`);
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -2001,6 +2138,15 @@ function validateSubtype(key, st) {
       // three strings — the source of record is a Google Doc — so this cannot be a
       // parseStatics() read. Same contract as the INTERIM_* type/subtype constants.
       lib.static.instinct_definitions_v3 = INTERIM_INSTINCT_DEFS_V3.map((d) => ({ ...d }));
+      // Sheet 5 (PR 5 Build A). FIVE flat siblings, not one object — see
+      // INTERIM_QUICKREF_STATIC_V3's header for why grouping them would recreate the
+      // shape-guard hazard. The docx has no section for any of these twelve strings.
+      const QR = INTERIM_QUICKREF_STATIC_V3;
+      lib.static.quickref_lead_v3   = QR.lead;
+      lib.static.quickref_h2_v3     = QR.h2;
+      lib.static.quickref_zone8_v3  = QR.zone8;
+      lib.static.quickref_tips_v3   = QR.tips.slice();
+      lib.static.quickref_labels_v3 = { ...QR.labels };
       continue;
     }
     const m = toks[start].text.match(/^Type (\d)\s*[—–-]\s*(.+)$/);
@@ -2023,6 +2169,10 @@ function validateSubtype(key, st) {
       // key that does not line up surfaces as a missing field in validateSubtype rather
       // than as a silent undefined. Purely additive; nothing docx-parsed is replaced.
       if (INTERIM_INSTINCTS_V3[st.code]) st.instincts_v3 = INTERIM_INSTINCTS_V3[st.code];
+      // Sheet 5 (PR 5 Build A). A SIBLING of instincts_v3, never a leaf inside it — see that
+      // constant's header for the assertOverrideShape failure that forces the distinction.
+      // Same keying by st.code, so a key that does not line up surfaces in validateSubtype.
+      if (INTERIM_QUICKREF_V3[st.code]) st.quickref_v3 = { ...INTERIM_QUICKREF_V3[st.code] };
       lib[`subtype_${key}`] = st;
     }
   }
@@ -2050,6 +2200,20 @@ function validateSubtype(key, st) {
   need(S.primer && Array.isArray(S.primer.nine_types) && S.primer.nine_types.length === 9, `static.primer.nine_types != 9 (${S.primer && S.primer.nine_types && S.primer.nine_types.length})`);
   need(S.primer && S.primer.nine_types && S.primer.nine_types.every(t => t.number >= 1 && t.number <= 9 && t.name && t.description && t.gifts), 'static.primer.nine_types rows incomplete');
   need(Array.isArray(S.instinct_definitions) && S.instinct_definitions.length === 3, `static.instinct_definitions != 3 (${S.instinct_definitions && S.instinct_definitions.length})`);
+  // Sheet 5 (PR 5 Build A). Five flat siblings, checked explicitly rather than by the scalar
+  // loop, because two of them are not scalars. Twelve strings across five keys; the count is
+  // asserted so a dropped tip or a dropped label fails the build instead of rendering blank.
+  for (const k of ['quickref_lead_v3', 'quickref_h2_v3', 'quickref_zone8_v3']) {
+    need(typeof S[k] === 'string' && S[k].trim(), `static.${k} empty`);
+  }
+  need(Array.isArray(S.quickref_tips_v3) && S.quickref_tips_v3.length === 4 && S.quickref_tips_v3.every(t => typeof t === 'string' && t.trim()),
+    `static.quickref_tips_v3 must be exactly 4 non-empty (got ${Array.isArray(S.quickref_tips_v3) ? S.quickref_tips_v3.length : 'none'})`);
+  // The four label keys are named individually. A `length === 5` check would pass if a key
+  // were renamed, and a renamed label renders as `undefined` on a client page.
+  for (const k of ['pick_leading', 'pick_alternate', 'panel_instincts', 'panel_subtype', 'tips_heading']) {
+    need(S.quickref_labels_v3 && typeof S.quickref_labels_v3[k] === 'string' && S.quickref_labels_v3[k].trim(),
+      `static.quickref_labels_v3.${k} empty`);
+  }
   // p10 (PR 4 step 4). A SIBLING of the line above, not a replacement for it: that one names
   // the v2 key explicitly and a new key is invisible to it, so the live gate is untouched.
   // This belongs here with the explicit structural check rather than in the non-empty scalar
