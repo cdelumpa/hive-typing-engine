@@ -60,14 +60,34 @@ const rectsOverlap = (a, b) =>
           });
           const circles = [...svgEl.querySelectorAll('circle')].map(c => ({
             cx: +c.getAttribute('cx'), cy: +c.getAttribute('cy'), r: +c.getAttribute('r'),
+            node: c.getAttribute('data-node') !== null,
           }));
           return { vw: vb.width, vh: vb.height, texts, circles };
         });
 
         const id = `${variant.replace('client-', '').toUpperCase()} T${type}`;
 
-        // Labels are the text elements outside the node circles (node numbers sit inside).
-        const nodeCircles = geo.circles.filter(c => c.r <= 20);
+        // ── WHICH CIRCLES ARE NODES ────────────────────────────────────────────────────
+        //
+        // Nodes are the circles the BUILDER MARKS AS NODES, via data-node. They were previously
+        // selected by `r <= 20`, a heuristic tuned to this pair's radii (11/13/15 against a 95
+        // ring). That heuristic is already wrong for one shipped variant — client-cover's nodes
+        // are r=23, so it returns 0 of 10 there — and it returns 0 of 12 for client-quickref
+        // (nodes 21, rings 27, circle 105). A filter that returns nothing makes the label-vs-node
+        // check below PASS BY TESTING NOTHING, which is the defect this replaces.
+        //
+        // client-cover's vacuum is LATENT, not live: VARIANTS did not include it, and the
+        // structural block at the foot of this file runs no overlap or clearance test. Marking
+        // nodes structurally removes the latency rather than leaving it for whoever adds it.
+        const nodeCircles = geo.circles.filter(c => c.node);
+
+        // NON-VACUITY. Without this, the fix above reintroduces the same vacuum at the next
+        // geometry change — a builder that stops emitting data-node would silently empty the
+        // check again. Asserting the COUNT is what makes the label-vs-node test meaningful.
+        if (nodeCircles.length !== 9) {
+          fail(`${variant} T${type}: ${nodeCircles.length} node circles marked, expected 9 — `
+             + `the label-vs-node check below would test nothing`);
+        }
         const isNodeNumber = (t) => /^\d$/.test(t.s.trim());
 
         for (const t of geo.texts) {
