@@ -28,6 +28,7 @@ const R = require(path.join(ROOT, 'app/renderer.js'));
 const QF = require(path.join(ROOT, 'scripts/lib/quickref_fit.js'));
 const pdfLib = require(path.join(ROOT, 'scripts/lib/pdf_pages.js'));
 const qrPreview = require(path.join(ROOT, 'app/cms_quickref_preview.js'));
+const shellProbe = require(path.join(ROOT, 'scripts/lib/page_shell_probe.js'));
 const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
 
 const PAGE_PX = 1056;
@@ -176,6 +177,40 @@ const setSummaryLines = (page, n) => page.evaluate((n) => {
     // And the reader must not be reporting zero, which would pass everything.
     control('PDF — the reader finds page objects at all',
       read.pages > 0 ? [] : ['found none'], false);
+
+    // ── THE SHELL: A PAGE WHOSE HEIGHT STOPS RESPONDING TO ITS CONTENT ────────────────────
+    //
+    // The worst failure in the set, because it does not break one assertion — it silently
+    // empties all of them while every one stays green. Driven on a REAL page by freezing its
+    // height the way one line of CSS on the shared class would.
+    await renderSheet(page, 5);
+    const shellClean = shellProbe.judgePageShell({
+      tag: 'control/shell-clean', rows: await shellProbe.probePageShell(page, 40), spacerPx: 40 });
+    control('negative control — every .v3-page responds to its content', shellClean, false);
+
+    await page.evaluate(() => {
+      const el = [...document.querySelectorAll('.v3-page')].find((p) => p.querySelector('.v3-qr-two'));
+      el.style.height = '1056px';
+      el.style.overflow = 'hidden';
+    });
+    control('SHELL — a page frozen to a fixed height is caught',
+      shellProbe.judgePageShell({ tag: 'control/shell-frozen',
+        rows: await shellProbe.probePageShell(page, 40), spacerPx: 40 }), true);
+
+    // And the declared exception is not a free pass: the cover clips rather than spills, so it is
+    // held to "your content does not overflow your box" instead.
+    await renderSheet(page, 5);
+    await page.evaluate(() => {
+      const cover = document.querySelector('.v3-page.is-cover');
+      // Tall enough to certainly exceed the box: the cover's own children are absolutely
+      // positioned, so its normal-flow content starts near zero and a small spacer still fits.
+      const d = document.createElement('div');
+      d.style.cssText = 'height:1400px';
+      cover.appendChild(d);
+    });
+    control('SHELL — the fixed-height cover CLIPPING its content is caught',
+      shellProbe.judgePageShell({ tag: 'control/shell-cover',
+        rows: await shellProbe.probePageShell(page, 40), spacerPx: 40 }), true);
 
     await page.close();
   } finally { await browser.close(); }

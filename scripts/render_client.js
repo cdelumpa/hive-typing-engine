@@ -38,6 +38,11 @@ const PAGE_PX = 1056; // US Letter 11in @96dpi
 // definitions that agree until they don't, which is the failure this build exists to prevent.
 const QF = require(path.join(ROOT, 'scripts/lib/quickref_fit.js'));
 const pdfLib = require(path.join(ROOT, 'scripts/lib/pdf_pages.js'));
+// The v3 page shell's own invariant. Not sheet 5's — every fit assertion in this file rests on
+// `.v3-page` being sized by min-height, and one fixed `height` on that shared class empties them
+// all at once while they stay green. See the module header.
+const shellProbe = require(path.join(ROOT, 'scripts/lib/page_shell_probe.js'));
+const SHELL_SPACER_PX = 40;
 const qrPreview = require(path.join(ROOT, 'app/cms_quickref_preview.js'));
 const QR_CAP = qrPreview.subtypeEntry().cap;
 
@@ -616,6 +621,15 @@ async function measureLayout(page, selector) {
           if (cfg.enforceSheet && p.height > PAGE_PX + 1 && !z6Governed) {
             fail(`${kind}${asType == null ? '' : ' Type ' + asType} ${(cfg.labelsFor ? cfg.labelsFor(asType) : cfg.labels)[p.index] || 'page ' + p.index} spills to ${p.sheets} sheets (${p.height}px > ${PAGE_PX}px)`);
           }
+        }
+        // ── THE SHELL'S OWN INVARIANT (PR 5 Build B3) ────────────────────────────────
+        // Runs for the v3 document only, because `.v3-page` is what it is about: the legacy
+        // client `.cover` pages are fixed-height by design and predate this mechanism entirely.
+        if (kind === 'client_v3') {
+          const shellRows = await shellProbe.probePageShell(page, SHELL_SPACER_PX);
+          const LBL2 = cfg.labelsFor ? cfg.labelsFor(asType) : cfg.labels;
+          for (const msg of shellProbe.judgePageShell({
+            tag, rows: shellRows, spacerPx: SHELL_SPACER_PX, labels: LBL2 })) fail(msg);
         }
         const want = cfg.expectedFor ? cfg.expectedFor(asType) : cfg.expected;
         if (pages.length !== want) {

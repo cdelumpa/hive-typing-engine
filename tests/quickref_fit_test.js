@@ -39,7 +39,11 @@ test('the over-limit verdict states the limit and does NOT claim a page spill', 
     { cap: 3, surveyed: 1 });
   assert.strictEqual(v.ok, false);
   assert.match(v.message, /runs to 5 lines/);
-  assert.match(v.message, /Three is the limit/);
+  assert.match(v.message, /Three is the limit for this panel/);
+  // The cap is a design bound for the box, so the sentence must name the balance it protects AND
+  // say plainly that it is not the page running out of room — the thing the old wording got wrong.
+  assert.match(v.message, /balanced against the instincts panel beside it/);
+  assert.match(v.message, /not because the page runs out of room/);
   assert.doesNotMatch(v.message, /second sheet/, 'the spill claim was false by two lines');
 });
 
@@ -81,6 +85,24 @@ test('judgeAcross floors headroom at one rendered summary line, measured not har
   assert.match(QF.judgeAcross({ rows: [row({ headroom: 12 })], expectedSummaries: 1 }).join(' '), /under one/);
   // A floor whose basis could not be measured must fail, not quietly pass.
   assert.match(QF.judgeAcross({ rows: [row({ lineHeight: null })], expectedSummaries: 1 }).join(' '), /no basis/);
+});
+
+test('a fixed-height page is caught unless it is a declared exception', () => {
+  const shell = require(path.join(ROOT, 'scripts/lib/page_shell_probe.js'));
+  const frozen = [{ cls: 'v3-page', grew: 0, natural: 1056, clipped: 0 }];
+  assert.match(shell.judgePageShell({ tag: 't', rows: frozen, spacerPx: 40, labels: ['P5'] }).join(' '),
+    /not driven by its content/);
+  const responsive = [{ cls: 'v3-page', grew: 40, natural: 1000, clipped: 0 }];
+  assert.deepStrictEqual(shell.judgePageShell({ tag: 't', rows: responsive, spacerPx: 40, labels: ['P5'] }), []);
+  // The cover is allowed to be fixed-height, and is held to the assertion that fits it instead:
+  // overflow:hidden means it CLIPS rather than spills, so its content must not exceed its box.
+  const cover = [{ cls: 'v3-page is-cover', grew: 0, natural: 1056, clipped: 0 }];
+  assert.deepStrictEqual(shell.judgePageShell({ tag: 't', rows: cover, spacerPx: 40, labels: ['P1'] }), []);
+  const clipping = [{ cls: 'v3-page is-cover', grew: 0, natural: 1056, clipped: 31 }];
+  assert.match(shell.judgePageShell({ tag: 't', rows: clipping, spacerPx: 40, labels: ['P1'] }).join(' '),
+    /cut off, not spilled/);
+  assert.match(shell.judgePageShell({ tag: 't', rows: [], spacerPx: 40, labels: [] }).join(' '),
+    /no \.v3-page found/);
 });
 
 test('the PDF reader fails loudly on bytes it cannot parse, rather than reporting zero sheets', () => {
