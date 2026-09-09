@@ -33,8 +33,42 @@ jobs:
 
       # Metric-compatible with Arial: identical advance widths, so line breaks land in the
       # same places the report was measured against.
+      #
+      # THE THIRD-PARTY APT LISTS ARE REMOVED FIRST, AND THIS IS NOT A WORKAROUND — IT REMOVES
+      # A DEPENDENCY THE BUILD NEVER HAD. On 9 Sep 2026 five consecutive runs died here, before
+      # a single gate executed, on:
+      #
+      #   E: Failed to fetch https://dl.google.com/linux/chrome-stable/.../Packages.gz
+      #      Hash Sum mismatch
+      #
+      # Google had published a Packages.gz that did not match its own Release file. `apt-get
+      # update` refreshes EVERY configured list and returns 100 if any one of them fails, so a
+      # repository this workflow does not use took the whole job down and every gate was
+      # SKIPPED — a PR that told us nothing about the work in it.
+      #
+      # MEASURED, not assumed: the only package this workflow installs is fonts-liberation,
+      # which comes from the Ubuntu archive. Chromium does NOT come from Google's apt repo — it
+      # is puppeteer 24.42.0's bundled binary (app/browser_launch.js launches
+      # `require('puppeteer')`), restored from the ~/.cache/puppeteer cache above. The runner
+      # image pre-configures Google's list, and several others, for builds that are not this one.
+      #
+      # ONLY `*.list` IS REMOVED, DELIBERATELY. Third-party repositories the runner image adds
+      # use the classic one-line `.list` format; Ubuntu's own archive is either
+      # /etc/apt/sources.list or a deb822 `.sources` file, and neither matches that glob. Removing
+      # `*.sources` too would break apt outright.
+      #
+      # THE LOG IS THE EVIDENCE. The lists are printed before and after, so a future reader can
+      # see exactly what was dropped rather than trusting this comment. `apt-get update` stays
+      # FATAL: with the third-party lists gone, a failure is the Ubuntu archive itself, which is
+      # worth stopping for. And if this ever removes too much, `apt-get install` fails loudly on
+      # the next line — a visible failure, not a silent one.
       - name: Install Liberation Sans
-        run: sudo apt-get update && sudo apt-get install -y fonts-liberation
+        run: |
+          echo "── apt lists before ──"; ls -1 /etc/apt/sources.list.d/ 2>/dev/null || echo "(none)"
+          sudo rm -f /etc/apt/sources.list.d/*.list
+          echo "── apt lists after ──";  ls -1 /etc/apt/sources.list.d/ 2>/dev/null || echo "(none)"
+          sudo apt-get update
+          sudo apt-get install -y fonts-liberation
 
       # Chromium is pinned by the lockfile (puppeteer 24.42.0 -> Chromium 147.0.7727.57).
       - name: Cache Puppeteer browsers
