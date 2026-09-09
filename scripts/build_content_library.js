@@ -1436,6 +1436,58 @@ const INTERIM_INSTINCT_DEFS_V3 = [
 // consistent in its own voice — decided 8 Sep and recorded in §28.2 of the audit. If the
 // sheet-10 opening sentence is ever edited, THIS field does not follow: they are co-located
 // on the same subtype row so an editor changing one has the other in front of them.
+// ── SHEET 5 "Quick Reference" — the client-facing core motivations (PR 5 Build B2b) ─
+//
+// A SECOND-PERSON SIBLING OF type_N.description.core_motivation, NOT A REPLACEMENT FOR IT, and
+// the reason is a measured one. That field is rendered TWICE IN THE COACH REPORT —
+// renderer.js:247 ("Your Type at a Glance → Core Motivation") and :1883 (the comparison table's
+// CORE MOTIVATION row) — as well as on the v2 client page 3. Person-shifting it in place would
+// have a COACH reading "…avoid the conflict and discomfort that come with asserting YOUR own
+// priorities" about their client. Coach and client are different audiences with different
+// registers; one string cannot be right for both. [DECIDED — Cai, 9 Sep 2026]
+//
+// The project already has this pattern: type_N.explore_v3.p6.core_motivation is a second-person
+// sibling of the same concept for sheet 6. This is the sheet-5 one.
+//
+// ⚠ A NEW SIBLING ON THE TYPE ROW, NOT A LEAF INSIDE `description`. type_N.description IS
+// CMS-editable (cmsIsValidTypeKey, app/server.js), so adding a leaf to it is the
+// assertOverrideShape hazard: a published override that no longer carries every leaf path throws
+// at render, and content_overrides.js:114 records that the throw "reaches EVERY report render,
+// including the dry-validate probe in /api/submit. A mismatched row therefore fails assessment
+// submission, not just a PDF." The overrides table is empty today, which would make the leaf safe
+// NOW — and that is precisely the reasoning that leaves a key unsafe later. Same shape as
+// subtype_<code>.quickref_v3 in Build A, for the same reason.
+//
+// THE COST IS ACCEPTED, AND NAMED: two strings say the same thing, and editing one will not move
+// the other. It is a smaller cost here than elsewhere because the two are SUPPOSED to differ —
+// they address different readers.
+//
+// SOURCE: derived from type_N.description.core_motivation by second-person transform only,
+// supplied in the PR 5 Build B2b prompt on 9 September 2026. No prose is authored here.
+// Types 3, 5, 6 and 7 carry no pronoun and are unchanged from the v2 field, character for
+// character. Type 8 is the one non-mechanical edit — "their own lives" became "your own life",
+// plural to singular — and is flagged for Mo rather than for this file.
+//
+// THE RECIPE'S OWN CHECK: type 9 comes out byte-identical to the ratified mockup's .ptxt[0]
+// (docs/mockup/claude_The_Peacemaker_Page_AtAGlance_v1.html), which is the leading panel's
+// approved copy. Asserted in validateType below rather than left as a claim here.
+//
+// ⚠ DRAFT. Mo's review is pending. The key exists so her revisions are value changes against a
+// settled shape; recount at re-ingest.
+// RECOUNTED at ingest, on this file's basis (rendered string, whitespace collapsed, ends
+// trimmed): 9 of 9 present; 123-163 characters; mean 141.6.
+const INTERIM_QUICKREF_TYPE_V3 = {
+  1: { core_motivation: 'To be good, right, and beyond criticism — improving yourself and the world, and living according to an inner standard of how things should be.' },
+  2: { core_motivation: "To be loved and needed — earning connection by giving, helping, and meeting others' needs, often before tending to your own." },
+  3: { core_motivation: 'To be successful, admired, and seen as a winner — earning worth and love through accomplishment, effectiveness, and a polished image.' },
+  4: { core_motivation: "To be authentic, deeply understood, and significant — finding meaning and identity by embracing the full depth of your feelings and the longing for what's missing." },
+  5: { core_motivation: 'To be capable, self-sufficient, and unintruded upon — protecting limited inner resources by gathering knowledge and keeping a careful distance from demand.' },
+  6: { core_motivation: 'To be safe, secure, and prepared — managing an underlying anxiety by anticipating threats, testing trust, and seeking something solid to rely on.' },
+  7: { core_motivation: 'To be happy, free, and satisfied — staying open to possibility and pleasure while avoiding pain, limitation, and the discomfort of being trapped.' },
+  8: { core_motivation: 'To be strong, stay in control of your own life, and protect yourself and the people you love from being taken advantage of.' },
+  9: { core_motivation: 'To maintain inner and outer peace, stay connected to others, and avoid the conflict and discomfort that come with asserting your own priorities.' },
+};
+
 const INTERIM_QUICKREF_V3 = {
   SP1: { summary: 'You improve your world by getting the practical details right: the home run well, finances in order, meals prepared properly.' },
   SO1: { summary: 'You improve your world by holding yourself up as the perfect model of how things should be done — in your institutions, your community, your causes.' },
@@ -2113,6 +2165,24 @@ function validateExplore(n, t) {
   }
 }
 
+// Sheet 5 (PR 5 Build B2b). 9/9 coverage is structural — the caller loops all nine types.
+function validateQuickrefType(n, t) {
+  const P = `type_${n}`;
+  const q = t.quickref_v3;
+  need(q && typeof q.core_motivation === 'string' && q.core_motivation.trim(),
+    `${P}.quickref_v3.core_motivation empty (sheet 5's leading/alternate panel copy)`);
+  // THE RECIPE'S OWN CHECK, asserted rather than claimed. The nine strings are a second-person
+  // transform of type_N.description.core_motivation, and type 9's result is the copy ratified on
+  // the mockup. If the transform is ever re-run and this stops holding, the recipe changed.
+  if (n === 9 && q && q.core_motivation) {
+    const RATIFIED = 'To maintain inner and outer peace, stay connected to others, and avoid the '
+                   + 'conflict and discomfort that come with asserting your own priorities.';
+    need(q.core_motivation === RATIFIED,
+      `type_9.quickref_v3.core_motivation is not the ratified mockup copy — the second-person `
+      + `transform of description.core_motivation no longer reproduces it`);
+  }
+}
+
 function validateLines(n, t) {
   const P = `type_${n}`;
   const L = t.lines;
@@ -2210,6 +2280,11 @@ function validateSubtype(key, st) {
     const t = assembleType(n, toBlocks(typeToks));
     const firstPara = typeToks.find(x => !x.label && !x.bullet);
     t.center_label = firstPara ? firstPara.text : '';  // e.g. "Body/Gut Center" — NOT the center-of-intelligence block
+    // Sheet 5 (PR 5 Build B2b). A SIBLING of `description`, never a leaf inside it — see
+    // INTERIM_QUICKREF_TYPE_V3 for the assertOverrideShape reason. Purely additive: the docx has
+    // no section for a second-person core motivation, so nothing docx-parsed stops being
+    // Word-sourced when this lands.
+    if (INTERIM_QUICKREF_TYPE_V3[n]) t.quickref_v3 = { ...INTERIM_QUICKREF_TYPE_V3[n] };
     lib[`type_${n}`] = t;
 
     const subs = assembleSubtypes(n, subToks);
@@ -2230,6 +2305,7 @@ function validateSubtype(key, st) {
   for (let n = 1; n <= 9; n++) {
     if (!lib[`type_${n}`]) { errs.push(`type_${n} MISSING`); continue; }
     validateType(n, lib[`type_${n}`]);
+    validateQuickrefType(n, lib[`type_${n}`]);
   }
   let subCount = 0;
   for (let n = 1; n <= 9; n++) for (const inst of ['sp', 'so', 'sx']) {
