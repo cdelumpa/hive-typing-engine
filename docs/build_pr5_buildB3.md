@@ -294,45 +294,100 @@ requires before I looked instead of guessing.
 
 ## 10. Outstanding — what needs your help
 
-**10.1 · Two wordings changed and NOT ratified.** Both are editor-facing CMS copy, and B4's wording
-was your decision, so these are proposals sitting in the code rather than settled:
+**10.1 · One wording point left open, not blocking.** `SP1` in the survey sentence is precise and
+is also jargon for a content editor. Flagged, not ruled on, and not worth holding a merge for. Both
+wordings themselves are settled — see §12.
 
-- over-limit: *"This runs to 5 lines. Three is the limit for this panel."* — the previous sentence
-  claimed a page spill that measurement says does not happen. I removed the claim rather than
-  making it conditional, because F4b now asserts `cap + 1` fits, so it could never become true
-  without that gate going red first. If you would rather keep a consequence in the sentence, the
-  honest one is about the panel's balance against the instincts beside it, and that is a design
-  claim I am not in a position to make for you.
-- survey: *"Checked on all 27 type and instinct combinations; SP1 is tightest."* — was "all 9
-  types; Type 1 is tightest". The count changed because the sweep did; naming the record rather
-  than the type is what §4.4 requires. `SP1` is precise and is also jargon for a content editor —
-  worth a look.
-
-**10.2 · Should `cap` stay at 3?** The page carries 5. Three is defensible as a design limit and I
-have not moved it; F4b only requires it to be safe. But it is now a **choice** rather than the
-layout fact it was documented as, and it should be a choice someone made on purpose.
-
-**10.3 · A fixed `height` on `.v3-page` would blind both F1 and `enforceSheet`.** Named in §4.1,
-not closed. It is a one-line assertion (`computed height must be driven by content`) and it belongs
-with the shared v3 page styles rather than in sheet 5's gate, which is why it is not in this build.
-
-**10.4 · IO-93's downstream half is still open.** B4 closed the upstream half; this build does not
+**10.2 · IO-93's downstream half is still open.** B4 closed the upstream half; this build does not
 touch it. A check over PUBLISHED overrides belongs with `overrides_check.js`.
 
-**10.5 · Mo's voice pass.** The 27 summaries and 9 core motivations remain DRAFT. F2's lower bound
+**10.3 · Mo's voice pass.** The 27 summaries and 9 core motivations remain DRAFT. F2's lower bound
 can legitimately go red if a summary is shortened to a single line — as you said, that is the gate
 doing its job, and the bound moves with a recorded reason.
 
-**10.6 · `.sname`'s leading article.** Still open. "The One-to-One One" still reads oddly.
+**10.4 · `.sname`'s leading article.** Still open. "The One-to-One One" still reads oddly.
 
 ## 11. Does B3 close PR 5
 
 **On code, yes.** F1–F4 hold, every predicate has been observed red, the PDF gap §8 of the plan
 named is closed rather than carded, and the gate is wired into CI in the same build.
 
-**What does not close with PR 5**: 10.2 through 10.6 above. None is a code defect in sheet 5; they
-are a design decision, a guard that belongs to the shared page shell, a check that belongs with the
-overrides tooling, a content pass, and an open copy question.
+**What does not close with PR 5**: 10.2 through 10.4 above — a check that belongs with the overrides
+tooling, a content pass, and an open copy question. None is a code defect in sheet 5.
 
 **The handoff for PR 7 and the workflow PR is at `docs/handoff_pr7_and_workflow.md`**, in the repo
 rather than in anyone's memory.
+
+## 12. Ratified after review — the cap, the shell guard, and the two wordings
+
+Three things landed after the report above, on Cai's decisions.
+
+### 12.1 The cap stays at 3; the justification changes
+
+[DECISION — Cai] The page carries five summary lines. Three is kept as a **design bound for this
+box**, not as capacity:
+
+> Sheet 5 is the page whose whole identity is "at a glance". The subtype panel sits beside the
+> instincts panel at matched height, and a five-line summary makes that row visibly lopsided on the
+> one page meant to be scanned. At five lines there is 14.11px left, so any other growth anywhere
+> on the sheet spills it; three keeps the 51.61px that has absorbed every change since B1.
+
+The mechanism behind the lopsidedness, measured: the two `.v3-qr-half` panels are flex items under
+the default `align-items: stretch`, so they are always the same height. As the summary grows past
+the instincts rows, the **instincts panel gains dead space at its foot** — at one summary line both
+halves are 140px, at four they are 181px, and the extra 41px is empty on the instincts side.
+
+The basis is now recorded in all three places it is stated: the `cap` comment in
+`app/cms_quickref_preview.js`, the verdict sentence itself, and §4.2 of
+`docs/handoff_pr7_and_workflow.md`. An editor who discovers the stated reason was false will
+discount the number, and would be right to — the old reason was false for two builds.
+
+### 12.2 The fixed-height guard, in the shared shell
+
+[DECISION — Cai] Not deferred. `scripts/lib/page_shell_probe.js` asserts, on **every `.v3-page` in
+every v3 render**, that adding 40px of content grows the page by 40px. Tested by function rather
+than by inspection, because `getComputedStyle(el).height` returns a used value in px whether the
+height came from content or from a declaration and so distinguishes nothing.
+
+**It found something immediately.** `renderer.js:3050` sets
+`.v3-page.is-cover{ height:1056px; min-height:1056px; overflow:hidden }`. The v3 cover has
+therefore **always** been outside `enforceSheet` and F1, which was written down nowhere, and it is
+the one page that cannot spill because it **clips** instead. Since "nothing cut off" is half of this
+build's outcome, the exception is not a free pass: a page on `FIXED_HEIGHT_ALLOWED` is held to the
+assertion that fits it instead — its content must not overflow its box. Both halves have positive
+controls.
+
+**And the guard's first version was useless, caught by its own control.** `natural()` set
+`el.style.height = 'auto'`, which overrides a fixed height from any source — so it defeated the
+exact condition it exists to detect and reported every page healthy. It now releases `min-height`
+only, mirroring `measureLayout`, which is the mechanism it protects. A probe that protects a
+mechanism has to measure through that mechanism, not through a more permissive one.
+
+Controls 15 → **18**. `npm test` 43 → **44**.
+
+### 12.3 The two wordings, before and after
+
+**The over-limit verdict.** B4's principle is kept — name the consequence, not the rule — with a
+consequence that is true, and with the cap's real basis stated so the number cannot be discounted
+later.
+
+> **Before:** This runs to 5 lines. Three is the most that fits — a fourth pushes the page onto a
+> second sheet. On the Type 5 page.
+>
+> **After:** This runs to 5 lines. Three is the limit for this panel — set to keep it balanced
+> against the instincts panel beside it, not because the page runs out of room. On the Type 5 page.
+
+The "not because the page runs out of room" clause is doing specific work: it is the correction to
+the thing the old sentence got wrong, said out loud rather than merely omitted.
+
+**The survey sentence.** The count changed because the sweep did (9 records → 27), and naming the
+record rather than the type is what §4.4 requires — the tightest page is a property of the (type,
+instinct) pair, and 16 of 35 renders tie at it across eight different types.
+
+> **Before:** Fits — using 2 lines, with room for about 2 more lines before the page runs onto a
+> second sheet. Checked on all 9 types; Type 1 is tightest.
+>
+> **After:** Fits — using 2 lines, with room for about 2 more lines before the page runs onto a
+> second sheet. Checked on all 27 type and instinct combinations; SP1 is tightest.
+
+`SP1` is precise and is also jargon for a content editor. Flagged, not changed, not blocking.

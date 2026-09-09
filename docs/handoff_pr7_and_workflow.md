@@ -123,8 +123,21 @@ Measured across all 35 renders, only three page heights exist — 73.86px free a
 70.36px at two, 51.61px at three. Nothing else on the sheet varies in height by type.
 
 **4.2 · The page holds five summary lines and spills at six.** `cap: 3` in
-`app/cms_quickref_preview.js` is a **design limit with two lines of slack**, not the layout's
-bound. `scripts/render_client.js` asserts `cap + 1` still fits on every render.
+`app/cms_quickref_preview.js` is a **design bound for that box**, not the most the page can hold
+[DECISION — Cai, B3]. The reason is the panel row: the two `.v3-qr-half` panels are flex items
+under `align-items: stretch`, so as the summary grows past the instincts rows the instincts panel
+gains dead space at its foot — 41px of it at four summary lines — and the row reads lopsided on the
+one page whose identity is "at a glance". `scripts/render_client.js` asserts `cap + 1` still fits
+on every render. If you change the cap, change the reason with it in all three places it is stated:
+the comment, the verdict sentence, and here.
+
+**4.2a · `.v3-page` must never take a fixed `height`.** Every fit assertion in the repo rests on
+the page being sized by `min-height`, so releasing that minimum reveals the natural content height.
+A fixed height freezes that number and `measureLayout`, `enforceSheet` and all of F1-F4 go green
+forever while content is clipped. `scripts/lib/page_shell_probe.js` guards it on every v3 render.
+**`.v3-page.is-cover` is a declared exception** (`renderer.js:3050` — `height:1056px;
+overflow:hidden`), so the cover has always been outside `enforceSheet`; it is held instead to "its
+content does not overflow its box", because it clips rather than spills.
 
 **4.3 · Summary lines do not cost a constant.** While the instincts panel is the taller of the two
 `.v3-qr-half` flex items, a summary line costs the page nothing — one line to two costs 3.50px, not

@@ -80,15 +80,25 @@ const STATIC_ENTRIES = {
  */
 function subtypeEntry() {
   return {
-    // `cap: 3` IS A DESIGN LIMIT, NOT THE PAGE'S BOUND, and the distinction is load-bearing.
+    // `cap: 3` IS A DESIGN BOUND FOR THIS BOX, NOT THE MOST THE PAGE CAN HOLD.
+    // [DECISION — Cai, Build B3: the cap stays at 3, the justification changes.]
     //
-    // This comment used to read "the .v3-qr-stxt box is 308.00px and three lines is what fits".
-    // 308.00px is that box's WIDTH (§29.4, the character-ceiling work), and `.v3-qr-stxt` carries
-    // no height, max-height or overflow at all — so there is no box bound for three lines to be.
-    // Measured on the render (Build B3): the page fits 1, 2, 3, 4 AND 5 summary lines and does not
-    // spill until SIX. Three is a chosen editorial limit with two lines of slack beneath the
-    // layout, which is a perfectly good thing to hold people to — it just is not what the old
-    // comment said it was, and the verdict text below no longer claims otherwise.
+    // WHAT IT IS NOT. This comment used to read "the .v3-qr-stxt box is 308.00px and three lines
+    // is what fits". 308.00px is that box's WIDTH (§29.4, the character-ceiling work), and
+    // `.v3-qr-stxt` carries no height, max-height or overflow at all — so there was no box bound
+    // for three lines to be. Measured on the render (Build B3): the page fits 1, 2, 3, 4 AND 5
+    // summary lines and does not spill until SIX.
+    //
+    // WHAT IT IS. Sheet 5 is the page whose whole identity is "at a glance". The subtype panel
+    // sits beside the instincts panel at matched height — they are flex items under the default
+    // align-items:stretch — so as the summary grows past the instincts rows, the instincts panel
+    // gains dead space at its foot and the row reads visibly lopsided on the one page meant to be
+    // scanned. Three keeps the 51.61px of page headroom that has absorbed every change since B1;
+    // five leaves 14.11px, at which any other growth anywhere on the sheet spills it.
+    //
+    // WHY THE BASIS IS WRITTEN DOWN HERE, IN THE VERDICT AND IN THE DOCS. An editor who discovers
+    // the stated reason was false will discount the number, and would be right to. The old reason
+    // was false for two builds.
     //
     // scripts/render_client.js asserts `cap + 1` still fits on every render. That is what keeps
     // this number safe as content and geometry move underneath it.
@@ -237,7 +247,7 @@ function fitVerdict(worst, opts) {
   // static string reaches all 27, not all 9 — see fitSweep. The old sentence named a population
   // the sweep did not cover, and named the worst by TYPE when the worst is a property of the
   // (type, instinct) pair: 16 of the 35 rendered records tie at the tightest page, spanning eight
-  // different types. [WORDING NOT YET RATIFIED — see the B3 report.]
+  // different types. [RATIFIED — Cai, Build B3.]
   const where = o.surveyed > 1
     ? ` Checked on all ${o.surveyed} type and instinct combinations; ${worst.code || 'Type ' + worst.type} is tightest.`
     : ` On the Type ${worst.type} page.`;
@@ -254,11 +264,16 @@ function fitVerdict(worst, opts) {
       // fifth leaves 14.11px; nothing spills until the sixth. The sentence was false, and false in
       // the RESTRICTIVE direction — it told editors to cut copy that fits, citing a consequence
       // that would not happen. render_client.js now asserts `cap + 1` fits on every render, so the
-      // spill claim could never become true without that gate going red first, which is why it is
-      // removed rather than made conditional. [WORDING NOT YET RATIFIED — see the B3 report.]
+      // spill claim can never become true without that gate going red first.
+      //
+      // B4's principle is KEPT — name the consequence, not the rule — with a consequence that is
+      // true. The cap is a design bound for this box (see `cap` above), so the sentence names the
+      // balance it protects and says plainly that it is not the page running out of room, which is
+      // the thing the old wording got wrong. [RATIFIED — Cai, Build B3.]
       return { ok: false, ...worst, freePx: free,
         message: `This runs to ${worst.zoneLines} lines. ${cap1(cardinal(o.cap))} is the limit for `
-               + `this panel.${where}` };
+               + `this panel — set to keep it balanced against the instincts panel beside it, not `
+               + `because the page runs out of room.${where}` };
     }
     const all = worst.zoneLines === o.cap ? 'all ' : '';
     return { ok: true, ...worst, freePx: free,
