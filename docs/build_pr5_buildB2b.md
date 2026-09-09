@@ -128,7 +128,66 @@ Both misses are undershoots on ranges I set, and both are small. The headroom on
 interesting: I predicted from the B1 scaffold's `anders_sx9` figure and did not account for the
 worst case being a **different type** — Type 1's pair is longer than Type 9's.
 
-## 6. Outstanding
+## 6. Amendments from Cai's review of the smoke sheet
+
+Six changes, all landed and all re-verified. **C1–C4 still hold on all 35 renders, C4 failures 0**,
+and the byte-identity between the ordinary and collided Type 9 pages **survives** — same MD5
+`[MEASURED]`.
+
+**a. The page has one name.** Title `Quick Reference` → **`Your Report at a Glance`**, eyebrow
+dropped (`null` — an existing state; `whatis` already uses it). The running head, the H1 and the
+Contents row now say the same thing.
+
+The eyebrow's space is given back to the title, not lost: the rule-to-H1 gap was **20 px**
+`[MEASURED]` before the change — a 12 px line box plus an 8 px bottom margin — and
+`.v3-qr-title{ margin-top:20px }` reproduces it exactly.
+
+**b. The Contents descriptor, and the consequence that prompted it.** Renaming the page put
+*"at a glance"* on the title line **and** in the descriptor beneath it — flagged before the change
+rather than after, per the brief. The descriptor is now *"A single-page summary of your results,
+plus tips for your debrief conversation."* `[Ratified — Cai, 9 Sep]` It drops the echo and matches
+the page's own opening line several sheets away, so the two reinforce rather than repeat. A value
+change, not a leaf change: **2121 / 805 / 1316 unmoved**.
+
+**c–d. The figure's vertical rhythm.** Two constants against one problem:
+
+| | before | after |
+|---|---|---|
+| `lblGap` — node ring to label | 9 | **5** |
+| `rampY` — legend position | 316 | **324** |
+| `vh` — canvas height | 348 | **356** |
+| **label baseline to legend** | **10.10 px** | **22.10 px** |
+| caption descender room | 11 px | **11 px**, deliberately unchanged |
+
+**`vh` is not a free choice and moved for a reason.** The captions sit at `rampY + rampH + 13`, so
+holding the descender room means `vh = rampY + 32` — exactly the relation the old numbers satisfied
+(348 = 316 + 32). Leaving `vh` at 348 would have clipped *"Less like you"*'s descender off the
+canvas.
+
+**e. The alternate eyebrow is cyan.** `#6B7785` → `#00B2D9`. `is-lead` and `is-alt` stay distinct
+classes even though the colour now matches — they are the role-keyed hooks `_clv3QuickRef` looks up
+by `hyp.role`, and collapsing them would put the roles back in the template.
+
+### The cost, measured
+
+| | before | after |
+|---|---|---|
+| sheet 5 headroom, 35 renders | 58.77 – 81.02 px | **51.61 – 73.86 px** |
+| mean | 69.35 px | **62.19 px** |
+| worst case | Type 1 | **Type 1** (`sp_primary` / `so_primary`), 51.61 px |
+
+**−7.16 px, and it is exactly the figure's height increase.** `.v3-qr-hm svg` is width-pinned with
+`height:auto`, so a taller viewBox renders taller: 322 × 356/360 = **318.42 px** against 311.27 px
+before, a difference of 7.15 px. The page paid for the label clearance out of headroom and nothing
+else moved.
+
+> **One number that looks alarming and is not.** A first pass at this measurement reported
+> `MIN 5.25px` across `37 renders`. Both were wrong: the filter matched **the v2 client report's own
+> "P5 Wings/Lines"** page, which has been at 5.25 px of free space all along and has nothing to do
+> with sheet 5. Sheet 5 appears on **35** renders and its minimum is **51.61 px**. Recorded because
+> a naive grep for `P5` will do this again.
+
+## 7. Outstanding
 
 **Nothing blocking.**
 

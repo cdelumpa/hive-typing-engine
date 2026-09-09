@@ -1089,9 +1089,26 @@ const WHATIS_GEO = { vw: 300, vh: 300, cx: 150, cy: 150, r: 112, rNode: 16, fs: 
  * the same centre, which is why verify_diagrams.js sizes its node box to the LARGEST circle at
  * each position.
  */
-const QUICKREF_GEO = { vw: 360, vh: 348, cx: 180, cy: 157, r: 105, rNode: 21, ringR: 27, fs: 16,
+// VERTICAL RHYTHM, RETUNED AT THE B2b REVIEW. The candidate labels crowded the legend, worst when
+// both fall on adjacent lower nodes and share the bottom rail — the Type 4 pair is the case. Two
+// constants move, against the same problem:
+//
+//   lblGap 9 -> 5   pulls each label toward the wheel it belongs to
+//   rampY 316 -> 324 pushes the legend away from the labels
+//
+// Measured clearance between the bottom label's baseline and the legend: 10.10px before, and the
+// arithmetic is railBot = cy + (r + ringR + lblGap) + lblAsc against rampY. Both moves add to it.
+//
+// vh FOLLOWS rampY AND IS NOT A FREE CHOICE. The captions sit at rampY + rampH + 13 and need the
+// same descender room they had, so vh = rampY + 32 exactly as before (348 = 316 + 32). Leaving vh
+// at 348 would have clipped "Less like you"'s descender off the canvas.
+//
+// THE FIGURE GETS TALLER ON THE PAGE, and that is the cost. .v3-qr-hm svg is width-pinned with
+// height:auto, so the taller viewBox renders taller: 322 x (356/360) instead of 322 x (348/360).
+// Paid for out of sheet 5's headroom, which is measured in the build report.
+const QUICKREF_GEO = { vw: 360, vh: 356, cx: 180, cy: 157, r: 105, rNode: 21, ringR: 27, fs: 16,
   web: '#E4E9ED', web_w: 1.3, rim: '#D9E1E6',
-  lblFs: 8.5, lblGap: 9, lblAsc: 7.9, rampX: 30, rampW: 300, rampH: 8, rampY: 316, capFs: 8.5 };
+  lblFs: 8.5, lblGap: 5, lblAsc: 7.9, rampX: 30, rampW: 300, rampH: 8, rampY: 324, capFs: 8.5 };
 
 // The cyan ramp, as OPAQUE SOLIDS. t = 0.10 + 0.90 x score/100 (design spec v3.0 §8.5, decided
 // 8 Sep) is applied as a lerp from white toward the cyan token rather than as an alpha, so the
@@ -3415,7 +3432,19 @@ function clientReportV3PageStyles() {
 .v3-page .v3-qr-pick:last-child{ margin-bottom:0 }
 .v3-page .v3-qr-plbl{ font-size:8.5px;font-weight:bold;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px }
 .v3-page .v3-qr-plbl.is-lead{ color:#00B2D9 }
-.v3-page .v3-qr-plbl.is-alt{ color:#6B7785 }
+/* THE ALTERNATE EYEBROW IS CYAN, THE SAME AS THE LEADING ONE (B2b review). It was #6B7785 grey.
+   The page already treated the alternate as cyan in the figure and grey in the panel — one concept
+   at two weights — and grey reads as de-emphasised at exactly the moment the client is being asked
+   to consider it. The leading/alternate hierarchy is carried by position, by solid-versus-dashed
+   ring, and by the words; colour was a fourth signal doing redundant work and it overshot.
+   The two classes stay distinct even though the colour now matches: is-lead/is-alt are the
+   role-keyed hooks _clv3QuickRef looks up by hyp.role, and collapsing them would put the roles back
+   in the template. */
+.v3-page .v3-qr-plbl.is-alt{ color:#00B2D9 }
+/* The eyebrow is gone from this page (one name everywhere) and its 20px — 12px of line box plus an
+   8px bottom margin, MEASURED before the change — is given back to the title, so the gap between
+   the header rule and the H1 reads exactly as it did. */
+.v3-page .v3-qr-title{ margin-top:20px; }
 .v3-page .v3-qr-pname{ font-size:15px;font-weight:bold;color:#1E2A35;margin-bottom:5px }
 .v3-page .v3-qr-ptxt{ font-size:12.5px;color:#1E2A35;line-height:1.5 }
 .v3-page .v3-qr-two{ display:flex;gap:18px }
@@ -3482,7 +3511,11 @@ const V3_PAGE_ORDER = [
   { key: 'contents',  sheet: 2,  footer: null, chrome: 'blank', built: true, title: 'Contents',             eyebrow: "What's In This Report" },
   { key: 'welcome',   sheet: 3,  footer: 1,    built: true,     title: 'Welcome',                           eyebrow: 'A Note from Cai & Mo' },
   { key: 'whatis',    sheet: 4,  footer: 2,    built: true,     title: 'What Is the Enneagram?',            eyebrow: null },
-  { key: 'quickref',  sheet: 5,  footer: 3,    built: true,     title: 'Quick Reference',                   eyebrow: 'Your Report at a Glance' },
+  // ONE NAME EVERYWHERE (PR 5 Build B2b review). The page was "Quick Reference" under an eyebrow
+  // reading "Your Report at a Glance" — two names for one sheet. The eyebrow's words become the
+  // title and the eyebrow is dropped, so the running head, the H1 and the Contents row all say the
+  // same thing. `eyebrow: null` is an existing, supported state — `whatis` already uses it.
+  { key: 'quickref',  sheet: 5,  footer: 3,    built: true,     title: 'Your Report at a Glance',           eyebrow: null },
   { key: 'typeA',     sheet: 6,  footer: 4,    built: true,
     title: 'Exploring Your Type Hypothesis',                     eyebrow: 'Exploring Your Type Hypothesis' },
   { key: 'typeB',     sheet: 7,  footer: 5,    built: true,
@@ -4243,8 +4276,7 @@ function _clv3QuickRef(m) {
   ${_v3Header(m)}
   <div class="header-rule"></div>
 
-  <div class="eyebrow">${esc(page.eyebrow)}</div>
-  <h1>${esc(page.title)}</h1>
+  <h1 class="v3-qr-title">${esc(page.title)}</h1>
   <div class="lead is-loose">${_v3t(q.lead)}</div>
 
   <h2>${_v3t(q.h2)}</h2>

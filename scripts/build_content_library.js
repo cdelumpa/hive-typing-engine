@@ -75,7 +75,11 @@ const INTERIM_WELCOME = {
 const INTERIM_CONTENTS = [
   { start: 'welcome',   desc: 'What this report is, how to use it, and what to bring to your debrief.' },
   { start: 'whatis',    desc: 'A brief introduction to the system: nine types, one dynamic map.' },
-  { start: 'quickref',  desc: 'Your assessment results at a glance, and tips for your debrief conversation.' },
+  // Reworded at the B2b review, with the sheet-5 rename. The title became "Your Report at a
+  // Glance", which put "at a glance" on the title line AND in this descriptor, one under the
+  // other. This wording drops the echo and instead matches the page's own opening line — several
+  // sheets apart, so they reinforce rather than repeat. [Ratified — Cai, 9 Sep 2026]
+  { start: 'quickref',  desc: 'A single-page summary of your results, plus tips for your debrief conversation.' },
   { start: 'typeA',     desc: 'Your leading type, its core motivation, and how the pattern shows up in the real world.' },
   { start: 'wings',     desc: 'The two adjacent types that flavor your {type_word}, and what each one offers you.' },
   { start: 'lines',     desc: 'Where you move under pressure and in flow, and how to draw on both.' },

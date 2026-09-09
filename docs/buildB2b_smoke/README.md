@@ -22,7 +22,7 @@ Every one is **REACHABLE IN PRODUCTION**. None is synthetic.
 |---|---|---|
 | `p5_ordinary_type9.png` | LEADING ring on node **9** (top), dashed ALTERNATE on node **5**. Header reads *Type 9 — The Peacemaker*. **The ordinary case.** | `anders_sx9` at its own type. The common path. |
 | `p5_collided_type9.png` | **Identical to the ordinary page above** — same rings, same panels, same two types. That sameness is the point. | The same record with `alternate_candidate` forced to equal `confirmed_type`. `call2_stamp` ships these deliberately: it flags the collision for admin review and does not hard-stop. |
-| `p5_ordinary_type4.png` | **The only image whose LEADING ring is not on node 9** — it is on node **4**, dashed ALTERNATE on node **5**. Header reads *Type 4*. | `anders_sx9` re-typed to 4, showing a different pair on a different ranking tail. |
+| `p5_ordinary_type4.png` | **The only image whose LEADING ring is not on node 9** — it is on node **4**, dashed ALTERNATE on the adjacent node **5**, both labels on the bottom rail. Header reads *Type 4*. | `anders_sx9` re-typed to 4. **This is the case the figure's rhythm changes were aimed at** — two labels side by side on one rail, above the legend. |
 
 ## The collided page is the one to look at
 
@@ -48,3 +48,18 @@ neither panel carries the other's copy.
 where the defect is silent and loud where it matters.
 
 **Not covered:** whether the visual hierarchy reads. That is this sheet.
+
+## Refreshed after Cai's review (9 Sep)
+
+These renders carry six amendments: one page name (`Your Report at a Glance`, no eyebrow, the
+eyebrow's 20 px given back to the title), a reworded Contents descriptor, the figure's labels pulled
+in toward the wheel and the legend pushed away from them (**clearance 10.10 px → 22.10 px**), and
+the ALTERNATE eyebrow in the same cyan as LEADING.
+
+**Look at `p5_ordinary_type4.png` first** — it is the crowding case, and the only one where both
+labels land side by side on the bottom rail.
+
+**The cyan change is the one to judge against C2.** The leading/alternate hierarchy is now carried by
+position, by solid-versus-dashed ring, and by the words. Colour no longer separates them. Does the
+alternate still read as the *second* offer rather than a co-equal one — and is that the right
+balance?
