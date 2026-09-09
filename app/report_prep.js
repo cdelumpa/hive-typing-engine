@@ -273,8 +273,68 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
 
   const t = resolveLibObject(overrides, `type_${heroN}`, lib(`type_${heroN}`));
   const alt = resolveLibObject(overrides, `type_${altN}`, lib(`type_${altN}`));   // P3: alternate candidate's EXISTING comparison rows
+  // Computed ONCE and read twice — by charts.types below and by v3Hypotheses. Two calls could
+  // not disagree today (typeRamp is pure), but the sheet-5 guarantee is that there is a single
+  // ordering, and a single call is how that is enforced rather than assumed.
+  const typeBars0 = typeRamp(h.call1_ranking, heroN, altN);
   const st = resolveLibObject(overrides, subtypeKey(instinct, heroN), lib(subtypeKey(instinct, heroN)));
   const stat = resolveLibObject(overrides, 'static', lib('static'));
+
+  // ── SHEET 5's TWO HYPOTHESES — RESOLVED ONCE, FROM POSITION (PR 5 Build B2a) ──────────────
+  //
+  // THE ONE PLACE THAT TURNS A POSITION INTO A TYPE. Everything on sheet 5 that refers to a
+  // hypothesis reads this array: both panels, their headings, their copy, and — via
+  // charts.types, which this is built from — the figure's two rings and their labels. That is
+  // what makes "every element agrees" a property of the construction rather than of care.
+  //
+  // WHY NOT THE SCALARS, WHICH IS THE DEFECT THIS EXISTS TO REMOVE. hero.number and
+  // alternate.number are what the ENGINE named. On a collided record call2_stamp ships
+  // confirmed_type === alternate_candidate deliberately — it flags the collision for admin
+  // review and does not hard-stop, "the client still gets a report" — so the two scalars name
+  // ONE type. typeRamp de-duplicates while placing, so position 2 falls through to the next
+  // ranked type, and PR 5 Build R moved the figure's dashed ring onto position 2. A panel built
+  // from alternate.number therefore prints "Type 9 — The Peacemaker" beside a dashed ring on
+  // node 5. MEASURED on a forced collided anders_sx9, not reasoned about. That is the default
+  // construction, not an edge case, and it is why this array exists.
+  //
+  // TWO ENTRIES, ALWAYS, AND THEY CANNOT BE THE SAME TYPE. typeRamp places heroN first, then
+  // altN, then the ranking, then 1-9, skipping anything already placed — so positions 1 and 2
+  // are distinct on every record whatever arrives, including a malformed call1_ranking. The
+  // page cannot show one hypothesis twice, and it cannot show only one.
+  //
+  // `role` TRAVELS WITH THE DATA. The builder maps over this array rather than reading [0] and
+  // [1] into two hand-written blocks, so a label and its type cannot be transposed by an edit
+  // to a template.
+  //
+  // ⚠ ADDITIVE. `alternate` below is NOT redefined and must not be: renderer.js:2285 and :2315
+  // (the v2 client report) and :1785 and :1850 (the coach report) read it, and both ship today.
+  // For a coach, "the type the engine named" remains the truth worth having; the collision's
+  // provenance reaches them through collision_flag. This array is the CLIENT's sheet-5 view.
+  //
+  // THE SUBTYPE IS NOT A THIRD HYPOTHESIS — IT IS A PROPERTY OF THE LEADING ONE, and it is
+  // expressed that way: it hangs off hypotheses[0] rather than sitting beside the pair. Two
+  // consequences, both structural. It cannot be attached to the alternate, because there is no
+  // slot there to attach it to. And it is resolved from hypotheses[0].number rather than from
+  // heroN, so the subtype and the leading hypothesis cannot name different types — they read one
+  // number. Equal on every record either way; the difference is whether that equality is
+  // guaranteed or merely observed, and this build exists because observed equality is what let a
+  // panel disagree with a ring.
+  //
+  // MOTIVATION IS LEFT null HERE. Which library field the two panels read is a content decision
+  // in flight with Cai and Mo (both panels from type_N.description.core_motivation, in second
+  // person, decided in principle). The SHAPE is settled and lands now so B2b has one thing to
+  // fill rather than a structure to invent; resolving the wrong field today would have to be
+  // undone. The type is resolved, so the copy lookup is a one-line change when the strings land.
+  const v3Hypotheses = (() => {
+    const byPos = Object.fromEntries((typeBars0 || []).map((r) => [r.position, r.type]));
+    return [
+      { role: 'leading',   position: 1 },
+      { role: 'alternate', position: 2 },
+    ].map((h) => {
+      const number = byPos[h.position] ?? null;
+      return { ...h, number, name: number != null ? (TYPE_NAMES[number] || '') : '', motivation: null };
+    });
+  })();
 
   // The three subtype rows for the hero type, RESOLVED ONCE AND CONSUMED TWICE — by p10's
   // three-column slot and by sheet 5's single-subtype slot. Hoisted out of pages.v3_instincts
@@ -285,13 +345,21 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
   // `summary` is stripped from the p10 columns below, not carried into them: p10's model slot
   // stays byte-identical to what it was before this build, which is what keeps the 32 renders
   // byte-identical.
+  //
+  // ⚠ KEYED OFF THE LEADING HYPOTHESIS, NOT heroN (PR 5 Build B2a, folded in on review). The
+  // subtype is not a third hypothesis — it is a PROPERTY OF the leading one, so it is resolved
+  // from that hypothesis's type number rather than from the scalar. The two are equal on every
+  // record, because typeRamp places heroN at position 1 unconditionally; the point is that they
+  // are equal BY CONSTRUCTION rather than by two lookups that happen to agree. p10 reads these
+  // same rows and is unaffected for exactly that reason.
+  const leadingN = v3Hypotheses[0].number ?? heroN;
   const v3SubtypeRows = ['sp', 'so', 'sx'].map((i) => {
-    const k = `subtype_${i}${heroN}`;
+    const k = `subtype_${i}${leadingN}`;
     const row = resolveLibObject(overrides, k, lib(k));
     const iv = row.instincts_v3 || {};
     return {
       instinct: i.toUpperCase(),
-      code: `${i.toUpperCase()}${heroN}`,
+      code: `${i.toUpperCase()}${leadingN}`,
       naranjo: iv.naranjo || '',
       signature: iv.signature || '',
       narrative: iv.narrative || '',
@@ -339,7 +407,7 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
     alternate: nameNode(altN),
     confidence: { label: confidenceLabel(h.confidence_level), near_tie: nearTie(h.call1_ranking) },
     svg: { type: { variant: 'type', type: heroN }, base: { variant: 'base' }, wings: { variant: 'wings-lines', type: heroN } },
-    charts: { types: typeRamp(h.call1_ranking, heroN, altN), instincts: instinctBars(h.instinct_score_profile) },
+    charts: { types: typeBars0, instincts: instinctBars(h.instinct_score_profile) },
     instinct_stack: instinctStack(h.instinct_score_profile),
     pages: {
       welcome: { greeting_name: client.first_name || '',
@@ -501,11 +569,16 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       // `Fusion`), and the article breaks on 26 of 27 ("The Appetite", "The Non-Adaptability").
       // Composing it in the builder rather than storing it keeps one source for both pages.
       v3_quickref: {
-        subtype: (() => {
+        // The two hypotheses, resolved from position. See v3Hypotheses above for why this is
+        // not sourced from hero.number / alternate.number.
+        // The two hypotheses. The client's subtype hangs off hypotheses[0] — see the note
+        // there — so sheet 5 has ONE place to read a hypothesis from, not two.
+        hypotheses: v3Hypotheses.map((hyp) => {
+          if (hyp.role !== 'leading') return hyp;
           const dom = String(instinct || '').toUpperCase();
           const own = v3SubtypeRows.find((c) => c.instinct === dom) || v3SubtypeRows[0];
-          return { instinct: own.instinct, code: own.code, naranjo: own.naranjo, signature: own.signature, summary: own.summary };
-        })(),
+          return { ...hyp, subtype: { instinct: own.instinct, code: own.code, naranjo: own.naranjo, signature: own.signature, summary: own.summary } };
+        }),
         // CMS-EDITABLE, resolved per key through `stat` (resolveLibObject resolves each child
         // as `static.<field>`), so a published override reaches this without further wiring.
         lead: stat.quickref_lead_v3 || '',
@@ -529,6 +602,30 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
   };
 
   validateModel(model, CLIENT_SPEC);
+
+  // ── SHEET 5's TWO HYPOTHESES — WARN, NEVER THROW (PR 5 Build B2a) ────────────────────────
+  //
+  // C1 (both present) and C3 (two distinct types) are guaranteed by typeRamp's de-duplication,
+  // so this cannot fire on any record the engine can produce. It is here for the case that
+  // guarantee is ever weakened — a change to typeRamp's placing order, or a caller building
+  // charts.types some other way — and it is a WARNING on purpose.
+  //
+  // NOT A THROW, and the reason is call2_stamp's: it ships imperfect records deliberately so the
+  // client still gets a report, and a fatal prep-time check here would contradict that by
+  // refusing to render a record the engine chose to send. A client with a slightly wrong sheet 5
+  // is better served than a client with no report. The hard gate belongs at render time, over
+  // the emitted page, where it can compare the rings against the panels — that is B2b's.
+  const _h = model.pages.v3_quickref.hypotheses;
+  if (!Array.isArray(_h) || _h.length !== 2) {
+    warnings.push(`v3_quickref.hypotheses is ${Array.isArray(_h) ? _h.length : 'not an array'}, expected 2 (C1)`);
+  } else {
+    if (_h[0].number == null || _h[1].number == null) {
+      warnings.push(`v3_quickref.hypotheses has an unresolved type: ${_h.map((x) => x.number).join('/')} (C1)`);
+    } else if (_h[0].number === _h[1].number) {
+      warnings.push(`v3_quickref.hypotheses names type ${_h[0].number} twice — one hypothesis wearing two labels (C3)`);
+    }
+  }
+
   model._flags = flags; model._warnings = warnings;
   return model;
 }

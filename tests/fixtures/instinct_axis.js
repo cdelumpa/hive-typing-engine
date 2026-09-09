@@ -278,8 +278,36 @@ function applyZ6(apiResult, key) {
   return out;
 }
 
+// ── THE COLLIDED RECORD (PR 5 Build B2a) ────────────────────────────────────────────────
+//
+// call2_stamp.js ships records where confirmed_type === alternate_candidate. Its Defect #3
+// guard flags the collision for admin review and deliberately does NOT hard-stop — "the client
+// still gets a report" — so this is a PRODUCTION shape, not a synthetic one. Reachable on the
+// em_only path, not merely the SM fallback.
+//
+// ⚠ THE RENDER HARNESS COULD NOT PRODUCE ONE, WHICH IS WHY THIS EXISTS. Its retype rule is
+// `alternate_candidate = (asType % 9) + 1` (scripts/render_client.js), which has NO FIXED POINT
+// on 1..9 — so across the whole 32-render matrix the collided shape had never been rendered as a
+// page, in a project whose sheet 5 has to present two hypotheses on exactly that record.
+//
+// SETS ONLY alternate_candidate, deliberately. call1_ranking is left alone: on a real collided
+// record the ranking still holds a runner-up — that is where typeRamp's position 2, and
+// therefore the figure's dashed ring and sheet 5's alternate panel, come from. Zeroing or
+// reordering the ranking would model a different failure than the one that ships.
+//
+// leading_candidate is left alone too. On a stage-4 REDIRECT it legitimately differs from
+// confirmed_type, and collapsing the two here would fold two distinct engine states into one
+// fixture and make a green run mean less than it looks like it means.
+function applyCollision(apiResult) {
+  const out = JSON.parse(JSON.stringify(apiResult));
+  out.hypothesis = out.hypothesis || {};
+  out.hypothesis.alternate_candidate = out.hypothesis.confirmed_type;
+  return out;
+}
+
 module.exports = {
   INSTINCT_PROFILES, INSTINCT_MARKUP, applyInstinct,
   STACK_EDGE_CASES, SM_BULLETS_OVER_SPEC, EM_PARAGRAPH, EM_OBSERVED_MAX,
   CMS_PREVIEW_V3_COPY, Z6_CAP_LINES, Z6_STATES, applyZ6,
+  applyCollision,
 };
