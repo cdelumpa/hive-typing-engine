@@ -280,30 +280,6 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
   const st = resolveLibObject(overrides, subtypeKey(instinct, heroN), lib(subtypeKey(instinct, heroN)));
   const stat = resolveLibObject(overrides, 'static', lib('static'));
 
-  // The three subtype rows for the hero type, RESOLVED ONCE AND CONSUMED TWICE — by p10's
-  // three-column slot and by sheet 5's single-subtype slot. Hoisted out of pages.v3_instincts
-  // at PR 5 Build A for exactly that reason: two `resolveLibObject` reads of the same key
-  // could return different values if an override landed between them, and the two pages print
-  // the same naranjo name. One read makes disagreement impossible rather than unlikely.
-  //
-  // `summary` is stripped from the p10 columns below, not carried into them: p10's model slot
-  // stays byte-identical to what it was before this build, which is what keeps the 32 renders
-  // byte-identical.
-  const v3SubtypeRows = ['sp', 'so', 'sx'].map((i) => {
-    const k = `subtype_${i}${heroN}`;
-    const row = resolveLibObject(overrides, k, lib(k));
-    const iv = row.instincts_v3 || {};
-    return {
-      instinct: i.toUpperCase(),
-      code: `${i.toUpperCase()}${heroN}`,
-      naranjo: iv.naranjo || '',
-      signature: iv.signature || '',
-      narrative: iv.narrative || '',
-      summary: (row.quickref_v3 && row.quickref_v3.summary) || '',
-    };
-  });
-  const v3SubtypeCols = v3SubtypeRows.map(({ summary, ...col }) => col);
-
   // ── SHEET 5's TWO HYPOTHESES — RESOLVED ONCE, FROM POSITION (PR 5 Build B2a) ──────────────
   //
   // THE ONE PLACE THAT TURNS A POSITION INTO A TYPE. Everything on sheet 5 that refers to a
@@ -335,6 +311,15 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
   // For a coach, "the type the engine named" remains the truth worth having; the collision's
   // provenance reaches them through collision_flag. This array is the CLIENT's sheet-5 view.
   //
+  // THE SUBTYPE IS NOT A THIRD HYPOTHESIS — IT IS A PROPERTY OF THE LEADING ONE, and it is
+  // expressed that way: it hangs off hypotheses[0] rather than sitting beside the pair. Two
+  // consequences, both structural. It cannot be attached to the alternate, because there is no
+  // slot there to attach it to. And it is resolved from hypotheses[0].number rather than from
+  // heroN, so the subtype and the leading hypothesis cannot name different types — they read one
+  // number. Equal on every record either way; the difference is whether that equality is
+  // guaranteed or merely observed, and this build exists because observed equality is what let a
+  // panel disagree with a ring.
+  //
   // MOTIVATION IS LEFT null HERE. Which library field the two panels read is a content decision
   // in flight with Cai and Mo (both panels from type_N.description.core_motivation, in second
   // person, decided in principle). The SHAPE is settled and lands now so B2b has one thing to
@@ -350,6 +335,38 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       return { ...h, number, name: number != null ? (TYPE_NAMES[number] || '') : '', motivation: null };
     });
   })();
+
+  // The three subtype rows for the hero type, RESOLVED ONCE AND CONSUMED TWICE — by p10's
+  // three-column slot and by sheet 5's single-subtype slot. Hoisted out of pages.v3_instincts
+  // at PR 5 Build A for exactly that reason: two `resolveLibObject` reads of the same key
+  // could return different values if an override landed between them, and the two pages print
+  // the same naranjo name. One read makes disagreement impossible rather than unlikely.
+  //
+  // `summary` is stripped from the p10 columns below, not carried into them: p10's model slot
+  // stays byte-identical to what it was before this build, which is what keeps the 32 renders
+  // byte-identical.
+  //
+  // ⚠ KEYED OFF THE LEADING HYPOTHESIS, NOT heroN (PR 5 Build B2a, folded in on review). The
+  // subtype is not a third hypothesis — it is a PROPERTY OF the leading one, so it is resolved
+  // from that hypothesis's type number rather than from the scalar. The two are equal on every
+  // record, because typeRamp places heroN at position 1 unconditionally; the point is that they
+  // are equal BY CONSTRUCTION rather than by two lookups that happen to agree. p10 reads these
+  // same rows and is unaffected for exactly that reason.
+  const leadingN = v3Hypotheses[0].number ?? heroN;
+  const v3SubtypeRows = ['sp', 'so', 'sx'].map((i) => {
+    const k = `subtype_${i}${leadingN}`;
+    const row = resolveLibObject(overrides, k, lib(k));
+    const iv = row.instincts_v3 || {};
+    return {
+      instinct: i.toUpperCase(),
+      code: `${i.toUpperCase()}${leadingN}`,
+      naranjo: iv.naranjo || '',
+      signature: iv.signature || '',
+      narrative: iv.narrative || '',
+      summary: (row.quickref_v3 && row.quickref_v3.summary) || '',
+    };
+  });
+  const v3SubtypeCols = v3SubtypeRows.map(({ summary, ...col }) => col);
 
   // P5 remap (store untouched): wings keyed by NUMBER -> wing_low/wing_high; lines -> line_stress/line_security.
   const wingPair = [t.wings.wing_a, t.wings.wing_b].slice().sort((a, b) => a.target_type - b.target_type);
@@ -554,12 +571,14 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       v3_quickref: {
         // The two hypotheses, resolved from position. See v3Hypotheses above for why this is
         // not sourced from hero.number / alternate.number.
-        hypotheses: v3Hypotheses,
-        subtype: (() => {
+        // The two hypotheses. The client's subtype hangs off hypotheses[0] — see the note
+        // there — so sheet 5 has ONE place to read a hypothesis from, not two.
+        hypotheses: v3Hypotheses.map((hyp) => {
+          if (hyp.role !== 'leading') return hyp;
           const dom = String(instinct || '').toUpperCase();
           const own = v3SubtypeRows.find((c) => c.instinct === dom) || v3SubtypeRows[0];
-          return { instinct: own.instinct, code: own.code, naranjo: own.naranjo, signature: own.signature, summary: own.summary };
-        })(),
+          return { ...hyp, subtype: { instinct: own.instinct, code: own.code, naranjo: own.naranjo, signature: own.signature, summary: own.summary } };
+        }),
         // CMS-EDITABLE, resolved per key through `stat` (resolveLibObject resolves each child
         // as `static.<field>`), so a published override reaches this without further wiring.
         lead: stat.quickref_lead_v3 || '',

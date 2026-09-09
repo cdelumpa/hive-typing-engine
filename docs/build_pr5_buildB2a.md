@@ -157,20 +157,41 @@ byte-neutrality of the axis (**32/32**), the v3 document renders (**0 of 10**), 
 (**0**), and all five file predictions hit. The A7 staleness (2.1–2.3) was called before the build
 and confirmed.
 
-## 6. Outstanding — nothing blocking, one thing to decide
+## 6. The subtype, folded in on review
 
-**Nothing blocks B2b that was not already known.** The panel copy is in flight with Cai and Mo and
-was explicitly not this build's.
+I asked whether the pair should carry the subtype rather than doing it unasked; the answer was yes,
+with one design note — **the subtype is not a third hypothesis, it is a property OF the leading
+one** — and how to express that was left to me.
 
-**One question I would like answered before B2b, not by it:** whether the pair should carry the
-**subtype** too. Sheet 5's subtype panel currently reads `pages.v3_quickref.subtype`, resolved from
-`display.instinct_code` — a third source. It cannot disagree with the hypotheses today because the
-subtype is always the *leading* type's, and the leading type is position 1 either way. But that is a
-convention holding, not a construction, and it is exactly the shape of the defect this build
-removed. It is one line to fold in and I did not do it unasked.
+**It hangs off `hypotheses[0]`, not beside the pair.** Two consequences, both structural rather than
+checked:
+
+* **It cannot be attached to the alternate**, because there is no slot there to attach it to.
+  `[MEASURED]`: `'subtype' in hypotheses[1]` is **false** on both record shapes.
+* **It is resolved from `hypotheses[0].number`, not from `heroN`.** The subtype rows are keyed
+  `subtype_<instinct><leadingN>`, so the subtype and the leading hypothesis read **one** number and
+  cannot name different types.
+
+Equal on every record either way — `typeRamp` places `heroN` at position 1 unconditionally. **The
+difference is whether that equality is guaranteed or merely observed**, and this build exists
+because observed equality is what let a panel disagree with a ring.
+
+The sibling `pages.v3_quickref.subtype` is **removed**, not kept as a convenience alias. Keeping it
+would have restored the two-sources problem the fold was for. `[MEASURED]`: absent from the slot;
+`hypotheses[0].subtype.code` is `SX9` against a leading type of 9 on both shapes; **p10's columns are
+unaffected** — still `SP9 / SO9 / SX9` — because it reads the same rows and `leadingN === heroN`.
+
+Re-verified after the fold: **27 tests pass**, six gates green, **35** `client_v3` renders,
+**0 of 10** v3 document renders differ from `51a85df`, library unmoved at 2112 / 796 / 1316,
+`verify:render` **56.13 s**.
+
+**Nothing blocks B2b.** The panel copy is in flight with Cai and Mo and was explicitly not this
+build's.
 
 ## 7. What B2b inherits
 
+* **The pair, with the subtype on its leading entry.** `hypotheses[0].subtype` carries
+  `{instinct, code, naranjo, signature, summary}`; there is no `pages.v3_quickref.subtype` any more.
 * **The pair, and one instruction: map over it.** Reading `hypotheses[0]` and `[1]` into two
   hand-written panel blocks would restore by hand the transposition risk `role` exists to remove.
 * **Pass `hypotheses[0].number` as the figure's `leading`.** Identical to `hero.number` on every
