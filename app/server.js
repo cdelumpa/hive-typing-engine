@@ -10016,7 +10016,9 @@ const CMS_SHARED_JS = `  function cmsCardEl(key) { return document.querySelector
       if (!fit) { f.style.display = 'none'; f.textContent = ''; }
       else {
         f.style.display = 'block';
-        f.textContent = fit.message + (fit.typesMeasured > 1 ? ' Checked on all ' + fit.typesMeasured + ' types.' : '');
+        // The verdict sentence already says where it was measured — see fitVerdict. Appending it
+        // here as well printed it twice.
+        f.textContent = fit.message;
         // ADVISORY, never blocking — the editor can still save and publish. Colour carries the
         // difference; the words carry the consequence.
         f.className = 'cmpv-fit' + (fit.ok === false ? ' cmpv-fit-warn' : (fit.ok === true ? ' cmpv-fit-ok' : ''));
@@ -14129,13 +14131,15 @@ async function cmsRenderPreviewPng(spec, value, key) {
           await page.setContent(buildClientReportHTML_v3(m2), { waitUntil: 'domcontentloaded' });
           await page.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
         }
-        const r = await page.evaluate(qrPreview.FIT_PROBE);
+        // The probe measures the EDITED zone, so the verdict can price another sentence in the
+        // units that field is actually written in.
+        const r = await page.evaluate(qrPreview.fitProbe(spec.zone));
         if (r) seen.push({ type: t, ...r });
       }
       // Worst = tallest natural stack. Ties keep the lowest type number, so the message is stable
       // between runs rather than depending on object order.
       seen.sort((a, b) => (b.natural - a.natural) || (a.type - b.type));
-      fit = qrPreview.fitVerdict(seen[0] || null);
+      fit = qrPreview.fitVerdict(seen[0] || null, { surveyed: seen.length, cap: spec.cap });
       fit.typesMeasured = seen.length;
       fit.shownType = spec.type;
     }

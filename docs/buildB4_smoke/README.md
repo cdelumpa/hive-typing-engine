@@ -27,17 +27,23 @@ colours and the page are the real thing.**
 
 | image | what it shows |
 |---|---|
-| `b4_preview_fits.png` | `subtype_sx5.quickref_v3` at its shipped value. Green: *"Fits, with 52px to spare on the tightest type (Type 5)."* |
-| `b4_preview_spills.png` | The same key with one sentence added. Amber: *"The subtype summary runs to 5 lines. Three is the most that fits — a fourth pushes the page onto a second sheet."* |
+| `b4_preview_fits.png` | `subtype_sx5.quickref_v3` at its shipped value. Green: *"Fits — using all 3 of the 3 lines available. On the Type 5 page."* |
+| `b4_preview_spills.png` | The same key with one sentence added. Amber: *"This runs to 5 lines. Three is the most that fits — a fourth pushes the page onto a second sheet. On the Type 5 page."* |
 
 **Look at the spilling one and then at the subtype box in the page beneath it.** The summary runs to
 five lines there, visibly. The verdict and the evidence for it are in the same frame.
 
 ## Two details worth noticing
 
+**The pass verdict speaks lines, not pixels — and it is the same currency the fail speaks.** An
+earlier version said *"52px to spare"*, which could lead an editor to think she had room right up
+until a sentence tripped the three-line cap. *"Using all 3 of the 3 lines available"* tells her what
+another sentence costs before she writes it.
+
 **The caption says which type the picture is.** For a static key the verdict covers all nine types
-while the image shows one — so the caption reads *"showing Type N"* and the verdict says *"on the
-tightest type"*. Without that the picture would quietly claim to be the thing that was measured.
+while the image shows one, so the caption reads *"showing Type N"* and the verdict says *"Checked on
+all 9 types"*. On a subtype key there is only ever one type, and the verdict says *"On the Type 5
+page"* rather than implying a survey that could not have happened.
 
 **The spilling example still had 14.11 px of page left.** It is flagged on **line count**, not on
 height: the summary broke its three-line bound before the page ran out of room. That is why the

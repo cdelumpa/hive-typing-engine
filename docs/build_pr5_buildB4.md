@@ -72,6 +72,46 @@ have passed it. That is why both are measured.
 **Advisory, never blocking** `[DECISION — Cai, 10 Sep]`. The wording names the consequence rather
 than a rule, which was the instruction and is the part that matters.
 
+### 3a. Both verdicts speak the currency that binds (review amendment)
+
+The first pass verdict said *"Fits, with 52px to spare"* — **and the flagged case proved that number
+misleading.** That summary was caught at five lines while it still had **14.11 px of page left**, so
+page headroom and the binding constraint are different measurements and only one of them flags.
+*"52px to spare"* could lead a coach to conclude she has room, add a sentence, and be flagged — the
+pass telling her the opposite of what the fail enforces.
+
+**Both verdicts now speak lines. But not the same lines**, and that wrinkle is worth stating: the
+three-line cap belongs to the **summary box**. For a static key like the lead, the summary's lines
+are not the editor's — reporting them would repeat the original mistake in a new unit.
+
+So each entry now names **the zone its own key renders into**, and the probe measures that zone's
+rendered lines and its computed line-height:
+
+| key | zone | bound |
+|---|---|---|
+| `subtype_*.quickref_v3` | `.v3-qr-stxt` | **cap 3** — its own hard bound |
+| `static.quickref_lead_v3` | `.lead` | the page |
+| `static.quickref_h2_v3` | `h2` | the page |
+| `static.quickref_zone8_v3` | `.v3-qr-zone8` | the page |
+| `static.quickref_tips_v3` | `.v3-qr-tgrid` | the page |
+| `static.quickref_tips_heading_v3` | `.v3-qr-tips h2` | the page |
+
+`[MEASURED]` — the verdicts as they now read:
+
+* *"Fits — using all 3 of the 3 lines available. On the Type 5 page."*
+* *"Fits — using 2 of the 3 lines available. On the Type 5 page."*
+* *"This runs to 5 lines. Three is the most that fits — a fourth pushes the page onto a second
+  sheet. On the Type 5 page."*
+* *"Fits — using 2 lines, with room for about 2 more lines before the page runs onto a second sheet.
+  Checked on all 9 types; Type 1 is tightest."*
+* *"This will push the page onto a second sheet — 57px past the bottom. Checked on all 9 types;
+  Type 1 is tightest."*
+
+**And the survey clause no longer claims a survey that did not happen.** *"the tightest type"* on a
+subtype key implied nine were compared; SX5 appears on exactly one type's sheet, so there is one
+type, not a tightest one. Static keys still say *"Checked on all 9 types; Type N is tightest"*,
+because there the survey is real and is the point.
+
 **Does NOT cover — and this does not close IO-93.** It catches what someone **previews**. A
 published override that was never previewed still reaches production unmeasured. The downstream
 half is a check over *published* overrides, which belongs with `overrides_check.js` and is its own
