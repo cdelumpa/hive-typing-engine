@@ -26,7 +26,7 @@ const R = require(path.join(ROOT, 'app/renderer.js'));
 // The instinct axis (PR 4 step 2). Defined in tests/fixtures/ so the harness and
 // tests/instinct_axis_test.js share one definition and cannot drift; this script already
 // requires fixtures from there.
-const { applyInstinct, INSTINCT_MARKUP, applyZ6, Z6_STATES, Z6_CAP_LINES } =
+const { applyInstinct, INSTINCT_MARKUP, applyZ6, Z6_STATES, Z6_CAP_LINES, applyCollision } =
   require(path.join(ROOT, 'tests/fixtures/instinct_axis.js'));
 
 const PAGE_PX = 1056; // US Letter 11in @96dpi
@@ -227,6 +227,30 @@ const REPORTS = {
     z6For: (fx) => (fx === 'sp4'
       ? ['sp4_real', 'sm_bullets', 'em_paragraph', 'em_observed_max', 'cms_preview']
       : [null]),
+
+    // ── The collision axis (PR 5 Build B2a) ───────────────────────────────────────────
+    //
+    // A record whose two hypothesis scalars name the same type. call2_stamp.js ships these
+    // deliberately (Defect #3: flag for admin review, do not hard-stop), so it is a PRODUCTION
+    // shape — and until this axis the harness could not make one: the retype rule at
+    // `alternate_candidate = (asType % 9) + 1` has no fixed point on 1..9. The hardest record
+    // for sheet 5's outcome had never been rendered as a page.
+    //
+    // ONE (fixture, type) PAIR, NOT A SWEEP, and the arithmetic is the argument. What a
+    // collided record changes about the DOCUMENT is confined to sheet 5's two hypotheses, and
+    // sheet 5 is not built yet — so today this axis renders the shape and proves the model
+    // carries it. The nine-way sweep that matters is the FIGURE's, and scripts/verify_diagrams.js
+    // already does it: 1x1 through 9x9, asserting the dashed ring lands on position 2's node.
+    // Duplicating that here would spend renders re-proving a geometry another gate owns.
+    //
+    // anders_sx9 at its OWN type, not a re-typed one. The re-typed clones already carry a
+    // synthetic alternate; collapsing a synthetic alternate onto a synthetic leading would
+    // model a fixture artefact rather than the engine state. At asType 9 the retype is a no-op
+    // on the fields this axis touches, so the collision is applied to the fixture's real shape.
+    //
+    // `null` is the ABSENCE of the axis, not a state — every render that existed before this
+    // is byte-identical, which is asserted by diff rather than assumed.
+    collidedFor: (fx, asType) => ((fx === 'anders_sx9' && asType === 9) ? [null, 'collided'] : [null]),
   },
   coach: {
     build: async (apiResult) => R.buildCoachReportHTML(await prep.buildCoachModel({ apiResult, client, coach })),
@@ -438,10 +462,25 @@ async function measureLayout(page, selector) {
                + `${rank.length ? rank[0].type : 'ABSENT'}, expected ${asType} — the heat map's `
                + `brightest node would not be this page's type`);
           }
+          // ⚠ THE STATED REASON BELOW IS STALE AS OF PR 5 BUILD R, and the clause is kept for a
+          // narrower one. It used to say that a mismatch meant "the ALTERNATE ring and the ramp
+          // ordering would disagree" — true when the ring read alternate_candidate. The ring now
+          // reads POSITION 2, i.e. it reads the ramp ordering itself, so those two CANNOT
+          // disagree any more. What survives is a fixture-sanity check: that the retype helper
+          // left this clone coherent. Kept at that narrower value, said out loud rather than
+          // left to read as a guarantee it no longer provides.
+          //
+          // NO EXEMPTION IS NEEDED FOR THE COLLISION AXIS, and it is worth saying why rather
+          // than leaving it to be rediscovered. This clause reads `retyped`, which is UPSTREAM of
+          // applyCollision — the collision is applied inside the z6 loop below, on a further
+          // clone. So A7 never sees a collided record. Had it run downstream it would have had to
+          // be exempted, because a collided record has alternate_candidate === position 1 and
+          // therefore differs from the ranking's runner-up BY CONSTRUCTION — the engine state
+          // call2_stamp ships, not a broken fixture.
           if (rank.length > 1 && rank[1].type !== h.alternate_candidate) {
             fail(`A7 ${fx} asType ${asType}: call1_ranking position 2 is ${rank[1].type} but `
-               + `alternate_candidate is ${h.alternate_candidate} — the ALTERNATE ring and the `
-               + `ramp ordering would disagree`);
+               + `alternate_candidate is ${h.alternate_candidate} — the retype left this clone `
+               + `incoherent (fixture sanity; the ring itself reads position 2 as of Build R)`);
           }
         }
         // Applied on top of the re-typed clone, and only when a profile is named. Overrides
@@ -453,8 +492,13 @@ async function measureLayout(page, selector) {
         // Z6 sits INSIDE the instinct loop and defaults to [null] — "the fixture's own
         // instinct_evidence, untouched" — so every render that existed before this axis is
         // unchanged by it.
-        const apiResult = z6Key == null ? withInstinct : applyZ6(withInstinct, z6Key);
-        console.log(`\n=== ${fx}${asType == null ? '' : ` as Type ${asType}`}${instKey == null ? '' : ` · ${instKey}`}${z6Key == null ? '' : ` · Z6:${z6Key}`} · ${kind} ===`);
+        const withZ6 = z6Key == null ? withInstinct : applyZ6(withInstinct, z6Key);
+       for (const collKey of (cfg.collidedFor ? cfg.collidedFor(fx, asType) : [null])) {
+        // Innermost, and defaulting to [null] for the same reason the two axes above do: the
+        // object handed to cfg.build is exactly what it was before this axis existed on every
+        // render that predates it.
+        const apiResult = collKey == null ? withZ6 : applyCollision(withZ6);
+        console.log(`\n=== ${fx}${asType == null ? '' : ` as Type ${asType}`}${instKey == null ? '' : ` · ${instKey}`}${z6Key == null ? '' : ` · Z6:${z6Key}`}${collKey == null ? '' : ' · COLLIDED'} · ${kind} ===`);
         let html;
         try {
           html = await cfg.build(apiResult);
@@ -501,8 +545,12 @@ async function measureLayout(page, selector) {
             else console.log(`  instinct markup (${key}): ${want}`);
           }
         }
+        // Every axis that varies a render must appear in the tag, or two renders write to one
+        // path and the second silently replaces the first. Caught here by adding an axis: without
+        // the collided segment the collided render and its own control shared a filename, so the
+        // artifact a reviewer opened would have been whichever ran last.
         const tag = (asType == null ? fx : `${fx}_t${asType}`) + (instKey == null ? '' : `_${instKey}`)
-                  + (z6Key == null ? '' : `_z6-${z6Key}`);
+                  + (z6Key == null ? '' : `_z6-${z6Key}`) + (collKey == null ? '' : '_collided');
         fs.writeFileSync(path.join(OUT, `${kind}_${tag}.html`), html);
 
         const page = await browser.newPage();
@@ -738,6 +786,7 @@ async function measureLayout(page, selector) {
         await page.pdf({ path: path.join(OUT, `${kind}_${tag}.pdf`), ...R.buildCoachPdfOptions() });
         await page.close();
         console.log(`  logical pages: ${pages.length} · estimated physical sheets: ${sheets} · wrote .phase6_out/${kind}_${tag}.pdf`);
+       }
        }
        }
       }
