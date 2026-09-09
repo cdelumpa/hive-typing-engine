@@ -1510,11 +1510,44 @@ const INTERIM_QUICKREF_STATIC_V3 = {
   lead: "A single-page summary of your assessment results. You'll find a more detailed description of your leading type hypothesis and its dynamics on the following pages.",
   h2: 'How the Nine Types Show Up',
   zone8: "We all have access to all nine types, and most of us have one home base we return to. Your responses point to the candidates marked here — worth exploring with your coach, especially if parts of the description don't quite fit.",
+  // STRUCTURED, NOT A MARKED-UP STRING. Each tip renders as a bold lead-in followed by a body
+  // (`<b>Bring what didn't land.</b> The parts that felt wrong…`), and Build A stored the
+  // flattened textContent, losing the split.
+  //
+  // ⚠ THE SPLIT IS STORED, NOT RECONSTRUCTED, AND THE TWO REJECTED ALTERNATIVES ARE WHY.
+  //
+  //   · Splitting on the first period WORKS ON ALL FOUR STRINGS TODAY — verified — and that is
+  //     exactly what makes it dangerous. It is the invented-rule class that produced the three
+  //     character ceilings struck by design spec §7.4: a rule that fits the current sample,
+  //     gets written down, and is disproved later. A lead-in carrying an abbreviation, a
+  //     decimal or a question mark breaks it silently inside a client PDF.
+  //   · A SENTINEL in one string — the shape splitWingBest (report_prep.js:32) uses for the
+  //     wings' "At their best:" — is better but still wrong here: these four are CMS-editable,
+  //     and a coach who deletes the marker while editing turns a parse into a page. Nothing
+  //     should have to hold a marker that a person can remove.
+  //
+  // Two stored values need neither. array[4] of {lead, body} follows
+  // static.instinct_definitions_v3, which is already an array of objects and already
+  // CMS-editable, so this shape has precedent rather than inventing one.
+  //
+  // ⚠ FREE ONLY BECAUSE NOTHING HAS PUBLISHED AGAINST THE OLD SHAPE. assertOverrideShape
+  // rejects a published override in BOTH directions — a missing leaf and one "present only in
+  // the override" — so reshaping a live key breaks the coach who edited it. Checked against the
+  // deploy target before this landed: content_overrides is EMPTY, no published rows and no
+  // draft rows. The key shipped one day earlier. A week later this is a migration.
+  //
+  // LIFTED SELECTOR-MATCHED from the mockup's raw markup — `.ttxt[i] > b` for the lead, the
+  // remaining sibling nodes for the body — never re-typed, and each pair verified to rejoin
+  // into exactly the string Build A stored.
   tips: [
-    "Bring what didn't land. The parts that felt wrong are as useful to your coach as the parts that felt true.",
-    'Come with examples, not conclusions. A recent situation you can describe is worth more than a verdict.',
-    'Ask about the alternate. If a second pattern scored close, that is a conversation, not a loose end.',
-    'Pick one thing to work on. You do not need to act on all of it. One growing edge is enough to start.',
+    { lead: "Bring what didn't land.",
+      body: 'The parts that felt wrong are as useful to your coach as the parts that felt true.' },
+    { lead: 'Come with examples, not conclusions.',
+      body: 'A recent situation you can describe is worth more than a verdict.' },
+    { lead: 'Ask about the alternate.',
+      body: 'If a second pattern scored close, that is a conversation, not a loose end.' },
+    { lead: 'Pick one thing to work on.',
+      body: 'You do not need to act on all of it. One growing edge is enough to start.' },
   ],
   // The second <h2>. PROSE, so CMS-editable under the same rule as `h2` above — it is a
   // sentence a reader reads, not a structural label. It gets its OWN flat sibling rather than
@@ -2222,8 +2255,14 @@ function validateSubtype(key, st) {
   for (const k of ['quickref_lead_v3', 'quickref_h2_v3', 'quickref_zone8_v3', 'quickref_tips_heading_v3']) {
     need(typeof S[k] === 'string' && S[k].trim(), `static.${k} empty`);
   }
-  need(Array.isArray(S.quickref_tips_v3) && S.quickref_tips_v3.length === 4 && S.quickref_tips_v3.every(t => typeof t === 'string' && t.trim()),
-    `static.quickref_tips_v3 must be exactly 4 non-empty (got ${Array.isArray(S.quickref_tips_v3) ? S.quickref_tips_v3.length : 'none'})`);
+  // Both leaves are required on every tip. A tip with a lead and no body renders as a bold
+  // fragment with nothing after it, which reads as truncation rather than as a missing field.
+  need(Array.isArray(S.quickref_tips_v3) && S.quickref_tips_v3.length === 4,
+    `static.quickref_tips_v3 must be exactly 4 (got ${Array.isArray(S.quickref_tips_v3) ? S.quickref_tips_v3.length : 'none'})`);
+  (S.quickref_tips_v3 || []).forEach((t, i) => {
+    need(t && typeof t.lead === 'string' && t.lead.trim(), `static.quickref_tips_v3[${i}].lead empty`);
+    need(t && typeof t.body === 'string' && t.body.trim(), `static.quickref_tips_v3[${i}].body empty`);
+  });
   // The four label keys are named individually. A `length === 5` check would pass if a key
   // were renamed, and a renamed label renders as `undefined` on a client page.
   for (const k of ['pick_leading', 'pick_alternate', 'panel_instincts', 'panel_subtype']) {
