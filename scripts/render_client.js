@@ -30,6 +30,33 @@ const { applyInstinct, INSTINCT_MARKUP, applyZ6, Z6_STATES, Z6_CAP_LINES, applyC
   require(path.join(ROOT, 'tests/fixtures/instinct_axis.js'));
 
 const PAGE_PX = 1056; // US Letter 11in @96dpi
+
+// ── SHEET 5'S FIT ASSERTIONS (PR 5 Build B3, F1-F4) ──────────────────────────────────────────
+// The measurements live in scripts/lib/quickref_fit.js so a test can exercise the pure halves; the
+// EDITOR'S definition of "fits" is imported from app/cms_quickref_preview.js and not restated
+// here. A gate that re-derived `cap` or re-implemented the line count would give us two
+// definitions that agree until they don't, which is the failure this build exists to prevent.
+const QF = require(path.join(ROOT, 'scripts/lib/quickref_fit.js'));
+const pdfLib = require(path.join(ROOT, 'scripts/lib/pdf_pages.js'));
+const qrPreview = require(path.join(ROOT, 'app/cms_quickref_preview.js'));
+const QR_CAP = qrPreview.subtypeEntry().cap;
+
+/**
+ * Sibling boxes that are ALLOWED to overlap on sheet 5.
+ *
+ * EMPTY, AND MEANT TO STAY THAT WAY. The generic sweep is the half of F3 that catches what nobody
+ * thought of, and an allowlist is where a gate like that goes to die one entry at a time. Every
+ * entry must say why the overlap is intentional, and adding one is a diff a reviewer sees. If this
+ * ever reaches four entries the sweep has stopped being an assertion and should be reported as
+ * such rather than extended again.
+ *
+ * (`.v3-qr-zone8`'s `margin:-6px` was expected to appear here and does not: a negative top margin
+ * CLOSES a gap, it does not create an overlap. Measured 0 overlaps across all 35 renders.)
+ */
+const QR_OVERLAP_ALLOWED = [];
+
+/** Every sheet-5 measurement, one row per render, read back after the loops for F1/F2/F4. */
+const QR_ROWS = [];
 const OUT = path.join(ROOT, '.phase6_out');
 if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
 
@@ -713,6 +740,38 @@ async function measureLayout(page, selector) {
               fail(`C4 ${tag}: both panels carry identical copy — the alternate panel is showing the leading hypothesis's words`);
             }
           }
+
+          // ── F1/F2/F3/F4 — THE FIT ASSERTIONS (PR 5 Build B3) ────────────────────────
+          //
+          // The outcome: the page a client receives is whole — one sheet, nothing crowded,
+          // nothing cut off — no matter what changed upstream since it was designed.
+          //
+          // F1 (one sheet) was ALREADY BUILT: enforceSheet at the top of this loop fails any
+          // v3 page past 1056px. Restating it here would be a second assertion that is true
+          // because the first one is. What is added instead is the thing the binary cannot
+          // do — record how much room is left, and hold a floor well above zero so a slow
+          // slide is visible in a diff instead of arriving as a cliff.
+          const qf = await QF.measureSheet(page);
+          // The editor's own probe, run alongside the gate's, so F4a can compare two counts
+          // rather than trusting that one method was used in two places.
+          const probe = qf ? await page.evaluate(qrPreview.fitProbe('.v3-qr-stxt')) : null;
+          // The page's own bound, found by PUSHING the page until it spills rather than by
+          // dividing headroom by a line height: while the instincts panel is the taller of the
+          // two flex halves a summary line costs the page nothing at all (measured, one line to
+          // two costs 3.50px, not 18.75px), so the arithmetic version is wrong by a line for
+          // exactly the records with the shortest summaries.
+          const pb = qf ? await QF.probePageBound(page, PAGE_PX, QR_CAP + 3) : null;
+          for (const msg of QF.judgeSheet({ tag, m: qf, probeLines: probe ? probe.zoneLines : null,
+                                            bound: pb, cap: QR_CAP })) fail(msg);
+          for (const msg of QF.judgeOverlaps({ tag, m: qf, allowed: QR_OVERLAP_ALLOWED })) fail(msg);
+          if (qf) {
+            QR_ROWS.push({ tag, type: asType, headroom: +(PAGE_PX - qf.natural).toFixed(2),
+              lines: qf.summaryLines, chars: qf.summaryChars, code: qf.subtypeCode,
+              lineHeight: qf.lineHeight, gap: qf.clearance ? qf.clearance.worst.gap : null,
+              ratio: qf.clearance ? qf.clearance.ratio : null,
+              overlaps: qf.overlaps.length, bound: pb ? pb.bound : null,
+              freeAtBound: pb ? pb.freeAtBound : null });
+          }
         }
 
         // ── §6 last-line fill outliers — REPORT-ONLY ──────────────────────────────
@@ -880,9 +939,40 @@ async function measureLayout(page, selector) {
             }
           }
         }
-        await page.pdf({ path: path.join(OUT, `${kind}_${tag}.pdf`), ...R.buildCoachPdfOptions() });
+        const pdfBuf = await page.pdf({ path: path.join(OUT, `${kind}_${tag}.pdf`), ...R.buildCoachPdfOptions() });
+        // ── THE PDF ITSELF, NOT THE DOM PROXY (PR 5 Build B3) ──────────────────────────
+        //
+        // Everything above measures Chromium's screen layout and compares it to 1056px. The
+        // client receives THIS file. Until now it was written and never opened, and "estimated
+        // physical sheets" below is exactly that — an estimate, ceil(height/1057).
+        //
+        // COMPARED AGAINST THE DOM'S OWN PREDICTION, NOT AGAINST THE LOGICAL PAGE COUNT, and
+        // the difference is the whole point. `sheets` is what the proxy PREDICTS this file will
+        // be — the sum of ceil(height/1057) over the pages. The PDF is what it IS. Asserting
+        // they match validates the proxy against the artefact in both directions:
+        //
+        //   · a page that fits in the DOM and paginates differently in print (margins, scale,
+        //     a print-only rule) shows up as MORE sheets than predicted, and
+        //   · a Z6 hazard state DECLARED to spill whose PDF quietly comes back at one sheet
+        //     per page shows up as fewer — which would mean the PDF path was not reproducing
+        //     the spill at all, and the declaration was being validated against nothing.
+        //
+        // This first ran expecting `pages.length` and failed on sp4_t4_z6-em_paragraph, which
+        // is DECLARED to spill: 11 logical pages, 12 sheets, correctly. The expectation was
+        // wrong, not the render.
+        //
+        // Enforced only where page spill is already a contract (client and client_v3); the
+        // coach report's .report-page flows by design, so a coach PDF legitimately runs long
+        // and asserting otherwise would be inventing a requirement.
+        const pdfPages = pdfLib.readPageCount(pdfBuf);
+        if (cfg.enforceSheet) {
+          const bad = pdfLib.checkPageCount(pdfBuf, sheets, `PDF ${kind} ${tag}`);
+          if (bad) fail(bad);
+        }
         await page.close();
-        console.log(`  logical pages: ${pages.length} · estimated physical sheets: ${sheets} · wrote .phase6_out/${kind}_${tag}.pdf`);
+        console.log(`  logical pages: ${pages.length} · estimated physical sheets: ${sheets} · `
+          + `PDF sheets: ${pdfPages.pages}${pdfPages.count == null ? '' : ` (/Count ${pdfPages.count})`} · `
+          + `wrote .phase6_out/${kind}_${tag}.pdf`);
        }
        }
        }
@@ -890,6 +980,39 @@ async function measureLayout(page, selector) {
      }
     }
   } finally { await browser.close(); }
+
+  // ── SHEET 5'S FIT SUMMARY, ACROSS EVERY RENDER (PR 5 Build B3) ───────────────────────────
+  //
+  // The per-render checks above catch a page that is already wrong. These catch the slide
+  // towards it, and the coverage claim that the per-render checks cannot make about themselves.
+  if (QR_ROWS.length) {
+    const num = (xs) => xs.filter((x) => typeof x === 'number');
+    const headrooms = num(QR_ROWS.map((r) => r.headroom));
+    const minRoom = Math.min(...headrooms);
+    const maxRoom = Math.max(...headrooms);
+    const mean = headrooms.reduce((a, b) => a + b, 0) / headrooms.length;
+    const lh = QR_ROWS.find((r) => r.lineHeight)?.lineHeight ?? null;
+    const gaps = num(QR_ROWS.map((r) => r.gap));
+    const ratios = num(QR_ROWS.map((r) => r.ratio));
+    const bounds = num(QR_ROWS.map((r) => r.bound));
+    const codes = [...new Set(QR_ROWS.map((r) => r.code).filter(Boolean))].sort();
+    const tightest = QR_ROWS.filter((r) => r.headroom === minRoom);
+
+    console.log('\n=== SHEET 5 FIT (PR 5 Build B3) ===');
+    console.log(`  renders                ${QR_ROWS.length}`);
+    console.log(`  page headroom          min ${minRoom.toFixed(2)}px · mean ${mean.toFixed(2)}px · max ${maxRoom.toFixed(2)}px`);
+    console.log(`  tightest on            ${tightest.length} render(s), types ${[...new Set(tightest.map((r) => r.type))].join(',')}`);
+    console.log(`  summary lines          ${Math.min(...num(QR_ROWS.map((r) => r.lines)))}-${Math.max(...num(QR_ROWS.map((r) => r.lines)))} (limit ${QR_CAP}), line height ${lh}px`);
+    console.log(`  distinct summaries     ${codes.length} — ${codes.join(' ')}`);
+    console.log(`  label vs legend        min gap ${Math.min(...gaps)} user units · min ratio ${Math.min(...ratios)} ems`);
+    console.log(`  sibling overlaps       ${QR_ROWS.reduce((a, r) => a + r.overlaps, 0)}`);
+    console.log(`  page's own line bound  ${Math.min(...bounds)}-${Math.max(...bounds)} lines (limit ${QR_CAP}, slack ${Math.min(...bounds) - QR_CAP})`);
+
+    // F1's floor and F2's coverage claim. Both predicates live in quickref_fit.js so the
+    // self-test drives the real ones; see judgeAcross for why the floor is one summary line.
+    for (const msg of QF.judgeAcross({ rows: QR_ROWS, expectedSummaries: 27 })) fail(msg);
+  }
+
   if (failed) { console.log('\nRENDER CHECK: FAILURES ABOVE.'); process.exit(1); }
   console.log('\nRENDER CHECK: ALL PASSED.');
 })().catch(e => { console.error('RENDER FAILED:', e.stack || e.message); process.exit(1); });
