@@ -35,6 +35,10 @@ const { buildCoachPdfOptions, HIVE_LOGO_SVG, buildClientReportHTML, buildClientR
 const { renderClientReport, renderCoachReport } = require('./render_report');
 const { buildBetaData, BETA_QUESTION_TEXT } = require('./generate_report');
 const reportPrep = require('./report_prep');          // buildClientModel — for /admin/content preview
+// Sheet 5's preview entries and fit check (PR 5 Build B4). Born in their own module rather than
+// here: server.js exports nothing and calls app.listen() at require time, so nothing in it can be
+// tested. Moving the EXISTING CMS surface out is PR 7's card; not adding to it is this build's.
+const qrPreview = require('./cms_quickref_preview');
 const { TYPE_NAMES: CMS_TYPE_NAMES, INSTINCT_NAME: EM_INSTINCT_NAME } = require('./type_meta');  // canonical type/instinct names (distinct from the dashboard's local TYPE_NAMES)
 const db = require('./db');
 const browserLaunch = require('./browser_launch');    // single Chromium launch path (pinned bundled build) + font assertion
@@ -9995,13 +9999,31 @@ const CMS_SHARED_JS = `  function cmsCardEl(key) { return document.querySelector
       .then(function (r) { return r.json(); })
       .then(function (res) {
         if (btn) { btn.disabled = false; btn.textContent = orig; }
-        if (res.ok) { cmsShowPreview(res.png, res.page); } else { alert(res.error || 'Preview failed'); }
+        if (res.ok) { cmsShowPreview(res.png, res.page, res.fit); } else { alert(res.error || 'Preview failed'); }
       })
       .catch(function () { if (btn) { btn.disabled = false; btn.textContent = orig; } alert('Preview request failed'); });
   }
-  function cmsShowPreview(png, label) {
+  function cmsShowPreview(png, label, fit) {
     var m = document.getElementById('cms-preview-modal'); if (!m) return;
-    m.querySelector('.cmpv-cap').textContent = label || 'Preview';
+    // THE CAPTION NAMES THE TYPE IN THE PICTURE. The fit verdict below covers every type the
+    // string reaches, which is usually not the one shown — so the caption has to say which page
+    // this is, or the image quietly claims to be the thing that was measured.
+    var cap = label || 'Preview';
+    if (fit && fit.shownType) cap += ' \u00b7 showing Type ' + fit.shownType;
+    m.querySelector('.cmpv-cap').textContent = cap;
+    var f = m.querySelector('.cmpv-fit');
+    if (f) {
+      if (!fit) { f.style.display = 'none'; f.textContent = ''; }
+      else {
+        f.style.display = 'block';
+        // The verdict sentence already says where it was measured — see fitVerdict. Appending it
+        // here as well printed it twice.
+        f.textContent = fit.message;
+        // ADVISORY, never blocking — the editor can still save and publish. Colour carries the
+        // difference; the words carry the consequence.
+        f.className = 'cmpv-fit' + (fit.ok === false ? ' cmpv-fit-warn' : (fit.ok === true ? ' cmpv-fit-ok' : ''));
+      }
+    }
     m.querySelector('.cmpv-img').src = png;
     m.style.display = 'flex';
   }
@@ -10267,6 +10289,11 @@ function renderContentPage(overrides, req) {
   .cmpv-panel { background: #fff; border-radius: 8px; padding: 14px; max-height: 94vh; display: flex; flex-direction: column; box-shadow: 0 12px 48px rgba(0,0,0,.4); }
   .cmpv-head { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 10px; }
   .cmpv-cap { font-size: 13px; font-weight: 700; color: #1A2B33; }
+  /* The fit verdict (PR 5 Build B4). ADVISORY: it never blocks a save — colour carries the
+     difference, the words carry the consequence. */
+  .cmpv-fit { display: none; margin: 8px 0 0; padding: 8px 11px; border-radius: 5px; font-size: 12.5px; line-height: 1.45; font-family: Georgia, serif; }
+  .cmpv-fit-ok { background: #EEF7EE; color: #2D7A2D; border: 1px solid #CBE4CB; }
+  .cmpv-fit-warn { background: #FDF1E7; color: #A8560B; border: 1px solid #F0D3B4; }
   .cmpv-close { font-family: Georgia, serif; font-size: 12px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
   .cmpv-img { max-height: 86vh; max-width: 86vw; width: auto; height: auto; border: 1px solid #E2E6EA; }
   ${CMS_DROPDOWN_CSS}
@@ -10296,6 +10323,7 @@ function renderContentPage(overrides, req) {
 <div id="cms-preview-modal" class="cmpv-overlay" style="display:none" onclick="if(event.target===this)cmsClosePreview()">
   <div class="cmpv-panel">
     <div class="cmpv-head"><span class="cmpv-cap"></span><button type="button" class="cmpv-close" onclick="cmsClosePreview()">✕ Close</button></div>
+    <div class="cmpv-fit"></div>
     <img class="cmpv-img" alt="page preview">
   </div>
 </div>
@@ -10577,6 +10605,11 @@ function renderSubtypesPage(overrides, req) {
   .cmpv-panel { background: #fff; border-radius: 8px; padding: 14px; max-height: 94vh; display: flex; flex-direction: column; box-shadow: 0 12px 48px rgba(0,0,0,.4); }
   .cmpv-head { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 10px; }
   .cmpv-cap { font-size: 13px; font-weight: 700; color: #1A2B33; }
+  /* The fit verdict (PR 5 Build B4). ADVISORY: it never blocks a save — colour carries the
+     difference, the words carry the consequence. */
+  .cmpv-fit { display: none; margin: 8px 0 0; padding: 8px 11px; border-radius: 5px; font-size: 12.5px; line-height: 1.45; font-family: Georgia, serif; }
+  .cmpv-fit-ok { background: #EEF7EE; color: #2D7A2D; border: 1px solid #CBE4CB; }
+  .cmpv-fit-warn { background: #FDF1E7; color: #A8560B; border: 1px solid #F0D3B4; }
   .cmpv-close { font-family: Georgia, serif; font-size: 12px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
   .cmpv-img { max-height: 86vh; max-width: 86vw; width: auto; height: auto; border: 1px solid #E2E6EA; }
   ${CMS_DROPDOWN_CSS}
@@ -10600,6 +10633,7 @@ function renderSubtypesPage(overrides, req) {
 <div id="cms-preview-modal" class="cmpv-overlay" style="display:none" onclick="if(event.target===this)cmsClosePreview()">
   <div class="cmpv-panel">
     <div class="cmpv-head"><span class="cmpv-cap"></span><button type="button" class="cmpv-close" onclick="cmsClosePreview()">✕ Close</button></div>
+    <div class="cmpv-fit"></div>
     <img class="cmpv-img" alt="page preview">
   </div>
 </div>
@@ -10864,6 +10898,11 @@ function renderTypesPage(overrides, req) {
   .cmpv-panel { background: #fff; border-radius: 8px; padding: 14px; max-height: 94vh; display: flex; flex-direction: column; box-shadow: 0 12px 48px rgba(0,0,0,.4); }
   .cmpv-head { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 10px; }
   .cmpv-cap { font-size: 13px; font-weight: 700; color: #1A2B33; }
+  /* The fit verdict (PR 5 Build B4). ADVISORY: it never blocks a save — colour carries the
+     difference, the words carry the consequence. */
+  .cmpv-fit { display: none; margin: 8px 0 0; padding: 8px 11px; border-radius: 5px; font-size: 12.5px; line-height: 1.45; font-family: Georgia, serif; }
+  .cmpv-fit-ok { background: #EEF7EE; color: #2D7A2D; border: 1px solid #CBE4CB; }
+  .cmpv-fit-warn { background: #FDF1E7; color: #A8560B; border: 1px solid #F0D3B4; }
   .cmpv-close { font-family: Georgia, serif; font-size: 12px; font-weight: 700; color: #c0392b; background: transparent; border: 1px solid #e3b7b1; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
   .cmpv-img { max-height: 86vh; max-width: 86vw; width: auto; height: auto; border: 1px solid #E2E6EA; }
   ${CMS_DROPDOWN_CSS}
@@ -10887,6 +10926,7 @@ function renderTypesPage(overrides, req) {
 <div id="cms-preview-modal" class="cmpv-overlay" style="display:none" onclick="if(event.target===this)cmsClosePreview()">
   <div class="cmpv-panel">
     <div class="cmpv-head"><span class="cmpv-cap"></span><button type="button" class="cmpv-close" onclick="cmsClosePreview()">✕ Close</button></div>
+    <div class="cmpv-fit"></div>
     <img class="cmpv-img" alt="page preview">
   </div>
 </div>
@@ -13947,10 +13987,13 @@ function cmsPreviewSpec(key) {
     // writing, with no naming convention to remember and no regex to keep in step.
     'static.instinct_definitions_v3': { page: P10, selector: P10_SEL, doc: 'v3',
       apply: (m, v) => { m.pages.v3_instincts.definitions = v; } },
+    // Sheet 5's five static keys (PR 5 Build B4). Defined in app/cms_quickref_preview.js so a
+    // test can reach them; spread here so cmsPreviewSpec keeps the shape it already had.
+    ...qrPreview.STATIC_ENTRIES,
   };
   if (STATIC[key]) return { ...STATIC[key], type: 9, instinct: 'SP' };
 
-  let mm = /^subtype_(sp|so|sx)([1-9])\.(tagline|narrative|patterns|shifts|instincts_v3)$/.exec(key);
+  let mm = /^subtype_(sp|so|sx)([1-9])\.(tagline|narrative|patterns|shifts|instincts_v3|quickref_v3)$/.exec(key);
   if (mm) {
     const instinct = mm[1].toUpperCase(), N = +mm[2], field = mm[3];
     const SUB = {
@@ -13976,6 +14019,10 @@ function cmsPreviewSpec(key) {
           narrative: v.narrative != null ? v.narrative : col.narrative,
         });
       } },
+      // Sheet 5's 27 summaries (PR 5 Build B4). The apply lives in app/cms_quickref_preview.js;
+      // `type: N, instinct` below seeds the preview fixture, so the page rendered is the EDITED
+      // subtype's — editing subtype_so7.quickref_v3 previews an SO-primary Type 7 sheet 5.
+      quickref_v3: qrPreview.subtypeEntry(),
     };
     return { ...SUB[field], type: N, instinct };
   }
@@ -14031,7 +14078,7 @@ function cmsPreviewApiResult(N, instinct) {
   };
 }
 
-async function cmsRenderPreviewPng(spec, value) {
+async function cmsRenderPreviewPng(spec, value, key) {
   const apiResult = cmsPreviewApiResult(spec.type, spec.instinct);
   const client = { first_name: 'Preview', last_name: 'Sample', date: 'June 2026' };
   const coach = { full_name: '', type: null, instinct: null };
@@ -14059,7 +14106,44 @@ async function cmsRenderPreviewPng(spec, value) {
     const el = await page.$(spec.selector);
     if (!el) throw new Error('preview page element not found: ' + spec.selector);
     const buf = await el.screenshot({ type: 'png' });
-    return 'data:image/png;base64,' + buf.toString('base64');
+    const png = 'data:image/png;base64,' + buf.toString('base64');
+
+    // ── FIT (PR 5 Build B4) ────────────────────────────────────────────────────────────────
+    //
+    // Measured on the WORST type the edited string reaches, not on the type in the picture. A
+    // static key previews at Type 9 (73.86px free) while Type 1 has 51.61px; reporting the
+    // previewed number would ask a content editor to know that and discount for it. The image
+    // is labelled with the type it depicts so the two are never confused.
+    //
+    // A subtype summary appears on exactly one type's sheet, so its own type IS the worst case
+    // and the sweep is skipped — not a shortcut, the whole population.
+    //
+    // The page is already open and warm: nine setContent+measure passes were MEASURED at 0.3s.
+    let fit = null;
+    if (spec.fit) {
+      const sweep = spec.instinct && String(key || '').startsWith('subtype_') ? [spec.type] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+      const seen = [];
+      for (const t of sweep) {
+        if (t !== spec.type) {
+          const m2 = await reportPrep.buildClientModel({
+            apiResult: cmsPreviewApiResult(t, spec.instinct), client, coach });
+          spec.apply(m2, value);
+          await page.setContent(buildClientReportHTML_v3(m2), { waitUntil: 'domcontentloaded' });
+          await page.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
+        }
+        // The probe measures the EDITED zone, so the verdict can price another sentence in the
+        // units that field is actually written in.
+        const r = await page.evaluate(qrPreview.fitProbe(spec.zone));
+        if (r) seen.push({ type: t, ...r });
+      }
+      // Worst = tallest natural stack. Ties keep the lowest type number, so the message is stable
+      // between runs rather than depending on object order.
+      seen.sort((a, b) => (b.natural - a.natural) || (a.type - b.type));
+      fit = qrPreview.fitVerdict(seen[0] || null, { surveyed: seen.length, cap: spec.cap });
+      fit.typesMeasured = seen.length;
+      fit.shownType = spec.type;
+    }
+    return { png, fit };
   } finally {
     await browser.close();
   }
@@ -14072,8 +14156,8 @@ app.post('/admin/content/preview', requireSuperAdmin, async (req, res) => {
   const spec = cmsPreviewSpec(content_key);
   if (!spec) return res.status(400).json({ ok: false, error: 'no preview mapping for key' });
   try {
-    const png = await cmsRenderPreviewPng(spec, value);
-    res.json({ ok: true, png, page: spec.page });
+    const out = await cmsRenderPreviewPng(spec, value, content_key);
+    res.json({ ok: true, png: out.png, page: spec.page, fit: out.fit });
   } catch (e) {
     console.error('[admin/content/preview] failed:', e.message);
     res.json({ ok: false, error: 'Preview render failed: ' + e.message });
