@@ -147,7 +147,10 @@ const SCRIPT_SOURCED = [
     retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
   { path: 'static.quickref_zone8_v3', label: 'sheet 5 zone 8 note',
     retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
-  { path: 'static.quickref_tips_v3', label: 'sheet 5 debrief tips (4)',
+  // 8, not 4: PR 5 Build B1 reshaped each tip to {lead, body}. The COUNT below is computed by
+  // countLeaves and corrected itself; this LABEL is hand-written and did not. That asymmetry is
+  // the §29.6 finding in miniature — the number moves, the description does not.
+  { path: 'static.quickref_tips_v3', label: 'sheet 5 debrief tips (4 x lead/body)',
     retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
   { path: 'static.quickref_tips_heading_v3', label: 'sheet 5 tips heading',
     retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },

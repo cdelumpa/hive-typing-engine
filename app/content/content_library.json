@@ -192,10 +192,22 @@
     "quickref_h2_v3": "How the Nine Types Show Up",
     "quickref_zone8_v3": "We all have access to all nine types, and most of us have one home base we return to. Your responses point to the candidates marked here — worth exploring with your coach, especially if parts of the description don't quite fit.",
     "quickref_tips_v3": [
-      "Bring what didn't land. The parts that felt wrong are as useful to your coach as the parts that felt true.",
-      "Come with examples, not conclusions. A recent situation you can describe is worth more than a verdict.",
-      "Ask about the alternate. If a second pattern scored close, that is a conversation, not a loose end.",
-      "Pick one thing to work on. You do not need to act on all of it. One growing edge is enough to start."
+      {
+        "lead": "Bring what didn't land.",
+        "body": "The parts that felt wrong are as useful to your coach as the parts that felt true."
+      },
+      {
+        "lead": "Come with examples, not conclusions.",
+        "body": "A recent situation you can describe is worth more than a verdict."
+      },
+      {
+        "lead": "Ask about the alternate.",
+        "body": "If a second pattern scored close, that is a conversation, not a loose end."
+      },
+      {
+        "lead": "Pick one thing to work on.",
+        "body": "You do not need to act on all of it. One growing edge is enough to start."
+      }
     ],
     "quickref_tips_heading_v3": "Tips for Debriefing This Report with Your Coach",
     "quickref_labels_v3": {

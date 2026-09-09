@@ -3325,6 +3325,99 @@ function clientReportV3PageStyles() {
 .v3-page .v3-inst-resp-lbl{ font-size:9px; font-weight:bold; color:var(--v3-subtype-label); text-transform:uppercase; letter-spacing:.1em; margin-bottom:7px; }
 .v3-page .v3-inst-resp-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.55; }
 .v3-page .v3-inst-resp-txt + .v3-inst-resp-txt{ margin-top:6px; }
+
+/* ── p5 Quick Reference (PR 5 Build B1) ───────────────────────────────────────
+   CSS ONLY. There is no _clv3QuickRef and quickref carries no built flag, so none of
+   this renders yet — page CSS for markup that does not exist is inert, and that is what
+   lets the stylesheet land and be MEASURED before the page exists.
+
+   LIFTED SELECTOR-MATCHED from docs/mockup/claude_The_Peacemaker_Page_AtAGlance_v1.html —
+   its <style> block parsed, each rule's declarations carried verbatim, selectors rewritten.
+   Generated, never re-typed. The mockup is read and never written: it is the ratified layout
+   record AND verify_transparency.js:172 uses it as the scanner's positive control.
+
+   THREE THINGS THE PORT DELIBERATELY DOES NOT DO, each measured rather than assumed.
+
+   1. IT DROPS 25 DEAD RULES. The mockup's stylesheet carries rules for .band, .bhead,
+      .krow, .knum, .row, .rfill, .rtrack, .sub and more — 25 rules whose classes
+      appear NOWHERE in the mockup's own body, left over from earlier iterations. Counted by
+      diffing the stylesheet's selectors against the body's class attributes: 40 classes live,
+      20 dead. A verbatim port would ship all of them.
+
+   2. IT DOES NOT RE-DECLARE SHELL-OWNED NAMES. client_report_v3_styles.js:40 states that
+      .lead, .sub, .note, .eyebrow and .page are owned by the shared sheet, and
+      records that re-using them bit twice, invisibly, during design. 11 mockup rules are
+      skipped for this reason. In particular the shell's .lead plus .lead.is-loose is
+      byte-equivalent to the mockup's .lead — 14px / #4A5568 / 1.55 / 24px bottom — so the
+      lead paragraph needs NO rule here at all; the page emits class="lead is-loose".
+      h1 and h2 likewise already match the mockup exactly.
+
+   3. IT RENAMES THREE BARE MODIFIERS. The shell requires component modifiers to be prefixed
+      is-, and records the two invisible bugs that rule exists to stop. The mockup complies
+      for hhd is-sys / is-sub but NOT for plbl ld, plbl at and irow pri — bare
+      generic names on a shared page. Ported as .is-lead, .is-alt and .is-primary.
+
+   ONE DECLARATION IS CORRECTED RATHER THAN COPIED. The mockup pins .hm svg to
+   322px x 315px, which matches ITS OWN diagram's 360x352 viewBox (aspect 1.02273). The
+   SHIPPED figure is QUICKREF_GEO at 360x348 (aspect 1.03448), so pinning both axes would
+   squash it by 1.19% — MEASURED. height:auto lets the viewBox govern and survives any
+   future change to QUICKREF_GEO.
+
+   ZONE 8 IS NOT A .note. The mockup marks it up as one, but the ratified copy is NORMAL
+   TEXT, not italic, and .note IS the italic aside — un-italicising it would fight a
+   shell rule rather than use one. It gets its own page class, which also carries the margin
+   the mockup applied inline.
+
+   SPEC 3.2: no transparent, no rgba(), no fill-opacity, no stop-opacity anywhere below.
+   Asserted by scanning this block in the build, not left to verify_transparency, whose
+   page-level half runs one fixture of the harness's 32.
+
+   GEOMETRY OF RECORD: audit sections 26-29. .v3-qr-stxt is the 308.00px box the subtype
+   summary ceiling of 132 characters is derived from. Changing the .v3-qr-two gap, the
+   .v3-qr-half border, the .v3-qr-hbd padding, or giving either half a fixed width MOVES
+   THAT BOX and invalidates the ceiling. */
+
+.v3-page .v3-qr-chart{ border:1px solid #E8ECF0;padding:18px 22px;margin-bottom:18px;display:flex;gap:26px;align-items:center }
+.v3-page .v3-qr-hm{ flex:0 0 322px }
+.v3-page .v3-qr-hm svg{ display:block; width:322px; height:auto; }
+.v3-page .v3-qr-klist{ flex:1 }
+.v3-page .v3-qr-pick{ margin-bottom:20px }
+.v3-page .v3-qr-pick:last-child{ margin-bottom:0 }
+.v3-page .v3-qr-plbl{ font-size:8.5px;font-weight:bold;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px }
+.v3-page .v3-qr-plbl.is-lead{ color:#00B2D9 }
+.v3-page .v3-qr-plbl.is-alt{ color:#6B7785 }
+.v3-page .v3-qr-pname{ font-size:15px;font-weight:bold;color:#1E2A35;margin-bottom:5px }
+.v3-page .v3-qr-ptxt{ font-size:12.5px;color:#1E2A35;line-height:1.5 }
+.v3-page .v3-qr-two{ display:flex;gap:18px }
+.v3-page .v3-qr-half{ flex:1;border:1px solid #E8ECF0;display:flex;flex-direction:column }
+.v3-page .v3-qr-hhd{ padding:10px 16px;font-size:9px;font-weight:bold;text-transform:uppercase;letter-spacing:.1em }
+.v3-page .v3-qr-hhd.is-sys{ background:#D9E4E9;color:#4A5568 }
+.v3-page .v3-qr-hhd.is-sub{ background:#F9E7D2;color:#C2650F }
+.v3-page .v3-qr-hbd{ padding:16px 18px;flex:1 }
+.v3-page .v3-qr-half{ justify-content:flex-start }
+.v3-page .v3-qr-half .v3-qr-hbd .v3-qr-sname{ margin-top:0 }
+.v3-page .v3-qr-irow{ display:flex;align-items:center;margin-bottom:17px }
+.v3-page .v3-qr-irow:last-child{ margin-bottom:0 }
+.v3-page .v3-qr-icode{ flex:0 0 26px;font-size:12px;font-weight:bold;color:#6B7785 }
+.v3-page .v3-qr-itrack{ flex:1;height:13px;background:#F0F3F5;border-radius:2px;overflow:hidden }
+.v3-page .v3-qr-ifill{ height:100%;background:#F5D2AC;border-radius:2px }
+.v3-page .v3-qr-irow.is-primary .v3-qr-ifill{ background:#F68625 }
+.v3-page .v3-qr-irow.is-primary .v3-qr-icode{ color:#1E2A35 }
+.v3-page .v3-qr-irank{ flex:0 0 62px;font-size:8px;font-weight:bold;color:#6B7785;text-transform:uppercase;letter-spacing:.07em;text-align:right }
+.v3-page .v3-qr-irow.is-primary .v3-qr-irank{ color:#C2650F }
+.v3-page .v3-qr-sname{ font-size:15px;font-weight:bold;color:#1E2A35;margin-bottom:2px }
+.v3-page .v3-qr-stag{ font-size:12px;color:#4A5568;font-style:italic;margin-bottom:9px }
+.v3-page .v3-qr-stxt{ font-size:12.5px;color:#1E2A35;line-height:1.5 }
+.v3-page .v3-qr-tips{ margin-top:30px }
+.v3-page .v3-qr-tgrid{ display:flex;gap:22px }
+.v3-page .v3-qr-tcol{ flex:1 }
+.v3-page .v3-qr-titem{ display:flex;margin-bottom:12px }
+.v3-page .v3-qr-titem:last-child{ margin-bottom:0 }
+.v3-page .v3-qr-tdot{ flex:0 0 auto;width:5px;height:5px;border-radius:50%;background:#00B2D9;margin:7px 10px 0 0 }
+.v3-page .v3-qr-ttxt{ font-size:12.5px;color:#1E2A35;line-height:1.5 }
+
+/* Zone 8 — the candidates note under the chart. See the header: deliberately not .note. */
+.v3-page .v3-qr-zone8{ font-size:11.5px; color:var(--v3-grey); line-height:1.45; margin:-6px 0 18px 0; }
 </style>`;
 }
 
