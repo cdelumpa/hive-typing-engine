@@ -7,9 +7,7 @@ unless said otherwise.
 The outcome served: *a client's page arrives whole — one sheet, nothing crowded, nothing cut off —
 no matter what changed upstream since it was designed.*
 
-## 1. What is wrong, first
-
-Three things, two of them mine.
+## 1. Three corrections, two of them to my own work
 
 **1.1 · `fitVerdict` has been telling editors something false.** The over-limit message read
 *"Three is the most that fits — a fourth pushes the page onto a second sheet."* Measured on the
