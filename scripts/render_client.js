@@ -618,6 +618,103 @@ async function measureLayout(page, selector) {
           }
         }
 
+        // ── C4: EVERY ELEMENT THAT NAMES A HYPOTHESIS AGREES (PR 5 Build B2b) ─────
+        //
+        // Sheet 5's whole outcome is that a client is shown a clear LEADING hypothesis and a
+        // clear ALTERNATE one. C1 (both present) and C3 (two distinct types) are structural after
+        // Build B2a — typeRamp de-duplicates while placing, and the panels are a map over a
+        // fixed-length-2 array. C4 is the one that needs asserting, because it spans FOUR
+        // independently-emitted things: the two rings, the two ring labels, and the two panels.
+        //
+        // ASSERTED OVER THE RENDERED PAGE, NOT THE MODEL. A model-level check would prove the
+        // pair is self-consistent and prove nothing about what the client sees; the failure this
+        // guards against is a template naming one type beside a ring on another.
+        //
+        // RUNS ON EVERY RENDER, including the collided one, which is the record it exists for.
+        if (kind === 'client_v3') {
+          const c4 = await page.evaluate(() => {
+            const el = [...document.querySelectorAll('.v3-page')].find((p2) => p2.querySelector('.v3-qr-two'));
+            if (!el) return { missing: true };
+            const svg = el.querySelector('.v3-qr-hm svg');
+            if (!svg) return { missing: 'figure' };
+            // The numeral sitting at a given x IS the node's type. Located by coordinate rather
+            // than by document order, so a reordering of the emitted circles cannot fool it.
+            const numeralAt = (x) => {
+              const t = [...svg.querySelectorAll('text')]
+                .find((n) => Math.abs(+n.getAttribute('x') - x) < 0.5 && /^[1-9]$/.test(n.textContent.trim()));
+              return t ? +t.textContent.trim() : null;
+            };
+            const rings = [...svg.querySelectorAll('circle')].filter((cir) => cir.getAttribute('r') === '27');
+            const solid  = rings.find((cir) => !cir.hasAttribute('stroke-dasharray'));
+            const dashed = rings.find((cir) =>  cir.hasAttribute('stroke-dasharray'));
+            // A LABEL IS MATCHED TO THE NEARER OF THE TWO RINGS, NOT TO THE NUMERAL AT ITS OWN x.
+            // The first version of this check did the latter and failed on 12 of 35 renders — a
+            // defect in the CHECK, not the page: renderer.js pushes two labels apart when they
+            // would collide on one rail, so a label's x deliberately stops matching its node's.
+            // Nearest-of-two is sound because that push moves them APART, never across each other.
+            const ringX = (cir) => (cir ? +cir.getAttribute('cx') : null);
+            const labelNode = (word) => {
+              const t = [...svg.querySelectorAll('text')].find((n) => n.textContent.trim() === word);
+              if (!t) return null;
+              const lx = +t.getAttribute('x');
+              const cands = [solid, dashed].filter(Boolean)
+                .map((cir) => ({ node: numeralAt(ringX(cir)), d: Math.abs(ringX(cir) - lx) }))
+                .sort((p1, p2) => p1.d - p2.d);
+              return cands.length ? cands[0].node : null;
+            };
+            const panel = (mod) => {
+              const lbl = el.querySelector(`.v3-qr-plbl.${mod}`);
+              const pick = lbl && lbl.closest('.v3-qr-pick');
+              const nm = pick && pick.querySelector('.v3-qr-pname');
+              const mm = nm && /Type\s+([1-9])\b/.exec(nm.textContent);
+              return { type: mm ? +mm[1] : null, label: lbl ? lbl.textContent.trim() : null,
+                       words: (pick && pick.querySelector('.v3-qr-ptxt') || {}).textContent || '' };
+            };
+            return {
+              ringLeading:  solid  ? numeralAt(+solid.getAttribute('cx'))  : null,
+              ringAlternate: dashed ? numeralAt(+dashed.getAttribute('cx')) : null,
+              labelLeading: labelNode('LEADING'),
+              labelAlternate: labelNode('ALTERNATE'),
+              panels: [...el.querySelectorAll('.v3-qr-pick')].length,
+              leading: panel('is-lead'),
+              alternate: panel('is-alt'),
+            };
+          });
+
+          if (c4.missing) {
+            fail(`C4 ${tag}: sheet 5 not found in the rendered document (${c4.missing})`);
+          } else {
+            // C1 — both panels present. Structural, asserted anyway: it is the outcome.
+            if (c4.panels !== 2) fail(`C4/C1 ${tag}: ${c4.panels} hypothesis panels, expected 2`);
+            // C2 — each is identifiable as itself.
+            if (!c4.leading.label)   fail(`C4/C2 ${tag}: the leading panel has no label`);
+            if (!c4.alternate.label) fail(`C4/C2 ${tag}: the alternate panel has no label`);
+            // C3 — two distinct types.
+            if (c4.leading.type != null && c4.leading.type === c4.alternate.type) {
+              fail(`C4/C3 ${tag}: both panels name Type ${c4.leading.type} — one hypothesis wearing two labels`);
+            }
+            // C4 — three-way agreement, per role.
+            const agree = (role, ring, label, pnl) => {
+              if (ring == null)  fail(`C4 ${tag}: no ${role} ring found in the figure`);
+              if (label == null) fail(`C4 ${tag}: no ${role} ring LABEL found in the figure`);
+              if (pnl == null)   fail(`C4 ${tag}: the ${role} panel names no type`);
+              if (ring != null && label != null && pnl != null && !(ring === label && label === pnl)) {
+                fail(`C4 ${tag}: ${role} disagrees — ring on node ${ring}, label on node ${label}, `
+                   + `panel says Type ${pnl}. Every element naming a hypothesis must name the same one.`);
+              }
+            };
+            agree('LEADING',   c4.ringLeading,   c4.labelLeading,   c4.leading.type);
+            agree('ALTERNATE', c4.ringAlternate, c4.labelAlternate, c4.alternate.type);
+            // The alternate panel's WORDS must be the alternate's, not the leading's. On a collided
+            // record the two scalars name one type, so a panel sourced from m.alternate would carry
+            // the leading type's copy under the alternate's heading — visibly correct, textually
+            // wrong. Compared as text because that is what the client reads.
+            if (c4.leading.words && c4.leading.words.trim() === c4.alternate.words.trim()) {
+              fail(`C4 ${tag}: both panels carry identical copy — the alternate panel is showing the leading hypothesis's words`);
+            }
+          }
+        }
+
         // ── §6 last-line fill outliers — REPORT-ONLY ──────────────────────────────
         if (cfg.geometry) {
           const g = cfg.geometry;
