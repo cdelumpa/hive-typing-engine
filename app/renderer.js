@@ -1311,40 +1311,70 @@ function buildEnneagramSVG({ type, variant, leading, alternate, scores }) {
   }
 
   if (variant === 'client-quickref') {
-    // THE TWO RINGS ARE PARAMETERS, NOT DERIVED. Step 6 passes hero.number for the solid LEADING
-    // ring and alternate.number for the dashed ALTERNATE (design spec v3.0 §8.4, decided 8 Sep).
-    // The figure resolves neither from the model nor from this array's own ordering: on a
-    // REDIRECT, leading_candidate and alternate_candidate are the SAME type, and sourcing the
-    // leading ring from it would draw both rings on one node and none on the client's own type.
+    // THE LEADING RING IS A PARAMETER; THE ALTERNATE RING IS DERIVED FROM POSITION.
+    //
+    // Step 6 passes hero.number for the solid LEADING ring (design spec v3.0 §8.4, decided 8 Sep).
+    // That one is NOT resolved from the model or from this array's ordering: on a REDIRECT,
+    // leading_candidate and alternate_candidate are the SAME type, and sourcing the leading ring
+    // from leading_candidate would draw both rings on one node and none on the client's own type.
+    //
+    // The dashed ALTERNATE ring reads position 2 as of PR 5 Build R — see the block below for why
+    // that changed and what it retired. `alternate` is no longer read by this branch.
     const C = QUICKREF_GEO;
     const N = _wheelNodes(C);
     // POSITION, not score. charts.types carries `position` from report_prep's typeRamp, where
-    // position 1 is hero.number and position 2 is alternate.number — the same two fields the
-    // rings read, so the darkest node and the solid ring cannot disagree.
+    // position 1 is hero.number. On a non-collided record position 2 is also alternate.number, so
+    // the ramp and the rings agree; on a collided one typeRamp's de-duplication puts the next
+    // em_ranking type there and the alternate RING follows it, which is the whole point of Build R.
+    // Both rings and every fill now derive from this one ordering, so they cannot disagree at all.
     const posOf = Object.fromEntries((scores || []).map((r) => [r.type, r.position]));
     if (!SVG_TYPE_META[leading]) {
       throw new Error(`buildEnneagramSVG: variant "client-quickref" needs a valid leading type, got ${leading}`);
     }
-    // TWO RINGS ON ONE NODE: THE ALTERNATE IS DROPPED, NOT THROWN.
+    // THE COLLIDED RECORD, AND WHERE ITS DISTINCTION NOW LIVES.
     //
-    // An earlier version of this branch THREW here, and tracing it before the merge showed the
-    // throw was wrong — not the refusal, the hard stop. call2_stamp.js's Defect #3 guard ends:
-    // "Never pass a collided result through silently — but do not hard-stop: the client still
-    // gets a report." When it cannot recover a distinct alternate it sets collision_flag, raises
-    // an engine_collision flag for admin review, and SHIPS. buildClientModel then builds a model
-    // with hero.number === alternate.number quite happily — CLIENT_SPEC requires alternate.number
-    // to be PRESENT, never to DIFFER.
+    // call2_stamp.js's Defect #3 guard ends: "Never pass a collided result through silently — but
+    // do not hard-stop: the client still gets a report." When it cannot recover a distinct
+    // alternate it sets collision_flag, raises an engine_collision flag for admin review, and
+    // SHIPS. buildClientModel then builds a model with hero.number === alternate.number quite
+    // happily — CLIENT_SPEC requires alternate.number to be PRESENT, never to DIFFER. Reachable on
+    // the PRODUCTION path, not merely the SM fallback: in em_only both fields come from EM, and the
+    // guard fires whenever it emits one type for both, with or without a redirect.
     //
-    // So a throw here would convert a record the engine deliberately ships into a client report
-    // that fails to generate at all. Reachable on the PRODUCTION path, not merely the SM
-    // fallback: in em_only both fields come from EM, and the guard fires whenever it emits one
-    // type for both, with or without a redirect.
+    // AN EARLIER VERSION OF THIS BRANCH THREW ON THAT, and tracing it showed the throw was wrong —
+    // not the refusal, the hard stop: it would convert a record the engine deliberately ships into
+    // a client report that fails to generate at all. That reasoning is unchanged and is why the
+    // figure still never throws on a collision.
     //
-    // Dropping the alternate is the honest render: on such a record the alternate is not a
-    // distinct hypothesis, so the figure shows one ring and no ALTERNATE label. The coach
-    // already has the flag. A dashed ring stacked on a solid one would state a second hypothesis
-    // that the data does not contain.
-    const altN = (alternate != null && alternate !== leading) ? alternate : null;
+    // WHAT CHANGED (PR 5 Build R, decided by Cai 9 Sep) IS WHERE THE DISTINCTION LIVES, NOT
+    // WHETHER IT EXISTS. This branch used to DROP the alternate on a collision — one ring, no
+    // ALTERNATE label — on the reasoning that the alternate was not a distinct hypothesis so the
+    // figure should not state one. Two things retire that:
+    //
+    //   · THE DISTINCTION HAS A BETTER HOME AND ALREADY LIVES THERE. "The engine NAMED a second
+    //     hypothesis" versus "one was INFERRED from the ranking" is an engine fact addressed to a
+    //     coach or an admin, and collision_flag (call2_stamp.js:64, asserted by
+    //     tests/redirect_logic_test.js:58) carries it there. It was never a rendering fact
+    //     addressed to a client, and encoding it as a missing ring said nothing a reader could
+    //     decode.
+    //   · THE FIGURE WAS ALREADY CONTRADICTING ITSELF. rankFill(posOf[i]) below shades position 2
+    //     second-darkest on EVERY record including a collided one, so the picture simultaneously
+    //     shaded a type as second-most-like-you and withheld the ring that would say so. Reading
+    //     position 2 here removes that contradiction rather than adding a claim.
+    //
+    // So the ring reads POSITION 2. typeRamp de-duplicates while placing, so position 2 is always a
+    // type distinct from position 1 — on a collided record it falls through to the next em_ranking
+    // type — and two rings can never stack. The page marks two candidates on every record.
+    //
+    // ⚠ THE 72-PAIR SWEEP IN verify_diagrams CANNOT CHECK THIS. Its orderFor() does
+    // put(lead); put(alt), so position 2 IS the alternate in every pair it builds and both the old
+    // and new readings agree on all 72. The collided block is the whole test; see the note there.
+    //
+    // NULL IS STILL POSSIBLE, FOR A DIFFERENT REASON THAN BEFORE. It used to mean "collided"; it
+    // now means "position 2 did not resolve", i.e. a malformed or empty `scores`. The figure then
+    // degrades to one ring rather than throwing — the same posture as the retired branch, kept
+    // deliberately and for the same reason: a record the engine ships must still render.
+    const altN = ((scores || []).find((r) => r && r.position === 2) || {}).type ?? null;
 
     let nodes = '';
     for (const k of Object.keys(N)) {

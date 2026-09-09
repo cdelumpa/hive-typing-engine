@@ -255,34 +255,63 @@ const rectsOverlap = (a, b) =>
     console.log(`  ${RING_PAIRS.length} configurations measured · minimum edge clearance ${worst.toFixed(2)}px (${worstAt2})`);
     console.log(`  node-count failures ${nodeCountBad} · banned opacity constructs ${banned} · #F68625 hits ${orange}`);
 
-    // ── THE COLLIDED RECORD: ONE RING, NO ALTERNATE, AND IT MUST NOT THROW ────────────
+    // ── THE COLLIDED RECORD: TWO RINGS, AND IT MUST NOT THROW ─────────────────────────
     //
     // call2_stamp.js can ship a record with confirmed_type === alternate_candidate: its Defect #3
     // guard flags the collision for admin review and deliberately does NOT hard-stop, "the client
     // still gets a report". buildClientModel builds it — CLIENT_SPEC requires alternate.number to
-    // be present, never to differ — so step 6 will hand this figure two equal node numbers.
+    // be present, never to differ — so the figure is handed two equal node numbers.
     // Reachable on the em_only production path, not just the SM fallback.
     //
-    // Asserted because an earlier version of this branch THREW on it, which would have turned a
-    // record the engine ships into a client report that fails to generate.
+    // INVERTED AT PR 5 BUILD R. This block used to assert ONE ring, no dashed stroke and no
+    // ALTERNATE label — the figure dropping the alternate when the two scalars collided. The ring
+    // now reads POSITION 2 (renderer.js), which typeRamp guarantees is a type distinct from
+    // position 1 because it de-duplicates while placing. So a collided record draws two rings like
+    // any other, and this asserts that.
+    //
+    // ⚠ THIS BLOCK IS THE WHOLE TEST FOR THAT CHANGE. The 72-pair sweep above cannot see it:
+    // orderFor() does put(lead); put(alt), so position 2 IS the alternate in every pair it builds,
+    // and both the old and new implementations agree on all 72. A wrong implementation of "read
+    // position 2" would pass the entire sweep. Only a collided render distinguishes them.
+    //
+    // THE SCORE VECTOR IS orderFor(N, N), NOT orderFor(N, something-else). Before Build R this
+    // block rendered 9 x 9 while passing SWEEP_SCORES = orderFor(9, 5) — a vector for a
+    // NON-collided record, contradicting its own ring parameters. It survived because nothing read
+    // the vector: the old code decided from the scalars alone. The new code reads position 2 out of
+    // exactly this vector, so it is now the thing under test and must describe the record it claims
+    // to be.
+    //
+    // SWEPT OVER ALL NINE LEADING TYPES, not one. Position 2 falls out of the ranking tail, so a
+    // single hard-coded pair would prove it for one tail only.
     {
-      let svg;
-      try {
-        svg = R.buildEnneagramSVG({ variant: 'client-quickref', leading: 9, alternate: 9, scores: SWEEP_SCORES });
-      } catch (e) {
-        fail(`collided record (leading === alternate): buildEnneagramSVG THREW — "${e.message}". `
-           + `call2_stamp.js ships these deliberately; the figure must degrade, not hard-stop`);
-        svg = null;
-      }
-      if (svg) {
+      for (let lead = 1; lead <= 9; lead += 1) {
+        const scores = orderFor(lead, lead);          // a genuinely collided vector
+        const want = (scores.find((r) => r.position === 2) || {}).type;
+        let svg;
+        try {
+          svg = R.buildEnneagramSVG({ variant: 'client-quickref', leading: lead, alternate: lead, scores });
+        } catch (e) {
+          fail(`collided record ${lead}x${lead}: buildEnneagramSVG THREW — "${e.message}". `
+             + `call2_stamp.js ships these deliberately; the figure must degrade, not hard-stop`);
+          continue;
+        }
         const rings = (svg.match(/<circle[^>]*r="27"/g) || []).length;
         const dashed = (svg.match(/stroke-dasharray/g) || []).length;
-        const alt = /<text[^>]*>ALTERNATE</.test(svg);
-        if (rings !== 1) fail(`collided record: ${rings} rings drawn, expected exactly 1 (the leading)`);
-        if (dashed !== 0) fail(`collided record: ${dashed} dashed ring(s) drawn, expected 0`);
-        if (alt) fail('collided record: an ALTERNATE label was drawn for a type that is also the leading');
-        if (rings === 1 && !dashed && !alt) console.log('  collided record: one ring, no ALTERNATE, no throw ✓');
+        const hasAlt = /<text[^>]*>ALTERNATE</.test(svg);
+        if (rings !== 2) fail(`collided record ${lead}x${lead}: ${rings} rings drawn, expected 2 (leading + alternate)`);
+        if (dashed !== 1) fail(`collided record ${lead}x${lead}: ${dashed} dashed ring(s), expected exactly 1`);
+        if (!hasAlt) fail(`collided record ${lead}x${lead}: no ALTERNATE label drawn — the alternate ring must be labelled`);
+        // The dashed ring must sit on POSITION 2's node, not on the leading node and not anywhere
+        // else. Located by matching the dashed circle's centre against the numeral text placed at
+        // that node, so this asserts the ring is on the type the ordering names.
+        const dm = /<circle cx="([\d.]+)" cy="([\d.]+)" r="27"[^>]*stroke-dasharray/.exec(svg);
+        if (!dm) { fail(`collided record ${lead}x${lead}: could not locate the dashed ring to check its node`); continue; }
+        const tm = new RegExp(`<text x="${dm[1]}" y="[\\d.]+" text-anchor="middle"[^>]*>(\\d)</text>`).exec(svg);
+        if (!tm) fail(`collided record ${lead}x${lead}: no numeral at the dashed ring's x=${dm[1]}`);
+        else if (+tm[1] !== want) fail(`collided record ${lead}x${lead}: dashed ring sits on node ${tm[1]}, expected position 2's type ${want}`);
+        else if (+tm[1] === lead) fail(`collided record ${lead}x${lead}: dashed ring sits on the LEADING node — two rings stacked`);
       }
+      if (!failed) console.log('  collided records 1x1..9x9: two rings, dashed on position 2, labelled, no throw \u2713');
     }
 
     // ── B10, RESTATED (PR 5 Build 3) ──────────────────────────────────────────────────
