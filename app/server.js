@@ -14108,37 +14108,48 @@ async function cmsRenderPreviewPng(spec, value, key) {
     const buf = await el.screenshot({ type: 'png' });
     const png = 'data:image/png;base64,' + buf.toString('base64');
 
-    // ── FIT (PR 5 Build B4) ────────────────────────────────────────────────────────────────
+    // ── FIT (PR 5 Build B4, population corrected in Build B3) ─────────────────────────────
     //
-    // Measured on the WORST type the edited string reaches, not on the type in the picture. A
-    // static key previews at Type 9 (73.86px free) while Type 1 has 51.61px; reporting the
-    // previewed number would ask a content editor to know that and discount for it. The image
-    // is labelled with the type it depicts so the two are never confused.
+    // Measured on the WORST RECORD the edited string reaches, not on the one in the picture:
+    // reporting the previewed number would ask a content editor to know which records are tighter
+    // and discount for it. The image is labelled with the type it depicts so the two are never
+    // confused.
     //
-    // A subtype summary appears on exactly one type's sheet, so its own type IS the worst case
-    // and the sweep is skipped — not a shortcut, the whole population.
+    // WHICH records is qrPreview.fitSweep's decision, not this call site's — 27 (type, instinct)
+    // pairs for a static key, one for a subtype summary. It moved there so a test can assert the
+    // coverage; the reasoning, and why the previous nine were right only by coincidence, is in
+    // that function's note.
     //
     // The page is already open and warm: nine setContent+measure passes were MEASURED at 0.3s.
     let fit = null;
     if (spec.fit) {
-      const sweep = spec.instinct && String(key || '').startsWith('subtype_') ? [spec.type] : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+      const sweep = qrPreview.fitSweep(spec, key);
       const seen = [];
-      for (const t of sweep) {
-        if (t !== spec.type) {
+      // WHAT IS CURRENTLY IN THE PAGE, tracked rather than assumed. Build B4 wrote
+      // `if (t !== spec.type) setContent(...)` — "the page already shows spec.type, do not
+      // re-render it" — which is true only on the FIRST iteration. spec.type is 9 for every static
+      // key and the sweep ran 1..9, so the last pass skipped its render and measured type 8's page
+      // while recording it as type 9. The saving is real but it has to be conditioned on what the
+      // page actually holds, not on which record we happen to be asking about.
+      let loaded = { type: spec.type, instinct: spec.instinct };
+      for (const rec of sweep) {
+        if (rec.type !== loaded.type || rec.instinct !== loaded.instinct) {
           const m2 = await reportPrep.buildClientModel({
-            apiResult: cmsPreviewApiResult(t, spec.instinct), client, coach });
+            apiResult: cmsPreviewApiResult(rec.type, rec.instinct), client, coach });
           spec.apply(m2, value);
           await page.setContent(buildClientReportHTML_v3(m2), { waitUntil: 'domcontentloaded' });
           await page.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
+          loaded = { type: rec.type, instinct: rec.instinct };
         }
         // The probe measures the EDITED zone, so the verdict can price another sentence in the
         // units that field is actually written in.
         const r = await page.evaluate(qrPreview.fitProbe(spec.zone));
-        if (r) seen.push({ type: t, ...r });
+        if (r) seen.push({ type: rec.type, instinct: rec.instinct, code: rec.code, ...r });
       }
-      // Worst = tallest natural stack. Ties keep the lowest type number, so the message is stable
-      // between runs rather than depending on object order.
-      seen.sort((a, b) => (b.natural - a.natural) || (a.type - b.type));
+      // Worst = tallest natural stack. Ties keep the earliest record in sweep order, so the
+      // message is stable between runs rather than depending on object order.
+      seen.sort((a, b) => (b.natural - a.natural) || (a.type - b.type)
+                       || qrPreview.INSTINCTS.indexOf(a.instinct) - qrPreview.INSTINCTS.indexOf(b.instinct));
       fit = qrPreview.fitVerdict(seen[0] || null, { surveyed: seen.length, cap: spec.cap });
       fit.typesMeasured = seen.length;
       fit.shownType = spec.type;

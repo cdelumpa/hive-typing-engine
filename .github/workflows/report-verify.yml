@@ -108,6 +108,21 @@ jobs:
         run: npm run verify:render
         working-directory: app
 
+      # HARD FAIL: sheet 5's fit assertions can still go RED.
+      #
+      # F1-F4 themselves run inside `verify:render` above, over the 35 renders, and they are
+      # green — which is the state a working gate and a silently-broken one both spend their
+      # whole lives in. This step drives every predicate in scripts/lib/quickref_fit.js with a
+      # deliberately broken measurement and REQUIRES each to fail, plus a negative control that
+      # requires an untouched sheet 5 to stay silent.
+      #
+      # It is wired here in the same build that wrote it, deliberately. A gate that only runs
+      # locally does not deliver "the page stays whole no matter what changed upstream" — that
+      # is check_docs.py's failure by another route, and the workflow PR's queue is not the
+      # right home for a step this build depends on.
+      - name: Sheet 5 fit — positive controls
+        run: node scripts/verify_quickref_fit.js
+
       # HARD FAIL: all 18 diagrams — no clipping, no label-label or label-node overlap,
       # and >= 5px edge clearance measured from real getBBox() boxes. Content changes
       # (a longer archetype name) cannot quietly break the geometry.
