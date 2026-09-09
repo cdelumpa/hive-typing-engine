@@ -3696,3 +3696,169 @@ Build 3 had already superseded; this table exists so that cannot recur.
 **Two of these supersede audit §25.2 and the gap is why §25.2 must not be quoted again**:
 `verify_diagrams` 0.95 s → **1.0–1.2 s**, `verify_transparency` 2.89 s → **7.5 s**, both because
 Build 3 enlarged them.
+
+---
+
+## 30. Scoping — the ALTERNATE ring reads position
+
+Read at **`70add3e`**, read-only. Nothing built, no product code changed. This is scoping for a
+decision already taken; the audit's §29 remains B2's plan-detail and is unaffected.
+
+**[DECISION — Cai, 9 Sep] The ALTERNATE ring reads POSITION 2 instead of `alternate.number`.** The
+page therefore marks two candidates on every record, collided ones included.
+
+### 30.0 What is wrong
+
+**The gate that covers this figure most heavily cannot see the change at all, and the one assertion
+that can see it currently asserts the opposite.** `[MEASURED]` — simulating both implementations
+across the gate's own sweep: **identical in 72 of 72 ring pairs, zero differing.** The single case
+that distinguishes them is the collided record, and `scripts/verify_diagrams.js:258–286` asserts
+today that it draws **one ring, no dashed stroke, no ALTERNATE label** — exactly what the decision
+reverses. **That block goes red on the first commit, by design, and it must be inverted rather than
+widened.**
+
+So the change's entire evidential weight sits on one assertion that has to be rewritten in the same
+commit that breaks it. That is worth knowing before it is buried in a page build.
+
+### 30.1 What changes in `buildEnneagramSVG`
+
+**One line.** `app/renderer.js:1347`:
+
+```
+const altN = (alternate != null && alternate !== leading) ? alternate : null;
+```
+
+becomes a read of the type at position 2 from `scores` — the same array `posOf` is already built
+from at `:1323`.
+
+`altN` is consumed in exactly **two** places `[MEASURED]`, and both follow from that one definition:
+
+| line | use |
+|---|---|
+| `:1352` | `const isLead = i === leading, isAlt = i === altN;` — draws the dashed ring |
+| `:1403` | `[place(leading, 'LEADING'), place(altN, 'ALTERNATE')].filter(Boolean)` — draws the label |
+
+The `alternate` parameter becomes **unread by the quickref branch**. Whether it stays in the
+signature is B-of-this-build's call; the other variants are unaffected.
+
+Three comment blocks describe the retired behaviour and would be stale on landing: `:1314–1318`
+(the "rings are parameters, not derived" rationale), `:1328–1346` (the whole "TWO RINGS ON ONE NODE:
+THE ALTERNATE IS DROPPED, NOT THROWN" argument), and `:1322`'s claim that position 2 *is*
+`alternate.number` — which becomes the mechanism rather than a coincidence worth noting.
+
+### 30.2 Does anything still read the named-vs-inferred distinction?
+
+**Yes — one thing, and it is the right thing.** `call2_stamp.js:64` sets `collision_flag = true` and
+raises an `engine_collision` flag for admin review; `tests/redirect_logic_test.js:58` asserts it.
+`[MEASURED]` — those, plus `renderer.js:1347`, are the only readers in the repo.
+
+**So the branch retires cleanly.** The distinction between an alternate the engine *named* and one
+*inferred* from the ranking is an engine fact addressed to a coach or an admin, and it survives
+intact in the flag. It was never a rendering fact addressed to a client. What the figure was doing
+was translating an internal provenance distinction into a missing ring on the page the client reads
+first — and the ramp was contradicting it in the same picture anyway (§29.2b): `rankFill(posOf[i])`
+shades position 2 second-darkest on a collided record regardless. **The decision removes a
+contradiction rather than adding a claim.**
+
+### 30.3 The dashed ring and the ALTERNATE label always render
+
+**Confirmed** — both flow from `altN`, so both appear whenever position 2 resolves. `[MEASURED]` on
+the collided case: current `altN = null`; proposed `altN = 5`, i.e. a dashed ring and an ALTERNATE
+label on node 5.
+
+**One residual null path, and it should be kept.** `place()` returns `null` when `i == null || !N[i]`
+(`:1399`), and `.filter(Boolean)` drops it. If `scores` were empty or malformed, position 2 would not
+resolve and the figure would fall back to one ring rather than throw. That is the same
+degrade-not-hard-stop posture the retired branch had, for a different cause, and it is worth
+preserving explicitly rather than inheriting by accident.
+
+**What downstream assumes about ring count:**
+
+| consumer | assumes one ring? |
+|---|---|
+| Label-separation floor, `:1407` — `if (marks.length === 2 && marks[0].up === marks[1].up)` | **No.** It is already conditional on two marks and simply becomes always-true. `LBL_SEP = 14` and the symmetric push are unchanged. |
+| Label rail, `:1386–1387` | **No.** The rail sits outside every node's ring by construction, so a label cannot overlap any node — the property the per-node rule could not guarantee. |
+| Nine-block legend, `:1424+` | **No.** Reads `RANK_FILL`, independent of rings. |
+| Node-count / edge-clearance check, `verify_diagrams.js:150` | **No.** "One box per position, sized to the largest circle there" — it already sizes for a ring where one exists. |
+| `verify_diagrams` collided block, `:275–283` | **YES — and it is the only one.** §30.4. |
+
+### 30.4 What `verify_diagrams` asserts, and what it would not catch
+
+**The 72-pair sweep would not catch this change, because it cannot.** The sweep builds its score
+vector with `orderFor(lead, alt)` (`:57–65`), which does `put(lead); put(alt);` — so **position 2 is
+the alternate by construction**. Reading `alternate` and reading position 2 return the same value for
+every pair. `[MEASURED]`: **72 of 72 identical, 0 differing.**
+
+That is the IO-108 tautology in its exact form: the gate derives its expectation from the same rule
+the code is about to adopt, so it agrees with the change before the change is made. **A wrong
+implementation of "read position 2" would still pass all 72** — the sweep is not evidence here.
+
+**What the sweep does still assert, unaffected:** node-count and edge clearance per pair, the banned
+opacity scan (`:203`), and the `#F68625` client-orange exclusion (`:208`).
+
+**What must change:** the collided block at `:258–286` inverts. Today it fails on
+`rings !== 1`, `dashed !== 0`, and any ALTERNATE label. It must assert **2 rings, 1 dashed stroke,
+an ALTERNATE label present, and that the label names a type different from the leading** — plus the
+existing must-not-throw, which stays.
+
+**Does the gate need widening? Yes, in one specific way, and it is not more pairs.** The collided
+case is currently the only render where the two implementations differ, so it is the whole test. It
+should therefore be swept rather than run once — at minimum across several leading types, since
+position 2 depends on the ranking tail and a single hard-coded pair proves it for one tail only.
+
+**A defect in that block, found while reading it and not fixed:** it renders
+`leading: 9, alternate: 9` but passes `SWEEP_SCORES`, which is `orderFor(9, 5)` `[MEASURED]` — a
+score vector for a **non-collided** record. The rings say collided and the positions say otherwise.
+It happens not to matter numerically (both `orderFor(9,5)` and `orderFor(9,9)` put type 5 at
+position 2 `[MEASURED]`), which is precisely why it has survived. Under this decision the block
+starts reading position 2, so its score vector stops being decorative and becomes the thing under
+test. Pass `orderFor(9, 9)`.
+
+### 30.5 Who else reads `alternate.number` for a visual decision
+
+`[MEASURED]` — every read in `app/renderer.js`:
+
+| line | reader | v3? |
+|---|---|---|
+| `:1785` | coach report — "Alternate: Type N — Name" | no, coach |
+| `:1850` | coach page 2 comparison header | no, coach |
+| `:2285` | **v2 client p3** — "Also in the picture: Type N (Name)." | no, v2 client |
+| `:2315` | **v2 client p3** comparison table header, ALTERNATE badge | no, v2 client |
+
+**Inside v3, `buildEnneagramSVG` is the only reader**, so this change leaves no v3 sibling reading
+the scalar — today.
+
+**The sibling to watch is not in the repo yet.** Sheet 5's `.pick` panel is B2's, and it is the
+element that names the alternate *in words* beside this figure. **If it reads `alternate.number`
+while the ring reads position 2, a collided record produces exactly the split the decision exists to
+prevent** — a panel headed with the leading type's name beside a dashed ring on a different node.
+**B2 must source the panel from position 2 as well**, and that is a constraint this build should hand
+forward rather than leave to be rediscovered.
+
+Named, not scoped: the two **v2 client** readers at `:2285` and `:2315` name the alternate from the
+scalar and will print the hero's own type on a collided record. That is a live defect in the report
+that ships today, and it is not this build's.
+
+### 30.6 Its own build, before B2
+
+**Cai's reasoning is right, and there is a stronger reason than the one given.** The stated one —
+that a red diagram gate during B2 would have two possible causes — holds. The stronger one is
+§30.0: **the 72-pair sweep proves nothing about this change, so the entire evidence for it is one
+assertion that has to be inverted in the same commit that breaks it.** An inverted gate assertion
+landing inside a page build reads as collateral damage from the page. On its own it is the subject.
+
+It is also genuinely self-contained: one line of `buildEnneagramSVG`, three stale comment blocks, one
+gate block inverted and swept. No page, no model, no content, no CMS. Call it **B1.5**, before B2.
+
+**Sequence:** invert and sweep the gate assertion first so it is red for the right reason, then
+change the line, then confirm the 72 pairs are byte-identical — which is the real regression check
+here, since identical output across the sweep is what proves nothing else moved.
+
+### 30.7 For PR 7 — named, not scoped
+
+* The v2 client report names the alternate from `alternate.number` at `renderer.js:2285` and `:2315`,
+  so a collided record prints the hero's own type as "also in the picture".
+* `verify_diagrams`'s collided block renders `9 × 9` but passes `orderFor(9, 5)` — the score vector
+  contradicts the ring parameters.
+* IO-108, restated with a fresh instance: the quickref sweep derives position 2 from the same rule
+  the figure reads, so it agrees with any change to that rule before the change is made.
