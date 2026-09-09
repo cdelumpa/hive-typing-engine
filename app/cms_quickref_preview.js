@@ -80,9 +80,18 @@ const STATIC_ENTRIES = {
  */
 function subtypeEntry() {
   return {
-    // `cap: 3` is the summary's own hard bound — the .v3-qr-stxt box is 308.00px and three lines
-    // is what fits (audit §26-§27). No other sheet-5 zone has a cap of its own; they are bounded
-    // by the page.
+    // `cap: 3` IS A DESIGN LIMIT, NOT THE PAGE'S BOUND, and the distinction is load-bearing.
+    //
+    // This comment used to read "the .v3-qr-stxt box is 308.00px and three lines is what fits".
+    // 308.00px is that box's WIDTH (§29.4, the character-ceiling work), and `.v3-qr-stxt` carries
+    // no height, max-height or overflow at all — so there is no box bound for three lines to be.
+    // Measured on the render (Build B3): the page fits 1, 2, 3, 4 AND 5 summary lines and does not
+    // spill until SIX. Three is a chosen editorial limit with two lines of slack beneath the
+    // layout, which is a perfectly good thing to hold people to — it just is not what the old
+    // comment said it was, and the verdict text below no longer claims otherwise.
+    //
+    // scripts/render_client.js asserts `cap + 1` still fits on every render. That is what keeps
+    // this number safe as content and geometry move underneath it.
     page: P5, selector: P5_SEL, doc: 'v3', fit: true, zone: '.v3-qr-stxt', cap: 3,
     apply: (m, v) => {
       const lead = (m.pages.v3_quickref.hypotheses || [])[0];
@@ -95,25 +104,26 @@ function subtypeEntry() {
 /**
  * ── THE FIT CHECK (P4) ───────────────────────────────────────────────────────────────────────
  *
- * WHAT IT IS FOR. The 27 summaries have a hard bound — three rendered lines in a 308.00px box —
- * and coaches can now edit them. Nothing measured a published override's rendered length:
+ * WHAT IT IS FOR. The 27 summaries have an editorial limit of three rendered lines (see the note
+ * on `cap` above — it is a design limit, not the page's bound), and coaches can now edit them.
+ * Nothing measured a published override's rendered length:
  * assertOverrideShape checks SHAPE, and the render harness runs library values, not overrides.
  * So an editor could lengthen a summary, spill a client's page, and find out from nobody.
  *
  * This runs where the answer is already available. cmsRenderPreviewPng has a live page with the
  * whole document rendered, immediately before it screenshots — so measuring costs one evaluate,
- * and the nine-type sweep below measured at 0.3s on a reused page.
+ * and the sweep runs on a reused page (nine passes measured at 0.3s; see fitSweep for why it is
+ * now twenty-seven).
  *
- * ⚠ WORST CASE, NOT THE PREVIEWED CASE, AND THE TWO ARE DIFFERENT. A static key previews at
- * Type 9, which has 73.86px of free space; Type 1 has 51.61px. Reporting the previewed type's
- * number would be honest and useless — it asks a content editor to know that Type 1 is tighter
- * and discount accordingly, which is a fact about layout geometry and exactly the kind of thing
- * handing someone a character ceiling already failed at. The verdict covers every type the string
- * appears on; the IMAGE is labelled with the type it depicts, so the picture never quietly claims
- * to be the thing that was measured.
+ * ⚠ WORST CASE, NOT THE PREVIEWED CASE, AND THE TWO ARE DIFFERENT. Reporting the previewed
+ * record's number would be honest and useless — it asks a content editor to know which records are
+ * tighter and discount accordingly, which is a fact about layout geometry and exactly the kind of
+ * thing handing someone a character ceiling already failed at. The verdict covers every record the
+ * string appears on; the IMAGE is labelled with the type it depicts, so the picture never quietly
+ * claims to be the thing that was measured.
  *
- * A SUBTYPE key measures ONE type, and that is not a shortcut: a subtype summary appears on
- * exactly one type's sheet, so its own type IS the worst case.
+ * A SUBTYPE key measures ONE record, and that is not a shortcut: a subtype summary appears on
+ * exactly one (type, instinct) sheet, so its own record IS the whole population.
  *
  * ⚠ WHAT THIS DOES NOT COVER, said here because a check that looks total is worse than one whose
  * edges are known. It catches what someone PREVIEWS. A published override that was never
@@ -128,6 +138,47 @@ function subtypeEntry() {
 
 /** The sheet's own height budget. One page, 1056px, matching the single-sheet gate. */
 const PAGE_PX = 1056;
+
+/** The three instincts, in the order report_prep declares them. */
+const INSTINCTS = ['SP', 'SO', 'SX'];
+
+/**
+ * ── WHICH RECORDS A VERDICT IS MEASURED OVER ─────────────────────────────────────────────────
+ *
+ * TWENTY-SEVEN FOR A STATIC KEY, NOT NINE, AND THE OLD NINE WERE RIGHT ONLY BY COINCIDENCE.
+ *
+ * Build B4 swept `[1..9]` at whatever instinct the spec carried, which for every static key is the
+ * `type: 9, instinct: 'SP'` literal at server.js:13994. That is nine of the twenty-seven records a
+ * static string actually reaches.
+ *
+ * It mattered, because measured on the 35 renders (Build B3) sheet 5's height varies with exactly
+ * ONE thing — the subtype summary's rendered line count — and that is a property of the (type,
+ * instinct) PAIR, not of the type. Only three page heights exist across all 35 records: 51.61px
+ * free at three summary lines, 70.36px at two, 73.86px at one. Sixteen of the 35 sit at the
+ * tightest, spanning EIGHT different types. So "Type 1 is tightest" named a type for something
+ * that is not a fact about types, and an SP-only sweep found the true worst only because SP
+ * happens to include a three-line summary. Had the three SP summaries at those types been shorter,
+ * the sweep would have reported 70.36px of room to an editor whose readers would get 51.61px —
+ * one whole line of overstatement, silently.
+ *
+ * IT LIVES HERE, NOT IN server.js, SO A TEST CAN SEE IT. That is the same reason this module
+ * exists at all (see the header), and it is what makes the coverage claim mechanical rather than a
+ * code-review property: tests/quickref_fit_test.js asserts this returns all 27 pairs exactly once.
+ *
+ * COST: 27 setContent+measure passes on one reused page instead of 9. Nine were measured at 0.3s.
+ */
+function fitSweep(spec, key) {
+  // A subtype summary appears on exactly one record — its own. Not a sample of the population,
+  // the whole of it, so there is nothing to sweep.
+  if (spec && spec.instinct && String(key || '').startsWith('subtype_')) {
+    return [{ type: spec.type, instinct: spec.instinct, code: `${spec.instinct}${spec.type}` }];
+  }
+  const out = [];
+  for (let t = 1; t <= 9; t++) {
+    for (const i of INSTINCTS) out.push({ type: t, instinct: i, code: `${i}${t}` });
+  }
+  return out;
+}
 
 /**
  * Runs IN the page. Returns sheet 5's intrinsic stack and the subtype box's rendered line count.
@@ -182,8 +233,13 @@ function fitVerdict(worst, opts) {
   // types, so nine were surveyed and the tightest is worth naming. A subtype summary appears on
   // exactly ONE type's sheet — saying "the tightest type" there implies a survey that did not
   // happen and could not have.
+  // ⚠ "TYPES" BECAME "TYPE AND INSTINCT COMBINATIONS" IN BUILD B3, because the survey did. A
+  // static string reaches all 27, not all 9 — see fitSweep. The old sentence named a population
+  // the sweep did not cover, and named the worst by TYPE when the worst is a property of the
+  // (type, instinct) pair: 16 of the 35 rendered records tie at the tightest page, spanning eight
+  // different types. [WORDING NOT YET RATIFIED — see the B3 report.]
   const where = o.surveyed > 1
-    ? ` Checked on all ${o.surveyed} types; Type ${worst.type} is tightest.`
+    ? ` Checked on all ${o.surveyed} type and instinct combinations; ${worst.code || 'Type ' + worst.type} is tightest.`
     : ` On the Type ${worst.type} page.`;
 
   if (free < 0) {
@@ -193,9 +249,16 @@ function fitVerdict(worst, opts) {
   // A zone with its own hard bound reports against that bound. Only the summary has one.
   if (o.cap != null && worst.zoneLines != null) {
     if (worst.zoneLines > o.cap) {
+      // ⚠ WORDING CHANGED IN BUILD B3, AND WHY. This read "Three is the most that fits — a fourth
+      // pushes the page onto a second sheet." Measured, a fourth line leaves 32.86px free and a
+      // fifth leaves 14.11px; nothing spills until the sixth. The sentence was false, and false in
+      // the RESTRICTIVE direction — it told editors to cut copy that fits, citing a consequence
+      // that would not happen. render_client.js now asserts `cap + 1` fits on every render, so the
+      // spill claim could never become true without that gate going red first, which is why it is
+      // removed rather than made conditional. [WORDING NOT YET RATIFIED — see the B3 report.]
       return { ok: false, ...worst, freePx: free,
-        message: `This runs to ${worst.zoneLines} lines. ${cap1(cardinal(o.cap))} is the most that fits — a `
-               + `${ordinal(o.cap + 1)} pushes the page onto a second sheet.${where}` };
+        message: `This runs to ${worst.zoneLines} lines. ${cap1(cardinal(o.cap))} is the limit for `
+               + `this panel.${where}` };
     }
     const all = worst.zoneLines === o.cap ? 'all ' : '';
     return { ok: true, ...worst, freePx: free,
@@ -223,4 +286,4 @@ function ordinal(n) {
   return ['zeroth', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth'][n] || `${n}th`;
 }
 
-module.exports = { P5, P5_SEL, STATIC_ENTRIES, subtypeEntry, fitProbe, fitVerdict, PAGE_PX };
+module.exports = { P5, P5_SEL, STATIC_ENTRIES, subtypeEntry, fitProbe, fitVerdict, fitSweep, INSTINCTS, PAGE_PX };
