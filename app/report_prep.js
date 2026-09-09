@@ -320,11 +320,15 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
   // guaranteed or merely observed, and this build exists because observed equality is what let a
   // panel disagree with a ring.
   //
-  // MOTIVATION IS LEFT null HERE. Which library field the two panels read is a content decision
-  // in flight with Cai and Mo (both panels from type_N.description.core_motivation, in second
-  // person, decided in principle). The SHAPE is settled and lands now so B2b has one thing to
-  // fill rather than a structure to invent; resolving the wrong field today would have to be
-  // undone. The type is resolved, so the copy lookup is a one-line change when the strings land.
+  // MOTIVATION IS RESOLVED FROM THE ENTRY'S OWN TYPE NUMBER (PR 5 Build B2b). Each panel's copy
+  // comes from type_<that entry's number>.quickref_v3.core_motivation — a client-facing
+  // second-person sibling of description.core_motivation, which stays as it is because the COACH
+  // report renders it and a coach must not be addressed as the client. See
+  // INTERIM_QUICKREF_TYPE_V3 in scripts/build_content_library.js.
+  //
+  // Resolved HERE, from `number`, rather than passed in from heroN/altN — so a panel's words and
+  // its heading cannot name different types. That is the same one-source rule the pair exists for,
+  // applied one level down.
   const v3Hypotheses = (() => {
     const byPos = Object.fromEntries((typeBars0 || []).map((r) => [r.position, r.type]));
     return [
@@ -332,7 +336,9 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
       { role: 'alternate', position: 2 },
     ].map((h) => {
       const number = byPos[h.position] ?? null;
-      return { ...h, number, name: number != null ? (TYPE_NAMES[number] || '') : '', motivation: null };
+      const row = number != null ? resolveLibObject(overrides, `type_${number}`, lib(`type_${number}`)) : null;
+      const motivation = (row && row.quickref_v3 && row.quickref_v3.core_motivation) || '';
+      return { ...h, number, name: number != null ? (TYPE_NAMES[number] || '') : '', motivation };
     });
   })();
 

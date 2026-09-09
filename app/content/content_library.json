@@ -134,7 +134,7 @@
       },
       {
         "start": "quickref",
-        "desc": "Your assessment results at a glance, and tips for your debrief conversation."
+        "desc": "A single-page summary of your results, plus tips for your debrief conversation."
       },
       {
         "start": "typeA",
@@ -502,7 +502,10 @@
       "gifts": "Decisive, courageous, protective, honest, direct, energizing to be around.",
       "challenges": "Overwhelming intensity, overriding vulnerability, impulsive action, difficulty slowing down."
     },
-    "center_label": "Body/Gut Center"
+    "center_label": "Body/Gut Center",
+    "quickref_v3": {
+      "core_motivation": "To be strong, stay in control of your own life, and protect yourself and the people you love from being taken advantage of."
+    }
   },
   "subtype_sp8": {
     "code": "SP8",
@@ -896,7 +899,10 @@
       "gifts": "Calm, accepting, inclusive, steady, a natural peacemaker and bridge-builder.",
       "challenges": "Self-forgetting, conflict-avoidant, indecisive, prone to inertia and stubbornness."
     },
-    "center_label": "Body/Gut Center"
+    "center_label": "Body/Gut Center",
+    "quickref_v3": {
+      "core_motivation": "To maintain inner and outer peace, stay connected to others, and avoid the conflict and discomfort that come with asserting your own priorities."
+    }
   },
   "subtype_sp9": {
     "code": "SP9",
@@ -1290,7 +1296,10 @@
       "gifts": "Principled, conscientious, honest, reliable, discerning, committed to excellence.",
       "challenges": "Self-critical, rigid, resentful, prone to suppressed anger and difficulty with 'good enough.'"
     },
-    "center_label": "Body/Gut Center"
+    "center_label": "Body/Gut Center",
+    "quickref_v3": {
+      "core_motivation": "To be good, right, and beyond criticism — improving yourself and the world, and living according to an inner standard of how things should be."
+    }
   },
   "subtype_sp1": {
     "code": "SP1",
@@ -1685,7 +1694,10 @@
       "gifts": "Warm, generous, attuned, supportive, relationally gifted, deeply caring.",
       "challenges": "Self-neglecting, indirect about needs, prideful about receiving, prone to conditional giving."
     },
-    "center_label": "Heart Center"
+    "center_label": "Heart Center",
+    "quickref_v3": {
+      "core_motivation": "To be loved and needed — earning connection by giving, helping, and meeting others' needs, often before tending to your own."
+    }
   },
   "subtype_sp2": {
     "code": "SP2",
@@ -2080,7 +2092,10 @@
       "gifts": "Driven, effective, adaptable, motivating, competent, results-oriented.",
       "challenges": "Identity fused with performance, deferred feeling, image over authenticity, overwork."
     },
-    "center_label": "Heart Center"
+    "center_label": "Heart Center",
+    "quickref_v3": {
+      "core_motivation": "To be successful, admired, and seen as a winner — earning worth and love through accomplishment, effectiveness, and a polished image."
+    }
   },
   "subtype_sp3": {
     "code": "SP3",
@@ -2475,7 +2490,10 @@
       "gifts": "Emotionally deep, authentic, creative, sensitive, attuned to beauty and meaning.",
       "challenges": "Prone to comparison and envy, identifies with mood, longs for the absent over the present."
     },
-    "center_label": "Heart Center"
+    "center_label": "Heart Center",
+    "quickref_v3": {
+      "core_motivation": "To be authentic, deeply understood, and significant — finding meaning and identity by embracing the full depth of your feelings and the longing for what's missing."
+    }
   },
   "subtype_sp4": {
     "code": "SP4",
@@ -2870,7 +2888,10 @@
       "gifts": "Perceptive, knowledgeable, self-sufficient, objective, calm, deeply focused.",
       "challenges": "Detached, withholding of energy and self, prone to living in the mind over lived experience."
     },
-    "center_label": "Head Center"
+    "center_label": "Head Center",
+    "quickref_v3": {
+      "core_motivation": "To be capable, self-sufficient, and unintruded upon — protecting limited inner resources by gathering knowledge and keeping a careful distance from demand."
+    }
   },
   "subtype_sp5": {
     "code": "SP5",
@@ -3265,7 +3286,10 @@
       "gifts": "Loyal, responsible, prepared, perceptive about danger, courageous for the group.",
       "challenges": "Anxious, self-doubting, suspicious, prone to testing trust and chasing unreachable certainty."
     },
-    "center_label": "Head Center"
+    "center_label": "Head Center",
+    "quickref_v3": {
+      "core_motivation": "To be safe, secure, and prepared — managing an underlying anxiety by anticipating threats, testing trust, and seeking something solid to rely on."
+    }
   },
   "subtype_sp6": {
     "code": "SP6",
@@ -3660,7 +3684,10 @@
       "gifts": "Optimistic, energetic, quick-thinking, adaptable, joyful, a synthesizer of ideas.",
       "challenges": "Pain-avoidant, scattered, commitment-shy, prone to breadth over depth and unfinished pursuits."
     },
-    "center_label": "Head Center"
+    "center_label": "Head Center",
+    "quickref_v3": {
+      "core_motivation": "To be happy, free, and satisfied — staying open to possibility and pleasure while avoiding pain, limitation, and the discomfort of being trapped."
+    }
   },
   "subtype_sp7": {
     "code": "SP7",

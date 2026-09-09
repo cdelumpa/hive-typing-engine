@@ -1089,9 +1089,26 @@ const WHATIS_GEO = { vw: 300, vh: 300, cx: 150, cy: 150, r: 112, rNode: 16, fs: 
  * the same centre, which is why verify_diagrams.js sizes its node box to the LARGEST circle at
  * each position.
  */
-const QUICKREF_GEO = { vw: 360, vh: 348, cx: 180, cy: 157, r: 105, rNode: 21, ringR: 27, fs: 16,
+// VERTICAL RHYTHM, RETUNED AT THE B2b REVIEW. The candidate labels crowded the legend, worst when
+// both fall on adjacent lower nodes and share the bottom rail — the Type 4 pair is the case. Two
+// constants move, against the same problem:
+//
+//   lblGap 9 -> 5   pulls each label toward the wheel it belongs to
+//   rampY 316 -> 324 pushes the legend away from the labels
+//
+// Measured clearance between the bottom label's baseline and the legend: 10.10px before, and the
+// arithmetic is railBot = cy + (r + ringR + lblGap) + lblAsc against rampY. Both moves add to it.
+//
+// vh FOLLOWS rampY AND IS NOT A FREE CHOICE. The captions sit at rampY + rampH + 13 and need the
+// same descender room they had, so vh = rampY + 32 exactly as before (348 = 316 + 32). Leaving vh
+// at 348 would have clipped "Less like you"'s descender off the canvas.
+//
+// THE FIGURE GETS TALLER ON THE PAGE, and that is the cost. .v3-qr-hm svg is width-pinned with
+// height:auto, so the taller viewBox renders taller: 322 x (356/360) instead of 322 x (348/360).
+// Paid for out of sheet 5's headroom, which is measured in the build report.
+const QUICKREF_GEO = { vw: 360, vh: 356, cx: 180, cy: 157, r: 105, rNode: 21, ringR: 27, fs: 16,
   web: '#E4E9ED', web_w: 1.3, rim: '#D9E1E6',
-  lblFs: 8.5, lblGap: 9, lblAsc: 7.9, rampX: 30, rampW: 300, rampH: 8, rampY: 316, capFs: 8.5 };
+  lblFs: 8.5, lblGap: 5, lblAsc: 7.9, rampX: 30, rampW: 300, rampH: 8, rampY: 324, capFs: 8.5 };
 
 // The cyan ramp, as OPAQUE SOLIDS. t = 0.10 + 0.90 x score/100 (design spec v3.0 §8.5, decided
 // 8 Sep) is applied as a lerp from white toward the cyan token rather than as an alpha, so the
@@ -3415,7 +3432,19 @@ function clientReportV3PageStyles() {
 .v3-page .v3-qr-pick:last-child{ margin-bottom:0 }
 .v3-page .v3-qr-plbl{ font-size:8.5px;font-weight:bold;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px }
 .v3-page .v3-qr-plbl.is-lead{ color:#00B2D9 }
-.v3-page .v3-qr-plbl.is-alt{ color:#6B7785 }
+/* THE ALTERNATE EYEBROW IS CYAN, THE SAME AS THE LEADING ONE (B2b review). It was #6B7785 grey.
+   The page already treated the alternate as cyan in the figure and grey in the panel — one concept
+   at two weights — and grey reads as de-emphasised at exactly the moment the client is being asked
+   to consider it. The leading/alternate hierarchy is carried by position, by solid-versus-dashed
+   ring, and by the words; colour was a fourth signal doing redundant work and it overshot.
+   The two classes stay distinct even though the colour now matches: is-lead/is-alt are the
+   role-keyed hooks _clv3QuickRef looks up by hyp.role, and collapsing them would put the roles back
+   in the template. */
+.v3-page .v3-qr-plbl.is-alt{ color:#00B2D9 }
+/* The eyebrow is gone from this page (one name everywhere) and its 20px — 12px of line box plus an
+   8px bottom margin, MEASURED before the change — is given back to the title, so the gap between
+   the header rule and the H1 reads exactly as it did. */
+.v3-page .v3-qr-title{ margin-top:20px; }
 .v3-page .v3-qr-pname{ font-size:15px;font-weight:bold;color:#1E2A35;margin-bottom:5px }
 .v3-page .v3-qr-ptxt{ font-size:12.5px;color:#1E2A35;line-height:1.5 }
 .v3-page .v3-qr-two{ display:flex;gap:18px }
@@ -3482,7 +3511,11 @@ const V3_PAGE_ORDER = [
   { key: 'contents',  sheet: 2,  footer: null, chrome: 'blank', built: true, title: 'Contents',             eyebrow: "What's In This Report" },
   { key: 'welcome',   sheet: 3,  footer: 1,    built: true,     title: 'Welcome',                           eyebrow: 'A Note from Cai & Mo' },
   { key: 'whatis',    sheet: 4,  footer: 2,    built: true,     title: 'What Is the Enneagram?',            eyebrow: null },
-  { key: 'quickref',  sheet: 5,  footer: 3,    title: 'Quick Reference',                                    eyebrow: 'Your Report at a Glance' },
+  // ONE NAME EVERYWHERE (PR 5 Build B2b review). The page was "Quick Reference" under an eyebrow
+  // reading "Your Report at a Glance" — two names for one sheet. The eyebrow's words become the
+  // title and the eyebrow is dropped, so the running head, the H1 and the Contents row all say the
+  // same thing. `eyebrow: null` is an existing, supported state — `whatis` already uses it.
+  { key: 'quickref',  sheet: 5,  footer: 3,    built: true,     title: 'Your Report at a Glance',           eyebrow: null },
   { key: 'typeA',     sheet: 6,  footer: 4,    built: true,
     title: 'Exploring Your Type Hypothesis',                     eyebrow: 'Exploring Your Type Hypothesis' },
   { key: 'typeB',     sheet: 7,  footer: 5,    built: true,
@@ -4165,6 +4198,121 @@ function instinctRanks(dominant, bars) {
 }
 
 /**
+ * p5 "Quick Reference" — sheet 5, printed page 3.
+ *
+ * THE OUTCOME THIS PAGE EXISTS FOR: the client is shown a clear LEADING hypothesis and a clear
+ * ALTERNATE one. Four things have to hold, on every record without exception —
+ *   C1 both are present · C2 each is identifiable as itself · C3 they are two distinct types ·
+ *   C4 every element that names a hypothesis agrees with every other one.
+ *
+ * ⚠ EVERYTHING THAT NAMES A HYPOTHESIS READS ONE ARRAY. m.pages.v3_quickref.hypotheses is
+ * resolved in report_prep from charts.types positions 1 and 2 — see the note there. The two
+ * panels MAP over it; the figure's rings read the same ordering; the figure's `leading` is taken
+ * from hypotheses[0].number rather than m.hero.number. Those are equal on every record, but taking
+ * it from the pair means the figure and the panels cannot disagree BY CONSTRUCTION rather than by
+ * two lookups that happen to agree — which is what C4 asks for.
+ *
+ * WHY .map AND NOT hypotheses[0] / hypotheses[1] INTO TWO BLOCKS. Two hand-written blocks restore
+ * by hand exactly the transposition risk `role` exists to remove: a label and a type could be
+ * swapped by an edit and nothing would catch it. Mapping makes C1 structural too — there is no
+ * code path that emits one panel, only an array of two.
+ *
+ * ROLE KEYS THE LABEL AND THE MODIFIER, NOT A TERNARY AND NOT AN INDEX. PICK_LABEL and PICK_MOD
+ * are looked up by hyp.role, so a role this page does not know about renders `undefined` loudly
+ * rather than silently taking the alternate's styling.
+ *
+ * WHAT THIS PAGE DOES NOT DO. It does not read m.alternate.number. On a collided record — which
+ * call2_stamp ships deliberately — that scalar equals m.hero.number, and a panel built from it
+ * prints the leading type's name beside a dashed ring on a different node. That was the default
+ * construction before PR 5 Build B2a, and it is the defect this page's shape removes.
+ *
+ * GEOMETRY OF RECORD: audit sections 26-29. .v3-qr-stxt is a 308.00px box and the subtype summary
+ * ceiling of 132 characters is derived from it. The stylesheet is in clientReportV3PageStyles().
+ */
+function _clv3QuickRef(m) {
+  const page = v3Page('quickref');
+  const q = m.pages.v3_quickref;
+  const H = q.hypotheses;
+
+  // Keyed by role. Not by index, and not by a ternary on "is this the first one".
+  const PICK_LABEL = { leading: q.labels.pick_leading, alternate: q.labels.pick_alternate };
+  const PICK_MOD   = { leading: 'is-lead', alternate: 'is-alt' };
+
+  // ONE FIGURE CALL, and `leading` comes from the pair. See the header.
+  const figure = buildEnneagramSVG({
+    variant: 'client-quickref',
+    leading: H[0].number,
+    alternate: m.alternate.number,   // read by nothing in the branch; kept for the signature
+    scores: m.charts.types,
+  });
+
+  const pick = (hyp) => `
+    <div class="v3-qr-pick">
+      <div class="v3-qr-plbl ${PICK_MOD[hyp.role]}">${esc(PICK_LABEL[hyp.role])}</div>
+      <div class="v3-qr-pname">Type ${hyp.number} &middot; ${esc(hyp.name)}</div>
+      <div class="v3-qr-ptxt">${_v3t(hyp.motivation)}</div>
+    </div>`;
+
+  // The instinct rows. rank comes from instinctRanks — the SAME helper p10 calls, so the two
+  // pages cannot disagree about which instinct is Primary.
+  const dom = String(m.display.instinct_code || '').toUpperCase();
+  const rank = instinctRanks(dom, m.charts.instincts);
+  const irow = (b) => `
+    <div class="v3-qr-irow${rank[b.code] === 'Primary' ? ' is-primary' : ''}"><div class="v3-qr-icode">${esc(b.code)}</div><div class="v3-qr-itrack"><div class="v3-qr-ifill" style="width:${b.score}%"></div></div><div class="v3-qr-irank">${esc(rank[b.code] || '')}</div></div>`;
+
+  // The subtype hangs off the LEADING hypothesis (Build B2a), so it cannot describe the alternate.
+  // The tagline is composed here — `${naranjo} · ${signature}`, NO leading article — rather than
+  // stored, so sheet 5 and p10 read one pair of fields. The mockup's "The Seeker" is unratified
+  // and is not ported: `Seeker` is not among the 27 naranjo values, and the article breaks on 26
+  // of 27 ("The Appetite", "The Non-Adaptability").
+  const st = H[0].subtype || {};
+
+  const tip = (t) => `
+      <div class="v3-qr-titem"><div class="v3-qr-tdot"></div><div class="v3-qr-ttxt"><b>${_v3t(t.lead)}</b> ${_v3t(t.body)}</div></div>`;
+  const tips = q.tips || [];
+  const half = Math.ceil(tips.length / 2);
+
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule"></div>
+
+  <h1 class="v3-qr-title">${esc(page.title)}</h1>
+  <div class="lead is-loose">${_v3t(q.lead)}</div>
+
+  <h2>${_v3t(q.h2)}</h2>
+  <div class="v3-qr-chart">
+    <div class="v3-qr-hm">${figure}</div>
+    <div class="v3-qr-klist">${H.map(pick).join('')}
+    </div>
+  </div>
+
+  <div class="v3-qr-zone8">${_v3t(q.zone8)}</div>
+
+  <div class="v3-qr-two">
+    <div class="v3-qr-half"><div class="v3-qr-hhd is-sys">${esc(q.labels.panel_instincts)}</div><div class="v3-qr-hbd">${(m.charts.instincts || []).map(irow).join('')}
+    </div></div>
+    <div class="v3-qr-half"><div class="v3-qr-hhd is-sub">${esc(q.labels.panel_subtype)}</div><div class="v3-qr-hbd">
+      <div class="v3-qr-sname">The ${_v3t(m.display.subtype_label)}</div>
+      <div class="v3-qr-stag">${_v3t(st.naranjo)} &middot; ${_v3t(st.signature)}</div>
+      <div class="v3-qr-stxt">${_v3t(st.summary)}</div>
+    </div></div>
+  </div>
+
+  <div class="v3-qr-tips">
+    <h2>${_v3t(q.tips_heading)}</h2>
+    <div class="v3-qr-tgrid">
+      <div class="v3-qr-tcol">${tips.slice(0, half).map(tip).join('')}
+      </div>
+      <div class="v3-qr-tcol">${tips.slice(half).map(tip).join('')}
+      </div>
+    </div>
+  </div>
+
+  ${_v3Footer(page)}
+</div>`;
+}
+
+/**
  * p10 "Instincts & Subtypes" — sheet 10, printed page 8.
  *
  * GEOMETRY OF RECORD: docs/p10_fit_results.md. Every zone below was measured on a scaffold
@@ -4299,6 +4447,7 @@ ${evList.map((b) => `    <div class="v3-inst-resp-txt">${_v3t(b)}</div>`).join('
  */
 const V3_PAGE_BUILDERS = {
   cover: _clv3Cover, contents: _clv3Contents, welcome: _clv3Welcome, whatis: _clv3WhatIs,
+  quickref: _clv3QuickRef,
   typeA: _clv3TypeA, typeB: _clv3TypeB, wings: _clv3Wings, lines: _clv3Lines,
   instincts: _clv3Instincts, thoughts: _clv3Thoughts,
 };

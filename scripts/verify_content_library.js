@@ -137,6 +137,13 @@ const SCRIPT_SOURCED = [
   // counted as proven-from-Word, which is exactly the claim this figure exists to make. The
   // gate did not catch it; the Build A predictions did, because they named 792/1316 in advance.
   // Measured both ways on this branch before and after adding these rows.
+  // Sheet 5's per-TYPE core motivations (PR 5 Build B2b). Purely additive — a second-person
+  // sibling of type_N.description.core_motivation, which is untouched and stays Word-sourced, so
+  // the Word-canonical figure must not move when this lands.
+  { path: 'types_v3_quickref',
+    label: 'sheet 5 core motivation, all 9 types (second person)',
+    retires: 'when the docx gains a second-person CORE MOTIVATION section (no current plan — these are DRAFTS pending Mo)',
+    walkTypes: ['core_motivation'], under: 'quickref_v3' },
   { path: 'subtypes_v3_quickref',
     label: 'sheet 5 quickref_v3 summary, all 27 subtypes',
     retires: 'when the docx gains a SUBTYPE SUMMARIES section (no current plan — these are DRAFTS with no source document at all; see build_content_library.js)',
