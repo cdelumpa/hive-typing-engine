@@ -52,21 +52,37 @@ jobs:
       # `require('puppeteer')`), restored from the ~/.cache/puppeteer cache above. The runner
       # image pre-configures Google's list, and several others, for builds that are not this one.
       #
-      # ONLY `*.list` IS REMOVED, DELIBERATELY. Third-party repositories the runner image adds
-      # use the classic one-line `.list` format; Ubuntu's own archive is either
-      # /etc/apt/sources.list or a deb822 `.sources` file, and neither matches that glob. Removing
-      # `*.sources` too would break apt outright.
+      # KEEP UBUNTU'S SOURCE, DROP EVERY OTHER — AND THE FIRST ATTEMPT AT THIS WAS WRONG, WHICH
+      # IS WHY IT IS SPELLED OUT. That version removed `*.list`, on the assumption that
+      # third-party repositories use the classic one-line format. On this runner image they do
+      # not. The before/after listing it printed showed:
       #
-      # THE LOG IS THE EVIDENCE. The lists are printed before and after, so a future reader can
-      # see exactly what was dropped rather than trusting this comment. `apt-get update` stays
-      # FATAL: with the third-party lists gone, a failure is the Ubuntu archive itself, which is
-      # worth stopping for. And if this ever removes too much, `apt-get install` fails loudly on
-      # the next line — a visible failure, not a silent one.
+      #     before:  google-chrome.sources   microsoft-prod.list   ubuntu.sources
+      #     after:   google-chrome.sources   ubuntu.sources
+      #
+      # It deleted Microsoft's, which was never the problem, and left Google's deb822 `.sources`
+      # file exactly where it was. The run failed again, identically. The lesson is that the
+      # FORMAT of a third-party list is not something to assume, so this no longer keys on
+      # format at all.
+      #
+      # It keeps `ubuntu.sources` — the Ubuntu archive, which is where fonts-liberation comes
+      # from, and which on this image lives in sources.list.d alongside the third-party ones
+      # rather than in /etc/apt/sources.list — and removes everything else whatever it is called.
+      #
+      # `Dir::Etc::sourceparts=/dev/null` was the tidier-looking alternative and is wrong here:
+      # it makes apt ignore the whole directory, and on this image that is where Ubuntu's own
+      # source lives, so the archive would go with it.
+      #
+      # THE LOG IS THE EVIDENCE. The directory is printed before and after, so a future reader
+      # can see exactly what was dropped rather than trusting this comment — that listing is how
+      # the first attempt's error was found. `apt-get update` stays FATAL: with the third-party
+      # sources gone, a failure is the Ubuntu archive itself, which is worth stopping for. And if
+      # this ever removes too much, `apt-get install` fails loudly on the next line.
       - name: Install Liberation Sans
         run: |
-          echo "── apt lists before ──"; ls -1 /etc/apt/sources.list.d/ 2>/dev/null || echo "(none)"
-          sudo rm -f /etc/apt/sources.list.d/*.list
-          echo "── apt lists after ──";  ls -1 /etc/apt/sources.list.d/ 2>/dev/null || echo "(none)"
+          echo "── apt sources before ──"; ls -1 /etc/apt/sources.list.d/ 2>/dev/null || echo "(none)"
+          sudo find /etc/apt/sources.list.d -mindepth 1 ! -name 'ubuntu.sources' -delete
+          echo "── apt sources after ──";  ls -1 /etc/apt/sources.list.d/ 2>/dev/null || echo "(none)"
           sudo apt-get update
           sudo apt-get install -y fonts-liberation
 
