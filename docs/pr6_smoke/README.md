@@ -24,7 +24,7 @@ the nine source extracts, unedited.
 | `sheet11_type9.png` | **The tightest page**: 93.87px free, 14 items. The longest Growth Strategies list (7). |
 | `sheet11_type6.png` | **The loosest page**: 205.62px free. The spare room gathers above the closing note, which sits 14px over the footer's rule. |
 | `sheet11_type1.png` | The longest Inquiries (8 lines): a card whose height is set by its list, not its rail. |
-| `sheet11_type9_long_name.png` | **The D-B2 reserve**: an 82-character client name wraps the page header onto two lines, and the page still fits with 82.87px free. Note the brand also wraps — see the build report, §7. |
+| `sheet11_type9_long_name.png` | **The D-B2 reserve**: an 82-character client name wraps the page header onto two lines, and the page still fits with 82.87px free. Note the brand also wraps — a report-wide header behaviour recorded as a risk in `docs/build_pr6_buildB1.md`. |
 | `sheet11_type2` … `_type8` | The rest of the nine. |
 
 | Type | Natural px | Free px | Lines G/I/E | Items G/I/E |
