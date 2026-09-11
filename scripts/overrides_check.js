@@ -27,6 +27,10 @@
  *   node scripts/overrides_check.js          # from repo root, app/.env loaded automatically
  *   npm run overrides:check                  # from app/
  *
+ * Against the LOCAL database instead, set DATABASE_URL in the shell — app/.env is loaded without
+ * override, so a shell value wins:
+ *   DATABASE_URL=postgresql://<you>@localhost:5432/hive_typing_local node scripts/overrides_check.js
+ *
  * Exit 0 = every published override matches the current library shape.
  * Exit 1 = at least one row would throw, names a key the library does not have, or leaves sheet 11 unable to fit.
  * Exit 2 = no database reachable (the check did not run — never mistake this for green).
@@ -60,7 +64,12 @@ const baselineFor = (key) => {
   let rows;
   try {
     const { Client } = require(path.join(ROOT, 'app/node_modules/pg'));
-    const c = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+    // SSL for a remote database only. Local Postgres does not offer it, and the hard-coded
+    // `ssl: {…}` this used to pass made the check unable to run against anything BUT a remote
+    // database — i.e. production — so it could never be verified locally. "Local" means what it
+    // means to the server's boot guard (app/env_guard.js): one definition.
+    const local = require(path.join(ROOT, 'app/env_guard.js')).isLocalDatabaseUrl(url);
+    const c = new Client({ connectionString: url, ssl: local ? false : { rejectUnauthorized: false } });
     await c.connect();
     ({ rows } = await c.query(
       `SELECT content_key, value, status, updated_at FROM content_overrides

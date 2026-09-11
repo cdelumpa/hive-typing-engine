@@ -14,8 +14,23 @@ const multer     = require('multer');      // PR14: event cover-photo multipart 
 const sharp      = require('sharp');       // PR14: cover-photo resize (card + modal crops)
 const cron       = require('node-cron');   // PR14: in-process scheduled jobs (reminder / waitlist expiry)
 
+// The environment BEFORE dotenv — the only place app/env_guard.js accepts permission to reach a
+// non-local database from, so a .env file cannot both supply a production URL and approve it.
+const envBeforeDotenv = { ...process.env };
 // override: true lets values in .env authoritatively replace ambient shell env.
 require('dotenv').config({ override: true });
+
+// ENV-SAFETY: refuse to boot against a non-local database unless on Railway or explicitly opted in.
+// Run from app/, the line above loads app/.env — the PRODUCTION database — so without this, any local
+// `npm start` connected to production and ran the boot migration there. It sits here, before the
+// first module that reaches the database (./render_report -> report_prep -> content_overrides -> db).
+{
+  const target = require('./env_guard').checkDatabaseTarget({ databaseUrl: process.env.DATABASE_URL, outsideEnv: envBeforeDotenv });
+  if (!target.ok) { console.error(target.message); process.exit(1); }
+  if (target.note) console.warn(target.note);
+}
+// What the boot check approved. The backstop before the session store requires it unchanged.
+const APPROVED_DATABASE_URL = process.env.DATABASE_URL;
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error('[boot] FATAL: ANTHROPIC_API_KEY is not set. Check .env');
@@ -90,6 +105,13 @@ db.initDb().catch(e => console.error('[boot] db.initDb error:', e.message));
 const app = express();
 
 // Session middleware — must run before basic auth so req.session is available for exemption checks
+// ENV-SAFETY backstop: every module has loaded by now and none has connected. The session store below
+// is the first thing that opens a connection from DATABASE_URL, so the URL must still be exactly what
+// the boot check approved — see checkUnchanged in app/env_guard.js.
+{
+  const same = require('./env_guard').checkUnchanged(APPROVED_DATABASE_URL, process.env.DATABASE_URL);
+  if (!same.ok) { console.error(same.message); process.exit(1); }
+}
 const PgSession = require('connect-pg-simple')(session);
 // IAA §6.4: behind Railway's TLS-terminating proxy, trust the first proxy hop so
 // req.ip is the real client IP and secure cookies are emitted over the proxied HTTPS.
