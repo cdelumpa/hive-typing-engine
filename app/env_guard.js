@@ -60,4 +60,19 @@ function checkDatabaseTarget({ databaseUrl, outsideEnv = {} }) {
   ].join('\n') };
 }
 
-module.exports = { checkDatabaseTarget, isLocalDatabaseUrl, databaseHost, RAILWAY_MARKERS, OPT_IN };
+/**
+ * THE BACKSTOP. The boot check runs before any module that reaches the database; this runs after
+ * every module has LOADED, before the first one CONNECTS, and requires DATABASE_URL to be exactly what
+ * the boot check approved. A module that loads a .env file of its own could otherwise put a production
+ * URL in place after the check — app/generate_report.js did exactly that until this PR.
+ */
+function checkUnchanged(approvedUrl, currentUrl) {
+  if ((approvedUrl || '') === (currentUrl || '')) return { ok: true };
+  return { ok: false, message: [
+    `[boot] REFUSING TO BOOT: DATABASE_URL changed after the boot check — now ${databaseHost(currentUrl) || 'unset'}, `
+      + `approved ${databaseHost(approvedUrl) || 'none'}.`,
+    '  A module loaded a .env file of its own. Find it and stop it loading at require time.',
+  ].join('\n') };
+}
+
+module.exports = { checkDatabaseTarget, checkUnchanged, isLocalDatabaseUrl, databaseHost, RAILWAY_MARKERS, OPT_IN };

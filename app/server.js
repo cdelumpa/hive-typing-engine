@@ -29,6 +29,8 @@ require('dotenv').config({ override: true });
   if (!target.ok) { console.error(target.message); process.exit(1); }
   if (target.note) console.warn(target.note);
 }
+// What the boot check approved. The backstop before the session store requires it unchanged.
+const APPROVED_DATABASE_URL = process.env.DATABASE_URL;
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error('[boot] FATAL: ANTHROPIC_API_KEY is not set. Check .env');
@@ -99,6 +101,13 @@ db.initDb().catch(e => console.error('[boot] db.initDb error:', e.message));
 const app = express();
 
 // Session middleware — must run before basic auth so req.session is available for exemption checks
+// ENV-SAFETY backstop: every module has loaded by now and none has connected. The session store below
+// is the first thing that opens a connection from DATABASE_URL, so the URL must still be exactly what
+// the boot check approved — see checkUnchanged in app/env_guard.js.
+{
+  const same = require('./env_guard').checkUnchanged(APPROVED_DATABASE_URL, process.env.DATABASE_URL);
+  if (!same.ok) { console.error(same.message); process.exit(1); }
+}
 const PgSession = require('connect-pg-simple')(session);
 // IAA §6.4: behind Railway's TLS-terminating proxy, trust the first proxy hop so
 // req.ip is the real client IP and secure cookies are emitted over the proxied HTTPS.

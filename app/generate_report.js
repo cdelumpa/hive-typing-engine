@@ -7,7 +7,11 @@ const path = require('path');
 const ROOT = __dirname;  // app/ is the root when deployed
 const APP_MODULES = path.join(ROOT, 'node_modules');
 
-require(path.join(APP_MODULES, 'dotenv')).config({ path: path.join(ROOT, '.env') });
+// app/.env is loaded by the CLI only (runCli, below), never at require time. server.js requires this
+// module for buildBetaData, and a top-level load here injected app/.env's DATABASE_URL — the
+// PRODUCTION database — into a server that had deliberately started without one, AFTER the boot guard
+// had approved "no database" (env-safety PR). Production is unaffected: app/.env is not deployed.
+const loadCliEnv = () => require(path.join(APP_MODULES, 'dotenv')).config({ path: path.join(ROOT, '.env') });
 
 const fs   = require('fs');
 const { Pool } = require(path.join(APP_MODULES, 'pg'));
@@ -650,6 +654,7 @@ async function generateBetaReport(clientId, opts = {}) {
 // ─── CLI entry point ──────────────────────────────────────────────────────────
 // Single source of truth — beta/generate_report.js is a thin shim that calls runCli().
 async function runCli() {
+  loadCliEnv();
   await (async () => {
     const args = process.argv.slice(2);
     const forceFlag = args.includes('--force');
