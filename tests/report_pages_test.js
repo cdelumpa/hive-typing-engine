@@ -372,6 +372,76 @@ console.log('\ncountByClass token boundaries:');
     const plurals = Object.values(TYPE_NAMES).map(n => n.replace(/^The\s+/, '') + 's');
     assert(plurals.every(p => /^[A-Z][a-z]+s$/.test(p)), `v3: plural rule holds for all nine names (${plurals.join(', ')})`);
 
+    // ── SHEET 11's MODEL CONTRACT (PR 6 Build A) ───────────────────────────────────────
+    //
+    // Sheet 11 does not render yet — this locks the DATA its builder will read, for all nine
+    // types. Re-typed the way scripts/render_client.js re-types: the scalars and the ranking
+    // together, and the client's own quotes withheld from any type but the fixture's.
+    {
+      const libc = require(path.join(ROOT, 'app/content/content_library.json'));
+      const retype = (n) => {
+        const c = JSON.parse(JSON.stringify(apiResult));
+        const h = c.hypothesis, real = apiResult.hypothesis.confirmed_type;
+        h.confirmed_type = n; h.confirmed_type_name = null; h.leading_candidate = n;
+        h.alternate_candidate = (n % 9) + 1;
+        if (n !== real) c.client_words = {};
+        const scores = h.call1_ranking.map(r => r.score).sort((a, b) => b - a);
+        const rest = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter(t => t !== n && t !== h.alternate_candidate);
+        h.call1_ranking = [n, h.alternate_candidate, ...rest].map((type, i) => ({ type, score: scores[i] }));
+        return c;
+      };
+      // THE CANONICAL NAMES, written out rather than derived: deriving them from TYPE_NAMES
+      // would pass whatever TYPE_NAMES says. The four pre-canon names come from the p11 source
+      // docs' own titles and headings, and must reach neither the model nor the page.
+      const CANON_PLURAL = { 1: 'Improvers', 2: 'Givers', 3: 'Performers', 4: 'Individualists', 5: 'Observers',
+        6: 'Questioners', 7: 'Enthusiasts', 8: 'Protectors', 9: 'Peacemakers' };
+      const PRE_CANON = /\b(?:Achievers?|Investigators?|Loyal Skeptics?|Challengers?)\b/;
+      const shared = new Set(), bad = [];
+      for (let n = 1; n <= 9; n++) {
+        const m = await prep.buildClientModel({ apiResult: retype(n), client: V3_CLIENT, coach });
+        const page = R.buildClientReportHTML_v3(m);
+        const d = m.pages.v3_devideas, src = libc[`type_${n}`].devideas_v3;
+        if (!d) { bad.push(`type ${n}: v3_devideas is null`); continue; }
+        const keys = d.sections.map(s => s.key).join(',');
+        if (keys !== 'growth,inquiries,experiments') bad.push(`type ${n}: sections ${keys}`);
+        const titles = d.sections.map(s => s.title).join(' | ');
+        if (titles !== 'Growth Strategies | Inquiries | Field Experiments') bad.push(`type ${n}: titles ${titles}`);
+        for (const s of d.sections) {
+          if (JSON.stringify(s.items) !== JSON.stringify(src[s.key])) bad.push(`type ${n}: ${s.key} items differ from the library`);
+          if (!s.items.length) bad.push(`type ${n}: ${s.key} is empty`);
+        }
+        if (!d.sections[2].items.every(e => Object.keys(e).join() === 'label,body' && e.label && e.body)) {
+          bad.push(`type ${n}: an experiment is not { label, body }`);
+        }
+        // C4 at the model: everything that is not the three lists must be the same on every type.
+        shared.add(JSON.stringify({ lead: d.lead, coda: d.coda, rails: d.sections.map(s => [s.title, s.desc]) }));
+        if (!page.includes(`Development Ideas for ${CANON_PLURAL[n]}`)) bad.push(`type ${n}: page lacks "Development Ideas for ${CANON_PLURAL[n]}"`);
+        if (m.display.nickname_plural !== CANON_PLURAL[n]) bad.push(`type ${n}: nickname_plural ${m.display.nickname_plural}`);
+        const leak = (JSON.stringify(d) + page).match(PRE_CANON);
+        if (leak) bad.push(`type ${n}: pre-canon name "${leak[0]}" reached the model or page`);
+      }
+      assert(bad.length === 0, `v3 sheet-11 contract: nine types, three sections each, library items, canonical plurals${bad.length ? ' — ' + bad.join('; ') : ''}`);
+      assert(shared.size === 1, `v3 sheet-11 contract: lead, closing note, titles and rail descriptions identical on all nine types (${shared.size} variants)`);
+      const rails = libc.static.devideas_rails_v3;
+      assert(rails.growth === "Stretch beyond your type's habitual patterns to grow your range and expand your choices."
+        && rails.inquiries === 'Use these prompts to reflect quietly on your own or go deeper by journaling your thoughts.'
+        && rails.experiments === 'Try one or more of these practices in the real world and notice what happens.',
+        'v3 sheet-11 contract: the three rail descriptions are the ratified text');
+
+      // devIdeas() directly: no block means null, never an empty page; a blank CMS item is
+      // dropped; a half-blank experiment is kept; and the library object is not mutated.
+      assert(prep.devIdeas(undefined, libc.static) === null, 'v3 sheet-11 model: a type with no block resolves to null');
+      const input = { growth: ['Keep', '  ', ''], inquiries: ['Ask?'],
+        experiments: [{ label: '', body: ' ' }, { label: 'Try', body: 'This.' }, { label: '', body: 'Half.' }] };
+      const before = JSON.stringify(input);
+      const out = prep.devIdeas(input, libc.static);
+      assert(JSON.stringify(out.sections[0].items) === '["Keep"]', 'v3 sheet-11 model: blank Growth items are dropped');
+      assert(out.sections[2].items.length === 2 && out.sections[2].items[1].body === 'Half.',
+        'v3 sheet-11 model: a fully blank experiment is dropped, a half-blank one is kept');
+      assert(JSON.stringify(input) === before && out.sections[2].items[0] !== input.experiments[1],
+        'v3 sheet-11 model: the input is not mutated and items are copies');
+    }
+
     // NO subtype anywhere in chrome (brief v2.0 section 12.1, reversed 12 Aug 2026). Five
     // mockups print "· SX9" in the header and TOC_v2 prints it in the client strip; the
     // build deliberately departs from all six. Asserted so the next person to "restore
