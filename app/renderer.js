@@ -3625,9 +3625,14 @@ const _v3Compounds = (s) => s.replace(V3_COMPOUND_RE, (c) =>
  * Applied BEFORE esc(), so the straightened quote is then escaped normally (" -> &quot;).
  * v3 client path only — the coach renderer never calls this, so coach output and its
  * byte-identical baseline are untouched.
+ *
+ * ‘ (U+2018) ADDED AT PR 6 Build B1. It was the one curly form missing: a smart-quoted
+ * ‘what is’ rendered as ‘what is' — curly open, straight close — on every v3 page. Found in
+ * PR 6 Build A by running this function on the forms a Mac types. No library string carries
+ * U+2018, so the change is byte-identical on every current render; what it covers is a CMS edit.
  */
 const _v3Straighten = (s) => String(s)
-  .replace(/’/g, "'")            // ’ curly apostrophe
+  .replace(/[‘’]/g, "'")         // ‘ ’ curly single quotes / apostrophe
   .replace(/[“”]/g, '"')    // “ ” curly double quotes
   .replace(/…/g, '...');         // … ellipsis
 

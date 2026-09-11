@@ -372,6 +372,16 @@ console.log('\ncountByClass token boundaries:');
     assert(model.display.nickname_plural === 'Peacemakers', `v3: display.nickname_plural = ${model.display.nickname_plural}`);
     assert(!/\{(type_word|subtype_label|nickname|nickname_plural)\}/.test(html), 'v3: no unresolved {token} placeholders in the rendered HTML');
     assert(html.includes('Development Ideas for Peacemakers'), 'v3: contents entry 08 renders the plural nickname');
+    // PR 6 Build B1: every curly form a Mac types is straightened on a v3 page, the opening single
+    // quote included — it was the one _v3Straighten missed. Driven through a real page, since the
+    // function is private; the Thoughts prompts are an ordinary _v3t zone.
+    {
+      const mq = JSON.parse(JSON.stringify(model));
+      mq.pages.v3_thoughts = { ...mq.pages.v3_thoughts, prompts: ['‘what is’ and “good enough”…', ...mq.pages.v3_thoughts.prompts.slice(1)] };
+      const hq = R.buildClientReportHTML_v3(mq);
+      assert(hq.includes('&#039;what is&#039; and &quot;good enough&quot;...') && !/[‘’“”…]/.test(hq),
+        'v3: _v3t straightens ‘ ’ “ ” and … — no curly form reaches the page');
+    }
     // PR 6: entry 08's descriptor no longer promises Courage / Agility / Resilience.
     assert(html.includes('Practical ways to put your new insights to work today.') && !/courage, agility/i.test(html),
       'v3: contents entry 08 carries the PR 6 descriptor, not the Courage / Agility / Resilience one');
