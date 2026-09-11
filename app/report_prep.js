@@ -56,6 +56,45 @@ const nickname = (typeName) => String(typeName || '').replace(/^The\s+/, '');
 const nameNode = (n) => ({ number: n, name: TYPE_NAMES[n] });
 const centerFill = (n) => CENTER_FILL[TYPE_META[n].center];
 
+/**
+ * Sheet 11 "Development Ideas" (PR 6 Build A) — the page model, from the resolved type row
+ * and the resolved statics, so a published CMS override reaches it without further wiring.
+ *
+ * ONE SHAPE FOR ALL THREE SECTIONS. `sections` is what lets the Build B builder draw three
+ * cards from one function (criterion C2). Titles and rail descriptions come from `stat` and
+ * never from the type row, so they cannot vary by type (C4).
+ *
+ * NULL, NOT DEFAULTED, when a type has no block — the v3_explore rule, so a missing type throws
+ * in the builder rather than rendering empty cards. Never a throw here: this model also feeds
+ * the live v2 report.
+ *
+ * A BLANK ITEM IS DROPPED (audit A4). The CMS saves an emptied box as '' and has no way to
+ * remove an item, so blanking is how an editor shortens a list. An experiment counts as blank
+ * only when both halves are; a half-blank one is kept, for Build C's publish check to refuse.
+ *
+ * New arrays and objects throughout: `d` is the require-cached library object, shared by
+ * every render in the process.
+ */
+const DEVIDEAS_SECTIONS = ['growth', 'inquiries', 'experiments'];
+function devIdeas(d, stat) {
+  if (!d) return null;
+  const blank = (s) => typeof s !== 'string' || s.trim() === '';
+  const titles = stat.devideas_titles_v3 || {}, rails = stat.devideas_rails_v3 || {};
+  return {
+    lead: stat.devideas_lead_v3 || '',
+    coda: stat.devideas_coda_v3 || '',
+    sections: DEVIDEAS_SECTIONS.map((key) => ({
+      key,
+      title: titles[key] || '',
+      desc: rails[key] || '',
+      items: key === 'experiments'
+        ? (d.experiments || []).filter((e) => e && !(blank(e.label) && blank(e.body)))
+            .map((e) => ({ label: e.label, body: e.body }))
+        : (d[key] || []).filter((s) => !blank(s)),
+    })),
+  };
+}
+
 function typeBars(call1_ranking) {
   return (call1_ranking || []).map(r => ({ type: r.type, score: Math.round(r.score), color: centerFill(r.type) }));
 }
@@ -596,6 +635,10 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
         labels: stat.quickref_labels_v3 || {},
       },
 
+      // CLIENT REPORT v3 — sheet 11 "Development Ideas" (PR 6 Build A). CONTENT AND MODEL ONLY:
+      // `car` carries no `built` flag, so nothing reads this yet. See devIdeas() for the shape.
+      v3_devideas: devIdeas(t.devideas_v3, stat),
+
       instinct_subtype: {                                                                       // P6
         subtype: { name: st.name, tagline: st.tagline, narrative: st.narrative, patterns: st.patterns },
         instinct_evidence: cf.instinct_evidence ?? null,
@@ -781,4 +824,5 @@ module.exports = {
   buildCoachModel, buildClientModel, validateModel,
   // helpers exported for unit checks
   lib, resolveTypeMeta, subtypeKey, typeBars, instinctBars, instinctStack, nearTie, confidenceLabel,
+  devIdeas,
 };

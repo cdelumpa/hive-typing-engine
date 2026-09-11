@@ -84,7 +84,10 @@ const INTERIM_CONTENTS = [
   { start: 'wings',     desc: 'The two adjacent types that flavor your {type_word}, and what each one offers you.' },
   { start: 'lines',     desc: 'Where you move under pressure and in flow, and how to draw on both.' },
   { start: 'instincts', desc: 'Your dominant instinct, the three instincts, and what it means to be a {subtype_label}.' },
-  { start: 'car',       desc: 'Practical ways to build courage, agility, and resilience, starting today.' },
+  // Rewritten at PR 6, when sheet 11's Courage / Agility / Resilience design was replaced by
+  // Growth Strategies, Inquiries and Field Experiments. The title line above it is
+  // V3_PAGE_ORDER's and is unchanged. [Ratified — PR 6 brief, 10 Sep 2026]
+  { start: 'car',       desc: 'Practical ways to put your new insights to work today.' },
   // Entry 09 departs from TOC_v2.html, which promised "what to expect in your debrief
   // conversation" — the approved p12 copy does not deliver that. Same class of defect as
   // the entry 07 instinct-stack reference: a descriptor promising content the page no
@@ -95,11 +98,17 @@ const INTERIM_CONTENTS = [
 // INTERIM SOURCE — client report v3 "Your Thoughts" page (sheet 12). Approved copy; the
 // intro and prompts 3-5 supersede the mockup.
 //
-// Prompt 3 previously read "Of the development ideas on the previous page (Courage,
-// Agility, and Resilience), what would create the most leverage…". The positional
-// cross-reference was true only while Development Ideas is sheet 11 and would have broken
-// silently inside a client-facing PDF on any reorder. It is deliberately gone; do not
-// reintroduce it. The rewrite also drops the prompt from two rendered lines to one.
+// Prompt 3 — REVERSED AT PR 6, deliberately, and the reason it was removed is now enforced
+// instead of avoided. PR 2 replaced "Of the development ideas on the previous page (Courage,
+// Agility, and Resilience), what would create the most leverage…" with "What's one insight
+// from Development Ideas you'd like to work on?", because the positional cross-reference was
+// true only while Development Ideas is sheet 11 and would break silently on any reorder.
+// PR 6 ratified the positional wording again, minus the parenthetical that named the retired
+// design [PR 6 brief, 10 Sep 2026; audit decision D5 (b)]. The fragility is closed by
+// construction: tests/report_pages_test.js asserts `car` immediately precedes `thoughts`,
+// and the same assertion covers sheet 11's closing note ("use the next page").
+// COST, MEASURED IN THE AUDIT: the prompt wraps to two lines, taking sheet 12 from 55.39px
+// to 36.55px free.
 //
 // Coach reference rule across Welcome and this page: "an InsightOut coach", never "your
 // coach" — Welcome states a reader may have arrived "through a coach, a friend, or sheer
@@ -109,7 +118,7 @@ const INTERIM_THOUGHTS = {
   prompts: [
     "What's one thing you want to remember from this report?",
     "What's one thing you're still curious about and want to learn more about?",
-    "What's one insight from Development Ideas you'd like to work on?",
+    "Of the development ideas on the previous page, what would create the most leverage for you personally and professionally?",
     "What would working on that insight give you?",
     "What else would you like to capture?",
   ],
@@ -1792,6 +1801,285 @@ const INTERIM_INSTINCTS_V3 = {
   },
 };
 
+// ── SHEET 11 "Development Ideas" (PR 6 Build A) ──────────────────────────────────────
+//
+// Replaces the Courage / Agility / Resilience design, which never shipped — `car` has been the
+// one unbuilt row in V3_PAGE_ORDER. Three lists per type (Growth Strategies, Inquiries, Field
+// Experiments) under three rail descriptions that are the same on every type.
+//
+// SOURCE: nine Google Docs, "Type N — <Name> · p11 Content (Source Extract)", in Drive folder
+// 123a0BtPaFyhh-HbEZbRa3EN5fcg3KT8d. By type:
+//   1 189X8ZjsdqOhafKo3Np3wNO9_YKj6JRmUJCPYCcU_MiI   2 1Kt3Qi0wQVAwN5U6Fn4eq14i8vC9J4FOxSnqd58F0naQ
+//   3 1PLLa_5tJHiFjIrq9pv7x8CWHZ9DhXcRpIvZLA58HgWw   4 1-nlJ_8e3lXwR6-oe0l3SGMoTBiNDsAXVKFpXQ5ntgxE
+//   5 1w0xmfjlwUmkLNR0uSXOE35gtButpKbVY58SSBQz_bVg   6 1csFFe1z4rbtlTXYAQu2ywDDqxnzgHJ7r4Axyk80x6GQ
+//   7 1dpYrtEErcrhQU6Pj5c2hwqyBn9h1rZmOUk2tY24ewO0   8 1MzwHCQ1176TkqyyEn4EzqVmvrjznANJzjUkZiskCePI
+//   9 1sORooN23jEOdHm__lmBSkpE2biHimKnwYUn7ESwiboU
+// Each is a verbatim extract from "Transform Your Coaching Using the Enneagram" (Breault &
+// Delumpa, 2023), UNEDITED, awaiting Mo and Cai's pass toward a uniform shape and length.
+// Build against the shape, not the wording: counts and strings here will change.
+//
+// TRANSCRIBED, NOT RETYPED. Generated from a plain-text export of all nine and round-tripped
+// 135 of 135 strings identical; Types 2 and 9 then re-read against the live docs, 26 of 26
+// identical. Read 10 Sep 2026, when no doc had been edited since it was created. VERBATIM
+// INCLUDES WHAT THE PASS MAY CHANGE: most Growth items carry no terminal period, Type 2's third
+// inquiry reads "receive give and love", and Types 6 and 8 each carry one spaced en dash.
+// RECOUNTED on this file's basis: 108 items, 31-256 characters (an experiment counted as
+// label + ": " + body); item counts G/I/E run 4-7 / 3-4 / 3.
+//
+// THE DOCS' TYPE NAMES ARE NOT PORTED. Four doc titles and their section headings say Achiever,
+// Investigator, Loyal Skeptic and Challenger, and a note in each calls those "the canon name in
+// the current type library". They are not: both type_library.json copies, app/type_meta.js and
+// the Call #2 prompt's CANONICAL TYPE AND SUBTYPE NAMES list (app/server.js) name Types 3, 5, 6
+// and 8 the Performer, Observer, Questioner and Protector (design spec §4.1). Only the lists
+// are ingested, they name no type, and the page title derives from TYPE_NAMES.
+// validateDevIdeas rejects the four names anywhere in sheet 11's content.
+//
+// FIELD EXPERIMENTS ARE {label, body}, STORED SPLIT. The label carries no colon: the renderer
+// writes `<b>label:</b> body`, so the bold-plus-colon shape cannot depend on typing. Every doc
+// item split cleanly on its first ": " (27 of 27).
+//
+// A SIBLING ON THE TYPE ROW (type_N.devideas_v3), never a leaf inside an existing object — the
+// assertOverrideShape reason recorded at INTERIM_QUICKREF_TYPE_V3. The lists are arrays because
+// overrideShape does not record array length, so a count change after the pass is a value
+// edit rather than a shape change.
+//
+// STRAIGHT QUOTES THROUGHOUT, asserted by validateDevIdeas rather than assumed. The docs carry
+// none to straighten; _v3t still straightens at render, which is what covers a CMS edit.
+const INTERIM_DEVIDEAS_V3 = {
+  1: {
+    growth: [
+      'Appreciate errors, mistakes and imperfections as differences',
+      'Make little "mistakes" deliberately, such as not making the bed',
+      'Explore all your feelings, accepting and integrating the "negative" ones',
+      'Practice acceptance and forgiveness rather than trying to improve someone or something',
+      'Stop periodically to sense your body and physically relax any tightness',
+    ],
+    inquiries: [
+      'What self-held beliefs or standards might be contributing to my sense of frustration or dissatisfaction? What would become possible if I relaxed them a bit?',
+      'How can I embrace imperfection in myself and others more compassionately?',
+      'What would it look like for me to allow more spontaneity and pleasure in my life?',
+      'How is my Inner Critic trying to help me? How does it hurt me and my life when I believe everything my Inner Critic is saying?',
+    ],
+    experiments: [
+      { label: 'Self-Compassion Journal',
+        body: "Spend 10 minutes each day writing down three things you appreciate about yourself and three ways you've shown kindness to yourself. Reflect on how this impacts your mood and stress levels." },
+      { label: 'Imperfection Challenge',
+        body: 'Choose one task each week to complete imperfectly, allowing yourself to make mistakes or do it "good enough." Notice any discomfort and journal about the experience.' },
+      { label: 'Relaxation Routine',
+        body: 'Incorporate a daily relaxation practice such as meditation, deep breathing, or gentle yoga. Track your commitment and reflect on how this practice affects your inner critic.' },
+    ],
+  },
+  2: {
+    growth: [
+      'Give and receive freely, without pride and expectations.',
+      'Practice giving without anyone knowing.',
+      'Ask yourself, "What do I really want and what is really important to me?" Notice if you experience anxiety simply asking these questions.',
+      'Spend time alone to develop independent interests and autonomy.',
+      'Become aware that it is a great gift to others to receive from them.',
+    ],
+    inquiries: [
+      'In what ways do I seek validation or approval through giving to others?',
+      'How can I balance my need to care for others with caring for myself?',
+      'What would it feel like to receive give and love from others without feeling the need to reciprocate immediately?',
+      'How do I allow others to support me? How do I not allow others to support me?',
+    ],
+    experiments: [
+      { label: 'Self-Care Schedule',
+        body: 'Create a weekly schedule that includes specific times for self-care activities you enjoy (e.g., reading, exercising, hobbies). Stick to this schedule and reflect on how it feels to prioritize yourself.' },
+      { label: 'Receiving Practice',
+        body: 'Ask for help or support from someone you trust at least once a week. Notice your feelings and reactions to receiving help and write about them in a journal.' },
+      { label: 'Boundary Setting',
+        body: 'Identify one area in your life where you need stronger boundaries. Practice setting and maintaining this boundary and reflect on how it impacts your relationships and self-respect.' },
+    ],
+  },
+  3: {
+    growth: [
+      'Slow your pace and detach your sense of worth from performance',
+      'Practice doing one thing at a time with your full attention',
+      'Ask yourself what really matters',
+      'Strengthen your self-observer by paying attention to your feelings and physical sensations, especially tiredness',
+      'Distinguish between what needs change (requires doing) and what needs acceptance (simply being)',
+    ],
+    inquiries: [
+      'How do I define my self-worth outside of my achievements and successes?',
+      'What emotions or aspects of myself do I avoid in my pursuit of goals?',
+      'How can I cultivate authenticity in my interactions and relationships?',
+      'What happens when my feelings come up? What am I feeling now?',
+    ],
+    experiments: [
+      { label: 'Values Clarification',
+        body: 'Spend 20 minutes each week reflecting on your core values and how they align with your actions and goals. Write about any discrepancies and steps to realign.' },
+      { label: 'Emotion Check-In',
+        body: "Set a daily reminder to pause and check in with your emotions. Write down what you're feeling and why, focusing on acknowledging rather than fixing." },
+      { label: 'Authentic Connection',
+        body: 'Schedule regular time to connect with a friend or loved one without discussing work or achievements. Focus on being present and authentic in the conversation.' },
+    ],
+  },
+  4: {
+    growth: [
+      'Accept that wholeness and realness exist now in the present moment',
+      'Focus on what is present and "what is" rather than what is missing',
+      'Resist being dominated by strong and fluctuating feelings while acknowledging their authenticity',
+      'Sustain a steady course of action even in the presence of intense feelings',
+      'Use physical movement to get into the body',
+      'Break a tendency toward self-absorption by moving toward others',
+    ],
+    inquiries: [
+      'In what ways do I compare myself to others, and how does this impact my sense of self?',
+      'How can I find beauty and meaning in ordinary, everyday experiences?',
+      'What would it look like to express my emotions constructively rather than dwelling in them?',
+    ],
+    experiments: [
+      { label: 'Gratitude Journal',
+        body: 'Write down three things you are grateful for each day, focusing on ordinary moments. Reflect on how this practice shifts your perspective on daily life.' },
+      { label: 'Creative Expression',
+        body: 'Engage in a creative activity (e.g., painting, writing, music) at least once a week. Focus on the process rather than the outcome and notice how it affects your emotional state.' },
+      { label: 'Emotional Regulation',
+        body: 'Practice a mindfulness or grounding technique (e.g., deep breathing, body scan) daily to help manage intense emotions. Reflect on how this practice influences your emotional reactivity.' },
+    ],
+  },
+  5: {
+    growth: [
+      'Notice the impact of withdrawal and withholding on others, and how it invites intrusion',
+      'Notice how you detach from feelings and shift to the mind',
+      'Recognize that cutting off from feelings leads to intensifying them',
+      'Allow time for observation and then time for action',
+      'Identify the cues that you are withdrawing into your mind',
+    ],
+    inquiries: [
+      'How does my need for knowledge and understanding create distance in my relationships?',
+      'What steps can I take to reconnect with my body and emotions?',
+      'How can I share my insights and ideas more openly with others?',
+      'How do I minimize my wants and desires?',
+    ],
+    experiments: [
+      { label: 'Body Awareness',
+        body: 'Engage in a physical activity (e.g., walking, yoga, dance) three times a week to reconnect with your body. Notice any sensations and emotions that arise during these activities.' },
+      { label: 'Social Engagement',
+        body: 'Plan to connect with a friend or attend a social event once a week. Focus on being present and sharing something about yourself with others.' },
+      { label: 'Expressing Ideas',
+        body: 'Start a blog or journal to share your insights and ideas regularly. Reflect on how sharing your thoughts impacts your connection with others and your sense of contribution.' },
+    ],
+  },
+  6: {
+    growth: [
+      'Reclaim your faith in self, others, and the universe',
+      'Realize proof is no substitute for trust',
+      'Communicate with the part of you that is afraid – what is it trying to tell you?',
+      'Do physical exercise to move your energy out of the head',
+      'Take time to focus on, name, and savor your successes!',
+    ],
+    inquiries: [
+      'In what ways do my fears and anxieties limit my choices and actions?',
+      'How can I develop greater trust in myself and my intuition?',
+      'What would it look like to embrace uncertainty and change with more confidence?',
+    ],
+    experiments: [
+      { label: 'Fear Inventory',
+        body: 'Write down your fears and anxieties each week. For each fear, identify what you can control and what you cannot. Reflect on how this practice impacts your stress levels.' },
+      { label: 'Trust Building',
+        body: 'Engage in activities that build trust in yourself, such as setting small goals and following through, or practicing self-affirmations. Track your progress and reflect on the outcomes.' },
+      { label: 'Embracing Change',
+        body: 'Take on a new challenge or change in routine once a month. Reflect on your experience, focusing on the positive aspects of embracing uncertainty and growth.' },
+    ],
+  },
+  7: {
+    growth: [
+      'Become aware of overscheduling, multiple projects, plans, and other mental evasions as clues that you may be avoiding something negative or painful',
+      'Notice your hunger for stimulation and gratification as a reminder to return to the present',
+      'Work on one thing at a time and finish what you start',
+      'Acknowledge the desires and well-being of others in equal proportion to your own',
+    ],
+    inquiries: [
+      'How does my pursuit of pleasure and excitement distract me from deeper fulfillment?',
+      'What feelings or experiences do I avoid by staying constantly busy or entertained?',
+      'How can I practice being present and appreciating the moment as it is?',
+    ],
+    experiments: [
+      { label: 'Mindfulness Practice',
+        body: 'Incorporate a daily mindfulness or meditation practice to help stay present. Reflect on how being present impacts your sense of fulfillment.' },
+      { label: 'Simplifying Routine',
+        body: 'Choose one day a week to simplify your schedule, focusing on fewer activities and more downtime. Reflect on how this impacts your energy and contentment.' },
+      { label: 'Emotional Exploration',
+        body: 'Dedicate time each week to exploring and processing your emotions through journaling or talking with a trusted friend. Reflect on how this deeper emotional engagement influences your overall happiness.' },
+    ],
+  },
+  8: {
+    growth: [
+      'Notice and moderate your intensity, excess, and impact',
+      'Allow a gap between impulse and action so there is time to consider consequences of your behavior on your long-term goals',
+      'Investigate the difference between weakness and vulnerability',
+      "Practice doing things someone else's way – start small",
+      'Realize that true power comes from the appropriate application of force',
+      'Learn that flexibility and adaptability are empowering',
+    ],
+    inquiries: [
+      'In what ways do I use control or power to protect myself from vulnerability?',
+      'How can I soften my approach to conflict and seek understanding instead of dominance?',
+      'What would it look like to allow others to support and care for me?',
+      'How do I divert attention away from my fears of being hurt?',
+    ],
+    experiments: [
+      { label: 'Vulnerability Practice',
+        body: 'Share something vulnerable with a trusted friend or partner once a week. Reflect on how this practice impacts your relationships and sense of connection.' },
+      { label: 'Conflict Resolution',
+        body: 'Practice active listening and seeking understanding in conflicts rather than trying to win or dominate. Reflect on how this approach affects the outcome and your relationships.' },
+      { label: 'Delegation Exercise',
+        body: 'Identify tasks or responsibilities you can delegate to others. Practice letting go of control and allowing others to take charge. Reflect on how this impacts your stress levels and relationships.' },
+    ],
+  },
+  9: {
+    growth: [
+      'Take responsibility for your own well-being and importance.',
+      'Reclaim a separate self and voice; take a personal position on issues',
+      'Examine the tendency to say yes when you really mean no',
+      'Welcome discomfort and conflict',
+      'Notice when you are withholding your opinion to avoid conflict',
+      'Notice feelings that precede your attention shifting to substitutes (food, TV, etc.)',
+      'Remember that your self-worth is self-defined; no one can define you',
+    ],
+    inquiries: [
+      'How does my desire for harmony lead me to neglect my own needs and desires?',
+      'What steps can I take to assert myself more confidently in my relationships?',
+      'How can I embrace conflict as an opportunity for growth rather than something to avoid?',
+      'What makes me angry? How do I know I am angry? What is my anger telling me?',
+    ],
+    experiments: [
+      { label: 'Assertiveness Training',
+        body: 'Practice asserting your needs and opinions in small ways daily. Reflect on how this impacts your confidence and relationships.' },
+      { label: 'Priority Setting',
+        body: 'Each week, identify and prioritize one personal goal or desire. Take concrete steps toward achieving it and reflect on how it feels to prioritize your own needs.' },
+      { label: 'Conflict Engagement',
+        body: 'Engage in a constructive conversation about a disagreement or conflict once a month. Focus on expressing your perspective clearly and listening to the other person. Reflect on how this impacts your sense of self and your relationships.' },
+    ],
+  },
+};
+
+// Sheet 11's strings that are the SAME ON EVERY TYPE (criterion C4). Stored once under
+// `static`, so the page has no per-type path to them.
+//
+// The three titles and three rail descriptions are ratified (PR 6 brief). `lead` and `coda`
+// are lifted from the ratified mockup's .intro and .closing (page11_redesign_mockup.html),
+// with its one curly apostrophe ("Here’s") straightened to match the library.
+//
+// FOUR FLAT SIBLINGS, split by who may edit them — the quickref precedent. `titles` is
+// content-library only: structural names, not prose. `rails`, `lead` and `coda` are prose and
+// become CMS-editable in Build C.
+//
+// The coda's "use the next page" is true only while sheet 11 immediately precedes Your
+// Thoughts. tests/report_pages_test.js asserts that order, so a reorder fails a test rather
+// than shipping a false pointer.
+const INTERIM_DEVIDEAS_STATIC_V3 = {
+  titles: { growth: 'Growth Strategies', inquiries: 'Inquiries', experiments: 'Field Experiments' },
+  rails: {
+    growth: "Stretch beyond your type's habitual patterns to grow your range and expand your choices.",
+    inquiries: 'Use these prompts to reflect quietly on your own or go deeper by journaling your thoughts.',
+    experiments: 'Try one or more of these practices in the real world and notice what happens.',
+  },
+  lead: "The Enneagram is a map and compass for developing yourself personally and professionally. Here's where to focus, what to ask yourself, and what to try — three ways to turn insight into action.",
+  coda: 'The ideas above are a starting point for a deeper exploration on your own or with a coach. Take some time to reflect on where you want to focus and use the next page to capture your thoughts.',
+};
+
 // Engine source of truth (mirrors renderer TYPE_NAMES + design A6; Phase 4 centralizes into type_meta.js).
 const TYPE_NAMES = {
   1: 'The Improver', 2: 'The Giver', 3: 'The Performer', 4: 'The Individualist',
@@ -2187,6 +2475,53 @@ function validateQuickrefType(n, t) {
   }
 }
 
+// Sheet 11 (PR 6 Build A). UNCONDITIONAL, all nine types, for validateExplore's reason: a type
+// missing its block must fail here, not render an empty page. Counts are NOT fixed — the
+// uniformity pass has not settled them — so a list needs at least one item, not N.
+//
+// The label rules are what hold criterion C3 at ingest. A colon in a label would print as
+// "Label::" once the renderer adds its own; 30 characters bounds a sentence pasted into the
+// label (longest today: 23, Type 1's "Self-Compassion Journal").
+const DEVIDEAS_LABEL_MAX = 30;
+// Straight quotes only — the p6/p7 rule, asserted at ingest so it is not left to _v3t.
+const DEVIDEAS_CURLY = /[‘’“”…]/;
+// The four pre-canon names the source docs carry in their titles and headings. None may reach
+// sheet 11: the canonical names are the Performer, Observer, Questioner and Protector.
+const DEVIDEAS_PRE_CANON = /\b(?:Achievers?|Investigators?|Loyal Skeptics?|Challengers?)\b/;
+const nonEmpty = (s) => typeof s === 'string' && s.trim() !== '';
+function checkDevIdeasText(P, o) {
+  if (typeof o === 'string') {
+    need(!DEVIDEAS_CURLY.test(o), `${P} contains a curly quote or ellipsis — sheet 11 stores straight forms`);
+    need(!DEVIDEAS_PRE_CANON.test(o), `${P} names a pre-canon type ("${o.match(DEVIDEAS_PRE_CANON)}") — use TYPE_NAMES`);
+  } else if (Array.isArray(o)) o.forEach((v, i) => checkDevIdeasText(`${P}[${i}]`, v));
+  else if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) checkDevIdeasText(`${P}.${k}`, v);
+}
+function validateDevIdeas(n, t) {
+  const P = `type_${n}.devideas_v3`;
+  const d = t.devideas_v3;
+  if (!d) { need(false, `${P} missing — sheet 11 requires it for every type`); return; }
+  // Named keys, not a count: a renamed list would render as a missing section.
+  need(Object.keys(d).sort().join() === 'experiments,growth,inquiries',
+    `${P} keys are [${Object.keys(d).join(', ')}] — want exactly growth, inquiries, experiments`);
+  for (const k of ['growth', 'inquiries']) {
+    need(Array.isArray(d[k]) && d[k].length >= 1 && d[k].every(nonEmpty),
+      `${P}.${k} must be a non-empty list of non-empty strings, got ${Array.isArray(d[k]) ? d[k].length : 'none'}`);
+  }
+  const ex = d.experiments;
+  need(Array.isArray(ex) && ex.length >= 1, `${P}.experiments must be a non-empty list, got ${Array.isArray(ex) ? 0 : 'none'}`);
+  (Array.isArray(ex) ? ex : []).forEach((e, i) => {
+    const Q = `${P}.experiments[${i}]`;
+    need(e && Object.keys(e).sort().join() === 'body,label', `${Q} must be exactly { label, body }`);
+    need(e && nonEmpty(e.label), `${Q}.label empty`);
+    need(e && nonEmpty(e.body), `${Q}.body empty`);
+    if (e && nonEmpty(e.label)) {
+      need(!e.label.includes(':'), `${Q}.label "${e.label}" contains a colon — the renderer adds it`);
+      need(e.label.length <= DEVIDEAS_LABEL_MAX, `${Q}.label is ${e.label.length} characters (max ${DEVIDEAS_LABEL_MAX})`);
+    }
+  });
+  checkDevIdeasText(P, d);
+}
+
 function validateLines(n, t) {
   const P = `type_${n}`;
   const L = t.lines;
@@ -2270,6 +2605,13 @@ function validateSubtype(key, st) {
       lib.static.quickref_tips_v3   = QR.tips.slice();
       lib.static.quickref_tips_heading_v3 = QR.tips_heading;
       lib.static.quickref_labels_v3 = { ...QR.labels };
+      // Sheet 11 (PR 6 Build A). Four flat siblings, split by editability — see
+      // INTERIM_DEVIDEAS_STATIC_V3. The docx has no section for any of these eight strings.
+      const DI = INTERIM_DEVIDEAS_STATIC_V3;
+      lib.static.devideas_titles_v3 = { ...DI.titles };
+      lib.static.devideas_rails_v3  = { ...DI.rails };
+      lib.static.devideas_lead_v3   = DI.lead;
+      lib.static.devideas_coda_v3   = DI.coda;
       continue;
     }
     const m = toks[start].text.match(/^Type (\d)\s*[—–-]\s*(.+)$/);
@@ -2289,6 +2631,9 @@ function validateSubtype(key, st) {
     // no section for a second-person core motivation, so nothing docx-parsed stops being
     // Word-sourced when this lands.
     if (INTERIM_QUICKREF_TYPE_V3[n]) t.quickref_v3 = { ...INTERIM_QUICKREF_TYPE_V3[n] };
+    // Sheet 11 (PR 6 Build A). A sibling on the type row, for the same reason. Cloned, not
+    // shared: the constant holds nested arrays and objects.
+    if (INTERIM_DEVIDEAS_V3[n]) t.devideas_v3 = structuredClone(INTERIM_DEVIDEAS_V3[n]);
     lib[`type_${n}`] = t;
 
     const subs = assembleSubtypes(n, subToks);
@@ -2310,6 +2655,7 @@ function validateSubtype(key, st) {
     if (!lib[`type_${n}`]) { errs.push(`type_${n} MISSING`); continue; }
     validateType(n, lib[`type_${n}`]);
     validateQuickrefType(n, lib[`type_${n}`]);
+    validateDevIdeas(n, lib[`type_${n}`]);
   }
   let subCount = 0;
   for (let n = 1; n <= 9; n++) for (const inst of ['sp', 'so', 'sx']) {
@@ -2348,6 +2694,18 @@ function validateSubtype(key, st) {
   for (const k of ['pick_leading', 'pick_alternate', 'panel_instincts', 'panel_subtype']) {
     need(S.quickref_labels_v3 && typeof S.quickref_labels_v3[k] === 'string' && S.quickref_labels_v3[k].trim(),
       `static.quickref_labels_v3.${k} empty`);
+  }
+  // Sheet 11 (PR 6 Build A). Titles and rails are named key by key for the reason the labels
+  // above are: a renamed key renders `undefined` on every client's page, not on one type's.
+  for (const k of ['devideas_titles_v3', 'devideas_rails_v3']) {
+    need(S[k] && Object.keys(S[k]).sort().join() === 'experiments,growth,inquiries'
+      && ['growth', 'inquiries', 'experiments'].every(s => nonEmpty(S[k][s])),
+      `static.${k} must be exactly { growth, inquiries, experiments }, all non-empty`);
+  }
+  need(nonEmpty(S.devideas_lead_v3), 'static.devideas_lead_v3 empty');
+  need(nonEmpty(S.devideas_coda_v3), 'static.devideas_coda_v3 empty');
+  for (const k of ['devideas_titles_v3', 'devideas_rails_v3', 'devideas_lead_v3', 'devideas_coda_v3']) {
+    checkDevIdeasText(`static.${k}`, S[k]);
   }
   // p10 (PR 4 step 4). A SIBLING of the line above, not a replacement for it: that one names
   // the v2 key explicitly and a new key is invisible to it, so the live gate is untouched.
