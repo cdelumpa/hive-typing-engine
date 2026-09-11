@@ -365,6 +365,9 @@ console.log('\ncountByClass token boundaries:');
     assert(model.display.nickname_plural === 'Peacemakers', `v3: display.nickname_plural = ${model.display.nickname_plural}`);
     assert(!/\{(type_word|subtype_label|nickname|nickname_plural)\}/.test(html), 'v3: no unresolved {token} placeholders in the rendered HTML');
     assert(html.includes('Development Ideas for Peacemakers'), 'v3: contents entry 08 renders the plural nickname');
+    // PR 6: entry 08's descriptor no longer promises Courage / Agility / Resilience.
+    assert(html.includes('Practical ways to put your new insights to work today.') && !/courage, agility/i.test(html),
+      'v3: contents entry 08 carries the PR 6 descriptor, not the Courage / Agility / Resilience one');
 
     // The nickname rule (strip "The", add "s") must hold for all nine archetype names —
     // spec section 6 claims "all nine work", and PR 6 depends on it.

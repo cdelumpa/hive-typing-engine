@@ -84,7 +84,10 @@ const INTERIM_CONTENTS = [
   { start: 'wings',     desc: 'The two adjacent types that flavor your {type_word}, and what each one offers you.' },
   { start: 'lines',     desc: 'Where you move under pressure and in flow, and how to draw on both.' },
   { start: 'instincts', desc: 'Your dominant instinct, the three instincts, and what it means to be a {subtype_label}.' },
-  { start: 'car',       desc: 'Practical ways to build courage, agility, and resilience, starting today.' },
+  // Rewritten at PR 6, when sheet 11's Courage / Agility / Resilience design was replaced by
+  // Growth Strategies, Inquiries and Field Experiments. The title line above it is
+  // V3_PAGE_ORDER's and is unchanged. [Ratified — PR 6 brief, 10 Sep 2026]
+  { start: 'car',       desc: 'Practical ways to put your new insights to work today.' },
   // Entry 09 departs from TOC_v2.html, which promised "what to expect in your debrief
   // conversation" — the approved p12 copy does not deliver that. Same class of defect as
   // the entry 07 instinct-stack reference: a descriptor promising content the page no
