@@ -98,11 +98,17 @@ const INTERIM_CONTENTS = [
 // INTERIM SOURCE — client report v3 "Your Thoughts" page (sheet 12). Approved copy; the
 // intro and prompts 3-5 supersede the mockup.
 //
-// Prompt 3 previously read "Of the development ideas on the previous page (Courage,
-// Agility, and Resilience), what would create the most leverage…". The positional
-// cross-reference was true only while Development Ideas is sheet 11 and would have broken
-// silently inside a client-facing PDF on any reorder. It is deliberately gone; do not
-// reintroduce it. The rewrite also drops the prompt from two rendered lines to one.
+// Prompt 3 — REVERSED AT PR 6, deliberately, and the reason it was removed is now enforced
+// instead of avoided. PR 2 replaced "Of the development ideas on the previous page (Courage,
+// Agility, and Resilience), what would create the most leverage…" with "What's one insight
+// from Development Ideas you'd like to work on?", because the positional cross-reference was
+// true only while Development Ideas is sheet 11 and would break silently on any reorder.
+// PR 6 ratified the positional wording again, minus the parenthetical that named the retired
+// design [PR 6 brief, 10 Sep 2026; audit decision D5 (b)]. The fragility is closed by
+// construction: tests/report_pages_test.js asserts `car` immediately precedes `thoughts`,
+// and the same assertion covers sheet 11's closing note ("use the next page").
+// COST, MEASURED IN THE AUDIT: the prompt wraps to two lines, taking sheet 12 from 55.39px
+// to 36.55px free.
 //
 // Coach reference rule across Welcome and this page: "an InsightOut coach", never "your
 // coach" — Welcome states a reader may have arrived "through a coach, a friend, or sheer
@@ -112,7 +118,7 @@ const INTERIM_THOUGHTS = {
   prompts: [
     "What's one thing you want to remember from this report?",
     "What's one thing you're still curious about and want to learn more about?",
-    "What's one insight from Development Ideas you'd like to work on?",
+    "Of the development ideas on the previous page, what would create the most leverage for you personally and professionally?",
     "What would working on that insight give you?",
     "What else would you like to capture?",
   ],

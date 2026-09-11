@@ -247,6 +247,13 @@ console.log('\ncountByClass token boundaries:');
     assert(order[0].footer === null && order[1].footer === null, 'v3: cover and contents are unnumbered');
     assert(order.slice(2).every(p => p.footer === p.sheet - 2), 'v3: every numbered sheet has footer === sheet - 2');
     assert(order[2].footer === 1, 'v3: the first numbered sheet (Welcome) carries footer 1');
+    // PR 6 (audit A5). Two strings point across pages by position: sheet 11's closing note ("use
+    // the next page") and Your Thoughts prompt 3 ("on the previous page"). Both are true only
+    // while Development Ideas immediately precedes Your Thoughts, so the order is asserted —
+    // a reorder fails here instead of shipping two false pointers in a client's PDF.
+    const carAt = order.findIndex(p => p.key === 'car');
+    assert(carAt >= 0 && order[carAt + 1] && order[carAt + 1].key === 'thoughts',
+      'v3: Development Ideas (car) immediately precedes Your Thoughts — the cross-page pointers depend on it');
 
     // WHICH PAGES ARE BUILT comes from V3_PAGE_ORDER's `built` flags, not from a list
     // restated here. The three assertions below used to carry that subset by hand — the key
