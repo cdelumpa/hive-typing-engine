@@ -215,7 +215,19 @@
       "pick_alternate": "Alternate Worth Exploring",
       "panel_instincts": "Your Instincts Priority",
       "panel_subtype": "Your Subtype (Primary Type + Primary Instinct)"
-    }
+    },
+    "devideas_titles_v3": {
+      "growth": "Growth Strategies",
+      "inquiries": "Inquiries",
+      "experiments": "Field Experiments"
+    },
+    "devideas_rails_v3": {
+      "growth": "Stretch beyond your type's habitual patterns to grow your range and expand your choices.",
+      "inquiries": "Use these prompts to reflect quietly on your own or go deeper by journaling your thoughts.",
+      "experiments": "Try one or more of these practices in the real world and notice what happens."
+    },
+    "devideas_lead_v3": "The Enneagram is a map and compass for developing yourself personally and professionally. Here's where to focus, what to ask yourself, and what to try — three ways to turn insight into action.",
+    "devideas_coda_v3": "The ideas above are a starting point for a deeper exploration on your own or with a coach. Take some time to reflect on where you want to focus and use the next page to capture your thoughts."
   },
   "type_8": {
     "number": 8,
@@ -505,6 +517,36 @@
     "center_label": "Body/Gut Center",
     "quickref_v3": {
       "core_motivation": "To be strong, stay in control of your own life, and protect yourself and the people you love from being taken advantage of."
+    },
+    "devideas_v3": {
+      "growth": [
+        "Notice and moderate your intensity, excess, and impact",
+        "Allow a gap between impulse and action so there is time to consider consequences of your behavior on your long-term goals",
+        "Investigate the difference between weakness and vulnerability",
+        "Practice doing things someone else's way – start small",
+        "Realize that true power comes from the appropriate application of force",
+        "Learn that flexibility and adaptability are empowering"
+      ],
+      "inquiries": [
+        "In what ways do I use control or power to protect myself from vulnerability?",
+        "How can I soften my approach to conflict and seek understanding instead of dominance?",
+        "What would it look like to allow others to support and care for me?",
+        "How do I divert attention away from my fears of being hurt?"
+      ],
+      "experiments": [
+        {
+          "label": "Vulnerability Practice",
+          "body": "Share something vulnerable with a trusted friend or partner once a week. Reflect on how this practice impacts your relationships and sense of connection."
+        },
+        {
+          "label": "Conflict Resolution",
+          "body": "Practice active listening and seeking understanding in conflicts rather than trying to win or dominate. Reflect on how this approach affects the outcome and your relationships."
+        },
+        {
+          "label": "Delegation Exercise",
+          "body": "Identify tasks or responsibilities you can delegate to others. Practice letting go of control and allowing others to take charge. Reflect on how this impacts your stress levels and relationships."
+        }
+      ]
     }
   },
   "subtype_sp8": {
@@ -902,6 +944,37 @@
     "center_label": "Body/Gut Center",
     "quickref_v3": {
       "core_motivation": "To maintain inner and outer peace, stay connected to others, and avoid the conflict and discomfort that come with asserting your own priorities."
+    },
+    "devideas_v3": {
+      "growth": [
+        "Take responsibility for your own well-being and importance.",
+        "Reclaim a separate self and voice; take a personal position on issues",
+        "Examine the tendency to say yes when you really mean no",
+        "Welcome discomfort and conflict",
+        "Notice when you are withholding your opinion to avoid conflict",
+        "Notice feelings that precede your attention shifting to substitutes (food, TV, etc.)",
+        "Remember that your self-worth is self-defined; no one can define you"
+      ],
+      "inquiries": [
+        "How does my desire for harmony lead me to neglect my own needs and desires?",
+        "What steps can I take to assert myself more confidently in my relationships?",
+        "How can I embrace conflict as an opportunity for growth rather than something to avoid?",
+        "What makes me angry? How do I know I am angry? What is my anger telling me?"
+      ],
+      "experiments": [
+        {
+          "label": "Assertiveness Training",
+          "body": "Practice asserting your needs and opinions in small ways daily. Reflect on how this impacts your confidence and relationships."
+        },
+        {
+          "label": "Priority Setting",
+          "body": "Each week, identify and prioritize one personal goal or desire. Take concrete steps toward achieving it and reflect on how it feels to prioritize your own needs."
+        },
+        {
+          "label": "Conflict Engagement",
+          "body": "Engage in a constructive conversation about a disagreement or conflict once a month. Focus on expressing your perspective clearly and listening to the other person. Reflect on how this impacts your sense of self and your relationships."
+        }
+      ]
     }
   },
   "subtype_sp9": {
@@ -1299,6 +1372,35 @@
     "center_label": "Body/Gut Center",
     "quickref_v3": {
       "core_motivation": "To be good, right, and beyond criticism — improving yourself and the world, and living according to an inner standard of how things should be."
+    },
+    "devideas_v3": {
+      "growth": [
+        "Appreciate errors, mistakes and imperfections as differences",
+        "Make little \"mistakes\" deliberately, such as not making the bed",
+        "Explore all your feelings, accepting and integrating the \"negative\" ones",
+        "Practice acceptance and forgiveness rather than trying to improve someone or something",
+        "Stop periodically to sense your body and physically relax any tightness"
+      ],
+      "inquiries": [
+        "What self-held beliefs or standards might be contributing to my sense of frustration or dissatisfaction? What would become possible if I relaxed them a bit?",
+        "How can I embrace imperfection in myself and others more compassionately?",
+        "What would it look like for me to allow more spontaneity and pleasure in my life?",
+        "How is my Inner Critic trying to help me? How does it hurt me and my life when I believe everything my Inner Critic is saying?"
+      ],
+      "experiments": [
+        {
+          "label": "Self-Compassion Journal",
+          "body": "Spend 10 minutes each day writing down three things you appreciate about yourself and three ways you've shown kindness to yourself. Reflect on how this impacts your mood and stress levels."
+        },
+        {
+          "label": "Imperfection Challenge",
+          "body": "Choose one task each week to complete imperfectly, allowing yourself to make mistakes or do it \"good enough.\" Notice any discomfort and journal about the experience."
+        },
+        {
+          "label": "Relaxation Routine",
+          "body": "Incorporate a daily relaxation practice such as meditation, deep breathing, or gentle yoga. Track your commitment and reflect on how this practice affects your inner critic."
+        }
+      ]
     }
   },
   "subtype_sp1": {
@@ -1697,6 +1799,35 @@
     "center_label": "Heart Center",
     "quickref_v3": {
       "core_motivation": "To be loved and needed — earning connection by giving, helping, and meeting others' needs, often before tending to your own."
+    },
+    "devideas_v3": {
+      "growth": [
+        "Give and receive freely, without pride and expectations.",
+        "Practice giving without anyone knowing.",
+        "Ask yourself, \"What do I really want and what is really important to me?\" Notice if you experience anxiety simply asking these questions.",
+        "Spend time alone to develop independent interests and autonomy.",
+        "Become aware that it is a great gift to others to receive from them."
+      ],
+      "inquiries": [
+        "In what ways do I seek validation or approval through giving to others?",
+        "How can I balance my need to care for others with caring for myself?",
+        "What would it feel like to receive give and love from others without feeling the need to reciprocate immediately?",
+        "How do I allow others to support me? How do I not allow others to support me?"
+      ],
+      "experiments": [
+        {
+          "label": "Self-Care Schedule",
+          "body": "Create a weekly schedule that includes specific times for self-care activities you enjoy (e.g., reading, exercising, hobbies). Stick to this schedule and reflect on how it feels to prioritize yourself."
+        },
+        {
+          "label": "Receiving Practice",
+          "body": "Ask for help or support from someone you trust at least once a week. Notice your feelings and reactions to receiving help and write about them in a journal."
+        },
+        {
+          "label": "Boundary Setting",
+          "body": "Identify one area in your life where you need stronger boundaries. Practice setting and maintaining this boundary and reflect on how it impacts your relationships and self-respect."
+        }
+      ]
     }
   },
   "subtype_sp2": {
@@ -2095,6 +2226,35 @@
     "center_label": "Heart Center",
     "quickref_v3": {
       "core_motivation": "To be successful, admired, and seen as a winner — earning worth and love through accomplishment, effectiveness, and a polished image."
+    },
+    "devideas_v3": {
+      "growth": [
+        "Slow your pace and detach your sense of worth from performance",
+        "Practice doing one thing at a time with your full attention",
+        "Ask yourself what really matters",
+        "Strengthen your self-observer by paying attention to your feelings and physical sensations, especially tiredness",
+        "Distinguish between what needs change (requires doing) and what needs acceptance (simply being)"
+      ],
+      "inquiries": [
+        "How do I define my self-worth outside of my achievements and successes?",
+        "What emotions or aspects of myself do I avoid in my pursuit of goals?",
+        "How can I cultivate authenticity in my interactions and relationships?",
+        "What happens when my feelings come up? What am I feeling now?"
+      ],
+      "experiments": [
+        {
+          "label": "Values Clarification",
+          "body": "Spend 20 minutes each week reflecting on your core values and how they align with your actions and goals. Write about any discrepancies and steps to realign."
+        },
+        {
+          "label": "Emotion Check-In",
+          "body": "Set a daily reminder to pause and check in with your emotions. Write down what you're feeling and why, focusing on acknowledging rather than fixing."
+        },
+        {
+          "label": "Authentic Connection",
+          "body": "Schedule regular time to connect with a friend or loved one without discussing work or achievements. Focus on being present and authentic in the conversation."
+        }
+      ]
     }
   },
   "subtype_sp3": {
@@ -2493,6 +2653,35 @@
     "center_label": "Heart Center",
     "quickref_v3": {
       "core_motivation": "To be authentic, deeply understood, and significant — finding meaning and identity by embracing the full depth of your feelings and the longing for what's missing."
+    },
+    "devideas_v3": {
+      "growth": [
+        "Accept that wholeness and realness exist now in the present moment",
+        "Focus on what is present and \"what is\" rather than what is missing",
+        "Resist being dominated by strong and fluctuating feelings while acknowledging their authenticity",
+        "Sustain a steady course of action even in the presence of intense feelings",
+        "Use physical movement to get into the body",
+        "Break a tendency toward self-absorption by moving toward others"
+      ],
+      "inquiries": [
+        "In what ways do I compare myself to others, and how does this impact my sense of self?",
+        "How can I find beauty and meaning in ordinary, everyday experiences?",
+        "What would it look like to express my emotions constructively rather than dwelling in them?"
+      ],
+      "experiments": [
+        {
+          "label": "Gratitude Journal",
+          "body": "Write down three things you are grateful for each day, focusing on ordinary moments. Reflect on how this practice shifts your perspective on daily life."
+        },
+        {
+          "label": "Creative Expression",
+          "body": "Engage in a creative activity (e.g., painting, writing, music) at least once a week. Focus on the process rather than the outcome and notice how it affects your emotional state."
+        },
+        {
+          "label": "Emotional Regulation",
+          "body": "Practice a mindfulness or grounding technique (e.g., deep breathing, body scan) daily to help manage intense emotions. Reflect on how this practice influences your emotional reactivity."
+        }
+      ]
     }
   },
   "subtype_sp4": {
@@ -2891,6 +3080,35 @@
     "center_label": "Head Center",
     "quickref_v3": {
       "core_motivation": "To be capable, self-sufficient, and unintruded upon — protecting limited inner resources by gathering knowledge and keeping a careful distance from demand."
+    },
+    "devideas_v3": {
+      "growth": [
+        "Notice the impact of withdrawal and withholding on others, and how it invites intrusion",
+        "Notice how you detach from feelings and shift to the mind",
+        "Recognize that cutting off from feelings leads to intensifying them",
+        "Allow time for observation and then time for action",
+        "Identify the cues that you are withdrawing into your mind"
+      ],
+      "inquiries": [
+        "How does my need for knowledge and understanding create distance in my relationships?",
+        "What steps can I take to reconnect with my body and emotions?",
+        "How can I share my insights and ideas more openly with others?",
+        "How do I minimize my wants and desires?"
+      ],
+      "experiments": [
+        {
+          "label": "Body Awareness",
+          "body": "Engage in a physical activity (e.g., walking, yoga, dance) three times a week to reconnect with your body. Notice any sensations and emotions that arise during these activities."
+        },
+        {
+          "label": "Social Engagement",
+          "body": "Plan to connect with a friend or attend a social event once a week. Focus on being present and sharing something about yourself with others."
+        },
+        {
+          "label": "Expressing Ideas",
+          "body": "Start a blog or journal to share your insights and ideas regularly. Reflect on how sharing your thoughts impacts your connection with others and your sense of contribution."
+        }
+      ]
     }
   },
   "subtype_sp5": {
@@ -3289,6 +3507,34 @@
     "center_label": "Head Center",
     "quickref_v3": {
       "core_motivation": "To be safe, secure, and prepared — managing an underlying anxiety by anticipating threats, testing trust, and seeking something solid to rely on."
+    },
+    "devideas_v3": {
+      "growth": [
+        "Reclaim your faith in self, others, and the universe",
+        "Realize proof is no substitute for trust",
+        "Communicate with the part of you that is afraid – what is it trying to tell you?",
+        "Do physical exercise to move your energy out of the head",
+        "Take time to focus on, name, and savor your successes!"
+      ],
+      "inquiries": [
+        "In what ways do my fears and anxieties limit my choices and actions?",
+        "How can I develop greater trust in myself and my intuition?",
+        "What would it look like to embrace uncertainty and change with more confidence?"
+      ],
+      "experiments": [
+        {
+          "label": "Fear Inventory",
+          "body": "Write down your fears and anxieties each week. For each fear, identify what you can control and what you cannot. Reflect on how this practice impacts your stress levels."
+        },
+        {
+          "label": "Trust Building",
+          "body": "Engage in activities that build trust in yourself, such as setting small goals and following through, or practicing self-affirmations. Track your progress and reflect on the outcomes."
+        },
+        {
+          "label": "Embracing Change",
+          "body": "Take on a new challenge or change in routine once a month. Reflect on your experience, focusing on the positive aspects of embracing uncertainty and growth."
+        }
+      ]
     }
   },
   "subtype_sp6": {
@@ -3687,6 +3933,33 @@
     "center_label": "Head Center",
     "quickref_v3": {
       "core_motivation": "To be happy, free, and satisfied — staying open to possibility and pleasure while avoiding pain, limitation, and the discomfort of being trapped."
+    },
+    "devideas_v3": {
+      "growth": [
+        "Become aware of overscheduling, multiple projects, plans, and other mental evasions as clues that you may be avoiding something negative or painful",
+        "Notice your hunger for stimulation and gratification as a reminder to return to the present",
+        "Work on one thing at a time and finish what you start",
+        "Acknowledge the desires and well-being of others in equal proportion to your own"
+      ],
+      "inquiries": [
+        "How does my pursuit of pleasure and excitement distract me from deeper fulfillment?",
+        "What feelings or experiences do I avoid by staying constantly busy or entertained?",
+        "How can I practice being present and appreciating the moment as it is?"
+      ],
+      "experiments": [
+        {
+          "label": "Mindfulness Practice",
+          "body": "Incorporate a daily mindfulness or meditation practice to help stay present. Reflect on how being present impacts your sense of fulfillment."
+        },
+        {
+          "label": "Simplifying Routine",
+          "body": "Choose one day a week to simplify your schedule, focusing on fewer activities and more downtime. Reflect on how this impacts your energy and contentment."
+        },
+        {
+          "label": "Emotional Exploration",
+          "body": "Dedicate time each week to exploring and processing your emotions through journaling or talking with a trusted friend. Reflect on how this deeper emotional engagement influences your overall happiness."
+        }
+      ]
     }
   },
   "subtype_sp7": {

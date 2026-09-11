@@ -163,6 +163,23 @@ const SCRIPT_SOURCED = [
     retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
   { path: 'static.quickref_labels_v3', label: 'sheet 5 structural labels (4, not CMS-editable)',
     retires: 'when the docx gains a QUICK REFERENCE section (no current plan)' },
+  // ── Sheet 11 "Development Ideas" (PR 6 Build A) ───────────────────────────────────────
+  //
+  // PURELY ADDITIVE: the docx has no section for any sheet-11 string, so the Word-canonical
+  // figure must not move. Predicted in docs/predictions_pr6_buildA.md as 805 -> 948 INTERIM
+  // (135 per-type + 8 static); any other figure means a row here is missing.
+  { path: 'types_v3_devideas',
+    label: 'sheet 11 lists, all 9 types (growth / inquiries / experiments as label+body)',
+    retires: 'not planned — the nine "p11 Content (Source Extract)" Google Docs are the source (IDs in build_content_library.js)',
+    walkTypes: ['growth', 'inquiries', 'experiments'], under: 'devideas_v3' },
+  { path: 'static.devideas_titles_v3', label: 'sheet 11 section titles (3, not CMS-editable)',
+    retires: 'when the docx gains a DEVELOPMENT IDEAS section (no current plan)' },
+  { path: 'static.devideas_rails_v3', label: 'sheet 11 rail descriptions (3, the same on every type)',
+    retires: 'when the docx gains a DEVELOPMENT IDEAS section (no current plan)' },
+  { path: 'static.devideas_lead_v3', label: 'sheet 11 lead paragraph',
+    retires: 'when the docx gains a DEVELOPMENT IDEAS section (no current plan)' },
+  { path: 'static.devideas_coda_v3', label: 'sheet 11 closing note',
+    retires: 'when the docx gains a DEVELOPMENT IDEAS section (no current plan)' },
 ];
 
 let failed = false;
