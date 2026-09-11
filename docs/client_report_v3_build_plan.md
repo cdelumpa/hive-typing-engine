@@ -248,6 +248,13 @@ All for **8 remaining types** (Type 9 exists from the mockup). Content must be c
 
 ## PR 6 — Development Ideas (CAR, page 11)
 
+> **Superseded — 11 Sep 2026.** Sheet 11 was redesigned before it was built: Courage / Agility /
+> Resilience became **Growth Strategies, Inquiries and Field Experiments**. The plan below describes
+> the retired design and is kept as history. PR 6 ran as Build A (content and model, merged at
+> `4382369`), Build B1 (the page, `_clv3DevIdeas`, with D1–D4 in CI) and Build B2 (CMS editing
+> with a publish-time fit gate). The records are `docs/build_pr6_buildA.md` and
+> `docs/build_pr6_buildB1.md`; the page's rules are design spec §4.5 and §6.3.
+
 **Purpose:** the entirely new "out"-in-InsightOut page.
 
 **Files touched**

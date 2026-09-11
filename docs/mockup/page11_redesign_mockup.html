@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Page 11 Redesign — Type 9</title>
+<style>
+  @page { size: 816px 1056px; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 816px; height: 1056px;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #1E2A35;
+    background: #FFFFFF;
+  }
+  .page {
+    width: 816px; height: 1056px;
+    padding: 40px 53px;
+    display: flex;
+    flex-direction: column;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #C8D0D9;
+  }
+  .header .brand {
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    color: #595959;
+    text-transform: uppercase;
+  }
+  .header .client {
+    font-size: 10px;
+    color: #6B7785;
+  }
+  .header .client b { color: #F68625; font-weight: bold; }
+
+  .eyebrow {
+    margin-top: 20px;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #00B2D9;
+  }
+  h1 {
+    margin: 4px 0 10px 0;
+    font-size: 22pt;
+    font-weight: bold;
+    color: #1E2A35;
+  }
+  .intro {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #404040;
+    margin: 0 0 18px 0;
+    max-width: 700px;
+  }
+
+  .section { margin-bottom: 26px; }
+
+  .card {
+    display: flex;
+    align-items: stretch;
+    border-left: 4px solid #00B2D9;
+  }
+  .rail {
+    width: 210px;
+    flex: 0 0 210px;
+    background: #F7FBFC;
+    padding: 16px 18px;
+  }
+  .rail h2 {
+    margin: 0 0 8px 0;
+    font-size: 15pt;
+    font-weight: bold;
+    color: #1E2A35;
+  }
+  .rail p {
+    margin: 0;
+    font-size: 11.5px;
+    font-style: italic;
+    line-height: 1.4;
+    color: #6B7785;
+  }
+  .content {
+    flex: 1;
+    background: #FFFFFF;
+    padding: 16px 20px;
+  }
+  .content ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+  .content li {
+    font-size: 13px;
+    line-height: 1.45;
+    color: #1E2A35;
+    margin-bottom: 6px;
+  }
+  .content li::marker { color: #00B2D9; }
+  .content li:last-child { margin-bottom: 0; }
+  .content li b { color: #1E2A35; }
+
+  .closing {
+    margin-top: auto;
+    font-size: 12.5px;
+    font-style: italic;
+    line-height: 1.5;
+    color: #6B7785;
+    padding-top: 10px;
+    border-top: 1px solid #C8D0D9;
+  }
+
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 7pt;
+    color: #999999;
+    margin-top: 10px;
+  }
+
+  .draft-flag {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: #F68625;
+    color: white;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="brand">InsightOut Enneagram Report</div>
+    <div class="client"><b>Anders Wennerstrom</b> · Type 9 — The Peacemaker · SX9</div>
+  </div>
+
+  <div class="eyebrow">Insight to Action</div>
+  <h1>Development Ideas for Peacemakers</h1>
+  <p class="intro">The Enneagram is a map and compass for developing yourself personally and professionally. Here&rsquo;s where to focus, what to ask yourself, and what to try &mdash; three ways to turn insight into action.</p>
+
+  <div class="section">
+    <div class="card">
+      <div class="rail">
+        <h2>Growth Strategies</h2>
+        <p>Stretch beyond your type&rsquo;s habitual patterns to grow your range and expand your choices.</p>
+      </div>
+      <div class="content">
+        <ul>
+          <li>Take responsibility for your own well-being and importance.</li>
+          <li>Reclaim a separate self and voice; take a personal position on issues.</li>
+          <li>Examine the tendency to say yes when you really mean no.</li>
+          <li>Welcome discomfort and conflict.</li>
+          <li>Notice when you are withholding your opinion to avoid conflict.</li>
+          <li>Notice feelings that precede your attention shifting to substitutes (food, TV, etc.).</li>
+          <li>Remember that your self-worth is self-defined; no one can define you.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="card">
+      <div class="rail">
+        <h2>Inquiries</h2>
+        <p>Use these prompts to reflect quietly on your own or go deeper by journaling your thoughts.</p>
+      </div>
+      <div class="content">
+        <ul>
+          <li>How does my desire for harmony lead me to neglect my own needs and desires?</li>
+          <li>What steps can I take to assert myself more confidently in my relationships?</li>
+          <li>How can I embrace conflict as an opportunity for growth rather than something to avoid?</li>
+          <li>What makes me angry? How do I know I am angry? What is my anger telling me?</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="card">
+      <div class="rail">
+        <h2>Field Experiments</h2>
+        <p>Try one or more of these practices in the real world and notice what happens.</p>
+      </div>
+      <div class="content">
+        <ul>
+          <li><b>Assertiveness Training:</b> Practice asserting your needs and opinions in small ways daily. Reflect on how this impacts your confidence and relationships.</li>
+          <li><b>Priority Setting:</b> Each week, identify and prioritize one personal goal or desire. Take concrete steps toward achieving it and reflect on how it feels to prioritize your own needs.</li>
+          <li><b>Conflict Engagement:</b> Engage in a constructive conversation about a disagreement or conflict once a month. Focus on expressing your perspective clearly and listening to the other person. Reflect on how this impacts your sense of self and your relationships.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <p class="closing">The ideas above are a starting point for a deeper exploration on your own or with a coach. Take some time to reflect on where you want to focus and use the next page to capture your thoughts.</p>
+
+  <div class="footer">
+    <span>&copy; Copyright 2026 Hive, Inc. All rights reserved.</span>
+    <span>Page 9</span>
+    <span>Client confidential &mdash; for use by report owner only.</span>
+  </div>
+</div>
+</body>
+</html>

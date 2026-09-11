@@ -46,8 +46,14 @@ The current production report and the v3 mockup both differ substantially from t
 **Added:**
 
 - **Quick Reference** (p3) — the only page carrying computed per-client data beyond the type itself.
-- **Development Ideas** (p11) — the "out" in InsightOut. Courage, Agility, Resilience, from Hive's
-  Connection-Centered Leadership model, applied at the "me" level only.
+- **Development Ideas** (p11) — the "out" in InsightOut. ~~Courage, Agility, Resilience, from Hive's
+  Connection-Centered Leadership model, applied at the "me" level only.~~
+
+  > **Post-lock correction — 11 Sep 2026 (PR 6).** Courage / Agility / Resilience never shipped.
+  > Sheet 11 is **Growth Strategies, Inquiries and Field Experiments**: three lists per type, drawn
+  > from *Transform Your Coaching Using the Enneagram* (Breault & Delumpa, 2023), under three rail
+  > descriptions that are the same on every type. §4.5 records the page against its mockup and §6.3
+  > its guardrails. Built in PR 6 Builds A (content and model, `4382369`) and B1 (the page).
 
 **Net:** 15 pages to 12, and roughly 120 of ~250 content zones removed.
 
@@ -67,7 +73,7 @@ The current production report and the v3 mockup both differ substantially from t
 | 8 | Your Wings | Per-type static | Wings diagram + two wing columns |
 | 9 | Your Stress and Security Points | Per-type static | Lines diagram + two point columns |
 | 10 | Instincts & Subtypes | Per-subtype static + 1 personalized zone | "In Your Responses" |
-| 11 | Development Ideas | Per-type static | Courage / Agility / Resilience |
+| 11 | Development Ideas | Per-type static | ~~Courage / Agility / Resilience~~ Growth Strategies / Inquiries / Field Experiments (PR 6, §6.3) |
 | 12 | Your Thoughts | Static | Five reflection boxes |
 
 **Personalized zones total three:** the Quick Reference data block, the p6 client quote, and the p10
@@ -307,6 +313,36 @@ unlocked. (Reworded 3 Sep 2026 — "fourth" referred to the count when the table
 M4 now occupies that number. This difference is deliberately *not* an M-row: the M-rows are design
 departures, this one is content.)
 
+### 4.5 Deliberate departures from the mockup (sheet 11)
+
+*Added 11 Sep 2026, PR 6 Build B1.*
+
+Sheet 11's mockup is `docs/mockup/page11_redesign_mockup.html`, tracked as the **geometry reference**:
+the rail-plus-card shape is canon. Its own CSS is not. **[DECISION — Cai, 10 Sep 2026, D1] "The
+mockup's CSS must not supersede the styling used throughout the rest of the client report."** So the
+shared stylesheet owns type, colour and chrome, and the page owns only its spacing — the rule
+`app/client_report_v3_styles.js` already states. A pixel-diff against the mockup flags every row
+below. **They are not regressions — do not "fix" them back.**
+
+| # | Element | Mockup | Shipped | Why |
+|---|---------|--------|---------|-----|
+| M5 | Page box | `height:1056px`, fixed | shared `.v3-page`, `min-height:1056px` | A fixed height makes every fit check pass while clipping content (`scripts/lib/page_shell_probe.js`). |
+| M6 | Header and footer | grey brand, `· SX9` in the header; 7pt `#999` footer | shared `_v3Header` / `_v3Footer` | The same chrome as every other sheet, with no subtype code in it — `tests/report_pages_test.js` asserts that. |
+| M7 | H1 | 22pt = **29.33px** | shared `h1`, **24px** | Measured: the mockup's title is 510px wide, which is 29.33px Arial bold. Every other sheet is 24px. |
+| M8 | Eyebrow, lead | 10px / .8px tracking; lead `#404040`, 1.5 | shared `.eyebrow` 10.5px; `.lead.is-mid` `#4A5568`, 1.55, 18px below | Shared type. |
+| M9 | Section title | 15pt = 20px | shared `h2.is-tight`, 16px | At 20px it sat within 4px of the H1 and flattened the hierarchy. |
+| M10 | Rail description | 11.5px italic `#6B7785`, 1.4 | shared `.note`, 11.5px italic, 1.45 | Already the report's italic note. |
+| M11 | Left accent | 4px cyan | 3px cyan | The report's accent weight (Your Thoughts boxes, the "In Your Responses" band). |
+| M12 | Bullets | native `ul`, 13px / 1.45, cyan `::marker` | 5px cyan dot beside 12.5px / 1.5 text | The bullet Wings, Lines and the Quick Reference tips use. |
+| M13 | Closing note | 12.5px italic with its own top rule | the same type, no rule of its own | The shared footer already draws a rule; two would stack. |
+
+**Kept from the mockup:** the 210px rail, 16/18 and 16/20 padding, 26px between cards, 6px between
+items, and the closing note pinned above the footer.
+
+**The cost of D1, measured:** the report's type buys **52.21px** on the tightest page (Type 9 at
+22.91px free on the mockup's CSS, 75.12px on the shared styles, mockup text). With the verbatim
+content Build A ingested — one period fewer than the mockup's copy — Type 9 measures 93.87px free.
+
 ---
 
 ## 5. Design tokens
@@ -384,7 +420,7 @@ in mind across nine types.
 | Subtype comparison zones | 3–4 lines, last line ~~>50%~~ **not below 25%**, >50% aspirational | |
 | Diagram labels | Under **88px** at 11px Arial (~17 chars) | Includes the eyebrow strings, which are wider than the names |
 | "How You May Experience SP/SO/SX" | Exactly 25 chars, fits 1 line | No headroom at current column width |
-| CAR page title | `Development Ideas for {plural}` | Strip "The" from archetype name, add `s`. All nine work |
+| ~~CAR~~ Development Ideas page title | `Development Ideas for {plural}` | Strip "The" from archetype name, add `s`. All nine work. The names are the engine's canonical ones (§4.1's names of record) — asserted for all nine rendered H1s |
 
 > **Post-lock correction — 3 Sep 2026.** Two corrections to the table above, both established by
 > the 12 Aug fit spike (`scripts/spike/explore_fit_probe.js`) — measured in the real v3 renderer
@@ -597,6 +633,39 @@ budget should be reasoned against.**
 Type 9 is the only authored type currently carrying the band, because the fixture's quotes are
 withheld from re-typed renders. It is therefore the tightest case *and* the only observed one.
 
+### 6.3 Sheet 11 — Development Ideas
+
+*Added 11 Sep 2026, PR 6 Build B1.* Every figure below is measured on the built page, pinned
+Chromium, Arial asserted — none is derived.
+
+**The budget is one pool for the page, measured in rendered lines, not per-section caps.**
+[DECISION — Cai, D3] The page's natural height is
+
+```
+368.88 + Σ over the three cards of max(108.02, 32 + 18.75 × lines + 6 × (items − 1))   (+ 11 if the header wraps)
+```
+
+— asserted equal to the measurement on every CI render (`app/devideas_fit.js`, D1), so a CSS or
+global-copy change that moves it fails CI until this section moves with it. A card never gets
+shorter than its rail (108.02px), so a very short section costs the floor rather than its lines.
+
+| Zone | Constraint | Why |
+|---|---|---|
+| The three lists together | **≤ 27 rendered lines for up to 14 items.** Count any section shorter than 4 lines as 4. About 75 characters to a rendered line | The page budget with the long-name reserve (D-B2: a wrapped header, +11px). Character counts are guidance only — measure the render |
+| Field Experiment label | ≤ 30 characters; **no colon** — the renderer writes the bold and the colon | A colon in the label prints "Label::". Enforced at build (`validateDevIdeas`) |
+| Every string | Straight quotes; none of the four pre-canon type names | Enforced at build. `_v3t` still straightens at render, which covers a CMS edit |
+| Lead, closing note, titles, rail descriptions | The same on every type | Criterion C4. Stored once under `static`; asserted identical on every render (D4) |
+
+**Enforcement.** Build: `validateDevIdeas` (Build A). CI: D1–D4 on every v3 render plus a
+long-name pass per type, and `scripts/verify_devideas_fit.js` proving each can fail (Build B1).
+**CMS edits: not yet editable.** Build B2 makes sheet 11 editable in the same PR as the publish-time
+gate that blocks a spill [DECISION — Cai, D2]; until then the only way content changes is through
+the library, which CI measures.
+
+**Measured today** (Build A content, the nine unedited source extracts): Type 9 is tightest at
+**93.87px** free, **82.87px** with the long-name reserve — four rendered lines. Types 1–8 run
+105.87–205.62px.
+
 ---
 
 ## 7. Content status
@@ -613,8 +682,17 @@ withheld from re-typed renders. It is therefore the tightest case *and* the only
 - **The nine SX9 shift bullets (p10).** Converted from Hive-authored SP9 copy; the SX versions are
   written from general Enneagram knowledge, not lifted from the Static Content Library.
 - **The two "Leaning Into the Other Instincts" blocks (p10)** — rewritten for SX.
-- **The three CAR capacity practices (p11)** — structure is canon-derived (avoidance, resource
-  points, holy idea), specific lines are not. Definitions and preambles are Cai-authored.
+- ~~**The three CAR capacity practices (p11)** — structure is canon-derived (avoidance, resource
+  points, holy idea), specific lines are not. Definitions and preambles are Cai-authored.~~
+
+  > **Post-lock correction — 11 Sep 2026 (PR 6). SUPERSEDED.** Sheet 11 no longer carries CAR. Its
+  > content is Growth Strategies, Inquiries and Field Experiments for all nine types, transcribed
+  > verbatim from nine Google Docs (`Type N — <Name> · p11 Content (Source Extract)`, IDs in
+  > `scripts/build_content_library.js` at `INTERIM_DEVIDEAS_V3`), which extract *Transform Your
+  > Coaching Using the Enneagram* (Breault & Delumpa, 2023) **unedited**. Mo and Cai's uniformity
+  > pass is still to come, so this entry stays open for a changed reason: the content is authored
+  > but not yet uniform. ⚠ Four of those docs' notes call Achiever, Investigator, Loyal Skeptic and
+  > Challenger the canon names; they are not (§4.1), and the build rejects them in sheet 11's content.
 - ~~**The four debrief tips (p5)** — explicit placeholders.~~
 
   > **Post-lock correction — 8 Sep 2026. CLOSED.** [DECISION — Cai, 8 Sep 2026] **The mockup copy
@@ -801,6 +879,8 @@ in `scripts/build_content_library.js`. The docs are the source; the constant is 
 > apostrophes; `INTERIM_EXPLORE_V3` stores straight ones throughout, matching what the four
 > already-shipped types carried. **The transform is the one `_v3Straighten` applies at render** —
 > `’ → '`, `“ ” → "`, `… → ...` — moved to ingest time so it can be asserted rather than relied on.
+> *(11 Sep 2026: `_v3Straighten` now also converts `‘` (U+2018), the one curly form it missed — PR 6
+> Build B1. No library string carried it, so every render was byte-identical.)*
 > The round-trip check compares post-transform. The documents are the source of record **modulo that
 > documented transform**, and a raw byte comparison would report up to 43 false differences on the
 > four built types alone.
@@ -998,6 +1078,13 @@ Two cautions when re-transcribing:
    and how does it stay in sync with the contents page?
 
 8. **Single-sheet assertion.** Where in the build does this go, and does it fail the build or warn?
+
+   > **Post-lock correction — 11 Sep 2026. ANSWERED, and answered twice over for sheet 11.** It
+   > fails the build. `scripts/render_client.js` fails any v3 page past one sheet and reads the
+   > sheet count back from the PDF itself. Sheet 11 adds D1 — one sheet *and* the height model —
+   > on every render and a long-name pass, proven able to fail by `scripts/verify_devideas_fit.js`.
+   > For content edited in the CMS, the answer is a publish-time gate that **blocks** (decision D2),
+   > landing in PR 6 Build B2 together with sheet 11's editability.
 
 ---
 
