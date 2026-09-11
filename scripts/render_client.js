@@ -46,6 +46,18 @@ const SHELL_SPACER_PX = 40;
 const qrPreview = require(path.join(ROOT, 'app/cms_quickref_preview.js'));
 const QR_CAP = qrPreview.subtypeEntry().cap;
 
+// ── SHEET 11'S CHECKS (PR 6 Build B1, D1-D4) ───────────────────────────────────────────────────
+// Imported from app/devideas_fit.js, never restated here: Build B2's publish gate reads the same
+// module, and a second definition of "fits" in this file is the Build B4 failure in waiting.
+const DF = require(path.join(ROOT, 'app/devideas_fit.js'));
+const LIBC = require(path.join(ROOT, 'app/content/content_library.json'));
+const DI_EXPECTED = {
+  titles: LIBC.static.devideas_titles_v3, rails: LIBC.static.devideas_rails_v3,
+  lead: LIBC.static.devideas_lead_v3, coda: LIBC.static.devideas_coda_v3,
+};
+/** Every sheet-11 measurement, one row per render (and one per long-name pass), read back after the loops. */
+const DI_ROWS = [];
+
 /**
  * Sibling boxes that are ALLOWED to overlap on sheet 5.
  *
@@ -400,6 +412,62 @@ async function measureLayout(page, selector) {
   }, PAGE_PX, selector);
 }
 
+/**
+ * Re-type a fixture to `asType`: the scalars and the ranking together, with the client's own quotes
+ * withheld from any type but the fixture's. Was an inline closure in the render loop; named at
+ * PR 6 Build B1 so sheet 11's long-name pass re-types exactly the way every other render does,
+ * rather than growing a third copy of the recipe. The body is unchanged, comments included.
+ */
+function retypeFixture(fixture, asType) {
+  const c = JSON.parse(JSON.stringify(fixture));
+  const realType = fixture.hypothesis.confirmed_type;
+  c.hypothesis.confirmed_type = asType;
+  c.hypothesis.confirmed_type_name = null;                 // suppress the name-drift flag
+  c.hypothesis.alternate_candidate = (asType % 9) + 1;
+  const pb = c.coach_report && c.coach_report.section6 && c.coach_report.section6.pushes_back;
+  if (pb) pb.alt_type_name = null;
+  // The client's verbatim quotes are EVIDENCE FOR THE FIXTURE'S REAL TYPE, so they are
+  // dropped when the fixture is re-typed. Sheet 6's "In Your Own Words" band would
+  // otherwise print this Type 9 client's own language ("I project a calm presence…")
+  // under a Type 1 or Type 7 heading — content that reads as authored-for-this-type and
+  // is not. Every other zone on the re-typed sheets is per-type library content and
+  // follows asType correctly; this is the only per-client one, and the only one that
+  // has to be withheld. Consequence for review renders: the band appears on the
+  // fixture's own type and nowhere else, which is the honest result.
+  if (asType !== realType) c.client_words = {};
+
+  // ── THE SCALARS AND THE RANKING, RE-TYPED TOGETHER (PR 5 Build 1) ────────────
+  //
+  // Sheet 5 draws call1_ranking as nine node fills, and puts the ALTERNATE ring on
+  // alternate_candidate. Re-typing confirmed_type without re-typing these leaves the
+  // ramp ranking the fixture's REAL type first — see A7 below for what that renders.
+  //
+  // THE RANKING IS DERIVED FROM THE SCALARS, NOT THE OTHER WAY ROUND. The scalars
+  // are what the page reads; permuting the ranking to match them keeps
+  // alternate_candidate exactly as the line above set it, so m.alternate does not
+  // move and no v3 page changes. Deriving the scalars from a re-sorted ranking
+  // would have moved it, and m.alternate is live on v2 p3 (renderer.js:2076, :2106).
+  //
+  // SCORE VALUES ARE PRESERVED, ONLY REASSIGNED. The fixture's own nine scores are
+  // taken in descending order and dealt out: position 1 to asType, position 2 to
+  // alternate_candidate, the remaining seven to the remaining types in ascending
+  // type order. So the ramp's SHAPE — the gaps the heat map renders — is the
+  // fixture's real distribution, not a synthetic one. A re-typed render is a real
+  // profile wearing a different type's ordering, which is what every other zone on
+  // these pages already is.
+  c.hypothesis.leading_candidate = asType;
+  if (Array.isArray(c.hypothesis.call1_ranking) && c.hypothesis.call1_ranking.length) {
+    const scores = c.hypothesis.call1_ranking
+      .map((r) => r.score).sort((a, b) => b - a);
+    const alt = c.hypothesis.alternate_candidate;
+    const rest = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((t) => t !== asType && t !== alt);
+    c.hypothesis.call1_ranking = [asType, alt, ...rest]
+      .slice(0, scores.length)
+      .map((type, i) => ({ type, score: scores[i] }));
+  }
+  return c;
+}
+
 (async () => {
   await require(path.join(ROOT, 'scripts/lib/override_banner.js')).printOverrideBanner();
   const browser = await launch();
@@ -415,55 +483,7 @@ async function measureLayout(page, selector) {
        // returns [null], the object handed to cfg.build is exactly what it was before this
        // axis existed, which is what makes the nine existing renders byte-identical.
        for (const instKey of (cfg.instinctsFor ? cfg.instinctsFor(fx, asType) : [null])) {
-        const retyped = asType == null ? fixture : (() => {
-          const c = JSON.parse(JSON.stringify(fixture));
-          const realType = fixture.hypothesis.confirmed_type;
-          c.hypothesis.confirmed_type = asType;
-          c.hypothesis.confirmed_type_name = null;                 // suppress the name-drift flag
-          c.hypothesis.alternate_candidate = (asType % 9) + 1;
-          const pb = c.coach_report && c.coach_report.section6 && c.coach_report.section6.pushes_back;
-          if (pb) pb.alt_type_name = null;
-          // The client's verbatim quotes are EVIDENCE FOR THE FIXTURE'S REAL TYPE, so they are
-          // dropped when the fixture is re-typed. Sheet 6's "In Your Own Words" band would
-          // otherwise print this Type 9 client's own language ("I project a calm presence…")
-          // under a Type 1 or Type 7 heading — content that reads as authored-for-this-type and
-          // is not. Every other zone on the re-typed sheets is per-type library content and
-          // follows asType correctly; this is the only per-client one, and the only one that
-          // has to be withheld. Consequence for review renders: the band appears on the
-          // fixture's own type and nowhere else, which is the honest result.
-          if (asType !== realType) c.client_words = {};
-
-          // ── THE SCALARS AND THE RANKING, RE-TYPED TOGETHER (PR 5 Build 1) ────────────
-          //
-          // Sheet 5 draws call1_ranking as nine node fills, and puts the ALTERNATE ring on
-          // alternate_candidate. Re-typing confirmed_type without re-typing these leaves the
-          // ramp ranking the fixture's REAL type first — see A7 below for what that renders.
-          //
-          // THE RANKING IS DERIVED FROM THE SCALARS, NOT THE OTHER WAY ROUND. The scalars
-          // are what the page reads; permuting the ranking to match them keeps
-          // alternate_candidate exactly as the line above set it, so m.alternate does not
-          // move and no v3 page changes. Deriving the scalars from a re-sorted ranking
-          // would have moved it, and m.alternate is live on v2 p3 (renderer.js:2076, :2106).
-          //
-          // SCORE VALUES ARE PRESERVED, ONLY REASSIGNED. The fixture's own nine scores are
-          // taken in descending order and dealt out: position 1 to asType, position 2 to
-          // alternate_candidate, the remaining seven to the remaining types in ascending
-          // type order. So the ramp's SHAPE — the gaps the heat map renders — is the
-          // fixture's real distribution, not a synthetic one. A re-typed render is a real
-          // profile wearing a different type's ordering, which is what every other zone on
-          // these pages already is.
-          c.hypothesis.leading_candidate = asType;
-          if (Array.isArray(c.hypothesis.call1_ranking) && c.hypothesis.call1_ranking.length) {
-            const scores = c.hypothesis.call1_ranking
-              .map((r) => r.score).sort((a, b) => b - a);
-            const alt = c.hypothesis.alternate_candidate;
-            const rest = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((t) => t !== asType && t !== alt);
-            c.hypothesis.call1_ranking = [asType, alt, ...rest]
-              .slice(0, scores.length)
-              .map((type, i) => ({ type, score: scores[i] }));
-          }
-          return c;
-        })();
+        const retyped = asType == null ? fixture : retypeFixture(fixture, asType);
 
         // ── A7 — THE RE-TYPED SCALARS MUST AGREE WITH THE RE-TYPED PAGE ────────────────
         //
@@ -656,6 +676,28 @@ async function measureLayout(page, selector) {
               ? `${kind} Type ${asType} §6.1 pair "${r.name}" could not be measured: selector missed ${r.missing}`
               : `${kind} Type ${asType} §6.1 pair "${r.name}" line counts differ: `
                 + `${r.aLabel} ${r.a} / ${r.bLabel} ${r.b} — spec §6.1 requires them equal`);
+          }
+        }
+
+        // ── D1-D4 — SHEET 11, DEVELOPMENT IDEAS (PR 6 Build B1) ──────────────────────
+        //
+        // The four PR 6 criteria, asserted over the RENDERED page on every v3 render. D1's
+        // one-sheet half overlaps enforceSheet above deliberately: Build B2's gate will decide
+        // with D1, and this is where the two are seen to agree. D1's other half — the height
+        // model — is what keeps the author guidance in design spec §6 honest.
+        //
+        // Measured BEFORE sheet 5's F-block below, because probePageBound pushes sheet 5 until it
+        // spills and this should read an untouched document.
+        if (kind === 'client_v3') {
+          const heroType = asType == null ? fixture.hypothesis.confirmed_type : asType;
+          const p11 = await page.evaluate(DF.PROBE, DF.SHEET_SEL);
+          for (const msg of [...DF.judgeD1({ tag, probe: p11 }), ...DF.judgeD2({ tag, probe: p11 }),
+            ...DF.judgeD3({ tag, probe: p11 }),
+            ...DF.judgeD4({ tag, probe: p11, expected: DI_EXPECTED, type: heroType })]) fail(msg);
+          if (p11) {
+            DI_ROWS.push({ tag, type: heroType, longName: false, natural: p11.natural, headerLines: p11.headerLines,
+              model: DF.modelHeight(p11.cards, { headerLines: p11.headerLines }),
+              lines: p11.cards.map((c) => c.lines), items: p11.cards.map((c) => c.items.length), shared: DF.sharedOf(p11) });
           }
         }
 
@@ -993,7 +1035,67 @@ async function measureLayout(page, selector) {
       }
      }
     }
+
+    // ── D1, THE LONG-NAME RESERVE (decision D-B2) ────────────────────────────────────────
+    //
+    // A long client name wraps the page header onto a second line and costs every page 11px.
+    // Each type is rendered once more with DF.LONG_NAME and must still fit. judgeD1 also fails a
+    // pass whose header did NOT wrap, so the reserve is exercised rather than assumed — what is
+    // reserved is the wrapped header, not a character count (see LONG_NAME in the module).
+    {
+      const fixture = require(path.join(ROOT, 'tests/fixtures/anders_sx9_api_result.json'));
+      console.log('\n=== sheet 11 · long-name reserve (D-B2) ===');
+      for (let t = 1; t <= 9; t++) {
+        const tag = `long-name_t${t}`;
+        // A fresh page per render, as the main loop does: re-using one page, the second
+        // setContent waiting on networkidle0 never settled and timed out after 30s.
+        const page = await browser.newPage();
+        await page.setViewport({ width: 816, height: PAGE_PX, deviceScaleFactor: 1 });
+        const m = await prep.buildClientModel({ apiResult: retypeFixture(fixture, t), coach,
+          client: { ...DF.LONG_NAME, organization: 'Hive', date: 'August 2026' } });
+        await page.setContent(R.buildClientReportHTML_v3(m), { waitUntil: 'networkidle0' });
+        await page.emulateMediaType('print');
+        await page.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
+        const p11 = await page.evaluate(DF.PROBE, DF.SHEET_SEL);
+        for (const msg of [...DF.judgeD1({ tag, probe: p11, longName: true }), ...DF.judgeD2({ tag, probe: p11 }),
+          ...DF.judgeD3({ tag, probe: p11 }),
+          ...DF.judgeD4({ tag, probe: p11, expected: DI_EXPECTED, type: t })]) fail(msg);
+        if (p11) {
+          DI_ROWS.push({ tag, type: t, longName: true, natural: p11.natural, headerLines: p11.headerLines,
+            model: DF.modelHeight(p11.cards, { headerLines: p11.headerLines }),
+            lines: p11.cards.map((c) => c.lines), items: p11.cards.map((c) => c.items.length), shared: DF.sharedOf(p11) });
+          console.log(`  Type ${t}: header ${p11.headerLines} lines · natural ${p11.natural}px · ${(PAGE_PX - p11.natural).toFixed(2)}px free`);
+        }
+        await page.close();
+      }
+    }
   } finally { await browser.close(); }
+
+  // ── SHEET 11'S FIT, ACROSS EVERY RENDER (PR 6 Build B1) ──────────────────────────────────────
+  //
+  // One row per type: the page as measured, the model's prediction, and the spare room with and
+  // without the long-name reserve. This table is what the uniformity pass writes against.
+  if (DI_ROWS.length) {
+    console.log('\n=== SHEET 11 FIT (PR 6 Build B1) ===');
+    console.log('  type  natural   model     Δ     free     lines G/I/E  items G/I/E  | long name: natural   free');
+    for (let t = 1; t <= 9; t++) {
+      const r = DI_ROWS.find((x) => x.type === t && !x.longName);
+      const l = DI_ROWS.find((x) => x.type === t && x.longName);
+      // COVERAGE, asserted rather than assumed: a type missing from either pass is a type the
+      // table above says nothing about.
+      if (!r) { fail(`D1 coverage: no sheet-11 render for Type ${t}`); continue; }
+      if (!l) { fail(`D1 coverage: no long-name pass for Type ${t}`); continue; }
+      console.log(`   ${t}    ${r.natural.toFixed(2).padStart(7)}  ${r.model.toFixed(2).padStart(7)}  ${(r.natural - r.model).toFixed(2).padStart(5)}  `
+        + `${(PAGE_PX - r.natural).toFixed(2).padStart(6)}   ${r.lines.join('/').padEnd(11)}  ${r.items.join('/').padEnd(11)}  |  `
+        + `${l.natural.toFixed(2).padStart(7)}  ${(PAGE_PX - l.natural).toFixed(2).padStart(6)}`);
+    }
+    const longs = DI_ROWS.filter((x) => x.longName);
+    const worst = longs.reduce((a, b) => (b.natural > a.natural ? b : a), longs[0] || { natural: 0 });
+    console.log(`  renders ${DI_ROWS.length - longs.length} + ${longs.length} long-name · tightest with the reserve: `
+      + `Type ${worst.type}, ${(PAGE_PX - worst.natural).toFixed(2)}px free (${Math.floor((PAGE_PX - worst.natural) / DF.MODEL.line)} lines)`);
+    // D4 across every render, the long-name pass included: one form of the shared strings.
+    for (const msg of DF.judgeAcross({ rows: DI_ROWS })) fail(msg);
+  }
 
   // ── SHEET 5'S FIT SUMMARY, ACROSS EVERY RENDER (PR 5 Build B3) ───────────────────────────
   //
