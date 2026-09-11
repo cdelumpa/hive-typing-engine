@@ -50,6 +50,7 @@ const QR_CAP = qrPreview.subtypeEntry().cap;
 // Imported from app/devideas_fit.js, never restated here: Build B2's publish gate reads the same
 // module, and a second definition of "fits" in this file is the Build B4 failure in waiting.
 const DF = require(path.join(ROOT, 'app/devideas_fit.js'));
+const { retypeFixture } = require(path.join(ROOT, 'scripts/lib/retype_fixture.js'));
 const LIBC = require(path.join(ROOT, 'app/content/content_library.json'));
 const DI_EXPECTED = {
   titles: LIBC.static.devideas_titles_v3, rails: LIBC.static.devideas_rails_v3,
@@ -410,62 +411,6 @@ async function measureLayout(page, selector) {
       sheets: Math.max(1, Math.ceil(rendered[i] / (PAGE_PX + 1))),
     }));
   }, PAGE_PX, selector);
-}
-
-/**
- * Re-type a fixture to `asType`: the scalars and the ranking together, with the client's own quotes
- * withheld from any type but the fixture's. Was an inline closure in the render loop; named at
- * PR 6 Build B1 so sheet 11's long-name pass re-types exactly the way every other render does,
- * rather than growing a third copy of the recipe. The body is unchanged, comments included.
- */
-function retypeFixture(fixture, asType) {
-  const c = JSON.parse(JSON.stringify(fixture));
-  const realType = fixture.hypothesis.confirmed_type;
-  c.hypothesis.confirmed_type = asType;
-  c.hypothesis.confirmed_type_name = null;                 // suppress the name-drift flag
-  c.hypothesis.alternate_candidate = (asType % 9) + 1;
-  const pb = c.coach_report && c.coach_report.section6 && c.coach_report.section6.pushes_back;
-  if (pb) pb.alt_type_name = null;
-  // The client's verbatim quotes are EVIDENCE FOR THE FIXTURE'S REAL TYPE, so they are
-  // dropped when the fixture is re-typed. Sheet 6's "In Your Own Words" band would
-  // otherwise print this Type 9 client's own language ("I project a calm presence…")
-  // under a Type 1 or Type 7 heading — content that reads as authored-for-this-type and
-  // is not. Every other zone on the re-typed sheets is per-type library content and
-  // follows asType correctly; this is the only per-client one, and the only one that
-  // has to be withheld. Consequence for review renders: the band appears on the
-  // fixture's own type and nowhere else, which is the honest result.
-  if (asType !== realType) c.client_words = {};
-
-  // ── THE SCALARS AND THE RANKING, RE-TYPED TOGETHER (PR 5 Build 1) ────────────
-  //
-  // Sheet 5 draws call1_ranking as nine node fills, and puts the ALTERNATE ring on
-  // alternate_candidate. Re-typing confirmed_type without re-typing these leaves the
-  // ramp ranking the fixture's REAL type first — see A7 below for what that renders.
-  //
-  // THE RANKING IS DERIVED FROM THE SCALARS, NOT THE OTHER WAY ROUND. The scalars
-  // are what the page reads; permuting the ranking to match them keeps
-  // alternate_candidate exactly as the line above set it, so m.alternate does not
-  // move and no v3 page changes. Deriving the scalars from a re-sorted ranking
-  // would have moved it, and m.alternate is live on v2 p3 (renderer.js:2076, :2106).
-  //
-  // SCORE VALUES ARE PRESERVED, ONLY REASSIGNED. The fixture's own nine scores are
-  // taken in descending order and dealt out: position 1 to asType, position 2 to
-  // alternate_candidate, the remaining seven to the remaining types in ascending
-  // type order. So the ramp's SHAPE — the gaps the heat map renders — is the
-  // fixture's real distribution, not a synthetic one. A re-typed render is a real
-  // profile wearing a different type's ordering, which is what every other zone on
-  // these pages already is.
-  c.hypothesis.leading_candidate = asType;
-  if (Array.isArray(c.hypothesis.call1_ranking) && c.hypothesis.call1_ranking.length) {
-    const scores = c.hypothesis.call1_ranking
-      .map((r) => r.score).sort((a, b) => b - a);
-    const alt = c.hypothesis.alternate_candidate;
-    const rest = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((t) => t !== asType && t !== alt);
-    c.hypothesis.call1_ranking = [asType, alt, ...rest]
-      .slice(0, scores.length)
-      .map((type, i) => ({ type, score: scores[i] }));
-  }
-  return c;
 }
 
 (async () => {

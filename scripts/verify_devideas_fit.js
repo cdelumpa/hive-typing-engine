@@ -23,6 +23,7 @@ const pdfLib = require(path.join(ROOT, 'scripts/lib/pdf_pages.js'));
 const shellProbe = require(path.join(ROOT, 'scripts/lib/page_shell_probe.js'));
 const browserLaunch = require(path.join(ROOT, 'app/browser_launch.js'));
 const LIBC = require(path.join(ROOT, 'app/content/content_library.json'));
+const { retypeFixture } = require(path.join(ROOT, 'scripts/lib/retype_fixture.js'));
 
 const EXPECTED = {
   titles: LIBC.static.devideas_titles_v3, rails: LIBC.static.devideas_rails_v3,
@@ -41,14 +42,11 @@ function control(name, messages, expect) {
   results.push({ name, ok, red, expect, first: messages[0] || null });
 }
 
+/** A real model for `type`, re-typed the way every render_client.js render is. */
 async function modelFor(type, client = CLIENT) {
-  const c = JSON.parse(JSON.stringify(require(path.join(ROOT, 'tests/fixtures/anders_sx9_api_result.json'))));
-  const alt = (type % 9) + 1;
-  Object.assign(c.hypothesis, { confirmed_type: type, confirmed_type_name: null, leading_candidate: type, alternate_candidate: alt });
-  c.hypothesis.call1_ranking = [type, alt, ...[1, 2, 3, 4, 5, 6, 7, 8, 9].filter((t) => t !== type && t !== alt)]
-    .map((t, i) => ({ type: t, score: 90 - i * 5 }));
-  if (type !== 9) c.client_words = {};
-  return prep.buildClientModel({ apiResult: c, client, coach: { full_name: '', type: null, instinct: null } });
+  const fixture = require(path.join(ROOT, 'tests/fixtures/anders_sx9_api_result.json'));
+  return prep.buildClientModel({ apiResult: retypeFixture(fixture, type), client,
+    coach: { full_name: '', type: null, instinct: null } });
 }
 async function show(page, m) {
   await page.setContent(R.buildClientReportHTML_v3(m), { waitUntil: 'domcontentloaded' });
