@@ -658,9 +658,31 @@ shorter than its rail (108.02px), so a very short section costs the floor rather
 
 **Enforcement.** Build: `validateDevIdeas` (Build A). CI: D1–D4 on every v3 render plus a
 long-name pass per type, and `scripts/verify_devideas_fit.js` proving each can fail (Build B1).
-**CMS edits: not yet editable.** Build B2 makes sheet 11 editable in the same PR as the publish-time
+~~**CMS edits: not yet editable.** Build B2 makes sheet 11 editable in the same PR as the publish-time
 gate that blocks a spill [DECISION — Cai, D2]; until then the only way content changes is through
-the library, which CI measures.
+the library, which CI measures.~~
+
+> **Post-lock correction — 11 Sep 2026 (PR 6 Build B2). EDITABLE, AND GATED.** Four keys are
+> CMS-editable: each type's `devideas_v3` and the rail descriptions, lead and closing note. The
+> titles are not, and a test keeps them out. **Publishing, saving a draft or reverting any of them is
+> refused whenever a type's page would run onto a second sheet** [DECISIONS — Cai, D2, D-B3], by
+> `app/cms_devideas.js` inside the write routes (`app/cms_write.js`):
+>
+> - **Validate** the CMS rules (`app/devideas_rules.js`) on what the page would show — a blank item
+>   removes that item; no list may empty; no half-blank experiment; the label rules above.
+> - **Compose** what live reports would show after the action: the published set plus the edit, or
+>   minus the key for a draft save or revert (a draft save unpublishes a field today). The live set
+>   is read strictly; a failed read refuses.
+> - **Measure** every affected type — one for a type's own key, nine for the shared strings — through
+>   the production path, shape guard included, with the long-name fixture CI uses.
+> - **Decide:** refuse on a spill, on text past its column, or when the fit could not be verified. Not
+>   on the height model above, which describes the library copy — a lead edit that adds a line and
+>   still fits is allowed, and the guidance above then no longer describes that live page.
+>
+> A browser, font or database failure refuses and saves nothing [D-B4]. The Preview button shows the
+> same verdict before an editor publishes. After every deploy the server re-measures all nine types
+> under the live edits and emails Cai if any page spills [D-B5, B2-2]; `scripts/overrides_check.js`
+> runs the same check before a deploy.
 
 **Measured today** (Build A content, the nine unedited source extracts): Type 9 is tightest at
 **93.87px** free, **82.87px** with the long-name reserve — four rendered lines. Types 1–8 run
