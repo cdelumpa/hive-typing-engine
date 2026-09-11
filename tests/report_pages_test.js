@@ -436,6 +436,13 @@ console.log('\ncountByClass token boundaries:');
         // C4 at the model: everything that is not the three lists must be the same on every type.
         shared.add(JSON.stringify({ lead: d.lead, coda: d.coda, rails: d.sections.map(s => [s.title, s.desc]) }));
         if (!page.includes(`Development Ideas for ${CANON_PLURAL[n]}`)) bad.push(`type ${n}: page lacks "Development Ideas for ${CANON_PLURAL[n]}"`);
+        // Build B1: the page itself now renders, so the H1 — not just the Contents row — must
+        // carry the canonical plural, and sheet 11 must sit immediately before Your Thoughts in
+        // the EMITTED document, which is what the two cross-page pointers actually depend on.
+        if (!page.includes(`<h1>Development Ideas for ${CANON_PLURAL[n]}</h1>`)) bad.push(`type ${n}: sheet 11's H1 is not "Development Ideas for ${CANON_PLURAL[n]}"`);
+        const sheets = page.split(/(?=<div class="v3-page)/).slice(1);
+        const at = sheets.findIndex(s => s.includes('class="v3-di-card"'));
+        if (at < 0 || !sheets[at + 1] || !sheets[at + 1].includes('class="v3-th-qbox"')) bad.push(`type ${n}: sheet 11 is not immediately followed by Your Thoughts`);
         if (m.display.nickname_plural !== CANON_PLURAL[n]) bad.push(`type ${n}: nickname_plural ${m.display.nickname_plural}`);
         const leak = (JSON.stringify(d) + page).match(PRE_CANON);
         if (leak) bad.push(`type ${n}: pre-canon name "${leak[0]}" reached the model or page`);
@@ -451,6 +458,11 @@ console.log('\ncountByClass token boundaries:');
       // devIdeas() directly: no block means null, never an empty page; a blank CMS item is
       // dropped; a half-blank experiment is kept; and the library object is not mutated.
       assert(prep.devIdeas(undefined, libc.static) === null, 'v3 sheet-11 model: a type with no block resolves to null');
+      // …and the builder refuses that null rather than rendering three empty cards (Build B1).
+      // A synthetic model, deliberately not a real type — the _clv3TypeA precedent.
+      let threw = null;
+      try { R.buildClientReportHTML_v3({ ...model, pages: { ...model.pages, v3_devideas: null } }); } catch (e) { threw = e.message; }
+      assert(threw && /no devideas_v3 content/.test(threw), `v3 sheet-11 builder: a missing block throws instead of rendering empty cards${threw ? '' : ' — it did not throw'}`);
       const input = { growth: ['Keep', '  ', ''], inquiries: ['Ask?'],
         experiments: [{ label: '', body: ' ' }, { label: 'Try', body: 'This.' }, { label: '', body: 'Half.' }] };
       const before = JSON.stringify(input);

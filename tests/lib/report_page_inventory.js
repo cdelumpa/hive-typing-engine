@@ -44,7 +44,7 @@ const PAGE_INVENTORY = {
   // seven-page bucket has no members and is removed rather than left to describe nothing.
   // Still hand-maintained, for the reason above: this is the tripwire that fails when
   // V3_PAGE_ORDER is wrong, and deriving it would make the suite agree with itself.
-  client_v3: { 'v3-page': 11 },         // PR 5 Build B2b adds p5 Quick Reference (sheet 5)
+  client_v3: { 'v3-page': 12 },         // PR 6 Build B1 adds p11 Development Ideas (sheet 11) — all twelve
 };
 
 // Expected total page containers per kind, derived from PAGE_INVENTORY (coach 3, client 10).

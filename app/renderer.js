@@ -3477,6 +3477,32 @@ function clientReportV3PageStyles() {
 
 /* Zone 8 — the candidates note under the chart. See the header: deliberately not .note. */
 .v3-page .v3-qr-zone8{ font-size:11.5px; color:var(--v3-grey); line-height:1.45; margin:-6px 0 18px 0; }
+
+/* ── Sheet 11 "Development Ideas" (PR 6 Build B1) ─────────────────────────────────────────
+   GEOMETRY ONLY, per decision D1: the report's shared sheet owns type, colour and chrome, and
+   this block owns spacing. The rail title is the shared h2.is-tight, its description the shared
+   .note, the lead .lead.is-mid; the bullet is the report's 5px cyan dot beside 12.5px/1.5 text,
+   the pattern Wings, Lines and the Quick Reference tips use. Kept from page11_redesign_mockup.html:
+   the 210px rail, 16/18 and 16/20 padding, 26px between cards and 6px between items.
+
+   The rail and the list are flex siblings under the default align-items:stretch, so the rail
+   runs the card's full height at any list length (criterion C2; D2 asserts it). The body's
+   min-width:0 lets it shrink and wrap instead of widening past the page. The closing note takes
+   the free space above it and sits 14px over the footer's rule; it carries no rule of its own,
+   because the footer already draws one.
+
+   The height model in app/devideas_fit.js is measured against these values. Change one and D1
+   fails until the model and the design spec §6 guidance are updated with it. */
+.v3-page .v3-di-card{ display:flex; align-items:stretch; border-left:3px solid var(--v3-cyan); }
+.v3-page .v3-di-card + .v3-di-card{ margin-top:26px; }
+.v3-page .v3-di-rail{ flex:0 0 210px; background:var(--v3-panel); padding:16px 18px; }
+.v3-page .v3-di-body{ flex:1 1 auto; min-width:0; padding:16px 20px; }
+.v3-page .v3-di-item{ display:flex; }
+.v3-page .v3-di-item + .v3-di-item{ margin-top:6px; }
+.v3-page .v3-di-dot{ flex:0 0 auto; width:5px; height:5px; border-radius:50%; background:var(--v3-cyan); margin:7px 10px 0 0; }
+.v3-page .v3-di-txt{ font-size:12.5px; color:var(--v3-navy); line-height:1.5; }
+.v3-page .v3-di-coda{ margin-top:auto; font-size:12.5px; font-style:italic; color:var(--v3-grey); line-height:1.5; }
+.v3-page .v3-di-coda + .page-footer{ margin-top:14px; }
 </style>`;
 }
 
@@ -3523,7 +3549,7 @@ const V3_PAGE_ORDER = [
   { key: 'wings',     sheet: 8,  footer: 6,    built: true,     title: 'Your Wings',                        eyebrow: 'Navigating the Enneagram System' },
   { key: 'lines',     sheet: 9,  footer: 7,    built: true,     title: 'Your Stress and Security Points',   eyebrow: 'Navigating the Enneagram System' },
   { key: 'instincts', sheet: 10, footer: 8,    built: true,     title: 'Instincts & Subtypes',              eyebrow: 'Navigating the Enneagram System' },
-  { key: 'car',       sheet: 11, footer: 9,    title: 'Development Ideas for {nickname_plural}',            eyebrow: 'Insight to Action' },
+  { key: 'car',       sheet: 11, footer: 9,    built: true,     title: 'Development Ideas for {nickname_plural}', eyebrow: 'Insight to Action' },
   { key: 'thoughts',  sheet: 12, footer: 10,   built: true,     title: 'Your Thoughts',                     eyebrow: 'Questions to Explore' },
 ];
 
@@ -4443,6 +4469,56 @@ ${evList.map((b) => `    <div class="v3-inst-resp-txt">${_v3t(b)}</div>`).join('
 }
 
 /**
+ * p11 "Development Ideas" — Growth Strategies, Inquiries and Field Experiments (PR 6 Build B1).
+ *
+ * Reads ONLY m.pages.v3_devideas plus the shared chrome. Every string on the page comes from there,
+ * so the page's height depends on the type's devideas_v3 block, the four static.devideas_*_v3
+ * strings and the client's name in the header — nothing else. That is what makes Build B2's publish
+ * gate able to cover it completely.
+ *
+ * ONE CARD FUNCTION, CALLED ONCE PER SECTION (criterion C2). Titles and rail descriptions come from
+ * the section, which devIdeas() fills from `static` only, so they cannot vary by type (C4).
+ *
+ * THE RENDERER WRITES THE BOLD AND THE COLON (C3). A Field Experiment is stored as {label, body}
+ * with no colon in the label, and the <b> is the first node of its line so the D3 check can read it.
+ *
+ * THROWS when the model has no block, like _clv3TypeA: a type without content must fail loudly,
+ * never render three empty cards that satisfy the one-sheet check more comfortably than full ones.
+ *
+ * The page is measured against the height model in app/devideas_fit.js; see the CSS block.
+ */
+function _clv3DevIdeas(m) {
+  const page = v3Page('car');
+  const d = m.pages.v3_devideas;
+  if (!d) {
+    throw new Error(`_clv3DevIdeas: type ${m.hero.number} has no devideas_v3 content — `
+      + 'sheet 11 requires it for every type');
+  }
+  const item = (key, it) => (key === 'experiments'
+    ? `<b>${_v3t(it.label)}:</b> ${_v3t(it.body)}`
+    : _v3t(it));
+  const card = (s) => `
+  <div class="v3-di-card" data-di="${esc(s.key)}">
+    <div class="v3-di-rail"><h2 class="is-tight">${_v3t(s.title)}</h2><div class="note">${_v3t(s.desc)}</div></div>
+    <div class="v3-di-body">${s.items.map((it) => `
+      <div class="v3-di-item"><div class="v3-di-dot"></div><div class="v3-di-txt">${item(s.key, it)}</div></div>`).join('')}
+    </div>
+  </div>`;
+  return `<div class="v3-page">
+  ${_v3Header(m)}
+  <div class="header-rule is-default"></div>
+
+  <div class="eyebrow">${esc(page.eyebrow)}</div>
+  <h1>${_v3t(_v3Title(m, 'car'))}</h1>
+  <div class="lead is-mid">${_v3t(d.lead)}</div>
+${d.sections.map(card).join('')}
+
+  <div class="v3-di-coda">${_v3t(d.coda)}</div>
+  ${_v3Footer(page)}
+</div>`;
+}
+
+/**
  * key -> render function, for every sheet with a `built` flag in V3_PAGE_ORDER.
  *
  * The document used to list its seven page calls inline. It is a map now because sheets 6-7
@@ -4454,7 +4530,7 @@ const V3_PAGE_BUILDERS = {
   cover: _clv3Cover, contents: _clv3Contents, welcome: _clv3Welcome, whatis: _clv3WhatIs,
   quickref: _clv3QuickRef,
   typeA: _clv3TypeA, typeB: _clv3TypeB, wings: _clv3Wings, lines: _clv3Lines,
-  instincts: _clv3Instincts, thoughts: _clv3Thoughts,
+  instincts: _clv3Instincts, car: _clv3DevIdeas, thoughts: _clv3Thoughts,
 };
 
 const V3_PAGE_BUILDERS_ORDERED = (model) => v3PagesFor(model.hero.number).map((p) => {
