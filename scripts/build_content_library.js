@@ -2475,51 +2475,12 @@ function validateQuickrefType(n, t) {
   }
 }
 
-// Sheet 11 (PR 6 Build A). UNCONDITIONAL, all nine types, for validateExplore's reason: a type
-// missing its block must fail here, not render an empty page. Counts are NOT fixed — the
-// uniformity pass has not settled them — so a list needs at least one item, not N.
-//
-// The label rules are what hold criterion C3 at ingest. A colon in a label would print as
-// "Label::" once the renderer adds its own; 30 characters bounds a sentence pasted into the
-// label (longest today: 23, Type 1's "Self-Compassion Journal").
-const DEVIDEAS_LABEL_MAX = 30;
-// Straight quotes only — the p6/p7 rule, asserted at ingest so it is not left to _v3t.
-const DEVIDEAS_CURLY = /[‘’“”…]/;
-// The four pre-canon names the source docs carry in their titles and headings. None may reach
-// sheet 11: the canonical names are the Performer, Observer, Questioner and Protector.
-const DEVIDEAS_PRE_CANON = /\b(?:Achievers?|Investigators?|Loyal Skeptics?|Challengers?)\b/;
-const nonEmpty = (s) => typeof s === 'string' && s.trim() !== '';
-function checkDevIdeasText(P, o) {
-  if (typeof o === 'string') {
-    need(!DEVIDEAS_CURLY.test(o), `${P} contains a curly quote or ellipsis — sheet 11 stores straight forms`);
-    need(!DEVIDEAS_PRE_CANON.test(o), `${P} names a pre-canon type ("${o.match(DEVIDEAS_PRE_CANON)}") — use TYPE_NAMES`);
-  } else if (Array.isArray(o)) o.forEach((v, i) => checkDevIdeasText(`${P}[${i}]`, v));
-  else if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) checkDevIdeasText(`${P}.${k}`, v);
-}
+// Sheet 11 (PR 6 Build A; the rules moved to app/devideas_rules.js in Build B2, messages verbatim).
+// One definition shared with the CMS publish gate, so the build and the gate cannot disagree about
+// what a valid list is. UNCONDITIONAL for all nine types — see libraryTypeErrors.
+const DEVIDEAS_RULES = require(path.join(ROOT, 'app/devideas_rules.js'));
 function validateDevIdeas(n, t) {
-  const P = `type_${n}.devideas_v3`;
-  const d = t.devideas_v3;
-  if (!d) { need(false, `${P} missing — sheet 11 requires it for every type`); return; }
-  // Named keys, not a count: a renamed list would render as a missing section.
-  need(Object.keys(d).sort().join() === 'experiments,growth,inquiries',
-    `${P} keys are [${Object.keys(d).join(', ')}] — want exactly growth, inquiries, experiments`);
-  for (const k of ['growth', 'inquiries']) {
-    need(Array.isArray(d[k]) && d[k].length >= 1 && d[k].every(nonEmpty),
-      `${P}.${k} must be a non-empty list of non-empty strings, got ${Array.isArray(d[k]) ? d[k].length : 'none'}`);
-  }
-  const ex = d.experiments;
-  need(Array.isArray(ex) && ex.length >= 1, `${P}.experiments must be a non-empty list, got ${Array.isArray(ex) ? 0 : 'none'}`);
-  (Array.isArray(ex) ? ex : []).forEach((e, i) => {
-    const Q = `${P}.experiments[${i}]`;
-    need(e && Object.keys(e).sort().join() === 'body,label', `${Q} must be exactly { label, body }`);
-    need(e && nonEmpty(e.label), `${Q}.label empty`);
-    need(e && nonEmpty(e.body), `${Q}.body empty`);
-    if (e && nonEmpty(e.label)) {
-      need(!e.label.includes(':'), `${Q}.label "${e.label}" contains a colon — the renderer adds it`);
-      need(e.label.length <= DEVIDEAS_LABEL_MAX, `${Q}.label is ${e.label.length} characters (max ${DEVIDEAS_LABEL_MAX})`);
-    }
-  });
-  checkDevIdeasText(P, d);
+  for (const m of DEVIDEAS_RULES.libraryTypeErrors(n, t.devideas_v3)) need(false, m);
 }
 
 function validateLines(n, t) {
@@ -2697,16 +2658,7 @@ function validateSubtype(key, st) {
   }
   // Sheet 11 (PR 6 Build A). Titles and rails are named key by key for the reason the labels
   // above are: a renamed key renders `undefined` on every client's page, not on one type's.
-  for (const k of ['devideas_titles_v3', 'devideas_rails_v3']) {
-    need(S[k] && Object.keys(S[k]).sort().join() === 'experiments,growth,inquiries'
-      && ['growth', 'inquiries', 'experiments'].every(s => nonEmpty(S[k][s])),
-      `static.${k} must be exactly { growth, inquiries, experiments }, all non-empty`);
-  }
-  need(nonEmpty(S.devideas_lead_v3), 'static.devideas_lead_v3 empty');
-  need(nonEmpty(S.devideas_coda_v3), 'static.devideas_coda_v3 empty');
-  for (const k of ['devideas_titles_v3', 'devideas_rails_v3', 'devideas_lead_v3', 'devideas_coda_v3']) {
-    checkDevIdeasText(`static.${k}`, S[k]);
-  }
+  for (const m of DEVIDEAS_RULES.libraryStaticErrors(S)) need(false, m);
   // p10 (PR 4 step 4). A SIBLING of the line above, not a replacement for it: that one names
   // the v2 key explicitly and a new key is invisible to it, so the live gate is untouched.
   // This belongs here with the explicit structural check rather than in the non-empty scalar
