@@ -14,8 +14,21 @@ const multer     = require('multer');      // PR14: event cover-photo multipart 
 const sharp      = require('sharp');       // PR14: cover-photo resize (card + modal crops)
 const cron       = require('node-cron');   // PR14: in-process scheduled jobs (reminder / waitlist expiry)
 
+// The environment BEFORE dotenv — the only place app/env_guard.js accepts permission to reach a
+// non-local database from, so a .env file cannot both supply a production URL and approve it.
+const envBeforeDotenv = { ...process.env };
 // override: true lets values in .env authoritatively replace ambient shell env.
 require('dotenv').config({ override: true });
+
+// ENV-SAFETY: refuse to boot against a non-local database unless on Railway or explicitly opted in.
+// Run from app/, the line above loads app/.env — the PRODUCTION database — so without this, any local
+// `npm start` connected to production and ran the boot migration there. It sits here, before the
+// first module that reaches the database (./render_report -> report_prep -> content_overrides -> db).
+{
+  const target = require('./env_guard').checkDatabaseTarget({ databaseUrl: process.env.DATABASE_URL, outsideEnv: envBeforeDotenv });
+  if (!target.ok) { console.error(target.message); process.exit(1); }
+  if (target.note) console.warn(target.note);
+}
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error('[boot] FATAL: ANTHROPIC_API_KEY is not set. Check .env');
