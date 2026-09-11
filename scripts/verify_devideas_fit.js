@@ -169,6 +169,97 @@ const all = (tag, p, type, extra = {}) => [
     await page.close();
   } finally { await browser.close(); }
 
+  // ── THE PUBLISH GATE (PR 6 Build B2), through the real gate and the real renderer ────────────
+  //
+  // app/cms_devideas.js, unmodified, with the real report_prep, renderer, font check and browser.
+  // Only the published set is supplied, since CI has no database. Every case is BUILT FROM THE ROOM
+  // THE PAGE ACTUALLY HAS, not from pixels written here, so the uniformity pass can change the content
+  // without breaking these controls; a construction the content no longer permits is reported as a
+  // PRECONDITION failure, never mistaken for the gate's.
+  const GATE = require(path.join(ROOT, 'app/cms_devideas.js'));
+  const real = GATE.defaultDeps();
+  const withLive = (live, extra = {}) => ({ ...real, loadPublishedStrict: async () => live, ...extra });
+  const T9 = LIBC.type_9.devideas_v3;
+  const ITEM = DF.MODEL.line + DF.MODEL.itemGap;   // a one-line item: 18.75 + 6
+  const LEAD = LIBC.static.devideas_lead_v3;
+  const SENTENCE = ' Pick one idea from any section and start there; you can come back for the others later.';
+  const grow = (n) => { const d = structuredClone(T9); d.growth.push(...Array(n).fill(ONE_LINE)); return d; };
+  const precondition = (name, ok, why) => { if (!ok) control(`PRECONDITION — ${name}: ${why}`, ['the content no longer permits this construction'], false); return ok; };
+  const tightest = (v) => v.worst && v.worst.probe.natural;
+
+  const base = await GATE.evaluate('publish', 'type_9.devideas_v3', T9, new Map(), real);
+  control(`GATE — Type 9 unchanged is allowed (${tightest(base)}px)`, base.ok ? [] : [base.message], false);
+  const room = DF.PAGE_PX - tightest(base);
+  const fitN = Math.floor(room / ITEM);
+  const fits = await GATE.evaluate('publish', 'type_9.devideas_v3', grow(fitN), new Map(), real);
+  control(`GATE — Type 9 + ${fitN} one-line items, the most that fits, is allowed (${tightest(fits)}px)`, fits.ok ? [] : [fits.message], false);
+  const over = await GATE.evaluate('publish', 'type_9.devideas_v3', grow(fitN + 1), new Map(), real);
+  control(`GATE — Type 9 + ${fitN + 1} one-line items is refused (${tightest(over)}px): "${(over.message || '').slice(0, 60)}…"`,
+    !over.ok && /onto a second sheet/.test(over.message) ? ['refused'] : [], true);
+
+  const url = structuredClone(LIBC.type_3.devideas_v3);
+  url.growth.push('See www.hiveleadership.com/the-enneagram/development-ideas/growth-strategies-for-performers');
+  const wide = await GATE.evaluate('publish', 'type_3.devideas_v3', url, new Map(), real);
+  control('GATE — an unbreakable URL past its column is refused', !wide.ok && /past the edge of its column/.test(wide.message) ? ['refused'] : [], true);
+
+  // THE COMBINATION: Type 9 filled to within one item of the sheet, and a lead two lines longer. Each
+  // is allowed alone; together they must be refused.
+  const lead2 = LEAD + SENTENCE + SENTENCE;
+  const leadAlone = await GATE.evaluate('publish', 'static.devideas_lead_v3', lead2, new Map(), real);
+  if (precondition('the combination', leadAlone.ok && fits.ok, 'the lead edit or the Type 9 edit no longer fits alone')) {
+    control(`GATE — a lead two lines longer is allowed alone, across all nine (${tightest(leadAlone)}px on Type ${leadAlone.worst.type})`, [], false);
+    const both = await GATE.evaluate('publish', 'static.devideas_lead_v3', lead2, new Map([['type_9.devideas_v3', grow(fitN)]]), real);
+    control(`GATE — THE COMBINATION: that lead, once Type 9 + ${fitN} is live, is refused (${tightest(both)}px)`,
+      !both.ok && /Type 9 would run/.test(both.message) ? ['refused'] : [], true);
+  }
+
+  // SAVE DRAFT AND REVERT: a shortened Type 9 is live, and a lead grown until it fits ONLY because of
+  // that. Taking the Type 9 edit away — by draft save or revert — must then be refused.
+  const shortT9 = structuredClone(T9); shortT9.growth = shortT9.growth.slice(0, 1);
+  let bigLead = null;
+  for (let k = 1, lead = LEAD; k <= 10 && !bigLead; k++) {
+    lead += SENTENCE;
+    const withShort = await GATE.evaluate('publish', 'static.devideas_lead_v3', lead, new Map([['type_9.devideas_v3', shortT9]]), real);
+    const withLib = await GATE.evaluate('publish', 'static.devideas_lead_v3', lead, new Map(), real);
+    if (withShort.ok && !withLib.ok) bigLead = lead;
+  }
+  if (precondition('draft and revert', !!bigLead, 'no lead length fits with the shortened Type 9 but not the library one')) {
+    const live = new Map([['type_9.devideas_v3', shortT9], ['static.devideas_lead_v3', bigLead]]);
+    for (const action of ['draft', 'revert']) {
+      let wrote = false;
+      const r = await GATE.guardedWrite(action, 'type_9.devideas_v3', shortT9, async () => { wrote = true; return true; }, withLive(live));
+      control(`GATE — ${action} of the live Type 9 edit is refused and nothing is written: "${(r.error || '').slice(0, 50)}…"`,
+        !r.ok && !wrote ? ['refused'] : [], true);
+    }
+    let wroteLead = false;
+    const rl = await GATE.guardedWrite('revert', 'static.devideas_lead_v3', undefined, async () => { wroteLead = true; return true; }, withLive(live));
+    control('GATE — reverting the lead instead is allowed, and written once', rl.ok && wroteLead ? [] : [rl.error || 'not written'], false);
+  }
+
+  let launches = 0;
+  const counted = withLive(new Map(), { launchBrowser: async () => { launches++; return real.launchBrowser(); } });
+  const notLive = await GATE.guardedWrite('draft', 'type_3.devideas_v3', LIBC.type_3.devideas_v3, async () => true, counted);
+  control('GATE — a draft save of a key that is not live is allowed without rendering', notLive.ok && launches === 0 ? [] : [`launched ${launches}`], false);
+
+  const bad = (mutate) => { const d = structuredClone(LIBC.type_4.devideas_v3); mutate(d); return d; };
+  for (const [name, value, pattern] of [
+    ['a half-blank experiment', bad((d) => { d.experiments[1].body = ''; }), /label but no body/],
+    ['a colon in a label', bad((d) => { d.experiments[0].label = 'Gratitude: Journal'; }), /contains a colon/],
+    ['an emptied list', bad((d) => { d.inquiries = d.inquiries.map(() => ''); }), /would be empty/],
+    ['an extra key on an experiment', bad((d) => { d.experiments[0].note = 'x'; }), /doesn't match the shape/],
+  ]) {
+    const r = await GATE.evaluate('publish', 'type_4.devideas_v3', value, new Map(), real);
+    control(`GATE — ${name} is refused, in its own words`, !r.ok && pattern.test(r.message) ? ['refused'] : [], true);
+  }
+
+  let wroteOnFailure = false;
+  const unread = await GATE.guardedWrite('publish', 'type_9.devideas_v3', T9, async () => { wroteOnFailure = true; return true; },
+    { ...real, loadPublishedStrict: async () => { throw new Error('the content database could not be read'); } });
+  control('GATE — a failed read of the live content refuses and writes nothing', !unread.ok && !wroteOnFailure ? ['refused'] : [], true);
+  const noBrowser = await GATE.guardedWrite('publish', 'type_9.devideas_v3', T9, async () => { wroteOnFailure = true; return true; },
+    withLive(new Map(), { launchBrowser: async () => { throw new Error('Chromium could not start'); } }));
+  control('GATE — a browser that cannot start refuses and writes nothing', !noBrowser.ok && !wroteOnFailure ? ['refused'] : [], true);
+
   const width = Math.max(...results.map((r) => r.name.length));
   console.log('\nDEVELOPMENT IDEAS (SHEET 11) — POSITIVE CONTROLS\n');
   for (const r of results) {

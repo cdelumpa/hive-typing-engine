@@ -41,28 +41,59 @@ function invalidateOverridesCache() {
  * so the same cached instance is safely shared across renders.
  */
 async function loadPublishedOverrides() {
-  if (_publishedCache) return _publishedCache;
   try {
-    const result = await db.query(
-      'SELECT content_key, value FROM content_overrides WHERE status = $1',
-      ['published']
-    );
-    if (!result || !result.rows) return new Map();   // db.query returns null when DATABASE_URL is unset — don't cache a transient miss
-    const map = new Map();
-    for (const row of result.rows) {
-      try {
-        map.set(row.content_key, JSON.parse(row.value));
-      } catch {
-        map.set(row.content_key, row.value);
-      }
-    }
-    auditShapes(map);        // loud, non-fatal early warning — see auditShapes
-    _publishedCache = map;   // cache only a genuine result (an empty table yields an empty Map, still cached)
-    return map;
+    return await readPublished();
   } catch (err) {
-    console.error('[content_overrides] Failed to load overrides:', err.message);
+    // A miss is not cached, so the next render retries. Silent when the database simply cannot be
+    // reached (db.query returns null on a query error, and `unreachable` marks that), loud otherwise.
+    if (!err.unreachable) console.error('[content_overrides] Failed to load overrides:', err.message);
     return new Map();
   }
+}
+
+/**
+ * The published overrides, or an ERROR — never an empty Map standing in for "could not read".
+ * PR 6 Build B2, for the sheet 11 publish gate.
+ *
+ * loadPublishedOverrides above is right for RENDERING: a report that cannot reach the overrides
+ * table renders the library rather than failing. It is wrong for a GATE. The gate composes "what live
+ * reports would show after this edit" from the published set, and an empty Map from a failed read
+ * would make it measure the library-only combination and pass an edit that spills against the real
+ * one. (db.query catches query errors and returns null, so this is the transient case, not only an
+ * unset DATABASE_URL.) The gate calls this and refuses — decision D-B4.
+ *
+ * ONE PATH, TWO FAILURE MODES. Both functions call readPublished: the same query, the same row
+ * parsing, the same shape audit, the same cache. On success they return the same Map instance. They
+ * can only ever differ in what happens when the read fails.
+ */
+async function loadPublishedOverridesStrict() {
+  return readPublished();
+}
+
+/** Query, parse, audit, cache — shared by both loaders. Throws on any failure to read. */
+async function readPublished() {
+  if (_publishedCache) return _publishedCache;
+  const result = await db.query(
+    'SELECT content_key, value FROM content_overrides WHERE status = $1',
+    ['published']
+  );
+  if (!result || !result.rows) {
+    // db.query returns null on a query error — and throws when DATABASE_URL is unset.
+    const e = new Error('the content database could not be read');
+    e.unreachable = true;
+    throw e;
+  }
+  const map = new Map();
+  for (const row of result.rows) {
+    try {
+      map.set(row.content_key, JSON.parse(row.value));
+    } catch {
+      map.set(row.content_key, row.value);
+    }
+  }
+  auditShapes(map);        // loud, non-fatal early warning — see auditShapes
+  _publishedCache = map;   // cache only a genuine result (an empty table yields an empty Map, still cached)
+  return map;
 }
 
 /**
@@ -300,7 +331,7 @@ async function revertOverride(contentKey) {
 }
 
 module.exports = {
-  loadPublishedOverrides, invalidateOverridesCache, resolveContent, resolveLibObject,
+  loadPublishedOverrides, loadPublishedOverridesStrict, invalidateOverridesCache, resolveContent, resolveLibObject,
   getAllOverrides, saveDraftOverride, publishOverride, revertOverride,
   // Shape guard — exported for tests and scripts/overrides_check.js.
   overrideShape, assertOverrideShape, OverrideShapeError, auditShapes,
