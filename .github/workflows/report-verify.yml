@@ -123,6 +123,17 @@ jobs:
       - name: Sheet 5 fit — positive controls
         run: node scripts/verify_quickref_fit.js
 
+      # HARD FAIL: sheet 11's four checks (D1-D4, app/devideas_fit.js) can still go RED.
+      #
+      # D1-D4 run inside `verify:render` over every v3 render and are green. This step breaks a
+      # real rendered sheet 11 each way they exist to catch — a spill and its PDF, height-model
+      # drift, an unexercised long-name reserve, an unstretched rail, a missing card, text past its
+      # column, a lost bold label or colon, a per-type rail description, a pre-canon H1, a frozen
+      # page — and requires each to fail, with negative controls requiring a clean page stay
+      # silent. Wired in the build that wrote it, for the reason given for sheet 5's step above.
+      - name: Sheet 11 fit — positive controls
+        run: node scripts/verify_devideas_fit.js
+
       # HARD FAIL: all 18 diagrams — no clipping, no label-label or label-node overlap,
       # and >= 5px edge clearance measured from real getBBox() boxes. Content changes
       # (a longer archetype name) cannot quietly break the geometry.
