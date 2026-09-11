@@ -54,6 +54,10 @@ const reportPrep = require('./report_prep');          // buildClientModel — fo
 // here: server.js exports nothing and calls app.listen() at require time, so nothing in it can be
 // tested. Moving the EXISTING CMS surface out is PR 7's card; not adding to it is this build's.
 const qrPreview = require('./cms_quickref_preview');
+// Sheet 11's publish gate and the three CMS write routes (PR 6 Build B2). Both live in testable
+// modules for the reason above; this file only mounts them.
+const cmsDevIdeas = require('./cms_devideas');
+const { makeWriteHandlers: cmsMakeWriteHandlers } = require('./cms_write');
 const { TYPE_NAMES: CMS_TYPE_NAMES, INSTINCT_NAME: EM_INSTINCT_NAME } = require('./type_meta');  // canonical type/instinct names (distinct from the dashboard's local TYPE_NAMES)
 const db = require('./db');
 const browserLaunch = require('./browser_launch');    // single Chromium launch path (pinned bundled build) + font assertion
@@ -5834,6 +5838,23 @@ async function sendErrorNotification(intake, err, opts = {}) {
   }
 }
 
+// Sheet 11's boot-time alert (PR 6 Build B2, decision B2-2): the same SendGrid channel and recipient
+// as sendErrorNotification above. Sent only when app/cms_devideas.js auditLive finds a live page
+// that no longer fits — never on a clean boot.
+async function sendSheet11Alert({ subject, text }) {
+  if (!process.env.SENDGRID_API_KEY) return;
+  try {
+    await sgMail.send({
+      to:      process.env.COACH_EMAIL_CAI || process.env.COACH_EMAIL,
+      from:    { name: 'InsightOut by Hive', email: process.env.SENDGRID_FROM_EMAIL },
+      subject, text,
+    });
+    console.log('[sheet11-audit] alert sent to coach');
+  } catch (e) {
+    console.error('[sheet11-audit] could not send alert:', e.message);
+  }
+}
+
 // =================== ROUTES ===================
 
 // New submission endpoint — returns immediately, processes in background
@@ -9901,7 +9922,12 @@ ${sharedModalHTML(true, isSuperAdmin)}
 // a clean "no preview mapping for key" 400 rather than a screenshot of the wrong page, which
 // is the failure the p10 preview comment records.
 const CMS_STATIC_FIELDS = ['welcome', 'primer', 'wings_primer', 'lines_primer', 'wings_using', 'instinct_primer', 'instinct_definitions', 'instinct_definitions_v3',
-  'quickref_lead_v3', 'quickref_h2_v3', 'quickref_zone8_v3', 'quickref_tips_v3', 'quickref_tips_heading_v3'];
+  'quickref_lead_v3', 'quickref_h2_v3', 'quickref_zone8_v3', 'quickref_tips_v3', 'quickref_tips_heading_v3',
+  // Sheet 11 (PR 6 Build B2): the rail descriptions, the lead and the closing note — the same on
+  // every type, so every publish renders all nine through the gate. `devideas_titles_v3` is
+  // DELIBERATELY ABSENT: the titles move the page too, and are structural names, library-only by
+  // decision. tests/cms_devideas_test.js fails if it is ever added here.
+  'devideas_rails_v3', 'devideas_lead_v3', 'devideas_coda_v3'];
 function cmsIsValidStaticKey(k) {
   return typeof k === 'string' && k.indexOf('static.') === 0 && CMS_STATIC_FIELDS.indexOf(k.slice(7)) >= 0;
 }
@@ -9928,6 +9954,11 @@ const CMS_FIELD_META = {
   'static.quickref_zone8_v3': { name: 'Quick Reference — Candidates Note', page: 'P5 — Quick Reference' },
   'static.quickref_tips_v3':  { name: 'Quick Reference — Debrief Tips (4)', page: 'P5 — Quick Reference' },
   'static.quickref_tips_heading_v3': { name: 'Quick Reference — Tips Heading', page: 'P5 — Quick Reference' },
+  // Sheet 11 (PR 6 Build B2). Publishing, saving a draft or reverting any of these is refused when
+  // any type's page would run onto a second sheet — see app/cms_devideas.js.
+  'static.devideas_rails_v3': { name: 'Development Ideas — Rail Descriptions (3, every type)', page: 'P11 — Development Ideas' },
+  'static.devideas_lead_v3':  { name: 'Development Ideas — Lead Paragraph', page: 'P11 — Development Ideas' },
+  'static.devideas_coda_v3':  { name: 'Development Ideas — Closing Note', page: 'P11 — Development Ideas' },
 };
 const cmsCardId = (key) => 'card-' + key.replace(/\./g, '-');
 
@@ -9964,7 +9995,7 @@ function cmsIsValidSubtypeKey(k) {
 // Type keys (PR 5): all 12 editable type_{N} fields. Editable across the same 4 routes as
 // static/subtype now that the type editor exists.
 function cmsIsValidTypeKey(k) {
-  return typeof k === 'string' && /^type_[1-9]\.(description|comparison|patterns|inquiry_lines|wings|lines|strengths|challenges|practices|communication|conflict|center)$/.test(k);
+  return typeof k === 'string' && /^type_[1-9]\.(description|comparison|patterns|inquiry_lines|wings|lines|strengths|challenges|practices|communication|conflict|center|devideas_v3)$/.test(k);
 }
 function cmsIsValidContentKey(k) { return cmsIsValidStaticKey(k) || cmsIsValidSubtypeKey(k) || cmsIsValidTypeKey(k); }
 // Preview accepts the same keys as the write routes (type keys folded into cmsIsValidContentKey
@@ -10101,6 +10132,9 @@ function cmsBudgetFor(key, path) {
   // word budget for these, so none is published. Not a copy of the v2 branch above — that
   // 45 was set for a different zone at a different width on a different page.
   if (key === 'static.instinct_definitions_v3') return 0;
+  // Sheet 11 (PR 6 Build B2): no word budget, deliberately, for the instincts_v3 reason below. The
+  // limit is the page, measured — the gate and the preview state it in lines.
+  if (/^static\.devideas_/.test(key) || /\.devideas_v3$/.test(key)) return 0;
   // Subtype fields (PR 4a): budget keys off the field suffix (all leaves of a unit share it).
   if (/^subtype_/.test(key)) {
     if (key.endsWith('.tagline')) return 15;     // P6 name+tagline zone
@@ -10145,6 +10179,11 @@ function cmsHumanize(seg) {
   return String(seg).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 function cmsArrayHeading(key, parentPath, item, i) {
+  if (/\.devideas_v3$/.test(key)) {                                   // sheet 11 (PR 6 Build B2)
+    if (parentPath === 'growth') return 'Growth Strategy ' + (i + 1);
+    if (parentPath === 'inquiries') return 'Inquiry ' + (i + 1);
+    if (parentPath === 'experiments') return 'Field Experiment ' + (i + 1);
+  }
   if (/\.shifts$/.test(key)) return 'Shift ' + (i + 1);                 // subtype shifts (root array)
   if (/\.inquiry_lines$/.test(key)) return 'Inquiry ' + (i + 1);       // type inquiry_lines (root array)
   if (/\.strengths$/.test(key)) return 'Strength ' + (i + 1);          // type strengths (root array)
@@ -10807,6 +10846,12 @@ const CMS_TYPE_PAGES = [
       { field: 'strengths', label: 'Strengths' },
       { field: 'challenges', label: 'Challenges' },
       { field: 'practices', label: 'Practices' } ] },
+  // Sheet 11 (PR 6 Build B2) — the v3 client report. The CMS shows one box per existing item and
+  // cannot add one, so the note says how a list shrinks (report_prep.devIdeas drops blanks) and where
+  // a list grows (the source document, re-ingested). Every write is gated: app/cms_devideas.js.
+  { page: 'SHEET 11 — Development Ideas (v3)', fields: [
+      { field: 'devideas_v3', label: 'Growth Strategies · Inquiries · Field Experiments',
+        note: 'Leave a box empty to remove that item; adding an item is done in the source document. Publishing, saving a draft or reverting is refused if this type\'s page would run onto a second sheet — Preview shows whether it fits.' } ] },
   { page: 'PAGE 8 — Application', fields: [
       { field: 'communication', label: 'Communication' },
       { field: 'conflict', label: 'Conflict' },
@@ -12998,28 +13043,15 @@ async function clearBetaAnalysis(btn){
 </body></html>`;
 }
 
-app.post('/admin/content/draft', requireSuperAdmin, async (req, res) => {
-  const { content_key, value } = req.body || {};
-  if (!cmsIsValidContentKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
-  if (value === undefined) return res.status(400).json({ ok: false, error: 'missing value' });
-  const ok = await contentOverrides.saveDraftOverride(content_key, value, cmsWordCount(value), req.session.coach_id);
-  res.json({ ok, error: ok ? undefined : 'database unavailable' });
+// The three write routes (PR 6 Build B2, decision B2-1). Their bodies moved verbatim to
+// app/cms_write.js, where tests drive them; sheet 11's keys go through app/cms_devideas.js's gate.
+// ONE MOUNTING LINE PER ROUTE — tests/cms_devideas_test.js reads this file and asserts all three.
+const cmsWrite = cmsMakeWriteHandlers({
+  contentOverrides, isValidKey: cmsIsValidContentKey, wordCount: cmsWordCount, guard: cmsDevIdeas,
 });
-
-app.post('/admin/content/publish', requireSuperAdmin, async (req, res) => {
-  const { content_key, value } = req.body || {};
-  if (!cmsIsValidContentKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
-  if (value === undefined) return res.status(400).json({ ok: false, error: 'missing value' });
-  const ok = await contentOverrides.publishOverride(content_key, value, cmsWordCount(value), req.session.coach_id);
-  res.json({ ok, error: ok ? undefined : 'database unavailable' });
-});
-
-app.post('/admin/content/revert', requireSuperAdmin, async (req, res) => {
-  const { content_key } = req.body || {};
-  if (!cmsIsValidContentKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
-  const ok = await contentOverrides.revertOverride(content_key);
-  res.json({ ok, error: ok ? undefined : 'database unavailable' });
-});
+app.post('/admin/content/draft', requireSuperAdmin, cmsWrite.draft);
+app.post('/admin/content/publish', requireSuperAdmin, cmsWrite.publish);
+app.post('/admin/content/revert', requireSuperAdmin, cmsWrite.revert);
 
 // =================== /admin/resources — Resources CRUD (PR8) ===================
 // True row CRUD (create/edit/publish/unpublish/delete), unlike /admin/content's fixed-key
@@ -14186,6 +14218,18 @@ app.post('/admin/content/preview', requireSuperAdmin, async (req, res) => {
   const { content_key, value } = req.body || {};
   if (!cmsIsValidPreviewKey(content_key)) return res.status(400).json({ ok: false, error: 'invalid content_key' });
   if (value === undefined) return res.status(400).json({ ok: false, error: 'missing value' });
+  // Sheet 11 (PR 6 Build B2): the page the draft would produce and the SAME verdict the gate would
+  // give on publish, from app/cms_devideas.js — not cmsPreviewSpec, whose apply() writes onto a
+  // built model instead of resolving the edit the way production does.
+  if (cmsDevIdeas.isKey(content_key)) {
+    try {
+      const out = await cmsDevIdeas.preview(content_key, value);
+      return res.json({ ok: true, png: out.png, page: out.page, fit: out.fit });
+    } catch (e) {
+      console.error('[admin/content/preview] sheet 11 failed:', e.message);
+      return res.json({ ok: false, error: 'Preview render failed: ' + e.message });
+    }
+  }
   const spec = cmsPreviewSpec(content_key);
   if (!spec) return res.status(400).json({ ok: false, error: 'no preview mapping for key' });
   try {
@@ -17353,3 +17397,11 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
   console.log(`Hive Typing Engine → http://localhost:${PORT}`)
 );
+
+// Sheet 11's boot-time audit (PR 6 Build B2, decision D-B5). Renders all nine types under the LIVE
+// published overrides — the one combination neither CI (library only) nor the publish gate (edits
+// only) can see: a deploy that brings new library content under an older CMS edit. Logs, alerts on a
+// spill, never throws and never blocks. Skipped where there is no database to read.
+if (process.env.DATABASE_URL) {
+  setImmediate(() => { cmsDevIdeas.auditLive({ notify: sendSheet11Alert }).catch(() => {}); });
+}

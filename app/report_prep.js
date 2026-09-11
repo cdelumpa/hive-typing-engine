@@ -295,12 +295,16 @@ async function buildCoachModel({ apiResult, client, coach, tighten = 0 }) {
 }
 
 // ---------- client view-model ----------
-async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  // tighten: renderer-side compaction (self-heal)
+async function buildClientModel({ apiResult, client, coach, tighten = 0, overrides: given }) {  // tighten: renderer-side compaction (self-heal)
   const flags = [], warnings = [];
   void tighten;
   // CMS: load published content_overrides once per render; resolveLibObject below
   // applies any "<topKey>.<field>" override over the content_library baseline.
-  const overrides = await loadPublishedOverrides();
+  //
+  // `overrides` (PR 6 Build B2) lets a caller supply the map instead — the sheet 11 publish gate,
+  // which measures "the published set plus this edit" through exactly the resolution production uses,
+  // assertOverrideShape included. Absent everywhere else, so every other render is unchanged.
+  const overrides = given || await loadPublishedOverrides();
   const h = apiResult.hypothesis;
   const cf = apiResult.client_facing || {};
   const cw = apiResult.client_words || {};

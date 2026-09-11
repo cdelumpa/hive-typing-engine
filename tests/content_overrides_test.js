@@ -186,3 +186,54 @@ test('auditShapes is silent on a clean set', () => {
   try { co.auditShapes(mapOf(FIX.matching)); } finally { console.error = real; }
   assert.strictEqual(lines.length, 0, 'a matching override set must not warn');
 });
+
+// ── THE STRICT READER (PR 6 Build B2) ──────────────────────────────────────────────────────────
+//
+// loadPublishedOverridesStrict exists for the sheet 11 publish gate, which must REFUSE when it cannot
+// read the published set rather than measure an empty one. It shares readPublished with the lenient
+// loader, and these tests pin that: on success both return the SAME cached Map; they differ only on
+// failure. db.query is replaced on the module object content_overrides already holds, and restored.
+const db = require(path.join(__dirname, '../app/db.js'));
+async function withQuery(fake, fn) {
+  const real = db.query;
+  db.query = fake;
+  co.invalidateOverridesCache();
+  try { return await fn(); } finally { db.query = real; co.invalidateOverridesCache(); }
+}
+const ROWS = { rows: [{ content_key: 'static.devideas_lead_v3', value: JSON.stringify('Lead.') },
+                     { content_key: 'static.raw', value: 'not json' }] };
+
+test('the two readers share one fetch: same parse, same cache, the same Map instance', async () => {
+  let calls = 0;
+  await withQuery(async () => { calls++; return ROWS; }, async () => {
+    const strict = await co.loadPublishedOverridesStrict();
+    const lenient = await co.loadPublishedOverrides();
+    assert.strictEqual(strict, lenient, 'both must return the one cached Map');
+    assert.strictEqual(calls, 1, 'the second read must come from the shared cache');
+    assert.strictEqual(strict.get('static.devideas_lead_v3'), 'Lead.');
+    assert.strictEqual(strict.get('static.raw'), 'not json', 'non-JSON values parse the same way in both');
+  });
+});
+
+test('a failed read: the lenient reader returns an empty Map, the strict reader throws', async () => {
+  // db.query returns null on a query error (app/db.js) — the transient case the gate must not read
+  // as "nothing is published".
+  await withQuery(async () => null, async () => {
+    const lenient = await co.loadPublishedOverrides();
+    assert.ok(lenient instanceof Map && lenient.size === 0);
+    await assert.rejects(() => co.loadPublishedOverridesStrict(), /could not be read/);
+  });
+  await withQuery(async () => { throw new Error('DATABASE_URL is not set'); }, async () => {
+    const real = console.error; console.error = () => {};
+    try { assert.strictEqual((await co.loadPublishedOverrides()).size, 0); } finally { console.error = real; }
+    await assert.rejects(() => co.loadPublishedOverridesStrict(), /DATABASE_URL is not set/);
+  });
+});
+
+test('a failed read is never cached — the next read retries', async () => {
+  let n = 0;
+  await withQuery(async () => (n++ === 0 ? null : ROWS), async () => {
+    await assert.rejects(() => co.loadPublishedOverridesStrict());
+    assert.strictEqual((await co.loadPublishedOverridesStrict()).get('static.devideas_lead_v3'), 'Lead.');
+  });
+});

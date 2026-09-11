@@ -136,11 +136,17 @@ test('B4 · P1 — every CMS-editable static key has a preview entry', () => {
   assert.ok(listed, 'CMS_STATIC_FIELDS not found in app/server.js');
   const fields = (listed[1].match(/'([a-z0-9_]+)'/g) || []).map((x) => x.slice(1, -1));
   assert.ok(fields.length >= 13, `expected at least 13 editable static fields, found ${fields.length}`);
-  // A key is previewable if cmsPreviewSpec's STATIC map names it, or if this build's module does.
+  // A key is previewable if cmsPreviewSpec's STATIC map names it, or if this build's module does —
+  // or, from PR 6 Build B2, if app/cms_devideas.js does: sheet 11's keys are previewed there, with
+  // the publish gate's own verdict, and the preview route branches to it before cmsPreviewSpec.
   const spec = /const STATIC = \{([\s\S]*?)\n  \};/.exec(src);
   assert.ok(spec, 'cmsPreviewSpec STATIC map not found in app/server.js');
+  const devIdeas = require(path.join(ROOT, 'app/cms_devideas.js'));
+  assert.ok(/if \(cmsDevIdeas\.isKey\(content_key\)\) \{\s*try \{\s*const out = await cmsDevIdeas\.preview\(/.test(src),
+    'the preview route no longer branches sheet 11 keys to cms_devideas.preview');
   const missing = fields.filter((f) => !spec[1].includes(`'static.${f}'`)
-    && !Object.prototype.hasOwnProperty.call(qr.STATIC_ENTRIES, `static.${f}`));
+    && !Object.prototype.hasOwnProperty.call(qr.STATIC_ENTRIES, `static.${f}`)
+    && !devIdeas.isKey(`static.${f}`));
   assert.deepStrictEqual(missing, [],
     `editable but not previewable: ${missing.join(', ')} — a key that can be edited and not ` +
     `previewed is a change someone makes blind`);

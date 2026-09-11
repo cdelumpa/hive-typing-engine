@@ -32,7 +32,7 @@
  *   DATABASE_URL=postgresql://<you>@localhost:5432/hive_typing_local node scripts/overrides_check.js
  *
  * Exit 0 = every published override matches the current library shape.
- * Exit 1 = at least one row would throw, or names a key the library does not have.
+ * Exit 1 = at least one row would throw, names a key the library does not have, or leaves sheet 11 unable to fit.
  * Exit 2 = no database reachable (the check did not run — never mistake this for green).
  */
 
@@ -118,5 +118,24 @@ const baselineFor = (key) => {
     console.log('    (scripts/retire_overrides.js). Do not deploy the resolver throw until green.');
     process.exit(1);
   }
-  console.log('\nOVERRIDES CHECK: ALL PASSED — every published override matches the current library shape.');
+
+  // ── SHEET 11, MEASURED (PR 6 Build B2) ──────────────────────────────────────────────────────
+  // The same check the server runs at boot (app/cms_devideas.js auditLive), run here BEFORE a
+  // deploy: all nine types under these published rows and THIS checkout's library. It catches the
+  // one combination neither CI (library only) nor the CMS gate (edits only) can see — new library
+  // content meeting an older CMS edit. Only after the shape check, since a mismatched row throws.
+  const sheet11 = require(path.join(ROOT, 'app/cms_devideas.js'));
+  const live = new Map(rows.map((r) => { let v; try { v = JSON.parse(r.value); } catch { v = r.value; } return [r.content_key, v]; }));
+  const audit = await sheet11.auditLive({ log: console,
+    deps: { ...sheet11.defaultDeps(), loadPublishedStrict: async () => live } });
+  if (audit.ok === null) {
+    console.log(`\nOVERRIDES CHECK: sheet 11 fit DID NOT RUN — ${audit.error}. This is not a pass.`);
+    process.exit(2);
+  }
+  if (audit.ok === false) {
+    console.log('\n*** Sheet 11 would not fit on one sheet with these published overrides and this library.');
+    console.log('    Shorten or revert the sheet 11 edit in /admin/content before deploying.');
+    process.exit(1);
+  }
+  console.log('\nOVERRIDES CHECK: ALL PASSED — every published override matches the current library shape, and sheet 11 fits for all nine types.');
 })().catch(e => { console.error('OVERRIDES CHECK FAILED:', e.stack || e.message); process.exit(1); });
