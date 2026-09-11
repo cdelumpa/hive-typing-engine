@@ -2064,7 +2064,7 @@ const INTERIM_DEVIDEAS_V3 = {
 //
 // FOUR FLAT SIBLINGS, split by who may edit them — the quickref precedent. `titles` is
 // content-library only: structural names, not prose. `rails`, `lead` and `coda` are prose and
-// become CMS-editable in Build C.
+// become CMS-editable in Build B2.
 //
 // The coda's "use the next page" is true only while sheet 11 immediately precedes Your
 // Thoughts. tests/report_pages_test.js asserts that order, so a reorder fails a test rather

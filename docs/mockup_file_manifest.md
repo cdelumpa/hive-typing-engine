@@ -17,8 +17,15 @@ Place these in `/docs/mockup/` in the repo.
 | 8 | Your Wings | 6 | `claude_The_Peacemaker_Page_Wings_v1.html` |
 | 9 | Your Stress and Security Points | 7 | `claude_The_Peacemaker_Page_Lines_v1.html` |
 | 10 | Instincts & Subtypes | 8 | `claude_The_Peacemaker_Page_Instincts_v1.html` |
-| 11 | Development Ideas for Peacemakers | 9 | `claude_The_Peacemaker_Page_CAR_v1.html` |
+| 11 | Development Ideas for Peacemakers | 9 | ~~`claude_The_Peacemaker_Page_CAR_v1.html`~~ `page11_redesign_mockup.html` (PR 6) |
 | 12 | Your Thoughts | 10 | `claude_The_Peacemaker_Page_Thoughts_v2.html` |
+
+**Sheet 11 was redesigned in PR 6 (11 Sep 2026).** `page11_redesign_mockup.html` replaces
+`claude_The_Peacemaker_Page_CAR_v1.html` (Courage / Agility / Resilience, never built) as the
+geometry reference for Growth Strategies, Inquiries and Field Experiments. It is the file Cai
+supplied on 10 Sep 2026, byte for byte. **Its own CSS is not canon** — the report's shared
+styling wins (decision D1); design spec §4.5 lists every difference. The CAR file stays in
+`/docs/mockup/` as history, not as a reference.
 
 **Note on numbering:** the cover and contents are unnumbered, so the printed footer number is the
 PDF sheet index minus two. The contents page lists footer numbers, not sheet indices.

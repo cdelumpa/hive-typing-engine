@@ -165,7 +165,17 @@ const setSummaryLines = (page, n) => page.evaluate((n) => {
     // ── THE PDF: a document that runs to two sheets ───────────────────────────────────────
     // A REAL two-sheet PDF, produced by making sheet 5 too tall to fit, then read back with the
     // same reader the harness uses. Nothing here trusts the DOM's opinion of the page.
+    //
+    // THE EXPECTED COUNT IS DERIVED, AND THE QUIET CONTROL BESIDE IT IS WHY. This was the literal
+    // 11 — true until PR 6 Build B1 built sheet 11, after which an UNSPILLED document is 12 pages
+    // and `checkPageCount(pdf, 11)` goes red with no spill at all. Measured on the B1 branch before
+    // this fix. The red control above could not tell: it passed whether or not the spill happened.
+    // An unspilled document must now read back QUIET against the same count, so a stale count fails.
+    const logical = R.v3PagesFor(5).length;
     await renderSheet(page, 5);
+    const whole = await page.pdf(R.buildCoachPdfOptions());
+    control(`PDF — an unspilled document reads back as exactly its ${logical} logical pages`,
+      pdfLib.checkPageCount(whole, logical, 'control/pdf-whole') ? ['red'] : [], false);
     await page.evaluate(() => {
       const el = [...document.querySelectorAll('.v3-page')].find((p) => p.querySelector('.v3-qr-two'));
       el.querySelector('.v3-qr-stxt').textContent = Array(400).fill('measurement').join(' ');
@@ -173,7 +183,7 @@ const setSummaryLines = (page, n) => page.evaluate((n) => {
     const spilled = await page.pdf(R.buildCoachPdfOptions());
     const read = pdfLib.readPageCount(spilled);
     control(`PDF — a spilled document reads back as more than its logical pages (${read.pages} sheets, /Count ${read.count})`,
-      pdfLib.checkPageCount(spilled, 11, 'control/pdf') ? ['red'] : [], true);
+      pdfLib.checkPageCount(spilled, logical, 'control/pdf') ? ['red'] : [], true);
     // And the reader must not be reporting zero, which would pass everything.
     control('PDF — the reader finds page objects at all',
       read.pages > 0 ? [] : ['found none'], false);

@@ -635,8 +635,8 @@ async function buildClientModel({ apiResult, client, coach, tighten = 0 }) {  //
         labels: stat.quickref_labels_v3 || {},
       },
 
-      // CLIENT REPORT v3 — sheet 11 "Development Ideas" (PR 6 Build A). CONTENT AND MODEL ONLY:
-      // `car` carries no `built` flag, so nothing reads this yet. See devIdeas() for the shape.
+      // CLIENT REPORT v3 — sheet 11 "Development Ideas" (PR 6 Build A; rendered from Build B1 by
+      // _clv3DevIdeas, which throws on null). See devIdeas() for the shape.
       v3_devideas: devIdeas(t.devideas_v3, stat),
 
       instinct_subtype: {                                                                       // P6
