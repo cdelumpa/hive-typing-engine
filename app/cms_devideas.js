@@ -268,4 +268,6 @@ async function auditLive({ notify = null, log = console, deps = defaultDeps() } 
 module.exports = {
   isKey, affectedTypes, compose, decide, evaluate, guardedWrite, preview, auditLive, refusalMessage,
   gateApiResult, GATE_CLIENT, PAGE_LABEL,
+  // For scripts/verify_devideas_fit.js, which drives the real gate with one collaborator swapped.
+  defaultDeps,
 };
